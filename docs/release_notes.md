@@ -1,5 +1,11 @@
 # Recall Score Release Notes
 
+## 2026.1.51
+
+
+** Added a standalone metronome tool which gives more control over the pattern and clicks
+* Voice control commands for play and stop now respect looping 
+
 ## 2026.1.50
 
 * Introduced looping mode in playback settings (control+L) to allow play to end, play loop once, play loop until stopped 

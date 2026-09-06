@@ -426,6 +426,13 @@ class PlaybackController(QObject):
             self.stop()
             return
 
+        self._start_from_cursor()
+
+    def _start_from_cursor(self) -> None:
+        """Start playback from the current cursor, honouring loop/lead-in
+        settings. The single start path shared by Space (toggle_play_stop)
+        and voice "play" (play_command); assumes nothing is currently
+        playing, paused or mid play-run - callers apply their own guards."""
         start_index = self.music_data.active_event_index
         if self.music_data.next_visible_event_index(start_index) is None:
             self.play_boundary_cue()
@@ -457,12 +464,7 @@ class PlaybackController(QObject):
             self.sequencer.resume()
             self.playback_state_changed.emit()
         elif not self.sequencer.is_playing:
-            start_index = self.music_data.active_event_index
-            if self.music_data.next_visible_event_index(start_index) is None:
-                self.play_boundary_cue()
-            else:
-                self.sequencer.play_from(start_index, update_cursor=True)
-                self.playback_state_changed.emit()
+            self._start_from_cursor()
 
     def pause_command(self) -> None:
         """Hands-free voice control's directional "pause" (Ref 19): pauses
@@ -565,14 +567,21 @@ class PlaybackController(QObject):
         self.play_settings = self.play_settings.with_loop_length_bars(
             self.play_settings.loop_length_bars + delta
         )
+        from persistence import app_settings
+
+        app_settings.set_play_settings(self.play_settings)
         self.status_text_changed.emit()
 
     def set_loop_length_bars(self, bars: int) -> None:
         """Typed Ctrl+Enter buffer / the voice command "loop length N" (Ref
         19) - sets the loop length directly, unlike adjust_loop_length_bars'
         relative +/-1 nudge. Clamped by PlaySettings itself, same as every
-        other entry point (the dialog, Alt+PageUp/PageDown)."""
+        other entry point (the dialog, Alt+PageUp/PageDown). Persists
+        globally in the setter so both entry points (and voice) get it."""
         self.play_settings = self.play_settings.with_loop_length_bars(bars)
+        from persistence import app_settings
+
+        app_settings.set_play_settings(self.play_settings)
         self.status_text_changed.emit()
 
     def cycle_play_mode(self) -> str:

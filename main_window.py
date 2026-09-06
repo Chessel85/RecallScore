@@ -815,7 +815,6 @@ class MainWindow(QMainWindow):
             return
         n = int(digits)
         self.playback.set_loop_length_bars(n)
-        app_settings.set_play_settings(self.playback.play_settings)
         self.navigation.clear_pending_digits()
         self.presenter.announce_loop_length(self.playback.play_settings.loop_length_bars)
 
@@ -847,15 +846,14 @@ class MainWindow(QMainWindow):
         """Alt+PageUp in the Note region. Persisted globally right away,
         like Play Settings' own OK - a bar count set this way is a practice
         habit, not a per-score value. Announces the new length aloud since
-        nothing else does - see RegionPresenter.announce_loop_length."""
+        nothing else does - see RegionPresenter.announce_loop_length.
+        adjust_loop_length_bars persists globally itself now."""
         self.playback.adjust_loop_length_bars(1)
-        app_settings.set_play_settings(self.playback.play_settings)
         self.presenter.announce_loop_length(self.playback.play_settings.loop_length_bars)
 
     def decrease_loop_length(self):
         """Alt+PageDown counterpart of increase_loop_length."""
         self.playback.adjust_loop_length_bars(-1)
-        app_settings.set_play_settings(self.playback.play_settings)
         self.presenter.announce_loop_length(self.playback.play_settings.loop_length_bars)
 
     def toggle_mute_current_region2_row(self):

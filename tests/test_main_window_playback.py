@@ -319,6 +319,31 @@ def test_play_command_and_pause_command_are_no_ops_before_a_score_is_loaded(wind
     assert window.sequencer is None
 
 
+def test_play_command_honours_looping_like_space(
+    window, qtbot, null_synth, many_measures_score
+):
+    """Voice "play" and Space share one start path, so a spoken "play"
+    with looping on starts a looping play run just as Space does."""
+    load_and_wait(window, qtbot, many_measures_score)
+    no_lead_in(window, loop_enabled=True, loop_length_bars=2)
+
+    window.playback.play_command()
+
+    run = window.playback._play_run
+    assert run is not None and run.looping is True
+    assert window.playback.is_play_run_active is True
+
+    window.toggle_play_stop()  # stop the loop
+
+
+def test_set_loop_length_bars_persists_globally(window, qtbot, minimal_score):
+    load_and_wait(window, qtbot, minimal_score)
+
+    window.playback.set_loop_length_bars(6)
+
+    assert app_settings.load().play.loop_length_bars == 6
+
+
 def test_sequencer_steps_advance_the_cursor_and_regions_over_real_time(
     window, qtbot, null_synth, minimal_score
 ):
