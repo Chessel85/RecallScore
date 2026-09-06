@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from audio.metronome import click_event_for_beat
+from audio.metronome import click_event_for_beat, click_event_for_symbol
 from audio.synth_engine import SynthEngine
 from controllers.attribute_controller import AttributeController
 from controllers.focus_controller import FocusController
@@ -29,6 +29,8 @@ from controllers.score_persistence import ScorePersistenceController
 from controllers.score_session import ScoreSession
 from controllers.tuner_controller import TunerController
 from controllers.voice_control_controller import VoiceControlController
+from models.metronome_pattern import default_pattern, snap_time_signature
+from models.music_data import MusicData
 from models.vocabulary import bar_word
 from parsers.ug_source import write_ug_source
 from persistence import app_settings
@@ -41,6 +43,7 @@ from widgets.instrument_dialog import InstrumentDialog
 from widgets.key_signature_dialog import KeySignatureDialog
 from widgets.live_midi_input_dialog import LiveMidiInputDialog
 from widgets.menu_builder import MenuBuilder, goto_measure_action_text
+from widgets.metronome_player_dialog import MetronomePlayerDialog
 from widgets.mixer_dialog import MixerDialog
 from widgets.part_order_dialog import PartOrderDialog
 from widgets.performance_report_dialog import PerformanceReportDialog
@@ -150,6 +153,13 @@ class MainWindow(QMainWindow):
         # lazily on first use, kept so _stop_strum_demo can cancel it.
         self._strum_click_timer = None
         self._strum_click_state = {"beat": 0, "total": 0}
+
+        # Tools > Metronome Player remembers its last-used settings for the
+        # lifetime of the app session only - re-seeded from the score (or the
+        # 4/4 defaults) on the first open, then from this tuple on every
+        # later open. Not persisted to disk: a fresh app start forgets it.
+        # (numerator, denominator, pattern, tempo_bpm) or None.
+        self._metronome_player_state = None
 
         if uk_terms is None:
             saved_uk_terms = app_settings.load().uk_terms
@@ -396,6 +406,7 @@ class MainWindow(QMainWindow):
         self.instruments_action = actions.instruments
         self.key_signature_action = actions.key_signature
         self.strumming_action = actions.strumming
+        self.metronome_player_action = actions.metronome_player
         self.save_ug_import_action = actions.save_ug_import
         self.select_all_action = actions.select_all
         self.first_measure_action = actions.first_measure
@@ -464,6 +475,13 @@ class MainWindow(QMainWindow):
         self.playback.playback_state_changed.connect(
             self.presenter.update_playback_status_field
         )
+        # Tools > Metronome Player is a standalone dialog that must not open
+        # mid-playback (it seeds from, and clicks alongside nothing - but the
+        # synth is busy). Grey it out whenever a play run is active.
+        self.playback.playback_state_changed.connect(
+            self._refresh_metronome_player_action_enabled
+        )
+        self._refresh_metronome_player_action_enabled()
 
         # Emitted from inside update_timeline_views, and delivered
         # synchronously, so the notes still sound before the performance cue.
@@ -1121,6 +1139,55 @@ class MainWindow(QMainWindow):
         state["beat"] += 1
         if state["beat"] >= state["total"]:
             self._strum_click_timer.stop()
+
+    # --- Metronome Player (Tools menu) -------------------------------
+
+    def _metronome_player_is_blocked(self) -> bool:
+        seq = self.sequencer
+        return self.playback.is_play_run_active or (seq is not None and seq.is_playing)
+
+    def _refresh_metronome_player_action_enabled(self):
+        self.metronome_player_action.setEnabled(not self._metronome_player_is_blocked())
+
+    def _show_metronome_player_dialog(self):
+        """Tools > Metronome Player... (Ctrl+Shift+M) - a standalone practice
+        metronome, independent of any loaded score. The first open seeds its
+        time signature and tempo from the score at the cursor when one is
+        loaded, else 4/4 120 BPM; every later open re-seeds from the settings
+        the previous open closed with (_metronome_player_state), for the
+        lifetime of the app session only. Pure view: it emits click_requested
+        / stopped and this method drives the synth (one-shot clicks on the
+        metronome channel). Construction stays here so tests can monkeypatch
+        main_window.MetronomePlayerDialog."""
+        if self._metronome_player_is_blocked():
+            return  # belt-and-braces; the action is already greyed out
+        if self._metronome_player_state is not None:
+            num, den, pattern, tempo = self._metronome_player_state
+        else:
+            num, den, tempo = 4, 4, 120
+            if self._music_data:
+                slice_ = self._music_data.get_current_slice()
+                if slice_ is not None and slice_.time_sig:
+                    num, den = snap_time_signature(*slice_.time_sig)
+                tempo = int(round(self._music_data.playback_tempo_display_bpm()))
+            tempo = max(MusicData.MIN_TEMPO_BPM, min(MusicData.MAX_TEMPO_BPM, tempo))
+            pattern = default_pattern(num)
+        with self._preserving_focus():
+            dialog = MetronomePlayerDialog(
+                self, numerator=num, denominator=den,
+                pattern=pattern, tempo_bpm=tempo,
+            )
+            dialog.click_requested.connect(self._play_metronome_pattern_click)
+            dialog.exec()
+            self._metronome_player_state = (
+                dialog.numerator(), dialog.denominator(),
+                dialog.pattern(), dialog.tempo_bpm(),
+            )
+
+    def _play_metronome_pattern_click(self, symbol: str):
+        event = click_event_for_symbol(symbol)
+        if event is not None:
+            self.synth.play_click(*event)
 
     # --- presentation (delegators) ------------------------------------
 

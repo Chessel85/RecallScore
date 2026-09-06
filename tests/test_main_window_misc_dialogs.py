@@ -197,3 +197,138 @@ def test_tuner_settings_device_changed_reaches_the_capture_live(
     w._open_tuner_settings_dialog(parent_dialog)
 
     assert null_tuner_capture.open_calls[-1] == "Mic B"
+
+
+# --- Tools > Metronome Player dialog, MainWindow-level wiring -------------
+# (pattern maths is covered in tests/models/test_metronome_pattern.py, the
+# click rule in tests/audio/test_metronome.py, and the dialog's own timer/
+# validator behaviour in tests/widgets/test_metronome_player_dialog.py -
+# these confirm only the shell's own wiring: seeding, the click -> synth
+# hop, and the playback-state enable/disable.)
+from PySide6.QtCore import Signal
+
+from audio.metronome import METRONOME_ACCENT_NOTE, METRONOME_CLICK_C_NOTE
+from tests.support.main_window_helpers import load_and_wait
+
+
+class _FakeMetronomePlayerDialog(QDialog):
+    click_requested = Signal(str)
+
+    last_kwargs: dict = {}
+    # When set, the getters report this dict instead of echoing the seed -
+    # lets a test make one "session" close with values different from what
+    # it opened with, so the next open's re-seed can be asserted.
+    result_override: dict = None
+
+    def __init__(self, parent=None, **kwargs):
+        super().__init__(parent)
+        self._seed = dict(kwargs)
+        type(self).last_kwargs = dict(kwargs)
+
+    def _result(self):
+        return type(self).result_override or self._seed
+
+    def numerator(self):
+        return self._result()["numerator"]
+
+    def denominator(self):
+        return self._result()["denominator"]
+
+    def pattern(self):
+        return self._result()["pattern"]
+
+    def tempo_bpm(self):
+        return self._result()["tempo_bpm"]
+
+    def exec(self):
+        return QDialog.DialogCode.Accepted
+
+
+def _capture_metronome_player_dialog(monkeypatch):
+    _FakeMetronomePlayerDialog.last_kwargs = {}
+    _FakeMetronomePlayerDialog.result_override = None
+    monkeypatch.setattr(
+        "main_window.MetronomePlayerDialog", _FakeMetronomePlayerDialog
+    )
+    return _FakeMetronomePlayerDialog
+
+
+def test_metronome_player_seeds_defaults_with_no_score(qtbot, null_synth, monkeypatch):
+    w = MainWindow(synth=null_synth, uk_terms=False)
+    qtbot.addWidget(w)
+
+    fake = _capture_metronome_player_dialog(monkeypatch)
+    w._show_metronome_player_dialog()
+
+    assert fake.last_kwargs == {
+        "numerator": 4, "denominator": 4, "pattern": "ABBB", "tempo_bpm": 120
+    }
+
+
+def test_metronome_player_seeds_time_signature_from_the_loaded_score(
+    qtbot, null_synth, monkeypatch, six_eight_score
+):
+    w = MainWindow(synth=null_synth, uk_terms=False)
+    qtbot.addWidget(w)
+    load_and_wait(w, qtbot, six_eight_score)
+
+    fake = _capture_metronome_player_dialog(monkeypatch)
+    w._show_metronome_player_dialog()
+
+    k = fake.last_kwargs
+    assert (k["numerator"], k["denominator"]) == (6, 8)
+    assert k["pattern"] == "ABBBBB"
+    assert k["tempo_bpm"] == int(round(w._music_data.playback_tempo_display_bpm()))
+
+
+def test_metronome_player_remembers_its_settings_for_the_session(
+    qtbot, null_synth, monkeypatch, six_eight_score
+):
+    """After the first open, later opens re-seed from the settings the
+    previous open closed with - not from the score - for the app session."""
+    w = MainWindow(synth=null_synth, uk_terms=False)
+    qtbot.addWidget(w)
+    load_and_wait(w, qtbot, six_eight_score)
+
+    fake = _capture_metronome_player_dialog(monkeypatch)
+    # First open seeds 6/8 from the score; the user then dials in 3/8 ABB @ 90.
+    fake.result_override = {
+        "numerator": 3, "denominator": 8, "pattern": "ABB", "tempo_bpm": 90
+    }
+    w._show_metronome_player_dialog()
+
+    fake.result_override = None
+    fake.last_kwargs = {}
+    w._show_metronome_player_dialog()
+
+    assert fake.last_kwargs == {
+        "numerator": 3, "denominator": 8, "pattern": "ABB", "tempo_bpm": 90
+    }
+
+
+def test_metronome_player_click_routes_to_the_synth(qtbot, null_synth):
+    w = MainWindow(synth=null_synth, uk_terms=False)
+    qtbot.addWidget(w)
+
+    w._play_metronome_pattern_click("A")
+    w._play_metronome_pattern_click("C")
+    w._play_metronome_pattern_click(".")  # a rest sounds nothing
+
+    pitches = [c["pitch"] for c in null_synth.clicks]
+    assert pitches == [METRONOME_ACCENT_NOTE, METRONOME_CLICK_C_NOTE]
+
+
+def test_metronome_player_action_is_disabled_while_a_play_run_is_active(
+    qtbot, null_synth, minimal_score
+):
+    w = MainWindow(synth=null_synth, uk_terms=False)
+    qtbot.addWidget(w)
+    load_and_wait(w, qtbot, minimal_score)
+
+    assert w.metronome_player_action.isEnabled() is True
+
+    w.playback.toggle_play_stop()
+    assert w.metronome_player_action.isEnabled() is False
+
+    w.playback.stop()
+    assert w.metronome_player_action.isEnabled() is True

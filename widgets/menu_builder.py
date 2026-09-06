@@ -31,6 +31,7 @@ class Actions:
     instruments: Optional[QAction] = None
     key_signature: Optional[QAction] = None
     strumming: Optional[QAction] = None
+    metronome_player: Optional[QAction] = None
     select_all: Optional[QAction] = None
     first_measure: Optional[QAction] = None
     last_measure: Optional[QAction] = None
@@ -689,6 +690,19 @@ class MenuBuilder:
         )
         a.strumming.setEnabled(False)
         tools_menu.addAction(a.strumming)
+
+        # A standalone practice metronome: pick a time signature, a per-beat
+        # click pattern (four click sounds A-D, or '.' for a silent beat) and
+        # a tempo. Ctrl+Shift+M is free (grep-verified); M is a free mnemonic
+        # in the Tools menu. Enabled only while the app is not playing
+        # (main_window keeps it in sync, like Close / Strumming Patterns).
+        a.metronome_player = self._action(
+            "&Metronome Player...", self.slots._show_metronome_player_dialog,
+            "Ctrl+Shift+M",
+            status_tip="Practice metronome: choose a time signature, a "
+                       "per-beat click pattern and a tempo",
+        )
+        tools_menu.addAction(a.metronome_player)
 
     def _help_menu(self, menu_bar, a: Actions) -> None:
         # No mnemonics on either item (user-requested 2026-08-26: "false
