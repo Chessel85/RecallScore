@@ -12,7 +12,9 @@ from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
     QGridLayout,
+    QLabel,
     QMainWindow,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -215,15 +217,41 @@ class MainWindow(QMainWindow):
         self.region_5 = Region5ListWidget()
         self.region_5.setFocusPolicy(Qt.FocusPolicy.TabFocus)
 
+        # Each region gets a visible caption above it AND the same name as its
+        # widget's accessible name, so NVDA announces it on entry (Tab/
+        # Shift+Tab and the Z/X/C/V/B direct-jump actions). A plain QLabel is
+        # used rather than a QGroupBox on purpose: a QGroupBox carries the
+        # accessibility "grouping" role, so NVDA prefixed every region with
+        # "... grouping" (reported). A bare QLabel is not in the tab order and
+        # isn't spoken on focus moves, so only the widget's own accessible
+        # name is announced.
+        def _titled_region(widget, title):
+            container = QWidget()
+            inner = QVBoxLayout(container)
+            inner.setContentsMargins(0, 0, 0, 0)
+            inner.setSpacing(2)
+            caption = QLabel(title)
+            caption.setStyleSheet("font-weight: bold;")
+            inner.addWidget(caption)
+            inner.addWidget(widget)
+            widget.setAccessibleName(title)
+            return container
+
+        self.region_1_box = _titled_region(self.region_1, "Score information")
+        self.region_2_box = _titled_region(self.region_2, "Parts")
+        self.region_3_box = _titled_region(self.region_3, "Notes")
+        self.region_4_box = _titled_region(self.region_4, "Attributes")
+        self.region_5_box = _titled_region(self.region_5, "Performance information")
+
         # Row 1 = 2 regions, row 2 = 3 - a deliberate departure from the
         # original 2x2 (agreed with the user: consistent region numbering
         # matters far more than visual layout here). A 6-column grid, the
         # LCM of 2 and 3, keeps both rows aligned under one layout.
-        grid_layout.addWidget(self.region_1, 0, 0, 1, 3)
-        grid_layout.addWidget(self.region_2, 0, 3, 1, 3)
-        grid_layout.addWidget(self.region_3, 1, 0, 1, 2)
-        grid_layout.addWidget(self.region_4, 1, 2, 1, 2)
-        grid_layout.addWidget(self.region_5, 1, 4, 1, 2)
+        grid_layout.addWidget(self.region_1_box, 0, 0, 1, 3)
+        grid_layout.addWidget(self.region_2_box, 0, 3, 1, 3)
+        grid_layout.addWidget(self.region_3_box, 1, 0, 1, 2)
+        grid_layout.addWidget(self.region_4_box, 1, 2, 1, 2)
+        grid_layout.addWidget(self.region_5_box, 1, 4, 1, 2)
 
         grid_layout.setRowStretch(0, 1)
         grid_layout.setRowStretch(1, 1)
