@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QValidator
 from PySide6.QtWidgets import QDialog
 
+from audio.boundary_cue import boundary_cue_event
 from widgets import accessible_announcer
 from widgets.goto_measure_dialog import GotoMeasureDialog
 from tests.support.main_window_helpers import _focus, _show, load_and_wait
@@ -328,17 +329,20 @@ def test_left_at_the_first_event_plays_the_boundary_cue_and_does_not_move(
 ):
     load_and_wait(window, qtbot, minimal_score)
     null_synth.played.clear()
+    null_synth.boundary_cues.clear()
 
     qtbot.keyClick(window.region_3, Qt.Key.Key_Left)
 
     assert window._music_data.active_event_index == 0
-    assert null_synth.last_played == {
-        "midi_notes": [window.BOUNDARY_MIDI_PITCH],
-        "duration_ms": window.BOUNDARY_DURATION_MS,
-        "channel": window.BOUNDARY_CHANNEL,
-        "program": window.BOUNDARY_GM_PROGRAM,
-        "bank": 0,
-    }
+    assert null_synth.played == [], "a rejected move must not audition a note"
+    channel, bank, program, pitch, velocity = boundary_cue_event()
+    assert null_synth.boundary_cues == [{
+        "channel": channel,
+        "bank": bank,
+        "program": program,
+        "pitch": pitch,
+        "velocity": velocity,
+    }]
 
 
 def test_ctrl_left_at_the_first_measure_plays_the_boundary_cue_and_does_not_move(
@@ -352,7 +356,9 @@ def test_ctrl_left_at_the_first_measure_plays_the_boundary_cue_and_does_not_move
     qtbot.keyClick(window.region_3, Qt.Key.Key_Left, Qt.KeyboardModifier.ControlModifier)
 
     assert window._music_data.active_event_index == 0
-    assert null_synth.last_played["channel"] == window.BOUNDARY_CHANNEL
+    assert null_synth.boundary_cues and (
+        null_synth.boundary_cues[-1]["channel"] == window.BOUNDARY_CUE_CHANNEL
+    )
 
 
 def test_home_and_end_never_play_the_boundary_cue(window, qtbot, null_synth, minimal_score):
@@ -360,14 +366,14 @@ def test_home_and_end_never_play_the_boundary_cue(window, qtbot, null_synth, min
     move past one, so they must never trigger the boundary sound - even
     pressed repeatedly once already at that limit."""
     load_and_wait(window, qtbot, minimal_score)
-    null_synth.played.clear()
+    null_synth.boundary_cues.clear()
 
     qtbot.keyClick(window.region_3, Qt.Key.Key_End)
     qtbot.keyClick(window.region_3, Qt.Key.Key_End)
     qtbot.keyClick(window.region_3, Qt.Key.Key_Home)
     qtbot.keyClick(window.region_3, Qt.Key.Key_Home)
 
-    assert all(p["channel"] != window.BOUNDARY_CHANNEL for p in null_synth.played)
+    assert null_synth.boundary_cues == []
 
 
 def test_status_bar_updates_on_load_and_navigation(window, qtbot, null_synth, ts_change_score):
@@ -458,12 +464,15 @@ def test_typing_an_unknown_bar_number_then_enter_plays_the_boundary_cue_and_does
     _show(window, qtbot)
     _focus(window.region_3)
     null_synth.played.clear()
+    null_synth.boundary_cues.clear()
 
     qtbot.keyClicks(window.focusWidget(), "99")
     qtbot.keyClick(window.focusWidget(), Qt.Key.Key_Return)
 
     assert window._music_data.active_event_index == 0
-    assert null_synth.last_played["channel"] == window.BOUNDARY_CHANNEL
+    assert null_synth.boundary_cues and (
+        null_synth.boundary_cues[-1]["channel"] == window.BOUNDARY_CUE_CHANNEL
+    )
 
 
 def test_escape_clears_pending_digits_without_moving(window, qtbot, null_synth, many_measures_score):
@@ -566,6 +575,7 @@ def test_goto_measure_dialog_rejects_an_unknown_measure_with_the_boundary_cue(
 ):
     load_and_wait(window, qtbot, ts_change_score)
     null_synth.played.clear()
+    null_synth.boundary_cues.clear()
 
     dialog = GotoMeasureDialog(window)
     dialog.measure_edit.setText("99")
@@ -577,7 +587,9 @@ def test_goto_measure_dialog_rejects_an_unknown_measure_with_the_boundary_cue(
     window._show_goto_measure_dialog()
 
     assert window._music_data.active_event_index == 0
-    assert null_synth.last_played["channel"] == window.BOUNDARY_CHANNEL
+    assert null_synth.boundary_cues and (
+        null_synth.boundary_cues[-1]["channel"] == window.BOUNDARY_CUE_CHANNEL
+    )
 
 
 def test_goto_measure_dialog_cancelled_does_not_move(

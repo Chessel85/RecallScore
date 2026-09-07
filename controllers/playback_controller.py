@@ -7,6 +7,8 @@ from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from audio.lead_in import build_lead_in_schedule
 from audio.metronome import METRONOME_CHANNEL, click_event_for_beat
 from audio.performance_cue import PERFORMANCE_CUE_CHANNEL
+from audio import boundary_cue as _boundary_cue
+from audio.boundary_cue import boundary_cue_event
 from audio.position_announcer import POSITION_ANNOUNCER_CHANNEL, announcement_event_for_beat
 from audio.sequencer import Sequencer
 from audio.strum_schedule import sound_events
@@ -123,14 +125,13 @@ class PlaybackController(QObject):
     status_text_changed = Signal()
     playback_state_changed = Signal()
 
-    # Boundary cue (Ref 2 AC4/Ref 3 AC4): a short, quiet, low note played
-    # INSTEAD of moving, deliberately unlike anything in the score so it
-    # isn't mistaken for one. Channel 15 because parts are allocated from
-    # the low end, making it the last to collide (only on a 15+ part score).
-    BOUNDARY_CHANNEL = 15
-    BOUNDARY_GM_PROGRAM = 43  # GM 44 Contrabass, 0-indexed on the wire
-    BOUNDARY_MIDI_PITCH = 37  # C#2 - low
-    BOUNDARY_DURATION_MS = 100  # roughly a semiquaver; independent of score tempo
+    # Boundary cue (Ref 2 AC4/Ref 3 AC4): a short sound played INSTEAD of
+    # moving, deliberately unlike anything in the score so it isn't mistaken
+    # for one. Was a low GM contrabass note; now a recorded one-shot sample
+    # (tools/bells/bump.wav) on its own reserved channel, routed through the
+    # project soundfont like the click / announcer / performance cue -
+    # see audio/boundary_cue.py.
+    BOUNDARY_CUE_CHANNEL = _boundary_cue.BOUNDARY_CUE_CHANNEL
 
     def __init__(self, session, timer=None, parent=None):
         super().__init__(parent)
@@ -1268,12 +1269,7 @@ class PlaybackController(QObject):
         boundary of the active timeline (Ref 2 AC4/Ref 3 AC4)."""
         if self._muted:
             return
-        self.synth.play_notes(
-            midi_notes=[self.BOUNDARY_MIDI_PITCH],
-            duration_ms=self.BOUNDARY_DURATION_MS,
-            channel=self.BOUNDARY_CHANNEL,
-            program=self.BOUNDARY_GM_PROGRAM,
-        )
+        self.synth.play_boundary_cue(*boundary_cue_event())
 
     def audition_selection(
         self, selected_indices: List[int], with_position_cues: bool = True

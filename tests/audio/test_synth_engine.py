@@ -38,6 +38,7 @@ def _engine():
     engine._active_announcement = None
     engine._active_performance_cue = None
     engine._active_voice_confirmation_cue = None
+    engine._active_boundary_cue = None
     engine._live_input_active_notes = set()
     return engine
 

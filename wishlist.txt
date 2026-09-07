@@ -1,3 +1,11 @@
+Noah feedback:
+Add region labels
+adding attributes to notes
+surfacing region 5 data better
+exchange ding for clap
+change cello for a non pitched bump sound
+stripping announcement of attribute name during playback
+
 Really want to condense  down to as few midi channels as possible because I've come across scores with 16 instruments.
 If a stave has only one voice, then no point opening it in the parts view and no point having "Add attribute to voice" etc.
 The performance summary report should not list something if there are zero occurances.

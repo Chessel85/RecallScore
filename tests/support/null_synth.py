@@ -21,6 +21,7 @@ class NullSynth:
         self.words: List[Dict[str, Any]] = []
         self.performance_cues: List[Dict[str, Any]] = []
         self.voice_confirmation_cues: List[Dict[str, Any]] = []
+        self.boundary_cues: List[Dict[str, Any]] = []
         self.volume_changes: List[tuple] = []
         self.pan_changes: List[tuple] = []
         self.live_notes_on: List[tuple] = []
@@ -221,6 +222,24 @@ class NullSynth:
         assert the command-recognized ding fired independently of anything
         else."""
         self.voice_confirmation_cues.append(
+            {
+                "channel": channel,
+                "bank": bank,
+                "program": program,
+                "pitch": pitch,
+                "velocity": velocity,
+            }
+        )
+
+    def play_boundary_cue(
+        self, channel: int, bank: int, program: int, pitch: int, velocity: int
+    ) -> None:
+        """Ref 2 AC4/Ref 3 AC4: mirrors SynthEngine.play_boundary_cue -
+        recorded separately from `played`/`clicks`/`words` (the cue is now a
+        one-shot sample on its own reserved channel, no longer a GM note
+        through play_notes) so a test can assert the navigation boundary cue
+        fired independently of anything else."""
+        self.boundary_cues.append(
             {
                 "channel": channel,
                 "bank": bank,

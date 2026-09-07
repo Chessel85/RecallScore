@@ -107,12 +107,9 @@ class MainWindow(QMainWindow):
     stay here as a facade even though the work happens in controllers/.
     """
 
-    # Re-exported so callers (and tests) can name the boundary cue's voice
+    # Re-exported so callers (and tests) can name the boundary cue's channel
     # without reaching into the playback controller.
-    BOUNDARY_CHANNEL = PlaybackController.BOUNDARY_CHANNEL
-    BOUNDARY_GM_PROGRAM = PlaybackController.BOUNDARY_GM_PROGRAM
-    BOUNDARY_MIDI_PITCH = PlaybackController.BOUNDARY_MIDI_PITCH
-    BOUNDARY_DURATION_MS = PlaybackController.BOUNDARY_DURATION_MS
+    BOUNDARY_CUE_CHANNEL = PlaybackController.BOUNDARY_CUE_CHANNEL
 
     def __init__(
         self, synth=None, uk_terms: bool | None = None, live_midi_manager=None,

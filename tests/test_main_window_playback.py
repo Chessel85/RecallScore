@@ -848,11 +848,14 @@ def test_space_at_the_last_active_note_plays_the_boundary_cue_instead_of_playing
     no_lead_in(window)
     window._music_data.move_timeline_end()
     null_synth.played.clear()
+    null_synth.boundary_cues.clear()
 
     window.toggle_play_stop()
 
     assert window.sequencer.is_playing is False
-    assert null_synth.last_played["channel"] == window.BOUNDARY_CHANNEL
+    assert null_synth.boundary_cues and (
+        null_synth.boundary_cues[-1]["channel"] == window.BOUNDARY_CUE_CHANNEL
+    )
 
 
 def test_playback_status_field_reflects_playing_paused_and_stopped(

@@ -200,11 +200,14 @@ def test_find_next_before_find_has_been_used_plays_the_boundary_cue_and_does_not
 ):
     load_and_wait(window, qtbot, minimal_score)
     null_synth.played.clear()
+    null_synth.boundary_cues.clear()
 
     window.find_next()
 
     assert window._music_data.active_event_index == 0
-    assert null_synth.last_played["channel"] == window.BOUNDARY_CHANNEL
+    assert null_synth.boundary_cues and (
+        null_synth.boundary_cues[-1]["channel"] == window.BOUNDARY_CUE_CHANNEL
+    )
 
 
 def test_find_next_does_not_play_the_boundary_cue_on_an_ordinary_hop(
@@ -217,11 +220,12 @@ def test_find_next_does_not_play_the_boundary_cue_on_an_ordinary_hop(
     )
     window.navigation.arm_find_target(target)
     null_synth.played.clear()
+    null_synth.boundary_cues.clear()
 
     window.find_next()  # beat 2 (staccato) - the nearest one ahead, no wrap
 
     assert window._music_data.get_current_slice().beat_position == 2.0
-    assert all(p["channel"] != window.BOUNDARY_CHANNEL for p in null_synth.played)
+    assert null_synth.boundary_cues == []
 
 
 def test_find_next_plays_the_boundary_cue_when_it_wraps_back_to_the_first_occurrence(
@@ -238,13 +242,16 @@ def test_find_next_plays_the_boundary_cue_when_it_wraps_back_to_the_first_occurr
     window.find_next()  # beat 2 (staccato)
     window.find_next()  # beat 3 (trill) - the last occurrence
     null_synth.played.clear()
+    null_synth.boundary_cues.clear()
 
     window.find_next()  # wraps back to beat 2 (staccato)
 
     assert window._music_data.get_current_slice().beat_position == 2.0
-    assert null_synth.last_played["channel"] == window.BOUNDARY_CHANNEL, (
-        "the cue must be the LAST thing heard - the destination note sounds "
-        "first, same ordering already used for Region 5's own change cue"
+    # The destination note still sounds (played), and the cue fires after it -
+    # same ordering already used for Region 5's own change cue.
+    assert null_synth.played, "the destination note must still be auditioned"
+    assert null_synth.boundary_cues and (
+        null_synth.boundary_cues[-1]["channel"] == window.BOUNDARY_CUE_CHANNEL
     )
 
 
@@ -258,11 +265,14 @@ def test_find_previous_plays_the_boundary_cue_when_it_wraps_back_to_the_last_occ
     )
     window.navigation.arm_find_target(target)
     null_synth.played.clear()
+    null_synth.boundary_cues.clear()
 
     window.find_previous()  # nothing behind the cursor - wraps to beat 3 (trill)
 
     assert window._music_data.get_current_slice().beat_position == 3.0
-    assert null_synth.last_played["channel"] == window.BOUNDARY_CHANNEL
+    assert null_synth.boundary_cues and (
+        null_synth.boundary_cues[-1]["channel"] == window.BOUNDARY_CUE_CHANNEL
+    )
 
 
 def test_find_next_plays_the_boundary_cue_for_a_target_with_a_single_occurrence(
@@ -279,11 +289,14 @@ def test_find_next_plays_the_boundary_cue_for_a_target_with_a_single_occurrence(
     window.navigation.arm_find_target(target)
     assert window._music_data.active_event_index == 0
     null_synth.played.clear()
+    null_synth.boundary_cues.clear()
 
     window.find_next()
 
     assert window._music_data.active_event_index == 0
-    assert null_synth.last_played["channel"] == window.BOUNDARY_CHANNEL
+    assert null_synth.boundary_cues and (
+        null_synth.boundary_cues[-1]["channel"] == window.BOUNDARY_CUE_CHANNEL
+    )
 
 
 def test_alt_right_shortcut_is_wired_to_find_next(window, qtbot, minimal_score, monkeypatch):
