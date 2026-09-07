@@ -116,23 +116,42 @@ def _is_qualifying_stave_text(text: Optional[str]) -> bool:
     return True
 
 
+def _rehearsal_stave_text_label(rehearsal_el) -> Optional[str]:
+    """The printed rehearsal text ("A", "12") when it should become a Stave
+    Text event, else None (empty after strip, or a pure SMuFL glyph) - the
+    same bar _is_qualifying_stave_text applies to <words>. Both
+    _stave_text_staves_for_part (the reader's voice-creation scan) and
+    TimelineBuilder call this one detector, so the two can't disagree on
+    which marks count (the same shared-detector convention documented on
+    _stave_text_staves_for_part)."""
+    text = (rehearsal_el.text or "").strip()
+    if not text or _is_pure_smufl_glyph_text(rehearsal_el.text):
+        return None
+    return text
+
+
 def _stave_text_staves_for_part(part_elem: ET.Element) -> Set[int]:
     """Which staff numbers within this one real <part> carry at least one
-    qualifying stave-text <words> mark. Used by MusicXMLReader to decide
-    which (part, staff) pairs need a fabricated Stave Text voice added to
-    PartStructureInfo; TimelineBuilder.build() independently re-applies the
-    identical _is_qualifying_stave_text filter while walking notes, so the
-    two can't disagree on which text counts (the same shared-detector
-    convention has_harmony_elements/has_lyric_elements already use).
+    qualifying stave-text <words> mark or non-empty <rehearsal> mark. Used by
+    MusicXMLReader to decide which (part, staff) pairs need a fabricated Stave
+    Text voice added to PartStructureInfo; TimelineBuilder.build()
+    independently re-applies the identical _is_qualifying_stave_text /
+    _rehearsal_stave_text_label filters while walking notes, so the two can't
+    disagree on which text counts (the same shared-detector convention
+    has_harmony_elements/has_lyric_elements already use).
     """
+    def _staff_of(direction_elem: ET.Element) -> int:
+        staff_el = direction_elem.find("staff")
+        return int(staff_el.text.strip()) if (staff_el is not None and staff_el.text) else 1
+
     staves: Set[int] = set()
     for direction_elem in part_elem.findall(".//direction"):
         for words_el in direction_elem.findall("direction-type/words"):
-            if not _is_qualifying_stave_text(words_el.text):
-                continue
-            staff_el = direction_elem.find("staff")
-            staff = int(staff_el.text.strip()) if (staff_el is not None and staff_el.text) else 1
-            staves.add(staff)
+            if _is_qualifying_stave_text(words_el.text):
+                staves.add(_staff_of(direction_elem))
+        for rehearsal_el in direction_elem.findall("direction-type/rehearsal"):
+            if _rehearsal_stave_text_label(rehearsal_el) is not None:
+                staves.add(_staff_of(direction_elem))
     return staves
 
 
@@ -983,12 +1002,14 @@ class TimelineBuilder:
                 )
 
         self._step_wedge(elem, part_state, measure_state, measure_start_quarters)
-        self._step_direction_marks(elem, part_state, measure_state, measure_start_quarters)
+        self._step_direction_marks(
+            elem, part_state, measure_state, sink, measure_start_quarters
+        )
 
     # --- P3: <direction-type> spans and points ------------------------
 
     def _step_direction_marks(
-        self, elem, part_state, measure_state, measure_start_quarters
+        self, elem, part_state, measure_state, sink, measure_start_quarters
     ) -> None:
         """P3/D5/D6: each <direction-type> child that isn't a dynamics mark
         or stave text (handled above) or a wedge/tempo/jump mark (handled by
@@ -1025,16 +1046,52 @@ class TimelineBuilder:
                     words_text,
                 )
             elif tag == "rehearsal":
+                # A MuseScore export can leave a stray empty <rehearsal></rehearsal>
+                # sibling next to the real one - skip it so Find / the Performance
+                # Report count only genuine marks (the same qualifying bar
+                # _is_qualifying_stave_text applies to <words>).
+                label = _rehearsal_stave_text_label(dt_child)
+                if label is None:
+                    continue
+                # A rehearsal mark is a barline landmark - it belongs at the
+                # start of its measure, whatever offset MuseScore happened to
+                # serialise the <direction> at (some exports place it after a
+                # few beats of notes). Snap it to the downbeat so navigating
+                # to the bar lands on it, rather than leaving it mid-measure.
+                reh_beat = part_state.beat_position(m_num, 0.0)
+                reh_quarters = measure_start_quarters.get(m_num, 0.0)
                 self.direction_marks.append(
                     DirectionMark(
                         kind="rehearsal",
                         part_id=part_state.part_id,
                         staff=staff,
-                        label=(dt_child.text or "").strip(),
+                        label=label,
                         measure=m_num,
-                        beat_position=beat_pos,
-                        quarters_from_start=quarters,
+                        beat_position=reh_beat,
+                        quarters_from_start=reh_quarters,
                     )
+                )
+                # Also surface it in Region 3 as a Stave Text event, so
+                # navigating onto the bar reads "Rehearsal mark A" (the same
+                # STAVE_TEXT_VOICE_ID voice <words> directions feed).
+                sink.add(
+                    measure_state.key_for(0.0),
+                    NoteData(
+                        step_name=f"Rehearsal mark {label}",
+                        octave=None,
+                        midi_pitch=None,
+                        measure=m_num,
+                        beat_position=reh_beat,
+                        ts_duration=float(walker.ts_num),
+                        quarter_length=part_state.full_bar_quarters,
+                        part_id=part_state.part_id,
+                        part_name=part_state.part_name,
+                        staff=staff,
+                        voice=STAVE_TEXT_VOICE_ID,
+                        is_rehearsal_text=True,
+                    ),
+                    walker,
+                    overwrite_state=False,
                 )
             elif tag not in _RECOGNISED_DIRECTION_TYPE_TAGS:
                 self.direction_marks.append(

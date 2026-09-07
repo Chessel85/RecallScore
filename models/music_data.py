@@ -1084,6 +1084,20 @@ class MusicData:
                 )
             )
 
+        # Rehearsal marks - a score-level landmark, one-shot point row (no
+        # start/end pair, no part-name prefix), like the tempo / time-signature
+        # one-shot rows. jump_target_measure only, so Ctrl+Home/Ctrl+End resolve
+        # via first/last_visible_event_index_of_measure.
+        for mark in self.direction_marks:
+            if mark.kind != "rehearsal" or mark.measure != slice_.measure:
+                continue
+            rows.append(
+                PerformanceRegionRow(
+                    label=f"Rehearsal mark {mark.label}: {bar_word} {mark.measure}",
+                    jump_target_measure=mark.measure,
+                )
+            )
+
         # Plain-text dynamics / tempo instructions ("cresc.", "rall.") -
         # one-shot point rows at their own position (never a fabricated
         # range), after the direction-line rows and before the P4 rows.

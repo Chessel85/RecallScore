@@ -150,12 +150,40 @@ def test_reader_adds_a_stave_text_voice_to_the_real_part_that_carries_it(stave_t
     p2 = next(p for p in data.parts_info if p.part_id == "P2")
     assert STAVE_TEXT_VOICE_ID not in p2.staves_voices.get(1, [])
 
-    # Region 3's default is minimal - just the text itself, same as an
-    # ordinary note's bare "step" default. Region 4 shows the fuller
-    # measure/beat position/part/stave breakdown regardless of this toggle
-    # (see test_stave_text_attribute_pairs_use_text_not_step_and_omit_duration_and_voice).
-    assert data.voice_display_attributes[("P1", 1, STAVE_TEXT_VOICE_ID)] == {"text"}
+    # Region 3's default is minimal - just the row's own text. Both keys are
+    # enabled so a genuine <words> mark ("text") and a fabricated rehearsal
+    # mark ("step", NoteData.is_rehearsal_text) both render; a note only ever
+    # has one of the two. Region 4 shows the fuller measure/beat position/
+    # part/stave breakdown regardless of this toggle.
+    assert data.voice_display_attributes[("P1", 1, STAVE_TEXT_VOICE_ID)] == {"text", "step"}
     assert ("P1", 1, 1) not in data.voice_display_attributes, "the real notation voice's default is untouched"
+
+
+@pytest.mark.slow
+def test_reader_adds_a_stave_text_voice_for_a_rehearsal_only_part(rehearsal_mark_score):
+    """rehearsal_marks_plan.md: a <direction-type><rehearsal> mark, with no
+    <words> anywhere on the part, still fabricates the Stave Text voice - and
+    the bare part P2 (no <direction>) does not get one."""
+    from models.synthetic_parts import STAVE_TEXT_VOICE_ID, STAVE_TEXT_VOICE_NAME
+
+    data = MusicXMLReader(rehearsal_mark_score).load()
+
+    p1 = next(p for p in data.parts_info if p.part_id == "P1")
+    assert p1.staves_voices[1][0] == STAVE_TEXT_VOICE_ID
+    assert p1.voice_names[(1, STAVE_TEXT_VOICE_ID)] == STAVE_TEXT_VOICE_NAME
+    assert data.voice_display_attributes[("P1", 1, STAVE_TEXT_VOICE_ID)] == {"text", "step"}
+
+    # The rehearsal mark renders in Region 3 as its label, via the "step"
+    # key (so it never becomes a Find "text" attribute target - reported).
+    r3_at_bar1 = next(
+        data._format_note_for_region_3(n)
+        for s in data.timeline_slices for n in s.notes
+        if n.is_rehearsal_text and n.step_name == "Rehearsal mark A"
+    )
+    assert r3_at_bar1 == "Rehearsal mark A"
+
+    p2 = next(p for p in data.parts_info if p.part_id == "P2")
+    assert STAVE_TEXT_VOICE_ID not in p2.staves_voices.get(1, [])
 
 
 @pytest.mark.slow

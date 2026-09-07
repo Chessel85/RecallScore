@@ -287,8 +287,20 @@ def octave_shift_score() -> str:
 
 @pytest.fixture
 def rehearsal_mark_score() -> str:
-    """P3 (M3): two 4/4 bars - a <rehearsal> point mark per bar ("A", "B")."""
+    """P3 (M3) + rehearsal_marks_plan.md: P1 has two 4/4 bars with a
+    <rehearsal> point mark each ("A", "B") - each becomes a DirectionMark,
+    a Region 3 Stave Text event, a fabricated Region 2 Stave Text voice, and
+    a one-shot Region 5 row. P2 is a bare two-bar part (no <direction>) - the
+    cross-contamination guard."""
     return _require(FIXTURES_DIR / "rehearsal_mark.musicxml")
+
+
+@pytest.fixture
+def rehearsal_mark_empty_score() -> str:
+    """rehearsal_marks_plan.md: one bar whose <direction-type> holds a real
+    <rehearsal>C</rehearsal> plus a stray empty <rehearsal></rehearsal>
+    sibling (the files/Long tune.mxl bar-24 shape). Only "C" counts."""
+    return _require(FIXTURES_DIR / "rehearsal_mark_empty.musicxml")
 
 
 @pytest.fixture

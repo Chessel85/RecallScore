@@ -113,6 +113,13 @@ class NoteData:
     # chord_diagram - a spoken chord-shape summary from MusicXML
     #                 harmony/frame ("frets 3 2 0 0 0 1", "x" for a muted
     #                 string, "barre at fret N"/"from fret N" suffixes).
+    # A rehearsal mark ("Rehearsal mark A") fabricated onto the Stave Text
+    # voice (parsers/timeline_builder.py). Distinguishes it from a genuine
+    # <words> stave-text note sharing that voice: its label renders under
+    # "step" (not "text"), so it stays out of Find's attribute-target list -
+    # it is already the "Rehearsal mark" marking target. Same "put the label
+    # in a CORE key to dodge Find" reasoning as chord_symbol above.
+    is_rehearsal_text: bool = False
     tie: Optional[str] = None
     slur: Optional[str] = None
     tuplet: Optional[str] = None

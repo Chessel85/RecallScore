@@ -89,10 +89,16 @@ class MusicXMLReader:
         # position/part/stave included) regardless of this toggle - it is
         # not gated by voice_display_attributes at all, unlike Region 3's
         # inline text - so the full breakdown stays available there.
+        #
+        # Both keys are enabled: a genuine <words> mark carries its text under
+        # "text", a fabricated rehearsal mark carries its label under "step"
+        # (NoteData.is_rehearsal_text - it stays out of Find's attribute
+        # list). A note only ever has one of the two, so enabling both just
+        # means "show whatever this row's text is".
         for p in etree_parts_info:
             for staff_id, voice_ids in p.staves_voices.items():
                 if STAVE_TEXT_VOICE_ID in voice_ids:
-                    music_data.voice_display_attributes[(p.part_id, staff_id, STAVE_TEXT_VOICE_ID)] = {"text"}
+                    music_data.voice_display_attributes[(p.part_id, staff_id, STAVE_TEXT_VOICE_ID)] = {"text", "step"}
 
         return music_data
 

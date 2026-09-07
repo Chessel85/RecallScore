@@ -2521,12 +2521,56 @@ def test_p3_rehearsal_marks_findable_and_reported(timeline, rehearsal_mark_score
     assert "Rehearsal mark A: Measure 1" in lines
 
 
+def test_p3_rehearsal_mark_is_not_also_a_text_attribute_target(timeline, rehearsal_mark_score):
+    """Reported: a rehearsal-only score must offer "Rehearsal mark" (marking)
+    and NOT a duplicate "text" attribute target for the same occurrences -
+    the fabricated Region 3 label rides the "step" key, which Find never
+    offers (CORE_ATTRIBUTE_KEYS)."""
+    md = timeline(rehearsal_mark_score)
+
+    attribute_keys = {t.key for t in md.available_find_targets() if t.category == "attribute"}
+    marking_keys = {t.key for t in md.available_find_targets() if t.category == "marking"}
+
+    assert "text" not in attribute_keys
+    assert "rehearsal" in marking_keys
+
+
 def test_p3_rehearsal_marks_line_omitted_when_absent(timeline, pedal_score):
     """A score with no rehearsal marks gets no "Rehearsal marks:" line at
     all, rather than "Rehearsal marks: 0" - same convention as Anacrusis."""
     md = timeline(pedal_score)
     lines = md.get_performance_report_lines()
     assert not any(l.startswith("Rehearsal marks:") for l in lines)
+
+
+def test_p3_rehearsal_mark_gets_a_region_5_one_shot_row(timeline, rehearsal_mark_score):
+    """rehearsal_marks_plan.md: navigating onto a rehearsal-mark bar shows a
+    one-shot Region 5 row (no start/end pair), lowercase "measure" per the
+    Region 5 convention, jumping by measure only."""
+    md = timeline(rehearsal_mark_score)
+
+    bar1 = next(i for i, s in enumerate(md.timeline_slices) if s.measure == 1)
+    labels = [r.label for r in md.get_performance_region_rows(bar1)]
+    assert "Rehearsal mark A: measure 1" in labels
+
+    bar2 = next(i for i, s in enumerate(md.timeline_slices) if s.measure == 2)
+    row = next(
+        r for r in md.get_performance_region_rows(bar2)
+        if r.label == "Rehearsal mark B: measure 2"
+    )
+    assert row.jump_target_measure == 2
+    assert row.jump_target_quarters is None
+
+
+def test_empty_rehearsal_mark_excluded_from_report(timeline, rehearsal_mark_empty_score):
+    """rehearsal_marks_plan.md: the stray empty <rehearsal></rehearsal>
+    sibling never reaches the report - the count is 1 and there is no
+    blank-label rehearsal line."""
+    md = timeline(rehearsal_mark_empty_score)
+    lines = md.get_performance_report_lines()
+    assert "Rehearsal marks: 1" in lines
+    assert "Rehearsal mark C: Measure 1" in lines
+    assert not any(l.strip() == "Rehearsal mark :" or l.rstrip().endswith("Rehearsal mark  ") for l in lines)
 
 
 def test_p3_dashes_and_bracket_get_region_5_rows(timeline, direction_lines_score):

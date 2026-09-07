@@ -1054,6 +1054,34 @@ def test_stave_text_attribute_pairs_use_text_not_step_and_omit_duration_and_voic
     )
 
 
+def test_rehearsal_mark_region_4_is_labelled_text_not_step(timeline, rehearsal_mark_score):
+    """User feedback: a rehearsal mark stores its label under the "step" key
+    only so Find never lists it as an attribute target - but to the reader it
+    is stave text, so Region 4 must label the row "text", like a <words>
+    mark, not "step" as if it were a pitch. It also omits duration/voice, the
+    same as generic stave text."""
+    md = timeline(rehearsal_mark_score)
+    mark = next(
+        n for s in md.timeline_slices for n in s.notes if n.is_rehearsal_text
+    )
+
+    pairs = md._note_attribute_pairs(mark)
+    assert pairs == {
+        "step": "Rehearsal mark A",
+        "measure": "1",
+        "beat position": "1.0",
+        "part": "Test Part",
+        "stave": "Standard stave",
+    }
+
+    md.active_event_index = next(
+        i for i, s in enumerate(md.timeline_slices)
+        if any(n.is_rehearsal_text for n in s.notes)
+    )
+    label, _, value = md.get_region_4_rows_for_indices([0])[0]
+    assert (label, value) == ("text", "Rehearsal mark A")
+
+
 def test_jump_mark_words_are_excluded_from_stave_text_but_still_register_as_a_jump(timeline, stave_text_score):
     md = timeline(stave_text_score)
 
@@ -1249,6 +1277,44 @@ def test_p3_rehearsal_marks_keep_their_printed_label(timeline, rehearsal_mark_sc
         ("rehearsal", "B", 2),
     ]
     assert md.direction_spans == []
+    assert [n.step_name for n in _stave_text_notes(md, "P1")] == [
+        "Rehearsal mark A",
+        "Rehearsal mark B",
+    ]
+    assert _stave_text_notes(md, "P2") == [], "the bare part gets no rehearsal stave text"
+
+
+def test_rehearsal_mark_fabricates_a_stave_text_event(timeline, rehearsal_mark_score):
+    """rehearsal_marks_plan.md: the mark is silent, is flagged
+    is_rehearsal_text, sorts first in its slice, and renders in Region 3 as
+    its label - even with no voice_display_attributes set (the no-reader /
+    stale-.rsc path, where the fallback wanted set is {"step"})."""
+    md = timeline(rehearsal_mark_score)
+
+    slice_a = next(
+        s for s in md.timeline_slices
+        if any(n.step_name == "Rehearsal mark A" for n in s.notes)
+    )
+    mark = slice_a.notes[0]
+    assert (mark.step_name, mark.midi_pitch, mark.is_rehearsal_text) == (
+        "Rehearsal mark A", None, True,
+    )
+    assert any(n.midi_pitch is not None for n in slice_a.notes[1:]), (
+        "sanity check: the real whole note shares this slice"
+    )
+    assert md._format_note_for_region_3(mark) == "Rehearsal mark A"
+
+
+def test_empty_rehearsal_mark_is_skipped(timeline, rehearsal_mark_empty_score):
+    """rehearsal_marks_plan.md: a stray empty <rehearsal></rehearsal> sibling
+    (the files/Long tune.mxl bar-24 shape) produces neither a DirectionMark
+    nor a stave-text event - only the real "C" counts."""
+    md = timeline(rehearsal_mark_empty_score)
+
+    assert [(m.kind, m.label, m.measure) for m in md.direction_marks] == [
+        ("rehearsal", "C", 1),
+    ]
+    assert [n.step_name for n in _stave_text_notes(md, "P1")] == ["Rehearsal mark C"]
 
 
 def test_p3_dashes_and_bracket_lines_become_spans(timeline, direction_lines_score):

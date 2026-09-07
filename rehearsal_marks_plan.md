@@ -1,19 +1,57 @@
 # Plan: Surface rehearsal marks
 
-## Progress (2026-09-07)
+## Progress (2026-09-07) — COMPLETE
 
-Committed this plan for continuity across a `/clear`. Work started, uncommitted in the
-working tree (`parsers/timeline_builder.py`):
+### Follow-up fixes after live testing (2026-09-07)
 
-- [x] Step 1 helper: `_rehearsal_stave_text_label()` added after `_is_qualifying_stave_text`.
-- [x] Step 2b: `_stave_text_staves_for_part` now also scans `direction-type/rehearsal`
-      (added a nested `_staff_of` helper).
-- [ ] Step 1 empty-skip + Step 2a stave-text fabrication in `_step_direction_marks`
-      (rehearsal branch), plus adding `sink` to its signature and updating the lone call
-      site at `_handle_direction` (~line 986/1002 now).
-- [ ] Step 3: Region 5 one-shot row in `models/music_data.py`.
-- [ ] Tests + fixtures.
-- [ ] Manual fingerprint re-baseline.
+Three issues the user hit opening `files/mscz/long tune.mscz`:
+
+1. **Region 3 showed a blank row, not "Rehearsal mark A".** The score had a
+   stale pre-feature `.rsc` whose `voice_display_attributes: {}` — `apply_config`
+   replaces the dict wholesale, wiping the reader's `{"text"}` default for the
+   Stave Text voice, so the mark's `"text"` pair had no enabled key to render
+   under. Fixed by rendering the mark's label under **`step`** (a
+   `CORE_ATTRIBUTE_KEYS` key), flagged by new `NoteData.is_rehearsal_text`;
+   the reader's Stave Text default is now `{"text", "step"}`. `step` renders
+   from `DEFAULT_DISPLAY_ATTRIBUTES` even when a stale `.rsc` clears the voice
+   entry — same "put the label in a CORE key" trick `chord_symbol` uses.
+2. **Find offered both "Attribute: text" and "Mark: Rehearsal mark".** Falls
+   out of fix 1 — `step` is never a Find attribute target, so only the marking
+   target remains. A genuine `<words>` mark still surfaces as "text".
+3. **"Rehearsal mark B" wasn't at the top of bar 24.** MuseScore serialised
+   that `<direction>` a few beats into the bar. The fabricated note and the
+   `DirectionMark` are now snapped to the measure downbeat (offset 0) — a
+   rehearsal letter is a barline landmark.
+
+New/changed: `NoteData.is_rehearsal_text`; `NoteRenderer.note_attribute_pairs`
+label-key choice; `MusicXMLReader` Stave Text default `{"text", "step"}`;
+`_step_direction_marks` downbeat snap. Tests updated + added
+(`test_p3_rehearsal_mark_is_not_also_a_text_attribute_target`,
+`test_reader_adds_a_stave_text_voice_for_a_rehearsal_only_part` now checks
+Region 3 text). Full suite: 1338 passed, same 3 pre-existing `long tune.mxl`
+failures. Fingerprints: `is_rehearsal_text=False` added to every NoteData repr
+(new field, mechanical); substantive diffs only in the 3 rehearsal-bearing
+scores.
+
+### Original implementation
+
+- [x] Step 1 helper: `_rehearsal_stave_text_label()` after `_is_qualifying_stave_text`.
+- [x] Step 2b: `_stave_text_staves_for_part` also scans `direction-type/rehearsal`.
+- [x] Step 1 empty-skip + Step 2a stave-text fabrication in `_step_direction_marks`
+      (rehearsal branch); `sink` added to its signature; the `_handle_direction` call
+      site updated.
+- [x] Step 3: Region 5 one-shot row in `models/music_data.py.get_performance_region_rows`.
+- [x] Tests + fixtures: `rehearsal_mark.musicxml` gains a bare P2 guard part;
+      new `rehearsal_mark_empty.musicxml` + `rehearsal_mark_empty_score` fixture;
+      new/updated tests in `test_timeline_characterisation.py`, `test_music_data.py`,
+      `test_musicxml_reader.py`. Full suite: 1337 passed, 3 pre-existing failures
+      (all `files/long tune.mxl` — the plain-XML-with-.mxl-extension data issue noted
+      out of scope below; identical before and after this change).
+- [x] Manual fingerprint re-baseline: `parser_fingerprint.py` / `model_fingerprint.py`
+      diff **only** the three rehearsal-bearing scores (`long tune.mxl` bars 12/24/36,
+      and the two fixtures), each exactly as designed — fabricated stave-text note
+      (voice 1000, silent, sorts first), Region 4 rows, Region 5 one-shot row. No
+      other score in the 81-file corpus differs.
 
 ## Context
 

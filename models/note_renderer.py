@@ -61,7 +61,12 @@ class NoteRenderer:
             grace_str = ", ".join(g.step_name for g in note.grace_notes)
             step_str = f"{step_str} grace {grace_str}"
 
-        pairs = {"text": step_str} if is_stave_text else {"step": step_str}
+        # A fabricated rehearsal mark rides the Stave Text voice but keeps its
+        # label under "step" (a CORE_ATTRIBUTE_KEYS key Find never offers),
+        # not "text" - it is already findable as the "Rehearsal mark" marking
+        # target, so a duplicate "text" attribute row is just noise (reported).
+        label_key = "text" if (is_stave_text and not note.is_rehearsal_text) else "step"
+        pairs = {label_key: step_str}
         if note.octave is not None:
             pairs["octave"] = str(note.octave)
         if note.midi_pitch is not None:
@@ -182,7 +187,15 @@ class NoteRenderer:
             for attribute_key in data.attribute_order:
                 if attribute_key not in pairs:
                     continue
-                label = vocabulary.attribute_label(attribute_key, data.uk_terms)
+                # A rehearsal mark stores its label under "step" only so Find
+                # never lists it as an attribute target - to the reader it is
+                # stave text, so Region 4 labels the row "text", like a
+                # <words> mark, not "step" as if it were a pitch.
+                display_attr = (
+                    "text" if (attribute_key == "step" and n.is_rehearsal_text)
+                    else attribute_key
+                )
+                label = vocabulary.attribute_label(display_attr, data.uk_terms)
                 rows.append((f"{prefix}{label}", attribute_key, n, pairs[attribute_key]))
         return rows
 
