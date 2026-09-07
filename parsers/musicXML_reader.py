@@ -98,12 +98,14 @@ class MusicXMLReader:
 
     def _parse_xml_root(self) -> Optional[ET.Element]:
         """Parses the file once; every etree-based extractor below reads
-        from this same root rather than re-parsing."""
-        try:
-            return read_musicxml_root(self.file_path)
-        except Exception as e:
-            print(f"[ERROR] Failed to parse XML file: {e}")
-            return None
+        from this same root rather than re-parsing.
+
+        A genuine parse failure (malformed XML, broken .mxl container) is
+        raised, not swallowed - read_musicxml_root raises ScoreLoadError for
+        those, and the load worker turns it into an accessible error dialog.
+        Degrading to an empty score here would report a corrupt file as a
+        blank piece."""
+        return read_musicxml_root(self.file_path)
 
     def _extract_tempo(self, score: music21.stream.Score) -> Tuple[int, str, float, str]:
         """(quarter-note BPM for playback timing, display string in the

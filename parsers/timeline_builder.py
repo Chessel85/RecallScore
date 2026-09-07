@@ -812,11 +812,11 @@ class TimelineBuilder:
         """
         root = self._root
         if root is None:
-            try:
-                root = read_musicxml_root(self.file_path)
-            except Exception as e:
-                print(f"[ERROR] Failed to parse XML for timeline: {e}")
-                return []
+            # Only reached when MusicData(file_path=...) is built directly
+            # with no reader (the ~1ms timeline-test path). A parse failure
+            # is raised, not swallowed into an empty timeline - see
+            # read_musicxml_root / ScoreLoadError.
+            root = read_musicxml_root(self.file_path)
 
         default_part_name = self.parts_info[0].name if self.parts_info else "Classical Guitar"
         part_names = self._part_names(root, default_part_name)

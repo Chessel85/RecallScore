@@ -19,6 +19,8 @@ import sys
 import tempfile
 from typing import Optional
 
+from parsers.score_load_error import ScoreLoadError
+
 # NB: MusicXMLReader (which pulls in music21, ~460ms) is imported
 # function-locally in MuseScoreReader.load, not here - the same deferral
 # MusicData.__post_init__ uses. It keeps `import parsers.musescore_reader`
@@ -87,10 +89,11 @@ _LINUX_CANDIDATES = (
 )
 
 
-class MuseScoreNotFoundError(RuntimeError):
+class MuseScoreNotFoundError(ScoreLoadError, RuntimeError):
     """The MuseScore 4 executable could not be located. Distinct subclass so
     the load-failed handler can offer a file picker instead of only
-    reporting."""
+    reporting. A ScoreLoadError, so its message reaches the user through the
+    ordinary accessible error dialog with no special-casing in the worker."""
 
 
 def _resolve_app_bundle(path: str) -> str:
@@ -228,8 +231,9 @@ def convert_musescore_to_musicxml(src_path: str, exe: str) -> str:
     """Run MuseScore's CLI to convert src_path to a temporary .musicxml
     file and return its path. The caller owns cleanup.
 
-    Raises RuntimeError on a non-zero exit, a timeout, or an empty/missing
-    output file, with the tail of MuseScore's stderr included.
+    Raises ScoreLoadError on a non-zero exit, a timeout, or an empty/missing
+    output file, with the tail of MuseScore's stderr included - so the reason
+    reaches the user through the ordinary accessible error dialog.
     """
     fd, out_path = tempfile.mkstemp(suffix=".musicxml")
     os.close(fd)
@@ -239,7 +243,7 @@ def convert_musescore_to_musicxml(src_path: str, exe: str) -> str:
             os.remove(out_path)
         except OSError:
             pass
-        raise RuntimeError(message)
+        raise ScoreLoadError(message)
 
     try:
         # --force: "ignore score corruption and version errors when reading

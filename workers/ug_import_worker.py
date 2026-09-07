@@ -3,7 +3,13 @@ import traceback
 
 from PySide6.QtCore import QThread, Signal
 
+from parsers.score_load_error import ScoreLoadError
 from parsers.ug_reader import UgReader
+
+_GENERIC_IMPORT_ERROR = (
+    "The Ultimate Guitar tab could not be imported. See the log file for "
+    "details."
+)
 
 
 class UgImportThread(QThread):
@@ -30,7 +36,18 @@ class UgImportThread(QThread):
     def run(self):
         try:
             data = UgReader(self.url).load()
+        except (ScoreLoadError, ValueError) as e:
+            # read_ug_source raises ValueError with user-readable text for
+            # every expected failure (bad URL, unreachable, unsupported tab
+            # type, no chord content). Show it verbatim; log the full chain.
+            message = getattr(e, "user_message", None) or str(e)
+            print(f"[ERROR] Ultimate Guitar import failed: {message}")
+            traceback.print_exc()
+            self.failed.emit(message)
+            return
         except Exception:
-            self.failed.emit(traceback.format_exc())
+            print("[ERROR] Unexpected error importing Ultimate Guitar tab:")
+            traceback.print_exc()
+            self.failed.emit(_GENERIC_IMPORT_ERROR)
             return
         self.loaded.emit(data)

@@ -8,6 +8,7 @@ from models.key_signatures import FIFTHS_MAP
 from models.music_data import MusicData
 from models.parts_structure import PartStructureInfo
 from parsers.midi_source import PERCUSSION_CHANNEL, MidiSource, read_midi_source
+from parsers.score_load_error import ScoreLoadError
 
 
 class MidiReader:
@@ -24,9 +25,20 @@ class MidiReader:
     def load(self) -> MusicData:
         try:
             source = read_midi_source(self.file_path)
+        except ScoreLoadError:
+            raise
         except Exception as e:
-            print(f"[ERROR] Failed to parse MIDI file: {e}")
-            source = MidiSource(format=0, division=480)
+            # A file that cannot be parsed as a Standard MIDI File is a
+            # failure the user needs told about - not a silently empty
+            # score. read_midi_source raises ValueError for a bad header /
+            # chunk / status byte; a truncated file can raise struct.error
+            # or IndexError; OSError covers an unreadable file. The original
+            # is kept as __cause__ so the full traceback still reaches the log.
+            raise ScoreLoadError(
+                "This file could not be read as a MIDI file - it may be "
+                "corrupt or the wrong type of file.",
+                cause=e,
+            )
 
         parts_info = self._build_parts_info(source)
 

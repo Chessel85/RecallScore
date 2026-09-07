@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QLabel,
     QMainWindow,
+    QMessageBox,
     QVBoxLayout,
     QWidget,
 )
@@ -34,10 +35,12 @@ from controllers.voice_control_controller import VoiceControlController
 from models.metronome_pattern import default_pattern, snap_time_signature
 from models.music_data import MusicData
 from models.vocabulary import bar_word
+from parsers.file_signature import precheck as precheck_score_file
 from parsers.musescore_reader import (
     find_musescore_executable,
     resolve_musescore_path,
 )
+from parsers.score_load_error import ScoreLoadError
 from parsers.ug_source import write_ug_source
 from persistence import app_settings
 from widgets import accessible_announcer
@@ -589,6 +592,15 @@ class MainWindow(QMainWindow):
     def load_score_from_file(self, file_path: str):
         if self.session.is_loading():
             return
+        # Fail fast, before anything is saved or swapped: a missing / empty /
+        # unreadable file, or one whose contents don't match its extension,
+        # is reported now and leaves the current score (and its .rsc)
+        # completely untouched.
+        try:
+            precheck_score_file(file_path)
+        except ScoreLoadError as e:
+            self._show_load_error(e.user_message)
+            return
         self._save_current_score_config()
         self.session.load(file_path)
 
@@ -768,7 +780,32 @@ class MainWindow(QMainWindow):
             self._audition_current_selection()
 
     def _on_score_load_failed(self, error_text: str):
-        print(f"[ERROR] Failed to load score file:\n{error_text}")
+        print(f"[ERROR] Failed to load score file: {error_text}")
+        self._show_load_error(error_text)
+
+    def _show_load_error(self, message: str):
+        """The one accessible surface for a load failure (Ref 25 / NFR-06).
+        A native QMessageBox: it takes focus and is read aloud by NVDA and
+        VoiceOver with no extra work, and the previously-loaded score is
+        left exactly as it was."""
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setWindowTitle("Could not open score")
+        box.setText(message)
+        offer_musescore_picker = (
+            "MuseScore" in message and "was not found" in message
+        )
+        if offer_musescore_picker:
+            set_location = box.addButton(
+                "Set MuseScore Location...", QMessageBox.ButtonRole.ActionRole
+            )
+            box.addButton(QMessageBox.StandardButton.Ok)
+            box.setDefaultButton(set_location)
+        else:
+            box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        box.exec()
+        if offer_musescore_picker and box.clickedButton() is set_location:
+            self.set_musescore_location()
 
     def _update_ui_regions(self, play_all: bool = True):
         if not self._music_data:

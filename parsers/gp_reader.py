@@ -6,6 +6,7 @@ from models.key_signatures import FIFTHS_MAP, key_signature_display_name
 from models.music_data import MusicData
 from models.parts_structure import PartStructureInfo
 from parsers.gp_source import GpSource, iter_track_positions, read_gp_source
+from parsers.score_load_error import ScoreLoadError
 from models.synthetic_parts import GP_CHORD_VOICE_ID, GP_CHORD_VOICE_NAME
 
 # S2: GP's synthetic Chords voice name now comes from
@@ -26,9 +27,18 @@ class GpReader:
     def load(self) -> MusicData:
         try:
             source = read_gp_source(self.file_path)
+        except ScoreLoadError:
+            raise
         except Exception as e:
-            print(f"[ERROR] Failed to parse Guitar Pro file: {e}")
-            source = GpSource()
+            # A file that is not a readable .gp container (bad zip, missing
+            # Content/score.gpif, malformed id-graph) is a failure the user
+            # needs told about - not a silently empty score. The original is
+            # kept as __cause__ so the full traceback still reaches the log.
+            raise ScoreLoadError(
+                "This file could not be read as a Guitar Pro file - it may "
+                "be corrupt or the wrong type of file.",
+                cause=e,
+            )
 
         parts_info = self._build_parts_info(source)
 

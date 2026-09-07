@@ -17,6 +17,7 @@ from parsers.musescore_reader import (
     find_musescore_executable,
     resolve_musescore_path,
 )
+from parsers.score_load_error import ScoreLoadError
 
 FIXTURE = os.path.join(
     os.path.dirname(__file__), "..", "fixtures", "chord.musicxml"
@@ -209,14 +210,14 @@ def test_convert_cleans_up_and_raises_on_nonzero_exit(monkeypatch):
         _fake_run_writing("", returncode=1, stderr="boom: bad file"),
     )
 
-    with pytest.raises(RuntimeError, match="boom: bad file"):
+    with pytest.raises(ScoreLoadError, match="boom: bad file"):
         convert_musescore_to_musicxml("in.mscz", "MuseScore4.exe")
     assert not os.path.exists(captured["path"])
 
 
 def test_convert_raises_on_empty_output_file(monkeypatch):
     monkeypatch.setattr(subprocess, "run", _fake_run_writing("", returncode=0))
-    with pytest.raises(RuntimeError, match="no MusicXML output"):
+    with pytest.raises(ScoreLoadError, match="no MusicXML output"):
         convert_musescore_to_musicxml("in.mscz", "MuseScore4.exe")
 
 

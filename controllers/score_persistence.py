@@ -30,6 +30,17 @@ class ScorePersistenceController:
     def _has_file(self) -> bool:
         return self.music_data is not None and bool(self.music_data.file_path)
 
+    def _score_is_real(self) -> bool:
+        """A guard against overwriting a good .rsc with defaults. A hard load
+        failure never becomes session.music_data at all (the worker's failed
+        signal doesn't touch it), so this only backstops the rare case of a
+        structurally-valid file that parsed into nothing - no parts and no
+        timeline. Saving that would blank the file's real saved settings."""
+        md = self.music_data
+        if md is None:
+            return False
+        return bool(md.parts_info) or bool(md.timeline_slices)
+
     def load_for_current(self):
         """The saved config for the loaded score, or None."""
         if not self._has_file():
@@ -45,7 +56,7 @@ class ScorePersistenceController:
         standalone use, and it has no solo concept at all; both are
         overwritten here with Region 2's per-node state, which is lossless
         where the derived version is not. See ScoreConfig's docstring."""
-        if not self._has_file():
+        if not self._has_file() or not self._score_is_real():
             return
         config = self.music_data.export_config()
         config.parts_muted, config.staves_muted, config.voices_muted = (

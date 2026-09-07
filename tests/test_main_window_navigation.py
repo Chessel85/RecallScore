@@ -685,16 +685,18 @@ def test_loading_a_musicxml_file_still_shows_staff_and_voice_rows(window, qtbot,
     assert len(window.region_2.model_manager.get_visible_nodes()) > len(window._music_data.parts_info)
 
 
-def test_loading_a_missing_file_does_not_crash_or_leave_the_thread_dangling(window, qtbot):
-    """R1: MusicXMLReader.load() currently swallows parse errors into an
-    empty MusicData rather than raising (tasks.txt I1 is the fix for that) -
-    this just proves the background thread still completes cleanly and
-    clears _load_thread so a later Open is not silently ignored."""
+def test_loading_a_missing_file_reports_it_and_starts_no_thread(window, qtbot, monkeypatch):
+    """A missing file is caught by the fail-fast pre-check before any load
+    starts: the accessible error dialog is shown, no background thread is
+    spawned, and nothing that was already loaded is disturbed."""
+    errors = []
+    monkeypatch.setattr(window, "_show_load_error", errors.append)
+
     load_and_wait(window, qtbot, "does_not_exist.musicxml")
 
+    assert errors == ["File not found: does_not_exist.musicxml"]
     assert window._load_thread is None
-    assert window._music_data is not None
-    assert window._music_data.timeline_slices == []
+    assert window._music_data is None
 
 
 def test_region_1_list_preserves_current_row_across_a_rebuild(window, qtbot, minimal_score):
