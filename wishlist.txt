@@ -1,3 +1,6 @@
+Can music xml have multiple pieces in one file?
+Do we support rehearsal marks?
+Need a way to support multiple sections within a file.
 Noah feedback:
 Add region labels
 adding attributes to notes

@@ -34,6 +34,7 @@ from controllers.voice_control_controller import VoiceControlController
 from models.metronome_pattern import default_pattern, snap_time_signature
 from models.music_data import MusicData
 from models.vocabulary import bar_word
+from parsers.musescore_reader import resolve_musescore_path
 from parsers.ug_source import write_ug_source
 from persistence import app_settings
 from widgets import accessible_announcer
@@ -557,8 +558,9 @@ class MainWindow(QMainWindow):
             self,
             "Open Score",
             start_dir,
-            "Score Files (*.xml *.musicxml *.mxl *.mid *.midi *.gp *.ug);;"
+            "Score Files (*.xml *.musicxml *.mxl *.mscz *.mscx *.mid *.midi *.gp *.ug);;"
             "MusicXML Files (*.xml *.musicxml *.mxl);;"
+            "MuseScore Files (*.mscz *.mscx);;"
             "MIDI Files (*.mid *.midi);;"
             "Guitar Pro Files (*.gp);;"
             "Recall Score UG Import Files (*.ug);;"
@@ -1484,6 +1486,27 @@ class MainWindow(QMainWindow):
             else:
                 self.voice_control.cancel_settings_edit()
             self.voice_control_action.setChecked(self.voice_control.settings.enabled)
+
+    def set_musescore_location(self):
+        """Options > Set MuseScore Location... - point at the MuseScore 4
+        executable used to convert .mscz/.mscx files to MusicXML on open
+        (parsers/musescore_reader.py). Global preference, not per-score;
+        stored in AppSettings via load-mutate-save. Needs no loaded score."""
+        with self._preserving_focus():
+            start = app_settings.load().musescore_path or ""
+            path, _ = QFileDialog.getOpenFileName(
+                self,
+                "Locate MuseScore 4",
+                start,
+                "MuseScore 4 (MuseScore4.exe mscore mscore4 MuseScore*.app);;All Files (*)",
+            )
+            if path:
+                # On macOS the user picks "MuseScore 4.app" (a directory);
+                # normalise it to the runnable binary inside so every later
+                # load can use the stored value directly.
+                app_settings.set_musescore_path(
+                    resolve_musescore_path(path) or path
+                )
 
     def _show_tuner_dialog(self):
         """Tools > Tuner - a generic chromatic tuner (see controllers/

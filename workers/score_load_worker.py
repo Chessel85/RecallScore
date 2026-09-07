@@ -5,8 +5,10 @@ from PySide6.QtCore import QThread, Signal
 
 from parsers.gp_reader import GpReader
 from parsers.midi_reader import MidiReader
+from parsers.musescore_reader import MuseScoreReader
 from parsers.musicXML_reader import MusicXMLReader
 from parsers.ug_reader import UgFileReader
+from persistence import app_settings
 
 
 class ScoreLoadThread(QThread):
@@ -33,6 +35,11 @@ class ScoreLoadThread(QThread):
                 data = GpReader(self.file_path).load()
             elif self.file_path.lower().endswith(".ug"):
                 data = UgFileReader(self.file_path).load()
+            elif self.file_path.lower().endswith((".mscz", ".mscx")):
+                data = MuseScoreReader(
+                    self.file_path,
+                    configured_exe=app_settings.load().musescore_path,
+                ).load()
             else:
                 data = MusicXMLReader(self.file_path).load()
         except Exception:

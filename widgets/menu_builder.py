@@ -71,6 +71,7 @@ class Actions:
     voice_control: Optional[QAction] = None
     voice_control_settings: Optional[QAction] = None
     attribute_order: Optional[QAction] = None
+    set_musescore_location: Optional[QAction] = None
     tuner: Optional[QAction] = None
     user_guide: Optional[QAction] = None
     about: Optional[QAction] = None
@@ -642,6 +643,18 @@ class MenuBuilder:
             QKeySequence("Ctrl+Shift+A"),
         )
         options_menu.addAction(a.attribute_order)
+
+        # .mscz/.mscx are converted to MusicXML on open by shelling out to
+        # the MuseScore 4 CLI (parsers/musescore_reader.py). The executable
+        # is auto-detected in standard locations; this lets the user point
+        # at it when it lives somewhere else. No mnemonic, matching the
+        # dialog items above (NVDA would otherwise announce "&" as a fake
+        # global shortcut).
+        a.set_musescore_location = self._action(
+            "Set MuseScore Location...", self.slots.set_musescore_location,
+            status_tip="Choose the MuseScore 4 program used to open .mscz files",
+        )
+        options_menu.addAction(a.set_musescore_location)
 
     def _tools_menu(self, menu_bar, a: Actions) -> None:
         # New top-level menu (the user's own framing) - a microphone-based

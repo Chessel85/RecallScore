@@ -49,6 +49,7 @@ class AppSettings:
 
     uk_terms: Optional[bool] = None
     recent_files: List[str] = field(default_factory=list)
+    musescore_path: Optional[str] = None
     play: PlaySettings = field(default_factory=PlaySettings)
     live_midi_input: LiveMidiInputSettings = field(default_factory=LiveMidiInputSettings)
     voice_control: VoiceControlSettings = field(default_factory=VoiceControlSettings)
@@ -70,6 +71,7 @@ def load() -> AppSettings:
         return AppSettings(
             uk_terms=data.get("uk_terms"),
             recent_files=data.get("recent_files", []),
+            musescore_path=data.get("musescore_path"),
             play=PlaySettings.from_dict(data.get("play") or data.get("preview")),
             live_midi_input=LiveMidiInputSettings.from_dict(data.get("live_midi_input")),
             voice_control=VoiceControlSettings.from_dict(data.get("voice_control")),
@@ -129,6 +131,15 @@ def set_voice_control_settings(settings: VoiceControlSettings) -> None:
     settings above."""
     current = load()
     current.voice_control = settings.copy()
+    save(current)
+
+
+def set_musescore_path(path: Optional[str]) -> None:
+    """Records the path to the MuseScore 4 executable used to convert
+    .mscz/.mscx files on open (parsers/musescore_reader.py). load-mutate-save
+    for the same reason as add_recent_file/set_play_settings above."""
+    current = load()
+    current.musescore_path = path or None
     save(current)
 
 

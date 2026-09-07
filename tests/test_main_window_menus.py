@@ -49,6 +49,29 @@ def test_reorder_and_performance_report_actions_have_global_dialog_shortcuts(win
     assert window.performance_report_action.shortcut() == QKeySequence("Ctrl+Shift+F")
 
 
+def test_set_musescore_location_menu_item_stores_the_chosen_path(window, monkeypatch, tmp_path):
+    """Options > Set MuseScore Location... writes the picked path to
+    AppSettings (global preference) so .mscz/.mscx opens can find the
+    MuseScore 4 CLI (parsers/musescore_reader.py)."""
+    from persistence import app_settings
+    import main_window as main_window_module
+
+    action = window._actions.set_musescore_location
+    assert action is not None
+    assert "&" not in action.text()
+
+    exe = tmp_path / "MuseScore4.exe"
+    exe.write_text("")
+    monkeypatch.setattr(
+        main_window_module.QFileDialog, "getOpenFileName",
+        staticmethod(lambda *a, **k: (str(exe), "")),
+    )
+
+    action.trigger()
+
+    assert app_settings.load().musescore_path == str(exe)
+
+
 def test_items_with_no_menu_mnemonic_have_no_ampersand(window):
     """User-requested 2026-08-26: NVDA was announcing an "alt+<letter>"
     hint for several items where that access key either duplicated a real

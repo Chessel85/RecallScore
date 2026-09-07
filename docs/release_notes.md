@@ -1,5 +1,10 @@
 # Recall Score Release Notes
 
+
+## 2026.1.53
+
+** Support direct loading of MuseScore v4 files
+
 ## 2026.1.52
 
 ** Changed bell to a clap sound and end of score to a thud sound
