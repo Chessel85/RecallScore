@@ -3,7 +3,7 @@
 ## 2026.1.52
 
 ** Changed bell to a clap sound and end of score to a thud sound
-
+** Added a label to each region
 
 ## 2026.1.51
 
