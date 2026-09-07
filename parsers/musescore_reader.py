@@ -15,6 +15,7 @@ The user only needs MuseScore 4+ support.
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 from typing import Optional
 
@@ -114,6 +115,79 @@ def resolve_musescore_path(path: Optional[str]) -> Optional[str]:
     return resolved if os.path.isfile(resolved) else None
 
 
+def _musescore_from_windows_registry() -> Optional[str]:
+    """Best-effort: locate MuseScore 4 via the .mscz/.mscx file-association
+    open command in the registry.
+
+    Current MuseScore 4 installs (via Muse Hub) create no classic
+    Uninstall/App Paths keys, but they do register the file-type
+    association: HKEY_CLASSES_ROOT\\.mscz (Default) -> a ProgID, and
+    HKEY_CLASSES_ROOT\\<ProgID>\\shell\\open\\command (Default) is
+    '"...\\MuseScore4.exe" "%1"'. HKCR is the merged HKLM+HKCU classes
+    view, so per-user associations are covered too. Returns None on any
+    missing key or a non-win32 platform."""
+    if sys.platform != "win32":
+        return None
+    try:
+        import winreg
+
+        for ext in (".mscz", ".mscx"):
+            try:
+                progid = winreg.QueryValue(winreg.HKEY_CLASSES_ROOT, ext)
+            except OSError:
+                continue
+            if not progid:
+                continue
+            try:
+                command = winreg.QueryValue(
+                    winreg.HKEY_CLASSES_ROOT,
+                    rf"{progid}\shell\open\command",
+                )
+            except OSError:
+                continue
+            if not command:
+                continue
+            command = command.strip()
+            if command.startswith('"'):
+                exe = command[1:].split('"', 1)[0]
+            else:
+                exe = command.split(None, 1)[0]
+            if exe and os.path.isfile(exe):
+                return exe
+    except (OSError, ValueError):
+        return None
+    return None
+
+
+def _musescore_from_spotlight() -> Optional[str]:
+    """Best-effort (macOS only): locate a MuseScore 4 .app anywhere via
+    Spotlight's bundle-identifier index, then redirect to its inner CLI
+    binary. Only runs when the static /Applications probes have already
+    missed, so the subprocess cost is a rare one-off."""
+    if sys.platform != "darwin":
+        return None
+    try:
+        result = subprocess.run(
+            [
+                "mdfind",
+                "kMDItemCFBundleIdentifier == 'org.musescore.MuseScore4'",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            creationflags=_POPEN_CREATIONFLAGS,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    for line in (result.stdout or "").splitlines():
+        line = line.strip()
+        if line.endswith(".app"):
+            resolved = _resolve_app_bundle(line)
+            if os.path.isfile(resolved):
+                return resolved
+    return None
+
+
 def find_musescore_executable(configured: Optional[str]) -> Optional[str]:
     """Return a path to a usable MuseScore 4 executable, or None.
 
@@ -141,6 +215,11 @@ def find_musescore_executable(configured: Optional[str]) -> Optional[str]:
         resolved = _resolve_app_bundle(path)
         if os.path.isfile(resolved):
             return resolved
+
+    for probe in (_musescore_from_windows_registry, _musescore_from_spotlight):
+        found = probe()
+        if found:
+            return found
 
     return None
 

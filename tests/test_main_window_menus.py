@@ -72,6 +72,53 @@ def test_set_musescore_location_menu_item_stores_the_chosen_path(window, monkeyp
     assert app_settings.load().musescore_path == str(exe)
 
 
+def _capture_open_filter(window, monkeypatch, musescore_found):
+    """Trigger the File > Open dialog with find_musescore_executable stubbed
+    and QFileDialog.getOpenFileName captured; return the filter string it
+    was passed (the 4th positional arg)."""
+    import main_window as main_window_module
+
+    monkeypatch.setattr(
+        main_window_module, "find_musescore_executable",
+        lambda configured: "/x/MuseScore4.exe" if musescore_found else None,
+    )
+    seen = {}
+
+    def _fake(*args, **kwargs):
+        seen["filter"] = args[3] if len(args) > 3 else kwargs.get("filter")
+        return ("", "")
+
+    monkeypatch.setattr(
+        main_window_module.QFileDialog, "getOpenFileName", staticmethod(_fake)
+    )
+    window._open_score_file_dialog(start_dir="")
+    return seen["filter"]
+
+
+def test_open_dialog_offers_musescore_files_when_musescore_is_found(window, monkeypatch):
+    flt = _capture_open_filter(window, monkeypatch, musescore_found=True)
+    assert "MuseScore Files (*.mscz *.mscx)" in flt
+    assert "*.mscz *.mscx *.mid" in flt  # inside the combined Score Files group
+
+
+def test_open_dialog_hides_musescore_files_when_musescore_is_absent(window, monkeypatch):
+    flt = _capture_open_filter(window, monkeypatch, musescore_found=False)
+    assert "mscz" not in flt
+    assert "mscx" not in flt
+    assert "MuseScore Files" not in flt
+    # every other group still present and ;;-joined
+    for group in (
+        "Score Files (*.xml *.musicxml *.mxl *.mid *.midi *.gp *.ug)",
+        "MusicXML Files (*.xml *.musicxml *.mxl)",
+        "MIDI Files (*.mid *.midi)",
+        "Guitar Pro Files (*.gp)",
+        "Recall Score UG Import Files (*.ug)",
+        "All Files (*)",
+    ):
+        assert group in flt
+    assert flt.count(";;") == 5
+
+
 def test_items_with_no_menu_mnemonic_have_no_ampersand(window):
     """User-requested 2026-08-26: NVDA was announcing an "alt+<letter>"
     hint for several items where that access key either duplicated a real

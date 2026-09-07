@@ -34,7 +34,10 @@ from controllers.voice_control_controller import VoiceControlController
 from models.metronome_pattern import default_pattern, snap_time_signature
 from models.music_data import MusicData
 from models.vocabulary import bar_word
-from parsers.musescore_reader import resolve_musescore_path
+from parsers.musescore_reader import (
+    find_musescore_executable,
+    resolve_musescore_path,
+)
 from parsers.ug_source import write_ug_source
 from persistence import app_settings
 from widgets import accessible_announcer
@@ -554,17 +557,31 @@ class MainWindow(QMainWindow):
         self._open_score_file_dialog(start_dir="")
 
     def _open_score_file_dialog(self, start_dir: str):
+        # Only offer .mscz/.mscx when a MuseScore 4 executable can actually
+        # be found - otherwise picking one just fails later on the load
+        # thread with a silent print. Re-checked per open, so Options > Set
+        # MuseScore Location... makes the option reappear with no restart.
+        musescore = (
+            find_musescore_executable(app_settings.load().musescore_path) is not None
+        )
+        ms = " *.mscz *.mscx" if musescore else ""
+        filters = [
+            f"Score Files (*.xml *.musicxml *.mxl{ms} *.mid *.midi *.gp *.ug)",
+            "MusicXML Files (*.xml *.musicxml *.mxl)",
+        ]
+        if musescore:
+            filters.append("MuseScore Files (*.mscz *.mscx)")
+        filters += [
+            "MIDI Files (*.mid *.midi)",
+            "Guitar Pro Files (*.gp)",
+            "Recall Score UG Import Files (*.ug)",
+            "All Files (*)",
+        ]
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "Open Score",
             start_dir,
-            "Score Files (*.xml *.musicxml *.mxl *.mscz *.mscx *.mid *.midi *.gp *.ug);;"
-            "MusicXML Files (*.xml *.musicxml *.mxl);;"
-            "MuseScore Files (*.mscz *.mscx);;"
-            "MIDI Files (*.mid *.midi);;"
-            "Guitar Pro Files (*.gp);;"
-            "Recall Score UG Import Files (*.ug);;"
-            "All Files (*)",
+            ";;".join(filters),
         )
         if file_path:
             self.load_score_from_file(file_path)

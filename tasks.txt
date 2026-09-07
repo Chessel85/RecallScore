@@ -2186,6 +2186,51 @@ the commonest, as "muted strum" - it is a pause).
 
 
 ###
+MUSESCORE DETECTION - hide .mscz/.mscx in File > Open when MuseScore is
+absent (2026-09-07)
+Full plan: C:\Users\chess\.claude\plans\in-the-previous-session-purrfect-hellman.md
+Today the Open dialog's name filters are a hardcoded string, so
+*.mscz *.mscx are always offered; the only "is MuseScore installed?" check
+(find_musescore_executable, parsers/musescore_reader.py) runs on the load
+thread AFTER a file is picked, and a miss only prints [ERROR]. Scope agreed
+with the user: strengthen detection + hide the option. Accessible-error-
+dialog rework of _on_score_load_failed is explicitly OUT of scope (a .mscz
+left in Recent Files after MuseScore is removed still fails via the silent
+print - known limitation).
+
+[x] MS-D1  parsers/musescore_reader.py: add sys import + two platform-
+           guarded best-effort helpers, called as a final fallback in
+           find_musescore_executable (after the static candidate list,
+           before `return None`). _musescore_from_windows_registry: winreg,
+           read HKEY_CLASSES_ROOT\.mscz|.mscx (Default) -> ProgID ->
+           <ProgID>\shell\open\command (Default) = '"...\MuseScore4.exe"
+           "%1"', parse the exe (quoted -> to next "; else first token),
+           return if os.path.isfile; try/except (OSError, ValueError)->None.
+           _musescore_from_spotlight: darwin only, `mdfind
+           "kMDItemCFBundleIdentifier == 'org.musescore.MuseScore4'"`,
+           first .app line -> _resolve_app_bundle -> return if isfile.
+           Verified on this machine: Uninstall / App Paths keys are ABSENT
+           (Muse Hub install); the .mscz association command IS present and
+           correct.
+[x] MS-D2  main_window.py: import find_musescore_executable (line 37, next
+           to resolve_musescore_path). Rewrite _open_score_file_dialog to
+           build the filter list dynamically - if
+           find_musescore_executable(app_settings.load().musescore_path) is
+           None, omit *.mscz *.mscx from the combined "Score Files" group
+           AND drop the "MuseScore Files (*.mscz *.mscx)" line. Re-checked
+           per dialog open, so Options > Set MuseScore Location... makes it
+           reappear with no restart. No other call site builds this filter.
+[x] MS-D3  Tests: test_musescore_reader.py - registry helper parses a
+           stubbed quoted/unquoted command, rejects a missing file, no-ops
+           off win32; find_musescore_executable falls through to it when
+           which/static candidates miss. test_main_window_menus.py - stub
+           main_window.find_musescore_executable + QFileDialog.getOpenFileName,
+           assert the filter string includes/excludes mscz accordingly.
+           Do NOT touch docs/user_guide.md unless separately asked.
+           > DONE 2026-09-07. Full suite green. docs untouched.
+
+
+###
 COVERAGE CHECK - every requirement appears at least once
   Ref  1 D2        Ref  8 A8,B4     Ref 15 F1,F2     Ref 22 H3,H4
   Ref  2 C5        Ref  9 A8,E10    Ref 16 A5,F3     Ref 23 K1

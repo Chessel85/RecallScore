@@ -5,6 +5,7 @@ needed. The one real dependency is a small MusicXML fixture that stands in
 for the CLI's output."""
 import os
 import subprocess
+import sys
 
 import pytest
 
@@ -54,6 +55,69 @@ def test_path_lookup_also_accepts_the_macos_linux_binary_name(monkeypatch):
         lambda name: "/usr/local/bin/mscore" if name == "mscore" else None,
     )
     assert find_musescore_executable(None) == "/usr/local/bin/mscore"
+
+
+# --- Windows registry fallback -------------------------------------
+
+def _stub_registry(monkeypatch, progid, command):
+    """Make _musescore_from_windows_registry think it is on win32 with a
+    .mscz association resolving to `command`."""
+    monkeypatch.setattr(musescore_reader.sys, "platform", "win32")
+
+    class _FakeWinreg:
+        HKEY_CLASSES_ROOT = 0
+
+        @staticmethod
+        def QueryValue(root, sub):
+            if sub in (".mscz", ".mscx"):
+                return progid
+            if sub == rf"{progid}\shell\open\command":
+                return command
+            raise FileNotFoundError(sub)
+
+    monkeypatch.setitem(sys.modules, "winreg", _FakeWinreg)
+
+
+def test_registry_helper_parses_a_quoted_command(monkeypatch, tmp_path):
+    exe = tmp_path / "MuseScore4.exe"
+    exe.write_text("")
+    _stub_registry(
+        monkeypatch, "MuseScore.mscz.4.stable", f'"{exe}" "%1"'
+    )
+    assert musescore_reader._musescore_from_windows_registry() == str(exe)
+
+
+def test_registry_helper_parses_an_unquoted_command(monkeypatch, tmp_path):
+    exe = tmp_path / "mscore4.exe"
+    exe.write_text("")
+    _stub_registry(monkeypatch, "MuseScore.mscz", f"{exe} %1")
+    assert musescore_reader._musescore_from_windows_registry() == str(exe)
+
+
+def test_registry_helper_rejects_a_missing_file(monkeypatch, tmp_path):
+    missing = tmp_path / "gone" / "MuseScore4.exe"
+    _stub_registry(monkeypatch, "MuseScore.mscz", f'"{missing}" "%1"')
+    assert musescore_reader._musescore_from_windows_registry() is None
+
+
+def test_registry_helper_is_a_noop_off_win32(monkeypatch):
+    monkeypatch.setattr(musescore_reader.sys, "platform", "linux")
+    assert musescore_reader._musescore_from_windows_registry() is None
+
+
+def test_find_falls_through_to_the_registry_helper(monkeypatch, tmp_path):
+    exe = tmp_path / "MuseScore4.exe"
+    exe.write_text("")
+    monkeypatch.setattr(musescore_reader.shutil, "which", lambda name: None)
+    monkeypatch.setattr(musescore_reader, "_WINDOWS_CANDIDATES", ())
+    monkeypatch.setattr(musescore_reader, "_MACOS_CANDIDATES", ())
+    monkeypatch.setattr(musescore_reader, "_LINUX_CANDIDATES", ())
+    monkeypatch.setattr(musescore_reader.os, "environ", {}, raising=False)
+    monkeypatch.setattr(
+        musescore_reader, "_musescore_from_windows_registry",
+        lambda: str(exe),
+    )
+    assert find_musescore_executable(None) == str(exe)
 
 
 # --- macOS .app bundle resolution -----------------------------------
