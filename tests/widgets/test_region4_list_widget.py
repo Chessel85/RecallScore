@@ -7,22 +7,29 @@ from widgets.region4_list_widget import Region4ListWidget
 
 
 class _FakeWindow(QWidget):
-    """Region4ListWidget calls self.window() - a plain top-level QWidget
-    parent stands in for MainWindow so the wiring can be tested without
-    constructing a real one."""
+    """A plain top-level QWidget parent stands in for MainWindow - it is
+    still the target of region_focus_cycle's self.window() (Tab), and
+    _record collects context_menu_requested emissions in place of
+    MainWindow.show_region_4_attribute_menu."""
 
     def __init__(self):
         super().__init__()
         self.calls = []
 
-    def show_region_4_attribute_menu(self, row, global_pos):
+    def _record(self, row, global_pos):
         self.calls.append((row, global_pos))
+
+
+def _make_widget(fake_window):
+    widget = Region4ListWidget(parent=fake_window)
+    widget.context_menu_requested.connect(fake_window._record)
+    return widget
 
 
 def test_context_menu_policy_is_custom(qtbot):
     fake_window = _FakeWindow()
     qtbot.addWidget(fake_window)
-    widget = Region4ListWidget(parent=fake_window)
+    widget = _make_widget(fake_window)
 
     assert widget.contextMenuPolicy() == Qt.ContextMenuPolicy.CustomContextMenu
 
@@ -32,7 +39,7 @@ def test_context_menu_request_forwards_the_clicked_row_to_the_window(qtbot):
     right-click can land on a row other than the one keyboard focus is on."""
     fake_window = _FakeWindow()
     qtbot.addWidget(fake_window)
-    widget = Region4ListWidget(parent=fake_window)
+    widget = _make_widget(fake_window)
     widget.addItem(QListWidgetItem("step: C"))
     widget.addItem(QListWidgetItem("octave: 4"))
     widget.setCurrentRow(0)  # keyboard focus stays on row 0
@@ -49,7 +56,7 @@ def test_context_menu_request_forwards_the_clicked_row_to_the_window(qtbot):
 def test_context_menu_request_is_a_noop_with_no_current_row(qtbot):
     fake_window = _FakeWindow()
     qtbot.addWidget(fake_window)
-    widget = Region4ListWidget(parent=fake_window)  # empty list, no current row
+    widget = _make_widget(fake_window)  # empty list, no current row
 
     widget.customContextMenuRequested.emit(widget.rect().center())
 
@@ -62,7 +69,7 @@ def test_menu_key_opens_the_attribute_menu(qtbot):
     QListWidget on its own - Region4ListWidget must handle it itself."""
     fake_window = _FakeWindow()
     qtbot.addWidget(fake_window)
-    widget = Region4ListWidget(parent=fake_window)
+    widget = _make_widget(fake_window)
     widget.addItem(QListWidgetItem("step: C"))
     widget.addItem(QListWidgetItem("octave: 4"))
     widget.setCurrentRow(1)
@@ -77,7 +84,7 @@ def test_menu_key_opens_the_attribute_menu(qtbot):
 def test_shift_f10_also_opens_the_attribute_menu(qtbot):
     fake_window = _FakeWindow()
     qtbot.addWidget(fake_window)
-    widget = Region4ListWidget(parent=fake_window)
+    widget = _make_widget(fake_window)
     widget.addItem(QListWidgetItem("step: C"))
     widget.addItem(QListWidgetItem("octave: 4"))
     widget.setCurrentRow(0)
@@ -92,7 +99,7 @@ def test_shift_f10_also_opens_the_attribute_menu(qtbot):
 def test_menu_key_is_a_noop_with_no_current_row(qtbot):
     fake_window = _FakeWindow()
     qtbot.addWidget(fake_window)
-    widget = Region4ListWidget(parent=fake_window)  # empty list, no current row
+    widget = _make_widget(fake_window)  # empty list, no current row
 
     qtbot.keyClick(widget, Qt.Key.Key_Menu)
 
@@ -102,7 +109,7 @@ def test_menu_key_is_a_noop_with_no_current_row(qtbot):
 def test_refresh_list_stores_attribute_key_and_renders_display_value(qtbot):
     fake_window = _FakeWindow()
     qtbot.addWidget(fake_window)
-    widget = Region4ListWidget(parent=fake_window)
+    widget = _make_widget(fake_window)
 
     widget.refresh_list([("step", "step", "C"), ("octave", "octave", "4")])
 
@@ -119,7 +126,7 @@ def test_refresh_list_re_anchors_on_the_same_attribute_key(qtbot):
     had fewer rows. Re-anchoring on the same attribute_key fixes both."""
     fake_window = _FakeWindow()
     qtbot.addWidget(fake_window)
-    widget = Region4ListWidget(parent=fake_window)
+    widget = _make_widget(fake_window)
     widget.refresh_list([
         ("step", "step", "C"), ("octave", "octave", "4"),
         ("string", "string", "3"), ("articulation", "articulation", "staccato"),
@@ -139,7 +146,7 @@ def test_refresh_list_re_anchors_on_the_same_attribute_key(qtbot):
 def test_refresh_list_falls_back_to_index_clamp_when_the_key_is_gone(qtbot):
     fake_window = _FakeWindow()
     qtbot.addWidget(fake_window)
-    widget = Region4ListWidget(parent=fake_window)
+    widget = _make_widget(fake_window)
     widget.refresh_list([
         ("step", "step", "C"), ("octave", "octave", "4"), ("fret", "fret", "3"),
     ])
@@ -153,7 +160,7 @@ def test_refresh_list_falls_back_to_index_clamp_when_the_key_is_gone(qtbot):
 def test_refresh_list_with_no_rows_leaves_an_empty_list(qtbot):
     fake_window = _FakeWindow()
     qtbot.addWidget(fake_window)
-    widget = Region4ListWidget(parent=fake_window)
+    widget = _make_widget(fake_window)
 
     widget.refresh_list([])
 
@@ -170,7 +177,7 @@ def test_tab_still_forwards_to_the_region_cycle(qtbot):
     fake_window = _FakeWindow()
     fake_window.focus_next_region = lambda current: calls.append(current)
     qtbot.addWidget(fake_window)
-    widget = Region4ListWidget(parent=fake_window)
+    widget = _make_widget(fake_window)
     widget.addItem(QListWidgetItem("step: C"))
 
     event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_Tab, Qt.KeyboardModifier.NoModifier)

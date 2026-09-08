@@ -34,10 +34,11 @@ class ScoreFormat:
     """Lower-case, dot-prefixed. The first is the canonical one."""
     dialog_label: str
     """File > Open filter group name ("MIDI Files")."""
-    in_score_files_glob: bool = True
-    """Whether these extensions join the combined "Score Files" filter by
-    default. MuseScore opts out - main_window adds it only when a MuseScore
-    executable is actually found."""
+    requires_external_tool: bool = False
+    """True for a format Recall Score can only open via a separate installed
+    program (MuseScore's CLI converts .mscz/.mscx). main_window keeps such a
+    format out of every File > Open filter until that tool is actually found;
+    every other format is always offered."""
 
 
 # Order is the File > Open filter order, and is asserted by
@@ -46,7 +47,7 @@ SCORE_FORMATS: Tuple[ScoreFormat, ...] = (
     ScoreFormat("musicxml", (".xml", ".musicxml", ".mxl"), "MusicXML Files"),
     ScoreFormat(
         "musescore", (".mscz", ".mscx"), "MuseScore Files",
-        in_score_files_glob=False,
+        requires_external_tool=True,
     ),
     ScoreFormat("midi", (".mid", ".midi"), "MIDI Files"),
     ScoreFormat("gp", (".gp",), "Guitar Pro Files"),

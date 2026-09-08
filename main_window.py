@@ -481,6 +481,7 @@ class MainWindow(QMainWindow):
             self.presenter.announce_attribute_by_number
         )
         self.region_5.span_jump_requested.connect(self._jump_to_performance_span)
+        self.region_4.context_menu_requested.connect(self.show_region_4_attribute_menu)
 
     # --- state exposed for the widgets and tests ----------------------
 
@@ -525,16 +526,17 @@ class MainWindow(QMainWindow):
         # this is cheap on every open after the first; Options > Set
         # MuseScore Location... clears that cache, so the option reappears
         # with no restart.
-        musescore = (
+        external_tool_available = (
             find_musescore_executable(app_settings.load().musescore_path) is not None
         )
         # S4: built from models/score_formats.py so the extension lists live
-        # in one place. MuseScore opts out of the combined glob unless an
-        # executable was found; every other format is always offered.
+        # in one place. A format that requires_external_tool is only offered
+        # once that tool is found (MuseScore's CLI); every other format is
+        # always offered. Ask the format, never its key.
         included = [
             fmt
             for fmt in SCORE_FORMATS
-            if fmt.in_score_files_glob or (fmt.key == "musescore" and musescore)
+            if not fmt.requires_external_tool or external_tool_available
         ]
 
         def _globs(fmt):

@@ -1,7 +1,7 @@
 # widgets/region4_list_widget.py
 from typing import List, Tuple
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QListWidgetItem
 
 from widgets.region_property_list_widget import RegionPropertyListWidget
@@ -17,7 +17,13 @@ class Region4ListWidget(RegionPropertyListWidget):
     the Menu key and Shift+F10. The keyboard path needs its own handler:
     Qt's CustomContextMenu policy does not reliably synthesise a keyboard
     contextMenuEvent for a QListWidget either.
+
+    S6-style: the row + global position are emitted as context_menu_requested
+    rather than calling back through self.window() - wired to
+    show_region_4_attribute_menu in MainWindow like regions 2, 3 and 5.
     """
+
+    context_menu_requested = Signal(int, object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -86,5 +92,4 @@ class Region4ListWidget(RegionPropertyListWidget):
         self.setCurrentRow(row)
 
         anchor = self.visualItemRect(item).center()
-        # window() is always MainWindow - only setup_ui creates this.
-        self.window().show_region_4_attribute_menu(row, self.viewport().mapToGlobal(anchor))
+        self.context_menu_requested.emit(row, self.viewport().mapToGlobal(anchor))
