@@ -42,6 +42,13 @@ class VoiceControlController(QObject):
     """
 
     connection_changed = Signal(bool)  # True once the recognizer is actually listening
+    # (heard_text, confidence_percent, accepted) for EVERY final result,
+    # before the command-dispatch filtering - what VoiceControlTestDialog's
+    # practice/calibration view shows. Emitted only while a diagnostic
+    # session is running (begin_diagnostic_session/end_diagnostic_session);
+    # the shared VoiceRecognitionManager's diagnostic callback is wired once
+    # at construction and simply produces nothing the rest of the time.
+    diagnostic_reported = Signal(str, float, bool)
     # command_name, confidence_percent, number_value (object: Optional[int] -
     # a measure number for GO_TO_BAR, a bar count for LOOP_LENGTH, None for
     # every other command) - internal, thread-marshaling only, same shape as
@@ -52,6 +59,9 @@ class VoiceControlController(QObject):
     # reasoning as _raw_command_recognized. See VoiceRecognitionManager.
     # set_ready_callback for why this is async rather than a return value.
     _raw_ready = Signal(bool)
+    # Diagnostic-callback thread -> Qt main thread, same reasoning as
+    # _raw_command_recognized. Feeds diagnostic_reported above.
+    _raw_diagnostic = Signal(str, float, bool)
 
     # Suppressing the ding for individual commands (e.g. "play", where it
     # might interfere with noticing playback has actually started) is a
@@ -74,11 +84,20 @@ class VoiceControlController(QObject):
         self._manager = voice_manager if voice_manager is not None else VoiceRecognitionManager()
         self._manager.set_callback(self._on_raw_recognition)
         self._manager.set_ready_callback(self._on_raw_ready)
+        self._manager.set_diagnostic_callback(self._on_raw_diagnostic)
         self._raw_command_recognized.connect(
             self._handle_command_recognized, Qt.ConnectionType.QueuedConnection
         )
         self._raw_ready.connect(self._handle_ready, Qt.ConnectionType.QueuedConnection)
+        self._raw_diagnostic.connect(self._handle_diagnostic, Qt.ConnectionType.QueuedConnection)
         self._edit_snapshot: Optional[VoiceControlSettings] = None
+        # A practice/test session (VoiceControlTestDialog) is running on the
+        # shared recognizer: suppress real command dispatch and the
+        # connection/"started" cue for its duration, and remember whether a
+        # real listening session was interrupted so end_diagnostic_session
+        # can restore it.
+        self._diagnostic_active = False
+        self._resume_after_diagnostic = False
 
         # command_name -> zero-arg callable. GO_TO_BAR and LOOP_LENGTH are
         # handled separately in _dispatch (each carries a number, unlike
@@ -121,20 +140,45 @@ class VoiceControlController(QObject):
         thread."""
         self._manager.stop()
 
-    def stop_listening(self) -> None:
-        """Pauses listening WITHOUT touching settings.enabled or persisting
-        anything - used by the settings dialog's Test... flow (main_window.
-        py's _show_voice_control_test_dialog) to free the microphone for
-        VoiceControlTestDialog's own isolated recognizer session. Pair with
-        resume_listening() once that dialog closes."""
-        self._disconnect()
+    # --- practice/test session (VoiceControlTestDialog) ----------------
 
-    def resume_listening(self) -> None:
-        """Counterpart of stop_listening() - resumes with the CURRENT
-        settings, only if they say to (a no-op if the user disabled voice
-        control, or changed the device, while the test dialog was open)."""
-        if self.settings.enabled:
+    def begin_diagnostic_session(
+        self, device_name: Optional[str], confidence_threshold: float
+    ) -> bool:
+        """Run the shared recognizer in diagnostic mode for the settings
+        dialog's Test... view (main_window.py's _show_voice_control_test_
+        dialog). Every final result is reported via diagnostic_reported;
+        real command dispatch and the connection/"started" cue are
+        suppressed until end_diagnostic_session().
+
+        There is now exactly one VoiceRecognitionManager in the app, so the
+        old "two worker processes competing for one microphone" hazard is
+        gone - this just pauses any live listening session (remembering to
+        restore it) and restarts the same worker with the test's device and
+        threshold. Returns whether the worker was launched (see _connect).
+        Idempotent: a second call while already active (e.g. the user hits
+        Start again after a failed launch) re-launches without re-snapshotting
+        the interrupted session."""
+        if not self._diagnostic_active:
+            self._resume_after_diagnostic = self.is_listening()
+            if self._resume_after_diagnostic:
+                self._disconnect()
+        self._diagnostic_active = True
+        return self._manager.start(device_name or None, confidence_threshold)
+
+    def end_diagnostic_session(self) -> None:
+        """Counterpart of begin_diagnostic_session() - stops the diagnostic
+        worker and resumes the interrupted live listening session if there
+        was one and the settings still say to. A no-op if no diagnostic
+        session is active, so main_window.py can call it both on the
+        dialog's Stop and unconditionally once the dialog closes."""
+        if not self._diagnostic_active:
+            return
+        self._diagnostic_active = False
+        self._manager.stop()
+        if self._resume_after_diagnostic and self.settings.enabled:
             self._connect(self.settings.device_name)
+        self._resume_after_diagnostic = False
 
     def rebuild_grammar(self, total_measures: int) -> None:
         """Called on every score load (main_window.py's _on_score_loaded,
@@ -240,7 +284,24 @@ class VoiceControlController(QObject):
         self, command_name: str, confidence: float, number_value
     ) -> None:
         """Qt main thread only (see class docstring)."""
+        if self._diagnostic_active:
+            # A practice/test session owns the recognizer - results are
+            # feedback-only there (see begin_diagnostic_session), never
+            # navigation/playback.
+            return
         self._dispatch(command_name, number_value)
+
+    def _on_raw_diagnostic(self, heard_text: str, confidence: float, accepted: bool) -> None:
+        """VoiceRecognitionManager's own background thread. Does nothing but
+        emit - see class docstring on why."""
+        self._raw_diagnostic.emit(heard_text, confidence, accepted)
+
+    def _handle_diagnostic(self, heard_text: str, confidence: float, accepted: bool) -> None:
+        """Qt main thread only. Only meaningful while a diagnostic session
+        is running - re-published as diagnostic_reported for
+        VoiceControlTestDialog."""
+        if self._diagnostic_active:
+            self.diagnostic_reported.emit(heard_text, confidence, accepted)
 
     def _on_raw_ready(self, started: bool) -> None:
         """VoiceRecognitionManager's own background thread. Does nothing but
@@ -252,6 +313,11 @@ class VoiceControlController(QObject):
         loading the model and opened the microphone (or failed to) - see
         toggle_enabled's own note on why the "started" tone lives here
         rather than right after requesting a connect."""
+        if self._diagnostic_active:
+            # The test dialog reports its own start result (from
+            # begin_diagnostic_session's return value) and must not ring the
+            # real "listening started" cue or flip connection_changed.
+            return
         self.connection_changed.emit(started)
         if started:
             self.synth.play_voice_confirmation_cue(*voice_recognition_started_event())

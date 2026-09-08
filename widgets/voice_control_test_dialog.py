@@ -1,7 +1,5 @@
 # widgets/voice_control_test_dialog.py
-from typing import Optional
-
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import QTimer, Signal
 from PySide6.QtWidgets import (
     QDialogButtonBox,
     QDialog,
@@ -11,7 +9,9 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from audio.voice_recognition import UNKNOWN_TOKEN, VoiceRecognitionManager
+from audio.voice_recognition import UNKNOWN_TOKEN
+
+_IDLE_STATUS = "Press Start Test, then speak one of the voice commands."
 
 
 class VoiceControlTestDialog(QDialog):
@@ -19,39 +19,25 @@ class VoiceControlTestDialog(QDialog):
     user practice speaking commands and check their microphone/threshold
     setup without triggering any real navigation or playback.
 
-    Owns its OWN VoiceRecognitionManager instance, entirely separate from
-    VoiceControlController's real one - main_window.py's
-    _show_voice_control_test_dialog pauses the real listening session for
-    the duration this dialog is open (two worker processes competing for
-    the same microphone is untested and best avoided). This dialog's
-    recognition results are NEVER dispatched into
-    NavigationController/PlaybackController - set_diagnostic_callback (not
-    set_callback) is used specifically because it reports every attempt,
-    accepted or not, which is what a practice/calibration dialog needs to
-    show.
+    Pure view: it owns NO recognizer and spawns NO process. Start/Stop emit
+    start_requested/stop_requested; VoiceControlController runs a diagnostic
+    session on its single, shared VoiceRecognitionManager and calls back
+    report_start_result / report_diagnostic (main_window.py's
+    _show_voice_control_test_dialog wires the two together). The controller
+    suppresses real command dispatch for the session's duration, so speaking
+    "stop" here never stops real playback - this dialog is feedback-only.
 
-    Threading: mirrors VoiceControlController's own private-signal +
-    QueuedConnection pattern - the manager's callback fires on its own
-    background thread, and _raw_diagnostic/_handle_diagnostic marshal it
-    onto the Qt main thread before touching any widget.
+    Threading is entirely the controller's problem now: report_start_result/
+    report_diagnostic are already marshaled onto the Qt main thread before
+    they reach here.
     """
 
-    _raw_diagnostic = Signal(str, float, bool)
+    start_requested = Signal()
+    stop_requested = Signal()
 
-    def __init__(
-        self,
-        parent=None,
-        device_name: str = "",
-        confidence_threshold: float = 70.0,
-        voice_manager: Optional[VoiceRecognitionManager] = None,
-    ):
+    def __init__(self, parent=None, *, confidence_threshold: float = 70.0):
         super().__init__(parent)
         self.setWindowTitle("Voice Control Test")
-        self._device_name: Optional[str] = device_name or None
-        self._confidence_threshold = confidence_threshold
-        self._manager = voice_manager if voice_manager is not None else VoiceRecognitionManager()
-        self._manager.set_diagnostic_callback(self._on_raw_diagnostic)
-        self._raw_diagnostic.connect(self._handle_diagnostic, Qt.ConnectionType.QueuedConnection)
         self._running = False
 
         self.hint_label = QLabel(
@@ -62,9 +48,7 @@ class VoiceControlTestDialog(QDialog):
         )
         self.hint_label.setWordWrap(True)
 
-        self.status_label = QLabel(
-            "Press Start Test, then speak one of the voice commands.", self
-        )
+        self.status_label = QLabel(_IDLE_STATUS, self)
 
         self.start_button = QPushButton("&Start Test", self)
         self.start_button.clicked.connect(self._toggle_listening)
@@ -84,9 +68,21 @@ class VoiceControlTestDialog(QDialog):
 
     def _toggle_listening(self) -> None:
         if self._running:
-            self._stop_test_session()
+            self._set_idle()
+            self.stop_requested.emit()
             return
-        started = self._manager.start(self._device_name, self._confidence_threshold)
+        self.start_requested.emit()
+
+    def _set_idle(self) -> None:
+        self._running = False
+        self.status_label.setText(_IDLE_STATUS)
+        self.start_button.setText("&Start Test")
+
+    # --- called by VoiceControlController (Qt main thread) --------------
+
+    def report_start_result(self, started: bool) -> None:
+        """The controller's answer to start_requested: whether the
+        diagnostic worker was actually launched."""
         self._running = started
         if started:
             self.status_label.setText("Listening - speak a voice command.")
@@ -95,25 +91,11 @@ class VoiceControlTestDialog(QDialog):
             self.status_label.setText(
                 "Could not start voice recognition. See the console for details."
             )
+            self.start_button.setText("&Start Test")
 
-    def _stop_test_session(self) -> None:
-        """The one teardown path - called from Stop, and from reject/
-        closeEvent, so the background recognizer thread never outlives this
-        dialog regardless of how it closes."""
-        if self._running:
-            self._manager.stop()
-            self._running = False
-        self.status_label.setText("Press Start Test, then speak one of the voice commands.")
-        self.start_button.setText("&Start Test")
-
-    def _on_raw_diagnostic(self, heard_text: str, confidence: float, accepted: bool) -> None:
-        """VoiceRecognitionManager's own background thread. Does nothing but
-        emit - see class docstring."""
-        self._raw_diagnostic.emit(heard_text, confidence, accepted)
-
-    def _handle_diagnostic(self, heard_text: str, confidence: float, accepted: bool) -> None:
-        """Qt main thread only. Never dispatches into any controller - this
-        dialog is feedback-only (see class docstring).
+    def report_diagnostic(self, heard_text: str, confidence: float, accepted: bool) -> None:
+        """One row per final result. Never dispatches anything - this dialog
+        is feedback-only (see class docstring).
 
         Silence is dropped rather than listed - audio/voice_recognition.py
         reports it as heard_text="(silence)" (see its own _handle_final_
@@ -134,12 +116,18 @@ class VoiceControlTestDialog(QDialog):
         self.results_list.addItem(f"Heard: '{heard_text}' - confidence {confidence:.0f}% ({verdict})")
         self.results_list.scrollToBottom()
 
+    # --- teardown -----------------------------------------------------
+
     def reject(self):
-        self._stop_test_session()
+        if self._running:
+            self._set_idle()
+            self.stop_requested.emit()
         super().reject()
 
     def closeEvent(self, event):
-        self._stop_test_session()
+        if self._running:
+            self._set_idle()
+            self.stop_requested.emit()
         super().closeEvent(event)
 
     def showEvent(self, event):

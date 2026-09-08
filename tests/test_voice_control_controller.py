@@ -372,6 +372,108 @@ def test_attribute_does_nothing_without_a_presenter(
     assert synth.voice_confirmation_cues == []
 
 
+# --- practice/test session (VoiceControlTestDialog's diagnostic mode) -----
+
+def test_begin_diagnostic_session_starts_the_shared_recognizer(
+    synth, navigation, playback, voice_manager, qtbot
+):
+    controller = _controller(synth, navigation, playback, voice_manager, qtbot)
+
+    assert controller.begin_diagnostic_session("My Microphone", 55.0) is True
+    assert voice_manager.start_calls == [("My Microphone", 55.0)]
+    assert controller.is_listening()
+
+
+def test_begin_diagnostic_session_normalises_the_empty_device_name(
+    synth, navigation, playback, voice_manager, qtbot
+):
+    """The settings dialog emits "" for "system default"; the manager wants
+    None (see the old dialog's own device_name or None)."""
+    controller = _controller(synth, navigation, playback, voice_manager, qtbot)
+
+    controller.begin_diagnostic_session("", 70.0)
+
+    assert voice_manager.start_calls == [(None, 70.0)]
+
+
+def test_diagnostic_results_are_republished_and_never_dispatched(
+    synth, navigation, playback, voice_manager, qtbot
+):
+    controller = _controller(synth, navigation, playback, voice_manager, qtbot)
+    reports = []
+    controller.diagnostic_reported.connect(lambda *a: reports.append(a))
+    controller.begin_diagnostic_session("My Microphone", 70.0)
+    QApplication.processEvents()
+    synth.voice_confirmation_cues.clear()
+
+    voice_manager.simulate_diagnostic("next bar", 91.0, True)
+    voice_manager.simulate_recognition(voice_commands.NEXT_BAR, confidence=91.0)
+    QApplication.processEvents()
+
+    assert reports == [("next bar", 91.0, True)]
+    assert navigation.calls == []  # feedback-only - no real navigation
+    assert synth.voice_confirmation_cues == []
+
+
+def test_diagnostic_start_rings_no_cue_and_leaves_connection_state_alone(
+    synth, navigation, playback, voice_manager, qtbot
+):
+    controller = _controller(synth, navigation, playback, voice_manager, qtbot)
+    states = []
+    controller.connection_changed.connect(states.append)
+
+    controller.begin_diagnostic_session("My Microphone", 70.0)
+    QApplication.processEvents()
+
+    assert synth.voice_confirmation_cues == []
+    assert states == []
+
+
+def test_diagnostic_session_pauses_and_restores_a_live_listening_session(
+    synth, navigation, playback, voice_manager, qtbot
+):
+    controller = _controller(synth, navigation, playback, voice_manager, qtbot)
+    controller.settings.device_name = "My Microphone"
+    controller.toggle_enabled()
+    QApplication.processEvents()
+    assert controller.is_listening()
+
+    controller.begin_diagnostic_session("Other Device", 40.0)
+    assert voice_manager.start_calls[-1] == ("Other Device", 40.0)
+
+    controller.end_diagnostic_session()
+    assert controller.is_listening()
+    assert voice_manager.start_calls[-1] == ("My Microphone", controller.settings.confidence_threshold)
+
+    # a genuinely recognized command dispatches again once the session ends
+    voice_manager.simulate_recognition(voice_commands.NEXT_BAR, confidence=90.0)
+    QApplication.processEvents()
+    assert navigation.calls == ["measure_right"]
+
+
+def test_end_diagnostic_session_without_a_live_session_leaves_it_stopped(
+    synth, navigation, playback, voice_manager, qtbot
+):
+    controller = _controller(synth, navigation, playback, voice_manager, qtbot)
+
+    controller.begin_diagnostic_session("My Microphone", 70.0)
+    controller.end_diagnostic_session()
+
+    assert not controller.is_listening()
+
+
+def test_end_diagnostic_session_is_a_no_op_when_none_is_active(
+    synth, navigation, playback, voice_manager, qtbot
+):
+    controller = _controller(synth, navigation, playback, voice_manager, qtbot)
+
+    controller.end_diagnostic_session()  # must not raise
+    controller.end_diagnostic_session()
+
+    assert voice_manager.start_calls == []
+    assert not controller.is_listening()
+
+
 def test_recognized_command_plays_the_confirmation_cue(
     synth, navigation, playback, voice_manager, qtbot
 ):

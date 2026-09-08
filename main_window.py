@@ -1549,19 +1549,24 @@ class MainWindow(QMainWindow):
             self.tuner.cancel_settings_edit()
 
     def _show_voice_control_test_dialog(self, device_name: str, confidence_threshold: float):
-        """Voice Control Settings' Test... button. Pauses the real listening
-        session for the duration - VoiceControlTestDialog runs its own
-        isolated recognizer, and two in-process SAPI recognizers competing
-        for the same microphone at once is untested and best avoided."""
-        was_listening = self.voice_control.is_listening()
-        if was_listening:
-            self.voice_control.stop_listening()
-        dialog = VoiceControlTestDialog(
-            self, device_name=device_name, confidence_threshold=confidence_threshold,
+        """Voice Control Settings' Test... button. Wiring only:
+        VoiceControlTestDialog is a pure view, and VoiceControlController
+        owns the diagnostic session on its single shared recognizer
+        (begin/end_diagnostic_session) - including pausing and restoring any
+        live listening session around it."""
+        dialog = VoiceControlTestDialog(self, confidence_threshold=confidence_threshold)
+        dialog.start_requested.connect(
+            lambda: dialog.report_start_result(
+                self.voice_control.begin_diagnostic_session(device_name, confidence_threshold)
+            )
         )
-        dialog.exec()
-        if was_listening:
-            self.voice_control.resume_listening()
+        dialog.stop_requested.connect(self.voice_control.end_diagnostic_session)
+        self.voice_control.diagnostic_reported.connect(dialog.report_diagnostic)
+        try:
+            dialog.exec()
+        finally:
+            self.voice_control.diagnostic_reported.disconnect(dialog.report_diagnostic)
+            self.voice_control.end_diagnostic_session()
 
     def _show_instrument_dialog(self):
         """S5: rename a part and/or change its playback instrument, for both

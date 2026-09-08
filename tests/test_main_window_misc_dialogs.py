@@ -1,7 +1,7 @@
 # tests/test_main_window_misc_dialogs.py
 """MainWindow-level wiring for hands-free voice control and the Tuner dialog. Split from test_main_window.py (S10).
 """
-from PySide6.QtWidgets import QDialog
+from PySide6.QtWidgets import QApplication, QDialog
 
 from main_window import MainWindow
 from persistence import app_settings
@@ -70,6 +70,43 @@ def test_voice_control_device_combo_is_filled_off_the_main_thread(
         "My Microphone", "Other Device",
     ]
     assert dialog.device_combo.currentData() == "Other Device"
+
+
+def test_voice_control_test_dialog_runs_a_diagnostic_session_on_the_shared_recognizer(
+    qtbot, null_synth, null_voice_recognizer, monkeypatch,
+):
+    """Ref 19 Test... button: the dialog is a pure view - Start/Stop drive
+    VoiceControlController.begin/end_diagnostic_session on its single shared
+    recognizer, and diagnostic_reported feeds the results list. No second
+    recognizer, no MainWindow-side pause/resume."""
+    null_voice_recognizer.available_devices = ["My Microphone"]
+    w = MainWindow(synth=null_synth, uk_terms=False, voice_control_manager=null_voice_recognizer)
+    qtbot.addWidget(w)
+
+    captured = {}
+
+    def fake_exec(self):
+        captured["dialog"] = self
+        self.start_requested.emit()
+        assert null_voice_recognizer.start_calls == [("My Microphone", 70.0)]
+        assert self._running is True
+        null_voice_recognizer.simulate_diagnostic("next bar", 88.0, True)
+        QApplication.processEvents()  # diagnostic_reported is a QueuedConnection
+        assert self.results_list.count() == 1
+        self.stop_requested.emit()
+        return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(
+        "widgets.voice_control_test_dialog.VoiceControlTestDialog.exec", fake_exec
+    )
+
+    w._show_voice_control_test_dialog("My Microphone", 70.0)
+
+    assert null_voice_recognizer.stop_count >= 1
+    # signal disconnected on teardown - a later diagnostic must not reach the dialog
+    null_voice_recognizer.simulate_diagnostic("stop", 99.0, True)
+    QApplication.processEvents()
+    assert captured["dialog"].results_list.count() == 1
 
 
 def test_close_stops_the_voice_control_recognizer(qtbot, null_synth, null_voice_recognizer):
