@@ -17,9 +17,9 @@ region views plus `SynthEngine`.
 `parts_structure.py` (`PartStructureInfo`), and `music_data.py` (`MusicData`, the
 aggregate plus timeline builder).
 
-### `MusicData`'s five collaborators
+### `MusicData`'s six collaborators
 
-The logic lives in five classes, each built once in `__post_init__`, each holding
+The logic lives in six classes, each built once in `__post_init__`, each holding
 a back-reference to the `MusicData` it serves and **owning no score state of its
 own** — so none can go stale against the score, and none needs rebuilding when a
 field changes:
@@ -48,6 +48,12 @@ field changes:
   `file_key_fifths`).
 * **`find_index.py`** (`FindIndex`) — the Find dialog's target catalog and
   occurrence scanner.
+* **`performance_rows.py`** (`PerformanceRows`) — Ref 29's two whole-score
+  read-outs: `get_performance_region_rows` (Region 5's start/end row list at the
+  cursor) and `get_performance_report_lines` (the Performance Report's line
+  list). Extracted (S17) because the two were the largest methods in the
+  codebase, 28% of `music_data.py`. Reads spans/marks and the `_bar_beat_label`
+  / `_marking_part_prefix` / `_tempo_change_at` helpers off `MusicData` live.
 
 **`MusicData` keeps a one-line delegator for every method these took over**,
 including the private ones tests drive directly (`_note_attribute_pairs`,
@@ -958,7 +964,13 @@ lines.
 **No jump-to-location navigation from the report** — an explicit scope cut from
 the user, unlike Region 5's own Ctrl+Home/Ctrl+End.
 
-### The helper-driven shape (S7)
+### The helper-driven shape (S7 / S17)
+
+Both methods now live in **`models/performance_rows.py`** (`PerformanceRows`, a
+`MusicData` collaborator — S17), reached through one-line delegators. They read
+everything (`section_spans`/`repeat_spans`/`hairpin_spans`/`direction_marks`/…
+and the `_bar_beat_label` / `_marking_part_prefix` / `_tempo_change_at` /
+`get_region_1_data` helpers) off `self.data`.
 
 `get_performance_region_rows` was ~380 lines of ~17 near-identical
 `for span/mark ... if it matches: rows.append(...)` blocks, and
@@ -969,8 +981,9 @@ explicit branches:
 * Region rows: `_pair(spans, contained, start_label, end_label, *,
   jump_quarters=False)` covers the section/repeat/ending/dashed-line start+end
   blocks; `_point(marks, label, *, kind=None, jump="slice"|"measure"|"mark")`
-  covers the ~12 one-shot point rows. The hairpin 3-way completeness branch and
-  the key/time/tempo diff stay as explicit code.
+  covers the ~12 one-shot point rows. The hairpin 3-way completeness branch is
+  one label decision building a short `(label, jump_measure, jump_quarters)`
+  list, then a single append loop; the key/time/tempo diff stays explicit code.
 * The nested `_dir_prefix` no longer rebuilds `direction_spans + direction_marks`
   per call inside a loop over `direction_spans` (quadratic in shape) —
   `_dir_kind_pids` (a `kind -> [part_id]` dict) is built once.
