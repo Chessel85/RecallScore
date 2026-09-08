@@ -7,6 +7,8 @@ from PySide6.QtWidgets import QDialog, QLabel
 
 from widgets.about_dialog import AboutDialog
 from widgets.goto_measure_dialog import GotoMeasureDialog
+from widgets import menu_builder
+from widgets.menu_builder import _shortcut_for_platform
 from tests.support.main_window_helpers import _focus, _show, load_and_wait
 
 
@@ -19,6 +21,26 @@ def test_navigation_menu_items_use_home_and_end_shortcuts(window):
     assert window._actions.move_to_parts.shortcut() == QKeySequence("X")
     assert window._actions.move_to_attributes.shortcut() == QKeySequence("V")
     assert window._actions.move_to_performance.shortcut() == QKeySequence("B")
+
+
+def test_pause_and_metronome_shortcuts_dodge_reserved_macos_keys(window, monkeypatch):
+    """Qt remaps its "Ctrl" token to Command on macOS, which would turn
+    Pause (Ctrl+Space) into Cmd+Space (Spotlight, swallowed system-wide) and
+    Toggle Metronome (Ctrl+M) into Cmd+M (Minimize on the Window menu). Both
+    fall back to the physical Control key - Qt "Meta" - on darwin only. This
+    test runs on Windows and still exercises the darwin branch, the class of
+    guard ToMac.md asks for on every platform branch."""
+    # Windows path: the historical bindings are unchanged.
+    assert window._actions.pause_resume.shortcut() == QKeySequence("Ctrl+Space")
+    assert window._actions.metronome.shortcut() == QKeySequence("Ctrl+M")
+
+    monkeypatch.setattr(menu_builder.sys, "platform", "win32")
+    assert _shortcut_for_platform("Ctrl+Space", "Meta+Space") == "Ctrl+Space"
+    assert _shortcut_for_platform("Ctrl+M", "Meta+M") == "Ctrl+M"
+
+    monkeypatch.setattr(menu_builder.sys, "platform", "darwin")
+    assert _shortcut_for_platform("Ctrl+Space", "Meta+Space") == "Meta+Space"
+    assert _shortcut_for_platform("Ctrl+M", "Meta+M") == "Meta+M"
 
 
 def _mnemonic(text: str):

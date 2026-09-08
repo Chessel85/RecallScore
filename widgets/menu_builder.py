@@ -1,4 +1,5 @@
 # widgets/menu_builder.py
+import sys
 from dataclasses import dataclass
 from typing import Optional
 
@@ -79,6 +80,23 @@ class Actions:
 
 def goto_measure_action_text(uk_terms: bool) -> str:
     return f"&Go to {bar_word(uk_terms).capitalize()}..."
+
+
+def _shortcut_for_platform(windows: str, macos: str) -> str:
+    """Pick a shortcut string by platform.
+
+    Qt maps its "Ctrl" token to the Command key on macOS, so a Ctrl+<key>
+    binding that is fine on Windows can land on a reserved macOS combination.
+    Two of ours do: Ctrl+Space becomes Cmd+Space (Spotlight takes it at the
+    system level before the app sees it) and Ctrl+M becomes Cmd+M (the
+    standard Minimize on the Window menu - it would minimise the window
+    instead of firing the action). Both fall back to the physical Control key
+    on macOS, which Qt spells "Meta" there; Control+Space (previous input
+    source) only does anything with two or more input sources configured and
+    is user-remappable, and Control+M is unbound. Ctrl+Shift+M is already
+    Tools > Metronome Player, so mirroring that modifier is not an option.
+    """
+    return macos if sys.platform == "darwin" else windows
 
 
 class MenuBuilder:
@@ -418,8 +436,11 @@ class MenuBuilder:
         # 2026-08-26): Ctrl+Space only ever pauses - resuming is Space, the
         # same key Play/Stop already uses - so "Resume" in this item's own
         # name was misleading about what THIS shortcut does.
+        # macOS: Ctrl+Space would map to Cmd+Space (Spotlight) - see
+        # _shortcut_for_platform. Falls back to the physical Control key there.
         a.pause_resume = self._action(
-            "Pa&use", self.slots.toggle_pause_resume, QKeySequence("Ctrl+Space"),
+            "Pa&use", self.slots.toggle_pause_resume,
+            QKeySequence(_shortcut_for_platform("Ctrl+Space", "Meta+Space")),
         )
         playback_menu.addAction(a.pause_resume)
 
@@ -557,9 +578,11 @@ class MenuBuilder:
         )
         options_menu.addAction(a.bar_line_indicator)
 
+        # macOS: Ctrl+M would map to Cmd+M (Minimize) - see
+        # _shortcut_for_platform. Falls back to the physical Control key there.
         a.metronome = self._action(
             "Toggle &Metronome", self.slots.toggle_metronome,
-            QKeySequence("Ctrl+M"), checkable=True,
+            QKeySequence(_shortcut_for_platform("Ctrl+M", "Meta+M")), checkable=True,
         )
         options_menu.addAction(a.metronome)
 
