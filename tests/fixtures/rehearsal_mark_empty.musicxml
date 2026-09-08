@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- rehearsal_marks_plan.md: the bar-24 shape from files/Long tune.mxl -
+<!-- The bar-24 shape from files/Long tune.mxl -
      one <direction-type> holding a real <rehearsal>C</rehearsal> next to a
      stray empty <rehearsal></rehearsal> sibling (a MuseScore export quirk).
      Only "C" should count: exactly one `rehearsal` DirectionMark

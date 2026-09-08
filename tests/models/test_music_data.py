@@ -2544,7 +2544,7 @@ def test_p3_rehearsal_marks_line_omitted_when_absent(timeline, pedal_score):
 
 
 def test_p3_rehearsal_mark_gets_a_region_5_one_shot_row(timeline, rehearsal_mark_score):
-    """rehearsal_marks_plan.md: navigating onto a rehearsal-mark bar shows a
+    """Navigating onto a rehearsal-mark bar shows a
     one-shot Region 5 row (no start/end pair), lowercase "measure" per the
     Region 5 convention, jumping by measure only."""
     md = timeline(rehearsal_mark_score)
@@ -2563,7 +2563,7 @@ def test_p3_rehearsal_mark_gets_a_region_5_one_shot_row(timeline, rehearsal_mark
 
 
 def test_empty_rehearsal_mark_excluded_from_report(timeline, rehearsal_mark_empty_score):
-    """rehearsal_marks_plan.md: the stray empty <rehearsal></rehearsal>
+    """The stray empty <rehearsal></rehearsal>
     sibling never reaches the report - the count is 1 and there is no
     blank-label rehearsal line."""
     md = timeline(rehearsal_mark_empty_score)

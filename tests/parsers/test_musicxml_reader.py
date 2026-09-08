@@ -161,7 +161,7 @@ def test_reader_adds_a_stave_text_voice_to_the_real_part_that_carries_it(stave_t
 
 @pytest.mark.slow
 def test_reader_adds_a_stave_text_voice_for_a_rehearsal_only_part(rehearsal_mark_score):
-    """rehearsal_marks_plan.md: a <direction-type><rehearsal> mark, with no
+    """A <direction-type><rehearsal> mark, with no
     <words> anywhere on the part, still fabricates the Stave Text voice - and
     the bare part P2 (no <direction>) does not get one."""
     from models.synthetic_parts import STAVE_TEXT_VOICE_ID, STAVE_TEXT_VOICE_NAME

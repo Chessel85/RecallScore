@@ -1285,7 +1285,7 @@ def test_p3_rehearsal_marks_keep_their_printed_label(timeline, rehearsal_mark_sc
 
 
 def test_rehearsal_mark_fabricates_a_stave_text_event(timeline, rehearsal_mark_score):
-    """rehearsal_marks_plan.md: the mark is silent, is flagged
+    """The mark is silent, is flagged
     is_rehearsal_text, sorts first in its slice, and renders in Region 3 as
     its label - even with no voice_display_attributes set (the no-reader /
     stale-.rsc path, where the fallback wanted set is {"step"})."""
@@ -1306,7 +1306,7 @@ def test_rehearsal_mark_fabricates_a_stave_text_event(timeline, rehearsal_mark_s
 
 
 def test_empty_rehearsal_mark_is_skipped(timeline, rehearsal_mark_empty_score):
-    """rehearsal_marks_plan.md: a stray empty <rehearsal></rehearsal> sibling
+    """A stray empty <rehearsal></rehearsal> sibling
     (the files/Long tune.mxl bar-24 shape) produces neither a DirectionMark
     nor a stave-text event - only the real "C" counts."""
     md = timeline(rehearsal_mark_empty_score)
