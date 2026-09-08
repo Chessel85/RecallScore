@@ -57,11 +57,6 @@ def looks_like(file_path: str) -> str:
 
 def _mismatch_message(label: str, want_kind: str, got_kind: str) -> str:
     if want_kind == "zip" and got_kind == "xml":
-        if label == "compressed MusicXML":
-            return (
-                "This file is named .mxl but contains plain MusicXML text. "
-                "Rename it to .xml and try again."
-            )
         return (
             f"This file is named like a {label} file but contains plain XML "
             "text. It may be misnamed."
@@ -95,6 +90,12 @@ def verify(file_path: str) -> None:
     want_kind, label = expected
     got_kind = looks_like(file_path)
     if got_kind == want_kind:
+        return
+    # T10: a .mxl is normally a zip container, but plain MusicXML text
+    # misnamed .mxl is still perfectly readable - read_musicxml_root()
+    # dispatches on the real container type, not the extension. Let it
+    # through rather than tell a screen-reader user to rename the file.
+    if ext == ".mxl" and got_kind == "xml":
         return
     raise ScoreLoadError(_mismatch_message(label, want_kind, got_kind))
 

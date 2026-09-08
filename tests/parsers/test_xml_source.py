@@ -17,6 +17,19 @@ def test_read_musicxml_root_handles_plain_musicxml(minimal_score):
     assert root.tag == "score-partwise"
 
 
+def test_read_musicxml_root_reads_plain_musicxml_misnamed_mxl(tmp_path, minimal_score):
+    """T10: dispatch is on contents, not extension - a plain MusicXML file
+    that happens to carry a .mxl extension still loads rather than being
+    treated as a (non-existent) zip container."""
+    with open(minimal_score, "rb") as f:
+        musicxml_bytes = f.read()
+    mislabelled = tmp_path / "actually_plain.mxl"
+    mislabelled.write_bytes(musicxml_bytes)
+
+    root = read_musicxml_root(str(mislabelled))
+    assert root.tag == "score-partwise"
+
+
 def test_read_musicxml_root_follows_container_manifest_not_a_guessed_name(tmp_path, minimal_score):
     """The container manifest, not a guessed member name (e.g. "score.xml"),
     is what identifies the real score inside a .mxl - this fixture uses a

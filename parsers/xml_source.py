@@ -8,8 +8,13 @@ from parsers.score_load_error import ScoreLoadError
 
 def read_musicxml_root(file_path: str) -> Optional[ET.Element]:
     """Returns the root <score-partwise>/<score-timewise> Element for either
-    a plain MusicXML file or a compressed .mxl one. .mxl is a zip container
-    whose member the actual score lives in is named by
+    a plain MusicXML file or a compressed .mxl one.
+
+    Dispatch is on the file's actual contents, not its extension: a plain
+    MusicXML document misnamed .mxl still loads, and a zip container is
+    unpacked whatever it is called - asking a screen-reader user to go and
+    rename a file the reader could have opened is the worse outcome (T10).
+    .mxl is a zip container whose member the score lives in is named by
     META-INF/container.xml's rootfile - never the outer file's name, and not
     reliably "score.xml" either (that's just what the encoders creating this
     project's own test files happen to use), so the container manifest has
@@ -20,7 +25,7 @@ def read_musicxml_root(file_path: str) -> Optional[ET.Element]:
     than degrade to an empty score - a file that cannot be read is a failure
     the user needs told about, not a silently blank piece.
     """
-    if not file_path.lower().endswith(".mxl"):
+    if not zipfile.is_zipfile(file_path):
         try:
             return ET.parse(file_path).getroot()
         except ET.ParseError as e:

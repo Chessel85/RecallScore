@@ -74,11 +74,13 @@ def test_verify_rejects_midi_named_xml(tmp_path):
         verify(str(p))
 
 
-def test_verify_rejects_plain_xml_named_mxl(tmp_path):
+def test_verify_accepts_plain_xml_named_mxl(tmp_path):
+    """T10: a .mxl holding plain MusicXML text is readable - read_musicxml_root
+    dispatches on the real container type - so the gate must not refuse it and
+    send a screen-reader user off to rename the file."""
     p = tmp_path / "song.mxl"
     p.write_bytes(b"<?xml version='1.0'?><score-partwise/>")
-    with pytest.raises(ScoreLoadError, match="Rename it to .xml"):
-        verify(str(p))
+    verify(str(p))  # no raise
 
 
 def test_verify_rejects_zip_named_xml(tmp_path):
