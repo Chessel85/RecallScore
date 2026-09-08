@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- P1 (find_feature_plan.md, A2/A3): one part, one complete 4/4 bar of
+<!-- P1 (A2/A3): one part, one complete 4/4 bar of
      four quarter notes carrying notations/tied and notations/slur marks.
        C4 - slur start, tied start
        D4 - tied stop then tied start (so tie renders "stop, start")

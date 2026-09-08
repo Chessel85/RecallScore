@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- P1 (find_feature_plan.md, A5/A6, D7): one part, one complete 4/4 bar.
+<!-- P1 (A5/A6, D7): one part, one complete 4/4 bar.
        beat 1 - a two-note chord (C4 + E4), BOTH notes carrying
                 <notations><arpeggiate direction="up"/> - a real "roll this
                 chord" arpeggio, so arpeggio = "arpeggio up" on both chord

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 @dataclass
 class ClefChangeMark:
-    """P4 (find_feature_plan.md M7): an <attributes>/<clef> for a
+    """P4 (M7): an <attributes>/<clef> for a
     (part, staff) that differs from the one already in force there - a
     mid-part clef change (chopin-etude P1 bars 15-20+, i-see-angels P3/P4).
 

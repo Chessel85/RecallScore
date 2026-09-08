@@ -226,7 +226,7 @@ def chord_and_stroke_same_note_score() -> str:
 
 @pytest.fixture
 def tie_and_slur_score() -> str:
-    """P1 (find_feature_plan.md, A2/A3): one 4/4 bar of four quarters
+    """P1 (A2/A3): one 4/4 bar of four quarters
     carrying notations/tied and notations/slur marks; the fourth note is
     plain (the absence case)."""
     return _require(FIXTURES_DIR / "tie_and_slur.musicxml")
@@ -264,7 +264,7 @@ def unknown_notation_score() -> str:
 
 @pytest.fixture
 def chord_diagram_score() -> str:
-    """P2 (find_feature_plan.md, A12): two bars, each a <harmony> with a
+    """P2 (A12): two bars, each a <harmony> with a
     <frame> chord diagram - bar 1 an open C shape (string 6 muted via an
     omitted <frame-note>), bar 2 a barre shape read "from fret 3"."""
     return _require(FIXTURES_DIR / "chord_diagram.musicxml")
@@ -272,7 +272,7 @@ def chord_diagram_score() -> str:
 
 @pytest.fixture
 def pedal_score() -> str:
-    """P3 (find_feature_plan.md, M1): two 4/4 bars - a <pedal> span (bar 1
+    """P3 (M1): two 4/4 bars - a <pedal> span (bar 1
     -> bar 2) plus a mid-bar <pedal type="change"> point. Find + report
     only, no Region 5 row (D15)."""
     return _require(FIXTURES_DIR / "pedal.musicxml")
@@ -328,7 +328,7 @@ def unknown_direction_score() -> str:
 
 @pytest.fixture
 def clef_change_score() -> str:
-    """P4 (find_feature_plan.md, M7): two parts, three 4/4 bars each. P1
+    """P4 (M7): two parts, three 4/4 bars each. P1
     switches treble->bass->treble (two ClefChangeMark); P2 stays treble
     (none). One contributing part -> no Region 5 part-prefix."""
     return _require(FIXTURES_DIR / "clef_change.musicxml")

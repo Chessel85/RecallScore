@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- P4 (find_feature_plan.md, M6 / D16): three 4/4 bars.
+<!-- P4 (M6 / D16): three 4/4 bars.
        bar 2 ends with <bar-style>light-light</bar-style>  -> ONE
              BarlineMark(kind="double_barline", style="double")
        bar 3 (the last) ends with <bar-style>light-heavy</bar-style> ->

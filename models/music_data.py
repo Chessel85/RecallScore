@@ -604,13 +604,13 @@ class MusicData:
         "step", "octave", "midi", "text", "measure", "beat position", "duration",
         "part", "stave", "voice", "string", "fret",
         "dynamic", "articulation", "fingering", "pluck", "strum",
-        # P1 (find_feature_plan.md, D9): note-attached notations, grouped
+        # P1 (D9): note-attached notations, grouped
         # after the existing optional tail. "other notation" is the D6
         # catch-all and stays last (a pinned move_attribute_order test
         # relies on that).
         "tie", "slur", "tuplet", "grace", "arpeggio", "fermata",
         "accidental", "glissando", "technique", "other notation",
-        # P2 (find_feature_plan.md, D9): chord symbol/diagram, grouped last.
+        # P2 (D9): chord symbol/diagram, grouped last.
         # "chord diagram" is now the final key - the pinned
         # move_attribute_order boundary test tracks whatever is last.
         "chord symbol", "chord diagram",

@@ -195,7 +195,7 @@ def tempo_instruction_label(text: Optional[str]) -> Optional[str]:
 
 
 def clef_name(sign, line=None, octave_change=None) -> str:
-    """P4 (find_feature_plan.md M7): the spoken name of a mid-part clef
+    """P4 (M7): the spoken name of a mid-part clef
     CHANGE ("bass", "treble 8vb", "alto") - lowercase, no " stave" suffix.
 
     Deliberately separate from parsers/musicXML_reader.py's own sign->name
@@ -302,7 +302,7 @@ def attribute_label(attribute_key: str, uk_terms: bool) -> str:
     wiring, this only affects rendered text."""
     if attribute_key == "measure":
         return bar_word(uk_terms)
-    # P1 (find_feature_plan.md): the attribute key is "grace" (one token),
+    # P1: the attribute key is "grace" (one token),
     # but it reads as "grace note" everywhere it's shown. Every other new
     # P1 key ("tie", "slur", "tuplet", "fermata", "arpeggio", "accidental",
     # "glissando", "technique", "other notation") already reads correctly

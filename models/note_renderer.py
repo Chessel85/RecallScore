@@ -92,7 +92,7 @@ class NoteRenderer:
             ("fingering", note.fingering),
             ("pluck", note.pluck),
             ("strum", note.strum),
-            # P1 (find_feature_plan.md): note-attached notations. The
+            # P1: note-attached notations. The
             # attribute key is the spoken word; "other notation" carries a
             # space, like "beat position". `grace` is the spoken summary
             # NoteData.grace holds - the grace_notes list still drives the
@@ -107,7 +107,7 @@ class NoteRenderer:
             ("glissando", note.glissando),
             ("technique", note.technique),
             ("other notation", note.other_notation),
-            # P2 (find_feature_plan.md): chord symbol/diagram on a synthetic
+            # P2: chord symbol/diagram on a synthetic
             # Chords part/voice note - a findable key distinct from `step`.
             ("chord symbol", note.chord_symbol),
             ("chord diagram", note.chord_diagram),

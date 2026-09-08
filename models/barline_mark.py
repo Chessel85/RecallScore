@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 @dataclass
 class BarlineMark:
-    """P4 (find_feature_plan.md M6): one <barline>/<bar-style> that isn't a
+    """P4 (M6): one <barline>/<bar-style> that isn't a
     plain barline and isn't a repeat barline (those are RepeatSpan already).
 
     Score-wide, like RepeatSpan/EndingSpan - so no part_id/staff. Collected

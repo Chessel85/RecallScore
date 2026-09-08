@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 @dataclass
 class DirectionMark:
-    """P3 (find_feature_plan.md M1/M3/M5): a point (non-span) <direction>/
+    """P3 (M1/M3/M5): a point (non-span) <direction>/
     <direction-type> - a rehearsal mark (<rehearsal>), a pedal change
     (<pedal type="change">), or the D6 catch-all for any <direction-type>
     child this parser does not handle explicitly (so a rare or future

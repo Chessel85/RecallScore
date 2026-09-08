@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- P4 (find_feature_plan.md, M8): two 4/4 bars.
+<!-- P4 (M8): two 4/4 bars.
        bar 1 <attributes><measure-style><multiple-rest>2</multiple-rest>
              -> MeasureStyleMark(kind="multi_measure_rest", "2-bar rest")
        bar 2 <attributes><measure-style><measure-repeat type="start"/>

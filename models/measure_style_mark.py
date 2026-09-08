@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 @dataclass
 class MeasureStyleMark:
-    """P4 (find_feature_plan.md M8): an <attributes>/<measure-style> child -
+    """P4 (M8): an <attributes>/<measure-style> child -
     a multi-measure rest (<multiple-rest>) or a measure/beat repeat or slash
     region (<measure-repeat>/<beat-repeat>/<slash>).
 

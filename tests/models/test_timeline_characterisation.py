@@ -1117,7 +1117,7 @@ def test_stave_text_against_the_real_etude_file(timeline, score_etude_1_tablatur
     assert _stave_text_notes(md, "P2") == []
 
 
-# --- P1 (find_feature_plan.md): note-attached notations made findable ------
+# --- P1: note-attached notations made findable ------
 
 def _notes(md, part_id=None):
     return [

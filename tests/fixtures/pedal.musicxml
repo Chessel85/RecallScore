@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- P3 (find_feature_plan.md, M1): one part, two complete 4/4 bars.
+<!-- P3 (M1): one part, two complete 4/4 bars.
        bar 1 beat 1 - <pedal type="start"> opens the pedal span
        bar 1 beat 3 - <pedal type="change">  -> a `pedal_change` point mark
        bar 2 beat 1 - <pedal type="stop">   closes the span (bar 1 -> bar 2)

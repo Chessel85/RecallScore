@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- P3 (find_feature_plan.md, M4): one part, two complete 4/4 bars.
+<!-- P3 (M4): one part, two complete 4/4 bars.
        bar 1 beat 1 - <dashes type="start"> and <bracket type="start">
        bar 1 beat 3 - <dashes type="stop">   (dashes span: bar 1 -> bar 1)
        bar 2 beat 1 - <bracket type="stop">  (bracket span: bar 1 -> bar 2)

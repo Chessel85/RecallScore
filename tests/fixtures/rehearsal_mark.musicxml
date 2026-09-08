@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- P3 (find_feature_plan.md, M3): two parts.
+<!-- P3 (M3): two parts.
        P1, bar 1 beat 1 - <direction-type><rehearsal>A</rehearsal>
        P1, bar 2 beat 1 - <direction-type><rehearsal>B</rehearsal>
      Each rehearsal mark produces:

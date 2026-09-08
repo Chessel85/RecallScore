@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 @dataclass
 class DirectionSpan:
-    """P3 (find_feature_plan.md M1/M2/M4): one <direction>/<direction-type>
+    """P3 (M1/M2/M4): one <direction>/<direction-type>
     span - a sustain pedal (<pedal>), an octave shift (<octave-shift>), or a
     dashed / bracketed line (<dashes>/<bracket>).
 

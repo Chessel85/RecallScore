@@ -260,7 +260,7 @@ def _resolve_harmony(harmony_elem) -> Tuple[List[int], str]:
 
 def _resolve_chord_diagram(harmony_elem) -> Optional[str]:
     """A spoken summary of a <harmony>'s <frame> chord diagram (P2,
-    find_feature_plan.md A12), or None when there is no <frame>. Reads the
+    A12), or None when there is no <frame>. Reads the
     <frame-note> fret per string from the highest string number down to 1
     (string 6 -> 1 on a guitar): "frets 3 2 0 0 0 1", with "x" for a muted
     string (fret -1, or a string with no <frame-note> at all). Appends
@@ -500,7 +500,7 @@ class _NoteReading:
     voice_override: Optional[int] = None
 
 
-# P1 (find_feature_plan.md, D6): the <notations> child tags this parser
+# P1 (D6): the <notations> child tags this parser
 # recognises and handles explicitly. Anything under <notations> NOT in here
 # becomes the `other_notation` catch-all attribute (value = tag, hyphens as
 # spaces), so a rare or future exporter element is still findable rather
@@ -515,7 +515,7 @@ _RECOGNISED_NOTATION_TAGS = frozenset({
 })
 
 
-# P3 (find_feature_plan.md, D6): the <direction-type> child tags this parser
+# P3 (D6): the <direction-type> child tags this parser
 # handles explicitly. Anything else becomes the `other_direction` catch-all
 # point mark (DirectionMark, value = tag with hyphens as spaces), so a rare
 # or future exporter element stays findable rather than vanishing. Adding a

@@ -72,7 +72,7 @@ def test_chords_voice_visits_every_named_chord_in_order(gp_ripple):
 
 
 def test_p2_chord_symbol_key_mirrors_the_name_but_is_none_for_strum(gp_ripple):
-    """P2 (find_feature_plan.md): the findable `chord symbol` key carries
+    """P2: the findable `chord symbol` key carries
     the sticky chord name, and stays None where the name is only the
     "Strum" fallback (not a real chord symbol)."""
     data = GpReader(gp_ripple).load()
@@ -145,7 +145,7 @@ def test_chords_voice_note_sorts_after_the_real_notes_regardless_of_pitch(gp_rip
 
 
 def test_p5_tied_and_slide_move_onto_the_musicxml_find_keys(gp_ripple):
-    """P5 (find_feature_plan.md): GP's `tied` / `slide` note flags populate
+    """P5: GP's `tied` / `slide` note flags populate
     the same `tie` / `glissando` NoteData keys the MusicXML parser fills, so
     Find works identically across formats. `muted` stays in `articulation`;
     neither `tied` nor `slide` appears there any more."""

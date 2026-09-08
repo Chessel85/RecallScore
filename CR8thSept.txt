@@ -1,0 +1,243 @@
+claude: I reviewed the ~27,700 lines of non-test source across models/, parsers/, controllers/, widgets/, audio/,       
+workers/, persistence/, plus benchmarks on real scores. Report below.                                                   
+                                                                                                                        
+Scores                                                                                                                  
+Criterion: Performance & efficiency. Score: 8/10.                                                                       
+Criterion: Simplification opportunities / anti-bloat. Score: 6/10.                                                      
+Criterion: Code reuse & separation of responsibility. Score: 8/10.                                                      
+Criterion: Readability & maintainability. Score: 7/10.                                                                  
+Criterion: Architecture (Qt vs. business logic). Score: 8/10.                                                           
+Criterion: Technical debt. Score: 6/10.                                                                                 
+Criterion: Screen-reader UX. Score: 9/10.                                                                               
+Criterion: Windows/Mac compatibility. Score: 7/10.                                                                      
+Criterion: Test & verification discipline (added). Score: 9/10.                                                         
+Criterion: Error handling & observability (added). Score: 4/10.                                                         
+Overall roughly 7.5/10. This is a well-architected codebase by the standards of a solo project — the S1/S2/S3/R4/R6     
+refactors landed properly, pyflakes over the whole source tree returns two deliberate re-exports and nothing else, and  
+the navigation hot path is genuinely fast. What holds it back is documentation volume, facade boilerplate, and a handful
+ of concrete defects below.                                                                                             
+                                                                                                                        
+Measurements taken                                                                                                      
+                                                                                                                        
+- Full navigation walk (Region 3 text + Region 5 rows + context rows + status bar) over Pachelbel's Canon, 1,125 slices:
+ 37 ms total, ~33 µs per keystroke. Excellent.                                                                          
+- MusicData(file_path=...) build, Pachelbel: 226 ms warm (off-thread). Fine.                                            
+- available_find_targets_with_counts(): 251 ms first call, 23 ms cached.                                                
+- Non-test source: 27,720 lines, of which 3,500 comment-only, 6,027 docstring, 3,344 blank — about 46% non-code.        
+- MainWindow: 128 methods, 67 of them single-statement, plus 57 lines of self.x_action = actions.x.                     
+                                                                                                                        
+Issues, ranked by severity                                                                                              
+                                                                                                                        
+S1 (high) — Device combo has no accessible label in two dialogs                                                         
+                                                                                                                        
+Files: widgets/live_midi_input_dialog.py:123, widgets/voice_control_dialog.py:93                                        
+                                                                                                                        
+QFormLayout.addRow(str, QLayout) creates the label but does not set a buddy — that overload only works for the          
+addRow(str, QWidget) form. So in Options > Live MIDI Input Settings and Options > Voice Control Settings, the device    
+combo has no accessible name relationship and Alt+D does nothing.                                                       
+                                                                                                                        
+This is already known and correctly fixed in widgets/tuner_settings_dialog.py:109-122 (explicit QLabel + setBuddy, with 
+a comment explaining exactly this). The fix was never back-ported. Apply the same pattern to both files. Consider a     
+small helper in widgets/ so a fourth occurrence can't happen.                                                           
+                                                                                                                        
+S2 (high) — File > Open can block the UI for up to 5 seconds on macOS                                                   
+                                                                                                                        
+Files: main_window.py:566-570, parsers/musescore_reader.py:165-190                                                      
+                                                                                                                        
+_open_score_file_dialog calls find_musescore_executable(...) synchronously on every open, purely to decide whether to   
+show the .mscz/.mscx filter. On macOS, when the static /Applications probes miss (i.e. MuseScore is not installed — the 
+common case), that falls through to _musescore_from_spotlight(), a subprocess.run(["mdfind", ...], timeout=5). The event
+ loop is frozen for the duration, with no cue at all for a screen-reader user.                                          
+                                                                                                                        
+Fix: memoise the probe result for the process (functools.lru_cache on the expensive probes, invalidated by Set MuseScore
+ Location), and/or hoist the detection off the main thread at startup using the existing                                
+workers/device_enumeration_worker.py pattern.                                                                           
+                                                                                                                        
+S3 (medium) — Find dialog does ~250 ms of main-thread work on first open                                                
+                                                                                                                        
+Files: models/find_index.py:239-300, main_window.py:_show_find_dialog                                                   
+                                                                                                                        
+available_targets_with_counts() runs _note_attribute_pairs (real per-note string formatting) once per attribute key and 
+once per distinct value, over every slice. Measured 251 ms on a 1,125-slice score; it scales with slices × distinct     
+values. Subsequent opens are 23 ms via _attribute_candidate_cache, but any Region 2 filter change invalidates it, so the
+ 250 ms recurs.                                                                                                         
+                                                                                                                        
+Fixes, cheapest first: (a) build the pairs dict once per note per scan and reuse it across all keys/values rather than  
+re-formatting per key — _distinct_values_by_key already does one pass, sorted_candidate_indices then does N more; (b)   
+fold value-membership counting into that single pass; (c) if still slow, run the catalog build through                  
+DeviceEnumerationThread's pattern and show a scanning placeholder as the audio dialogs already do.                      
+                                                                                                                        
+S4 (medium) — Supported-format list is duplicated in four places                                                        
+                                                                                                                        
+Files: models/music_data.py:222-244 (is_midi/is_gp/is_ug), workers/score_load_worker.py:36-49,                          
+parsers/file_signature.py:26-36 (_EXPECTED), main_window.py:571-583 (dialog filters)                                    
+                                                                                                                        
+Adding or renaming a format requires edits in four unrelated files that must agree verbatim — the R5 bug class the      
+project has already been bitten by twice. .mscz/.mscx in particular exists in three of the four and not in MusicData at 
+all.                                                                                                                    
+                                                                                                                        
+Fix: one parsers/formats.py registry mapping extension → (reader, builder, expected content kind, dialog label), and    
+have all four sites read from it.                                                                                       
+                                                                                                                        
+S5 (medium) — MainWindow facade boilerplate                                                                             
+                                                                                                                        
+File: main_window.py                                                                                                    
+                                                                                                                        
+67 of 128 methods are pure one-line delegators, and setup_menu contains 57 consecutive self.x_action = actions.x lines  
+when self._actions already holds every one. That is roughly 130 lines of mechanical code whose only justification is    
+that the tests address the window rather than the controllers.                                                          
+                                                                                                                        
+This is a documented decision, so treat it as a direction rather than a defect: new tests should target the controller  
+that owns the behaviour, and the delegator for any method with no non-test caller can then go. _actions should be       
+accessed as self._actions.mixer and the 57 aliases dropped in one pass, with a test-side rename.                        
+                                                                                                                        
+S6 (medium) — Region widgets reach up into MainWindow instead of emitting signals                                       
+                                                                                                                        
+Files: widgets/timeline_list_widget.py:37-85, widgets/region5_list_widget.py:92-99, widgets/region4_list_widget.py:90,  
+widgets/region_focus_cycle.py:38                                                                                        
+                                                                                                                        
+TimelineListWidget.keyPressEvent calls eight different MainWindow methods via self.window(). Region2ListWidget — the one
+ that got it right — emits filter_changed instead. The inconsistency means a region widget cannot be unit-tested or     
+reused without a MainWindow, and it is the main reason the facade in S5 must exist.                                     
+                                                                                                                        
+Fix incrementally: give TimelineListWidget and Region5ListWidget signals (navigate_requested(direction, by_measure),    
+span_jump_requested(is_start), etc.) and connect them in connect_signals(), matching Region 2.                          
+                                                                                                                        
+S7 (medium) — get_performance_region_rows is a 390-line method of near-identical loops                                  
+                                                                                                                        
+File: models/music_data.py:906-1290                                                                                     
+                                                                                                                        
+Fifteen sequential for ... if measure matches: rows.append(PerformanceRegionRow(...)) blocks differing only in the      
+source list, the label template, and whether a quarters jump target is set. get_performance_report_lines (lines         
+1438-1656) is a second ~220-line method over the same data with the same shape. It works and it is fast (measured ~10   
+µs/call), so this is maintainability, not performance.                                                                  
+                                                                                                                        
+Fix: a declarative table of row-builder specs (source_attr, gate, label_fn, jump_kind) walked by one loop, with the     
+genuinely irregular cases (hairpins, the S7 one-shot diffs) left as explicit branches. Should reduce both methods to    
+well under 150 lines combined and remove the "must stay in stable list order" fragility that RegionPresenter's label    
+diff depends on.                                                                                                        
+                                                                                                                        
+Sub-issue while in there: the nested _dir_prefix(kind, part_id) at line 1035 rebuilds self.direction_spans +            
+self.direction_marks (a full list concatenation) on every call, inside a loop over direction_spans — quadratic in shape.
+ Negligible today at observed sizes, but hoist the per-kind part-id sets out of the loop.                               
+                                                                                                                        
+S8 (medium) — Documentation references a file that is being deleted                                                     
+                                                                                                                        
+find_feature_plan.md is staged for deletion (git status) but is cited by name in about 20 places: CLAUDE.md:265 and     
+:291, models/barline_mark.py, clef_change_mark.py, direction_mark.py, direction_span.py, measure_style_mark.py,         
+music_data.py:607,613, note_data.py:81,105, note_renderer.py:95,110, vocabulary.py:198,305,                             
+parsers/gp_timeline_builder.py:212,272, parsers/timeline_builder.py:263. Same for "the tuner plan" (main_window.py:381, 
+models/tuner_instruments.py:75), which has no file in the repo.                                                         
+                                                                                                                        
+Fix: either restore the plan docs under docs/, or strip the citations to the phase tags (P1/P4/D9) alone, which remain  
+meaningful without the file.                                                                                            
+                                                                                                                        
+S9 (medium) — Error handling is print() throughout                                                                      
+                                                                                                                        
+Files: audio/synth_engine.py:214, main_window.py:_show_user_guide, parsers/*, and roughly 40 other sites                
+                                                                                                                        
+Already flagged as gap I1 in CLAUDE.md, and score loading has since been given a proper QMessageBox path                
+(_show_load_error), which is the right model. Everything else — a failed SoundFont load, a missing user guide, a        
+soundfont warning — is invisible to a user of a frozen build, where stdout goes to a log file they will never look at.  
+                                                                                                                        
+Fix: introduce a small notify_user(level, message) in widgets/ that posts a QMessageBox for errors and an               
+accessible_announcer.announce for warnings, and migrate the user-visible cases. Keep print only for diagnostics.        
+                                                                                                                        
+S10 (low) — Bare-letter global shortcuts suppress standard list type-ahead                                              
+                                                                                                                        
+Files: main_window.py:setup_shortcuts, widgets/menu_builder.py:361-377                                                  
+                                                                                                                        
+F, S, D, Z, X, C, V, B, O, 0–9 and Space are all WindowShortcuts. That removes Qt's native first-letter type-ahead from 
+every list region and overrides Space's standard "toggle selection" meaning — both behaviours a screen-reader user      
+brings from every other Windows application. In a five-region score reader with hundreds of note rows, type-ahead has   
+real value.                                                                                                             
+                                                                                                                        
+The choices are deliberate and documented, so treat this as a design review item rather than a bug: consider whether the
+ bare letters could move behind a modifier now that the Navigation menu carries them anyway, and whether the User Guide 
+states plainly that type-ahead is unavailable.                                                                          
+                                                                                                                        
+S11 (low) — Dead code                                                                                                   
+                                                                                                                        
+- models/music_data.py:706 _voice_tuples_for_scope and :712 _apply_display_attribute — delegators with zero callers,    
+production or test.                                                                                                     
+- main_window.py — _disconnect_focus_tracking, _on_region_2_filter_changed, _play_boundary_cue,                         
+_refresh_clear_preferences_action, _update_status_bar, examples_dir: zero callers anywhere.                             
+- controllers/region_presenter.py:84 refresh_all and :91 restore_mute_solo_node_keys — zero callers; _on_score_loaded   
+calls region_2.apply_*_node_keys directly instead.                                                                      
+- controllers/playback_controller.py:189 set_muted — never called; _muted is only ever set from mixer.muted.            
+                                                                                                                        
+S12 (low) — Parentless QTimers in the synth                                                                             
+                                                                                                                        
+File: audio/synth_engine.py:600, 642, 663                                                                               
+                                                                                                                        
+QTimer() with no parent, kept alive only by a Python list that the slot itself mutates. It is correct as written, but it
+ is the one place in the codebase not using QTimer(self), and the lifetime argument is subtle enough to break under a   
+future edit. Also allocates one QTimer per sounding group per note during playback; a single sorted note-off queue      
+driven by one timer would be leaner, though the current cost is not measurable.                                         
+                                                                                                                        
+S13 (low) — Repo hygiene                                                                                                
+                                                                                                                        
+- MacTesterGuide.md and MacTesterGuide.txt; ToMac.md and tomac.html — duplicate pairs at the repo root.                 
+- rehearsal_marks_plan.md — the feature shipped in d889c30; the plan is spent.                                          
+- latency_harness.py, instructions for writing the user guide.txt, an untracked Performance directory, untracked        
+files/mscz/long tune* artefacts.                                                                                        
+- files/long tune.mxl in the working tree is now plain XML with an .mxl extension, which breaks three tests             
+(test_jump_to_measure_reaches_a_multi_digit_bar_number_on_a_real_long_score,                                            
+test_p4_no_final_barline_target_on_any_real_file, test_hairpin_spans_well_formed_on_every_real_score). The rest of the  
+suite passes. Restore from git.                                                                                         
+                                                                                                                        
+S14 (low) — A misnamed .mxl could be accepted rather than refused                                                       
+                                                                                                                        
+File: parsers/file_signature.py:65-72                                                                                   
+                                                                                                                        
+precheck correctly detects a plain-XML file named .mxl and returns "Rename it to .xml and try again." For a blind user, 
+asking them to go and rename a file is worse than just reading it: read_musicxml_root already has both code paths and   
+looks_like has already told you which one is needed. Consider routing on sniffed content and reserving the error for    
+genuinely unreadable files.                                                                                             
+                                                                                                                        
+S15 (low) — Documentation-to-code ratio                                                                                 
+                                                                                                                        
+46% of non-test lines are comments, docstrings or blank. Much of it is high-value design rationale that should stay (the
+ QAccessibleAnnouncementEvent gotcha, the setCurrentRow NoUpdate flag, the FluidSynth samplerate trap). But a large     
+share is historical narrative — "Reported bug: X used to do Y, now does Z", "FIRST FIX ATTEMPT, REVERTED", superseded   
+TEST SWITCH notes (audio/synth_engine.py:196-204 still describes Airfont as a temporary experiment). That belongs in git
+ history or docs/, and it makes files like controllers/playback_controller.py (1,375 lines, of which the _PlayRun       
+dataclass alone is 80 lines of comment for 20 fields) harder to scan than they need to be.                              
+                                                                                                                        
+Suggested rule for whoever picks this up: keep any comment that prevents a future bug; move any comment that only       
+records how a past bug was found.                                                                                       
+                                                                                                                        
+S16 (low) — VoiceControlTestDialog owns its own recognizer                                                              
+                                                                                                                        
+File: widgets/voice_control_test_dialog.py:52                                                                           
+                                                                                                                        
+Every other dialog in this codebase is a pure view driven by a controller. This one constructs a VoiceRecognitionManager
+ — which spawns a subprocess — from inside the widget layer, and MainWindow._show_voice_control_test_dialog has to pause
+ the real session around it. Move ownership to VoiceControlController (a begin_test_session() / end_test_session() pair)
+ so the dialog stays a view.                                                                                            
+                                                                                                                        
+S17 (informational) — Mac compatibility                                                                                 
+                                                                                                                        
+Genuinely well handled: sys.platform branches for the CoreAudio driver, a bundled-dylib HOMEBREW_PREFIX escape hatch,   
+.icns before .ico, ~/Library/Logs for the headless log, .app-bundle normalisation for the MuseScore picker,             
+creationflags fetched via getattr so it is a harmless 0 off Windows. Nothing platform-blocking found beyond S2. The two 
+remaining risks are untested rather than broken: QKeySequence.Quit maps to Cmd+Q on macOS and will collide with nothing,
+ but the bare-letter shortcuts in S10 and Ctrl+-based bindings become Cmd+-based there, so Ctrl+M, Ctrl+P and Ctrl+B    
+will need checking against macOS system reservations; and VoiceOver's handling of QAccessibleAnnouncementEvent is       
+materially different from NVDA's and is the single highest-risk untested area for a Mac release.                        
+                                                                                                                        
+Suggested implementation order                                                                                          
+                                                                                                                        
+1. S1 (accessibility bug, ten-line fix, back-port an existing solution)                                                 
+2. S13 (restore the corrupt fixture so the suite is green before anything else changes)                                 
+3. S2 (UI freeze, cache the probe)                                                                                      
+4. S8, S11 (documentation and dead-code cleanup, zero behavioural risk)                                                 
+5. S3 (Find performance, single-pass scan)                                                                              
+6. S4 (format registry)                                                                                                 
+7. S7 (Region 5 / report table-driven rewrite — gate this on tests/manual/model_fingerprint.py --check, which is exactly
+ what it exists for)                                                                                                    
+8. S9, S6, S5 (larger structural work, best done one controller at a time)                                              
+Brewed for 10m 7s · done 9:38                                                                                           
+auto mode on (shift+tab to cycle)                                                                                       
+/rc                                                                                                                     
+$

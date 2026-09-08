@@ -78,7 +78,7 @@ class NoteData:
     # doesn't get a NoteData of its own at all).
     grace_notes: Optional[List[GraceNote]] = None
 
-    # P1 (find_feature_plan.md) - note-attached notations made findable.
+    # P1 - note-attached notations made findable.
     # All Optional[str], populated only by TimelineBuilder (MusicXML);
     # the MIDI/GP/UG builders never set them, so they stay None there.
     # Absence is the mechanism Region 3/4/Find use to know not to render
@@ -102,7 +102,7 @@ class NoteData:
     # other_notation - D6 catch-all: any unrecognised <notations> child
     #                  tag, hyphens as spaces
     #
-    # P2 (find_feature_plan.md) - chord symbols/diagrams made findable.
+    # P2 - chord symbols/diagrams made findable.
     # chord_symbol - the chord label ("G7", "F/C") on a synthetic Chords
     #                part/voice note. Duplicates what `step` already holds,
     #                but `step` is a CORE_ATTRIBUTE_KEYS key Find never

@@ -209,7 +209,7 @@ class GpTimelineBuilder:
                 if gp_note is None or gp_note.midi_pitch is None:
                     continue
                 step_name = self._spell_note(gp_note)
-                # P5 (find_feature_plan.md): GP's `tied` / `slide` flags move
+                # P5: GP's `tied` / `slide` flags move
                 # onto the same NoteData keys the MusicXML parser fills, so
                 # "Find tie" / "Find glissando" behave identically on a .gp and
                 # a .mxl file. `muted` stays in `articulation` - it has no
@@ -269,7 +269,7 @@ class GpTimelineBuilder:
                     duration_name_us=duration_name_us,
                     strum=strum,
                     chord_pitches=chord_pitches,
-                    # P2 (find_feature_plan.md): the GP chord-diagram name,
+                    # P2: the GP chord-diagram name,
                     # findable under "chord symbol" like MusicXML/UG. None
                     # until a real chord name has been seen (the "Strum"
                     # fallback is not a chord symbol).

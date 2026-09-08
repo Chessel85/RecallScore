@@ -2294,7 +2294,7 @@ def test_find_occurrence_for_key_signature_change_suppressed_by_an_override(
     assert md.find_occurrence(target, from_index=0, direction=1) is None
 
 
-# --- P1 (find_feature_plan.md): new note-attached notations are findable ---
+# --- P1: new note-attached notations are findable ---
 
 def test_p1_notation_keys_are_offered_with_shared_labels(timeline, tie_and_slur_score):
     """A2/A3/D3: the new keys surface as attribute Find targets, labelled
@@ -2392,7 +2392,7 @@ def test_last_display_attribute_is_pinned():
     ]
 
 
-# --- P2 (find_feature_plan.md): chord symbols and diagrams are findable ---
+# --- P2: chord symbols and diagrams are findable ---
 
 def test_p2_chord_symbol_is_offered_with_per_value_targets(timeline, score_three_blind_mice):
     """A11/D2: `step` is a core key Find never offers, so a separate

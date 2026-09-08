@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- P1 (find_feature_plan.md, A8): one guitar part, one complete 4/4 bar.
+<!-- P1 (A8): one guitar part, one complete 4/4 bar.
      notations/technical children BEYOND fret/string/fingering/pluck become
      the comma-joined `technique` attribute; fret/string on the same block
      keep their own keys and are excluded from `technique`.

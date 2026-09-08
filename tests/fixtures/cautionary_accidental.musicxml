@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- P1 (find_feature_plan.md, A7, D14): one part, one complete 4/4 bar.
+<!-- P1 (A7, D14): one part, one complete 4/4 bar.
        C#4 - <accidental cautionary="yes">sharp</accidental> -> "cautionary sharp"
        Db4 - <accidental editorial="yes">flat</accidental>   -> "editorial flat"
        E4  - plain <accidental>natural</accidental> (NEITHER cautionary nor

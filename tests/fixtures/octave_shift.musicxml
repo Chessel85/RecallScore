@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- P3 (find_feature_plan.md, M2): one part, one complete 4/4 bar.
+<!-- P3 (M2): one part, one complete 4/4 bar.
        beat 1 - <octave-shift type="down" size="8"> opens the span
                 (label "8vb" - MusicXML "down" means the printed notes
                 sound an octave LOWER; "up"/size 15 would be "8va"/"15ma")

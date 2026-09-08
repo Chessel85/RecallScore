@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- P2 (find_feature_plan.md, A12): a <harmony> carrying a <frame> chord
+<!-- P2 (A12): a <harmony> carrying a <frame> chord
      diagram becomes the `chord diagram` attribute on the synthetic Chords
      part note (see parsers/timeline_builder.py's _resolve_chord_diagram).
      - bar 1: an open C major shape - string 6 has no <frame-note> at all

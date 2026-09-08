@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- P1 (find_feature_plan.md, A10/D6): the catch-all. One part, one
+<!-- P1 (A10/D6): the catch-all. One part, one
      complete 4/4 bar. Any <notations> child TimelineBuilder does not
      recognise explicitly still becomes the findable `other notation`
      attribute, value = the tag with hyphens as spaces - so an artefact
