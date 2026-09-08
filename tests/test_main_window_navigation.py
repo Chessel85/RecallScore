@@ -46,7 +46,7 @@ def test_navigating_right_auditions_the_new_slice(window, qtbot, null_synth, min
     load_and_wait(window, qtbot, minimal_score)
     null_synth.played.clear()
 
-    window.navigate_timeline_right()
+    window.navigation.timeline_right()
 
     assert [
         window.region_3.item(i).text() for i in range(window.region_3.count())
@@ -57,7 +57,7 @@ def test_navigating_right_auditions_the_new_slice(window, qtbot, null_synth, min
 def test_measure_navigation_announces_the_new_bar_number_without_changing_row_text(
     window, qtbot, monkeypatch, tempo_change_score
 ):
-    """Ctrl+Right's own delegator (navigate_measure_right) must get NVDA to
+    """Ctrl+Right (NavigationController.measure_right) must get NVDA to
     hear the new bar number, but Region 3's row 0 text must stay exactly the
     note name, and the note text must never be duplicated into our own
     announcement. Live-tested regressions, in order:
@@ -85,7 +85,7 @@ def test_measure_navigation_announces_the_new_bar_number_without_changing_row_te
     load_and_wait(window, qtbot, tempo_change_score)
     announcements.clear()
 
-    window.navigate_measure_right()  # bar 1 -> bar 2, first note G
+    window.navigation.measure_right()  # bar 1 -> bar 2, first note G
 
     assert window.region_3.item(0).text() == "G"
     assert announcements == ["Measure 2."]
@@ -106,7 +106,7 @@ def test_note_by_note_navigation_does_not_announce_a_bar_number(
     load_and_wait(window, qtbot, tempo_change_score)
     announcements.clear()
 
-    window.navigate_timeline_right()  # C -> D, still bar 1
+    window.navigation.timeline_right()  # C -> D, still bar 1
 
     assert announcements == []
 
@@ -148,7 +148,7 @@ def test_ctrl_number_beyond_the_attribute_count_does_nothing(
     load_and_wait(window, qtbot, minimal_score)
     announcements.clear()
 
-    window.announce_region_4_attribute(99)
+    window.presenter.announce_attribute_by_number(99)
 
     assert announcements == []
 
@@ -190,7 +190,7 @@ def test_navigating_onto_a_single_note_slice_sets_a_current_row(window, qtbot, m
     load_and_wait(window, qtbot, minimal_score)
     assert window.region_3.currentRow() == 0
 
-    window.navigate_timeline_right()
+    window.navigation.timeline_right()
 
     assert window.region_3.currentRow() == 0
     assert window.region_3.currentItem() is not None
@@ -211,7 +211,7 @@ def test_navigating_onto_a_chord_selects_and_sounds_every_note(window, qtbot, nu
     load_and_wait(window, qtbot, chord_score)
     null_synth.played.clear()
 
-    window.navigate_timeline_right()  # C -> the D+F chord
+    window.navigation.timeline_right()  # C -> the D+F chord
 
     assert [window.region_3.item(i).text() for i in range(window.region_3.count())] == ["F", "D"]
     assert sorted(i.row() for i in window.region_3.selectedIndexes()) == [0, 1]
@@ -229,7 +229,7 @@ def test_up_arrow_at_the_top_of_a_chord_collapses_selection_to_the_first_note(
     has nowhere to move to, so it silently no-ops and leaves the whole chord
     selected instead of narrowing to just the top note."""
     load_and_wait(window, qtbot, chord_score)
-    window.navigate_timeline_right()  # C -> the D+F chord
+    window.navigation.timeline_right()  # C -> the D+F chord
     assert sorted(i.row() for i in window.region_3.selectedIndexes()) == [0, 1]
 
     qtbot.keyClick(window.region_3, Qt.Key.Key_Up)
@@ -245,7 +245,7 @@ def test_playback_stops_previous_notes_before_starting_new_ones(
     load_and_wait(window, qtbot, minimal_score)
     stops_before = null_synth.stop_count
 
-    window.navigate_timeline_right()
+    window.navigation.timeline_right()
 
     assert null_synth.stop_count > stops_before
 
@@ -290,8 +290,9 @@ def test_timeline_navigation_keys_have_no_effect_outside_the_note_region(
     """Ref 4, D-2 RESOLVED: navigation keystrokes are scoped to the Note
     region, not global - pressing them while another region has focus must
     not move the timeline. Region 1/4 (RegionPropertyListWidget) and Region 2
-    (Region2ListWidget) never call the navigate_timeline_* methods for
-    these keys, so this is a regression test for that, not new wiring."""
+    (Region2ListWidget) never emit navigate_requested into
+    NavigationController for these keys, so this is a regression test for
+    that, not new wiring."""
     load_and_wait(window, qtbot, minimal_score)
     start_index = window._music_data.active_event_index
 

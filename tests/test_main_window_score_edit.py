@@ -472,7 +472,7 @@ def test_reordering_parts_updates_region_2_and_region_3_order_without_resetting_
     assert lyrics_node.muted is True, "reordering must not reset the mute toggle"
 
     window._music_data.active_event_index = 0
-    window._update_timeline_views()
+    window.presenter.update_timeline_views()
     row_texts = [window.region_3.item(i).text() for i in range(window.region_3.count())]
     # Lyrics is muted, so only the Chords row shows - but it's now the ONLY
     # part, proving reorder_parts touched the underlying note order too

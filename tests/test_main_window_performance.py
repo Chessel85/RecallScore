@@ -198,7 +198,7 @@ def test_gp_file_loads_and_chords_voice_is_toggleable_and_auditions_full_chord(
         if any(n.voice == 1000 and n.part_id == "P1" for n in s.notes)
     )
     window._music_data.active_event_index = chord_index
-    window._update_timeline_views()
+    window.presenter.update_timeline_views()
 
     assert window.region_3.count() == 1
     assert null_synth.played, "moving onto a chord-voice event must audition it"

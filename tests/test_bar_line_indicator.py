@@ -12,7 +12,7 @@ def test_off_by_default_no_beep_on_crossing(window, qtbot, null_synth, many_meas
     load_and_wait(window, qtbot, many_measures_score)
     null_synth.clicks.clear()
 
-    window.navigate_timeline_right()  # each bar is one note - this crosses a bar line
+    window.navigation.timeline_right()  # each bar is one note - this crosses a bar line
 
     assert null_synth.clicks == []
 
@@ -24,7 +24,7 @@ def test_beeps_when_a_plain_step_crosses_a_bar_line(
     window.toggle_bar_line_indicator()
     null_synth.clicks.clear()
 
-    window.navigate_timeline_right()
+    window.navigation.timeline_right()
 
     assert len(null_synth.clicks) == 1
     click = null_synth.clicks[0]
@@ -40,7 +40,7 @@ def test_no_beep_when_the_step_stays_inside_one_bar(
     window.toggle_bar_line_indicator()
     null_synth.clicks.clear()
 
-    window.navigate_timeline_right()
+    window.navigation.timeline_right()
 
     assert null_synth.clicks == []
 
@@ -52,7 +52,7 @@ def test_no_beep_at_a_boundary_where_the_cursor_does_not_move(
     window.toggle_bar_line_indicator()
     null_synth.clicks.clear()
 
-    window.navigate_timeline_left()  # already on the first note - can't move
+    window.navigation.timeline_left()  # already on the first note - can't move
 
     assert null_synth.clicks == []
 
@@ -65,7 +65,7 @@ def test_has_no_effect_while_the_metronome_is_on(
     window.toggle_metronome()
     null_synth.clicks.clear()
 
-    window.navigate_timeline_right()
+    window.navigation.timeline_right()
 
     # Only the ordinary per-step audition click - the indicator adds nothing.
     assert len(null_synth.clicks) == 1
@@ -79,7 +79,7 @@ def test_still_beeps_while_only_the_position_announcer_is_on(
     window.toggle_position_announcer()
     null_synth.clicks.clear()
 
-    window.navigate_timeline_right()
+    window.navigation.timeline_right()
 
     assert [c["pitch"] for c in null_synth.clicks] == [METRONOME_ACCENT_NOTE]
 
@@ -124,7 +124,7 @@ def test_the_beep_fires_after_the_destination_note_audition(
         lambda *a, **k: (calls.append("click"), real_play_click(*a, **k))[1],
     )
 
-    window.navigate_timeline_right()
+    window.navigation.timeline_right()
 
     assert "note" in calls and "click" in calls
     assert calls.index("click") > calls.index("note")

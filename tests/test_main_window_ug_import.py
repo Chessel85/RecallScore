@@ -33,7 +33,7 @@ def test_ultimate_guitar_import_populates_two_flat_region_2_parts_and_region_3(
     # Move onto the second chord ("G", paired with the "world" lyric
     # fragment) and confirm Region 3 shows both together.
     window._music_data.active_event_index = 1
-    window._update_timeline_views()
+    window.presenter.update_timeline_views()
     assert window.region_3.count() == 2
     row_texts = [window.region_3.item(i).text() for i in range(window.region_3.count())]
     assert row_texts == ["G", "world"]
@@ -118,7 +118,7 @@ def test_opening_a_saved_ug_file_reproduces_the_original_import(
     nodes = window.region_2.model_manager.get_visible_nodes()
     assert {n.display_name for n in nodes} == {"Chords", "Lyrics"}
     window._music_data.active_event_index = 1
-    window._update_timeline_views()
+    window.presenter.update_timeline_views()
     row_texts = [window.region_3.item(i).text() for i in range(window.region_3.count())]
     assert row_texts == ["G", "world"]
 

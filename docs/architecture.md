@@ -1004,8 +1004,8 @@ current slice (`Ctrl+A` reselects all). **Regions 4 and audio follow the
 selection, not the slice:** `get_region_4_data_for_indices(indices)` and
 `get_midi_notes_for_indices(indices)` take Region 3's selected rows.
 
-`_update_timeline_views(play_all=...)` blocks Region 3's signals during a rebuild
-to avoid audition storms, then fires playback once.
+`RegionPresenter.update_timeline_views(play_all=...)` blocks Region 3's signals
+during a rebuild to avoid audition storms, then fires playback once.
 
 `get_region_3_data()` and all three indices-taking accessors read through
 `MusicData._visible_notes()` first, which filters the current slice's notes by

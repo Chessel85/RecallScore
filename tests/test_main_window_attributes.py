@@ -16,7 +16,7 @@ def test_attribute_order_pairs_scope_to_the_selected_region_2_node(
     load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
     node = window.region_2.model_manager.node("voice_P1_1_1")
 
-    keys = [key for key, _ in window._attribute_order_pairs_for_node(node)]
+    keys = [key for key, _ in window.attributes.order_pairs_for_node(node)]
 
     assert "dynamic" in keys
     assert "articulation" in keys
@@ -36,7 +36,7 @@ def _stage_octave_move_up(window, qtbot):
     scope items and set_attribute_order_within writes the new order back
     into exactly those items' original global slots."""
     node = window.region_2.model_manager.node("voice_P1_1_1")
-    pairs = window._attribute_order_pairs_for_node(node)
+    pairs = window.attributes.order_pairs_for_node(node)
     dialog = AttributeOrderDialog(window, pairs=pairs, scope_description="")
 
     octave_row = next(
@@ -169,7 +169,7 @@ def test_show_attribute_order_dialog_preselects_region_4s_current_attribute(
     for _ in range(20):
         if articulation_row is not None:
             break
-        window.navigate_timeline_right()
+        window.navigation.timeline_right()
         articulation_row = find_articulation_row()
     assert articulation_row is not None, "fixture assumption: some note carries a staccato articulation"
     window.region_4.setCurrentRow(articulation_row)
@@ -372,7 +372,7 @@ def test_region_4_attribute_menu_add_updates_region_3_without_reauditioning(
     load_and_wait(window, qtbot, minimal_score)
     assert _region_3_labels(window) == ["C"]
 
-    actions = window._region_4_attribute_menu_actions(1)
+    actions = window.attributes.menu_actions(1)
     # D-15: "stave" is NOT translated by F4's uk_terms toggle - deliberate
     # decision, see tasks.txt.
     assert [label for label, _ in actions] == [
@@ -394,7 +394,7 @@ def test_region_4_attribute_menu_add_updates_region_3_without_reauditioning(
 def test_region_4_attribute_menu_first_action_is_add_to_this_voice(
     window, qtbot, null_synth, minimal_score
 ):
-    """Locks in menu item ordering (via _build_region_4_attribute_menu,
+    """Locks in menu item ordering (via AttributeController.build_menu,
     which stops short of the real exec() call - QMenu.exec cannot be
     monkeypatched around, see that method's docstring). An earlier attempt
     pre-highlighted this first action via exec()'s `at` parameter to help
@@ -402,7 +402,7 @@ def test_region_4_attribute_menu_first_action_is_add_to_this_voice(
     real NVDA announcement) - see show_region_4_attribute_menu."""
     load_and_wait(window, qtbot, minimal_score)
 
-    menu = window._build_region_4_attribute_menu(1)
+    menu = window.attributes.build_menu(1)
 
     assert menu is not None
     assert menu.actions()[0].text() == "Add to notes for this voice"
@@ -412,8 +412,8 @@ def test_restore_region_4_focus_after_menu_returns_to_the_same_row(
     window, qtbot, null_synth, minimal_score
 ):
     """Originally a live-tested bug: selecting a menu action rebuilds Region
-    4's rows (via _apply_display_attribute_change -> _refresh_region_3_labels
-    -> _on_region_3_selection_changed -> refresh_list) while the menu's own
+    4's rows (via AttributeController.apply_change -> _refresh_region_3_labels
+    -> RegionPresenter.on_region_3_selection_changed -> refresh_list) while the menu's own
     exec() is still running (QAction.triggered fires before exec() returns),
     and that rebuild used to reset the list's current row to 0 - NVDA kept
     reporting the stale menu item, and the next Down landed on row 0 ("step")
@@ -421,19 +421,19 @@ def test_restore_region_4_focus_after_menu_returns_to_the_same_row(
     refresh_list itself now preserves the current row across a rebuild (F4's
     Region 1/4 position-persistence fix), so that half of the bug is fixed
     at the source - the current row is already correct by the time
-    _restore_region_4_focus_after_menu runs. What that method still owns is
+    AttributeController.restore_focus_after_menu runs. What that method still owns is
     giving actual WIDGET FOCUS back: exec() steals focus to the menu while
     it's open, and nothing else returns it to Region 4 once the menu closes."""
     load_and_wait(window, qtbot, minimal_score)
 
     window.region_4.setCurrentRow(1)  # octave row
     selected_notes = window._music_data.notes_for_indices([0])
-    window._apply_display_attribute_change("octave", "voice", selected_notes, add=True)
+    window.attributes.apply_change("octave", "voice", selected_notes, add=True)
     assert window.region_4.currentRow() == 1, (
         "refresh_list already preserved the row through the rebuild"
     )
 
-    window._restore_region_4_focus_after_menu(1)
+    window.attributes.restore_focus_after_menu(1)
     QApplication.processEvents()
 
     assert window.region_4.currentRow() == 1
@@ -453,7 +453,7 @@ def test_region_4_attribute_menu_callback_survives_qactions_checked_argument(
     never exercised the argument QAction actually passes."""
     load_and_wait(window, qtbot, minimal_score)
 
-    actions = window._region_4_attribute_menu_actions(1)  # row 1 = octave
+    actions = window.attributes.menu_actions(1)  # row 1 = octave
     actions[0][1](False)  # exactly how QAction.triggered(bool) calls it
 
     assert _region_3_labels(window) == ["C, octave 4"]
@@ -471,7 +471,7 @@ def test_region_4_attribute_menu_omits_voice_and_stave_scopes_for_a_collapsed_pa
     dropped for such a part."""
     load_and_wait(window, qtbot, midi_test1)
 
-    actions = window._region_4_attribute_menu_actions(1)  # row 1 = octave
+    actions = window.attributes.menu_actions(1)  # row 1 = octave
 
     assert [label for label, _ in actions] == [
         "Add to notes in the same part",
@@ -483,10 +483,10 @@ def test_region_4_attribute_menu_switches_to_remove_once_present(
     window, qtbot, null_synth, minimal_score
 ):
     load_and_wait(window, qtbot, minimal_score)
-    window._region_4_attribute_menu_actions(1)[0][1]()  # add octave to the voice
+    window.attributes.menu_actions(1)[0][1]()  # add octave to the voice
     assert _region_3_labels(window) == ["C, octave 4"]
 
-    actions = window._region_4_attribute_menu_actions(1)
+    actions = window.attributes.menu_actions(1)
     assert [label for label, _ in actions] == [
         "Remove for notes in current voice",
         "Remove for notes in current stave",
@@ -517,7 +517,7 @@ def test_region_4_attribute_menu_stave_scope_fans_out_to_every_voice_on_that_sta
     window.region_3.item(1).setSelected(True)  # row 1: P1 staff 2 voice 6, "G"
     assert [i.row() for i in window.region_3.selectedIndexes()] == [1]
 
-    actions = window._region_4_attribute_menu_actions(1)  # row 1 = octave
+    actions = window.attributes.menu_actions(1)  # row 1 = octave
     stave_add = next(cb for label, cb in actions if label == "Add to notes in same stave")
     stave_add()
 
@@ -537,7 +537,7 @@ def test_region_4_attribute_menu_score_scope_fans_out_to_every_part(
     window.region_3.setCurrentRow(1)
     window.region_3.item(1).setSelected(True)  # row 1: P1 staff 2 voice 5
 
-    actions = window._region_4_attribute_menu_actions(1)  # row 1 = octave
+    actions = window.attributes.menu_actions(1)  # row 1 = octave
     score_add = next(cb for label, cb in actions if label == "Add to notes in the whole score")
     score_add()
 

@@ -788,18 +788,6 @@ class MainWindow(QMainWindow):
 
     # --- navigation (delegators) --------------------------------------
 
-    def navigate_timeline_left(self):
-        self.navigation.timeline_left()
-
-    def navigate_timeline_right(self):
-        self.navigation.timeline_right()
-
-    def navigate_measure_left(self):
-        self.navigation.measure_left()
-
-    def navigate_measure_right(self):
-        self.navigation.measure_right()
-
     def navigate_timeline_home(self):
         self.navigation.timeline_home()
 
@@ -834,9 +822,6 @@ class MainWindow(QMainWindow):
 
     def previous_section(self):
         self.navigation.previous_section()
-
-    def announce_region_4_attribute(self, number: int):
-        self.presenter.announce_attribute_by_number(number)
 
     # --- playback (delegators) ----------------------------------------
 
@@ -1023,22 +1008,6 @@ class MainWindow(QMainWindow):
 
     def show_region_4_attribute_menu(self, row: int, global_pos):
         self.attributes.show_menu(row, global_pos)
-
-    def _region_4_attribute_menu_actions(self, row: int) -> list:
-        return self.attributes.menu_actions(row)
-
-    def _build_region_4_attribute_menu(self, row: int):
-        return self.attributes.build_menu(row)
-
-    def _restore_region_4_focus_after_menu(self, row: int):
-        self.attributes.restore_focus_after_menu(row)
-
-    def _apply_display_attribute_change(self, attribute_key: str, scope: str,
-                                        notes: list, add: bool):
-        self.attributes.apply_change(attribute_key, scope, notes, add)
-
-    def _attribute_order_pairs_for_node(self, node) -> list:
-        return self.attributes.order_pairs_for_node(node)
 
     def _show_attribute_order_dialog(self):
         """Ref 15 AC4: scoped to whichever part/staff/voice Region 2 has
@@ -1243,14 +1212,6 @@ class MainWindow(QMainWindow):
         event = click_event_for_symbol(symbol)
         if event is not None:
             self.synth.play_click(*event)
-
-    # --- presentation (delegators) ------------------------------------
-
-    def _update_timeline_views(self, play_all: bool = True):
-        self.presenter.update_timeline_views(play_all)
-
-    def _on_region_3_selection_changed(self):
-        self.presenter.on_region_3_selection_changed()
 
     # --- persistence (delegators) -------------------------------------
 

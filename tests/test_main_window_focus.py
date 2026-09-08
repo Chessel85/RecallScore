@@ -342,7 +342,7 @@ def test_ctrl_a_reselects_every_note_in_the_note_region_only(
     QAction's shortcut simply doesn't fire) everywhere else."""
     load_and_wait(window, qtbot, chord_score)
     _show(window, qtbot)
-    window.navigate_timeline_right()  # C -> the D+F chord
+    window.navigation.timeline_right()  # C -> the D+F chord
     qtbot.keyClick(window.region_3, Qt.Key.Key_Up)  # narrow to just row 0
     assert [i.row() for i in window.region_3.selectedIndexes()] == [0]
 
