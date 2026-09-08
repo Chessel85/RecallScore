@@ -154,7 +154,17 @@ def save(file_path: str, config: ScoreConfig) -> None:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
     except OSError as e:
-        print(f"[ERROR] Failed to save score config to {path}: {e}")
+        # Function-local: keeps QMessageBox out of every `from persistence
+        # import score_config`, and this is a cold path. Without this cue the
+        # user's per-score toggles/mixer/layout are lost on exit silently
+        # (CR8thSept2.txt T1).
+        from widgets.user_notification import notify_user
+        notify_user(
+            "error",
+            f"Could not save this score's settings to {path}: {e}\n\n"
+            "Your changes to its parts, mixer and layout may not be "
+            "remembered next time you open it.",
+        )
 
 
 def delete_for(file_path: str) -> None:

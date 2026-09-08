@@ -1,6 +1,7 @@
 # tests/test_main_window_menus.py
 """Menu shortcuts and mnemonics, the Ctrl+G / Ctrl+F wiring checks, the About dialog, and the goto-measure dialog focus. Split from test_main_window.py (S10).
 """
+import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import QDialog, QLabel
@@ -259,3 +260,17 @@ def test_about_action_opens_without_crashing(window, qtbot, monkeypatch):
     window._show_about_dialog()
 
     assert opened == [True]
+
+
+def test_missing_user_guide_reports_an_error_instead_of_doing_nothing(window, monkeypatch):
+    """CR8thSept2.txt T1: Help > User Guide used to just print and return when
+    the file was absent, so a frozen-build user saw Help do nothing at all."""
+    monkeypatch.setattr("main_window.user_guide_html_path", lambda: "/no/such/guide.html")
+    monkeypatch.setattr("main_window.QDesktopServices.openUrl",
+                        lambda *_: pytest.fail("must not try to open a missing guide"))
+    calls = []
+    monkeypatch.setattr("main_window.notify_user", lambda level, message: calls.append((level, message)))
+
+    window._show_user_guide()
+
+    assert len(calls) == 1 and calls[0][0] == "error"

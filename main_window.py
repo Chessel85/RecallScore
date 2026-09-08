@@ -70,6 +70,7 @@ from widgets.timeline_list_widget import TimelineListWidget
 from widgets.tuner_dialog import TunerDialog
 from widgets.tuner_settings_dialog import TunerSettingsDialog
 from widgets.ultimate_guitar_import_dialog import UltimateGuitarImportDialog
+from widgets.user_notification import notify_user
 from widgets.voice_control_dialog import VoiceControlDialog
 from widgets.voice_control_test_dialog import VoiceControlTestDialog
 from workers.device_enumeration_worker import DeviceEnumerationThread
@@ -1641,9 +1642,11 @@ class MainWindow(QMainWindow):
     def _show_user_guide(self):
         guide_path = user_guide_html_path()
         if not os.path.exists(guide_path):
-            # I1 (accessible error dialog) is still open - print-based error
-            # handling matches every other failure path in this codebase.
-            print(f"[ERROR] User guide not found at {guide_path}")
+            notify_user(
+                "error",
+                "The user guide could not be found, so Help could not open "
+                f"it.\n\nExpected it at: {guide_path}",
+            )
             return
         QDesktopServices.openUrl(QUrl.fromLocalFile(guide_path))
 

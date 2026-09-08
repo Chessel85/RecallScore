@@ -207,7 +207,16 @@ class SynthEngine:
                 self._sfid = self._fs.sfload(soundfont_path)
                 self._fs.program_select(0, self._sfid, 0, 0)
             else:
-                print(f"[WARN] SoundFont not found: {soundfont_path}")
+                # Function-local: keeps Qt-widget imports out of audio/'s
+                # module load, and this only fires on a broken install. An
+                # error dialog, not a print - otherwise the app is simply
+                # mute with no explanation (CR8thSept2.txt T1).
+                from widgets.user_notification import notify_user
+                notify_user(
+                    "error",
+                    "The instrument sound bank was not found, so playback "
+                    f"will be silent.\n\nExpected it at: {soundfont_path}",
+                )
 
             self._load_click_soundfont()
 
