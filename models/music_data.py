@@ -918,57 +918,89 @@ class MusicData:
         bar_word = vocabulary.bar_word(self.uk_terms)
         rows: List[PerformanceRegionRow] = []
 
-        # P2: the song section containing the cursor, first - a start row
-        # (Ctrl+Home -> the section's first bar) and an end row (Ctrl+End ->
-        # its last bar), both stating the full range so one row read alone
-        # conveys it. The label only changes when the cursor crosses a
-        # section boundary, so _refresh_region_5's diff means one change cue
-        # per section and no per-step rebuild.
-        for span in self.section_spans:
-            if span.start_measure <= slice_.measure <= span.end_measure:
-                span_range = f"{bar_word} {span.start_measure} to {bar_word} {span.end_measure}"
-                rows.append(
-                    PerformanceRegionRow(
-                        label=f"Section start: {span.label}: {span_range}",
-                        jump_target_measure=span.start_measure,
-                    )
-                )
-                rows.append(
-                    PerformanceRegionRow(
-                        label=f"Section end: {span.label}: {span_range}",
-                        jump_target_measure=span.end_measure,
-                    )
-                )
+        def _in_measure(span) -> bool:
+            return span.start_measure <= slice_.measure <= span.end_measure
 
-        for span in self.repeat_spans:
-            if span.start_measure <= slice_.measure <= span.end_measure:
-                rows.append(
-                    PerformanceRegionRow(
-                        label=f"Repeat start: {bar_word} {span.start_measure}",
-                        jump_target_measure=span.start_measure,
-                    )
-                )
-                rows.append(
-                    PerformanceRegionRow(
-                        label=f"Repeat end: {bar_word} {span.end_measure}",
-                        jump_target_measure=span.end_measure,
-                    )
-                )
+        def _in_quarters(span) -> bool:
+            return (span.start_quarters_from_start <= slice_.quarters_from_start
+                    <= span.end_quarters_from_start)
 
-        for span in self.ending_spans:
-            if span.start_measure <= slice_.measure <= span.end_measure:
-                rows.append(
-                    PerformanceRegionRow(
-                        label=f"Ending {span.number} start: {bar_word} {span.start_measure}",
-                        jump_target_measure=span.start_measure,
-                    )
-                )
-                rows.append(
-                    PerformanceRegionRow(
-                        label=f"Ending {span.number} end: {bar_word} {span.end_measure}",
-                        jump_target_measure=span.end_measure,
-                    )
-                )
+        def _label_suffix(label: str) -> str:
+            return f" {label}" if label and label != "1" else ""
+
+        def _pair(spans, contained, start_label, end_label, *, jump_quarters=False):
+            """A start row then an end row for every span `contained` at the
+            cursor. jump_target_measure is the span's own start/end measure;
+            jump_target_quarters is added only when the span can begin or end
+            mid-bar (a hairpin-style line, not a repeat/ending barline)."""
+            for span in spans:
+                if not contained(span):
+                    continue
+                rows.append(PerformanceRegionRow(
+                    label=start_label(span),
+                    jump_target_measure=span.start_measure,
+                    jump_target_quarters=(
+                        span.start_quarters_from_start if jump_quarters else None
+                    ),
+                ))
+                rows.append(PerformanceRegionRow(
+                    label=end_label(span),
+                    jump_target_measure=span.end_measure,
+                    jump_target_quarters=(
+                        span.end_quarters_from_start if jump_quarters else None
+                    ),
+                ))
+
+        def _point(marks, label, *, kind=None, jump="slice"):
+            """One row per mark sitting at the resolved slice's own measure.
+            `jump` picks the Ctrl+Home/Ctrl+End target: "slice" -> the
+            cursor's own position (a harmless no-op, where jumping to what the
+            mark points at is out of scope), "measure" -> the mark's bar with
+            no beat, "mark" -> the mark's own bar and offset."""
+            for mark in marks:
+                if kind is not None and mark.kind != kind:
+                    continue
+                if mark.measure != slice_.measure:
+                    continue
+                if jump == "measure":
+                    jump_m, jump_q = mark.measure, None
+                elif jump == "mark":
+                    jump_m, jump_q = mark.measure, mark.quarters_from_start
+                else:
+                    jump_m, jump_q = slice_.measure, slice_.quarters_from_start
+                rows.append(PerformanceRegionRow(
+                    label=label(mark),
+                    jump_target_measure=jump_m,
+                    jump_target_quarters=jump_q,
+                ))
+
+        # P2: the song section(s) containing the cursor come first - a start
+        # row (Ctrl+Home -> first bar) and an end row (Ctrl+End -> last bar),
+        # each stating the full range so one row read alone conveys it. The
+        # label only changes when the cursor crosses a section boundary, so
+        # _refresh_region_5's diff means one change cue per section.
+        def _section_range(s) -> str:
+            return f"{bar_word} {s.start_measure} to {bar_word} {s.end_measure}"
+
+        _pair(
+            self.section_spans, _in_measure,
+            lambda s: f"Section start: {s.label}: {_section_range(s)}",
+            lambda s: f"Section end: {s.label}: {_section_range(s)}",
+        )
+
+        # Repeat / ending spans: a measure-number range check (barlines fall
+        # at measure boundaries), so these rows never name a beat and never
+        # set jump_target_quarters.
+        _pair(
+            self.repeat_spans, _in_measure,
+            lambda s: f"Repeat start: {bar_word} {s.start_measure}",
+            lambda s: f"Repeat end: {bar_word} {s.end_measure}",
+        )
+        _pair(
+            self.ending_spans, _in_measure,
+            lambda s: f"Ending {s.number} start: {bar_word} {s.start_measure}",
+            lambda s: f"Ending {s.number} end: {bar_word} {s.end_measure}",
+        )
 
         # Hairpins now carry a part_id (collected per part, not first-part-
         # only) and completeness flags. A normal span still gets a start row
@@ -1019,74 +1051,52 @@ class MusicData:
         # P3: dashed / bracketed lines and the D6 catch-all get Region 5
         # rows (D12 order: after hairpins, before the one-shot rows). Pedal
         # and octave shift deliberately do NOT (D15) - a pedal-heavy piece
-        # would rebuild Region 5 and fire the change cue on nearly every
-        # bar. D5: a kind's label is prefixed with the part name only when
-        # more than one part contributes a span/mark of that kind.
+        # would rebuild Region 5 and fire the change cue on nearly every bar.
+        # D5: a kind's label is part-prefixed only when >1 part contributes a
+        # span/mark of that kind - _dir_kind_pids is that lookup, built once
+        # here rather than re-concatenating direction_spans + direction_marks
+        # on every _dir_prefix call.
+        _dir_kind_pids: Dict[str, List[str]] = {}
+        for _x in (*self.direction_spans, *self.direction_marks):
+            _dir_kind_pids.setdefault(_x.kind, []).append(_x.part_id)
+
         def _dir_prefix(kind: str, part_id: str) -> str:
-            pids = [
-                x.part_id
-                for x in (self.direction_spans + self.direction_marks)
-                if x.kind == kind
-            ]
-            return self._marking_part_prefix(part_id, pids)
+            return self._marking_part_prefix(part_id, _dir_kind_pids.get(kind, []))
 
         _DIR_LINE_LABELS = {"dashes": "Dashed line", "bracket": "Bracket line"}
-        for span in self.direction_spans:
-            if span.kind not in _DIR_LINE_LABELS:
-                continue
-            if not (span.start_quarters_from_start <= slice_.quarters_from_start
-                    <= span.end_quarters_from_start):
-                continue
-            prefix = _dir_prefix(span.kind, span.part_id)
-            line_label = _DIR_LINE_LABELS[span.kind]
-            if span.label:
-                line_label = f"{line_label} ({span.label})"
-            rows.append(
-                PerformanceRegionRow(
-                    label=(
-                        f"{prefix}{line_label} start: "
-                        f"{self._bar_beat_label(bar_word, span.start_measure, span.start_beat_position)}"
-                    ),
-                    jump_target_measure=span.start_measure,
-                    jump_target_quarters=span.start_quarters_from_start,
-                )
-            )
-            rows.append(
-                PerformanceRegionRow(
-                    label=(
-                        f"{prefix}{line_label} end: "
-                        f"{self._bar_beat_label(bar_word, span.end_measure, span.end_beat_position)}"
-                    ),
-                    jump_target_measure=span.end_measure,
-                    jump_target_quarters=span.end_quarters_from_start,
-                )
-            )
 
-        for mark in self.direction_marks:
-            if mark.kind != "other_direction" or mark.measure != slice_.measure:
-                continue
-            prefix = _dir_prefix("other_direction", mark.part_id)
-            rows.append(
-                PerformanceRegionRow(
-                    label=f"{prefix}Direction: {mark.label}",
-                    jump_target_measure=slice_.measure,
-                    jump_target_quarters=slice_.quarters_from_start,
-                )
-            )
+        def _line_label(s) -> str:
+            base = _DIR_LINE_LABELS[s.kind]
+            return f"{base} ({s.label})" if s.label else base
+
+        _pair(
+            [s for s in self.direction_spans if s.kind in _DIR_LINE_LABELS],
+            _in_quarters,
+            lambda s: (
+                f"{_dir_prefix(s.kind, s.part_id)}{_line_label(s)} start: "
+                f"{self._bar_beat_label(bar_word, s.start_measure, s.start_beat_position)}"
+            ),
+            lambda s: (
+                f"{_dir_prefix(s.kind, s.part_id)}{_line_label(s)} end: "
+                f"{self._bar_beat_label(bar_word, s.end_measure, s.end_beat_position)}"
+            ),
+            jump_quarters=True,
+        )
+
+        _point(
+            self.direction_marks,
+            lambda m: f"{_dir_prefix('other_direction', m.part_id)}Direction: {m.label}",
+            kind="other_direction",
+        )
 
         # Rehearsal marks - a score-level landmark, one-shot point row (no
-        # start/end pair, no part-name prefix), like the tempo / time-signature
-        # one-shot rows. jump_target_measure only, so Ctrl+Home/Ctrl+End resolve
-        # via first/last_visible_event_index_of_measure.
-        for mark in self.direction_marks:
-            if mark.kind != "rehearsal" or mark.measure != slice_.measure:
-                continue
-            rows.append(
-                PerformanceRegionRow(
-                    label=f"Rehearsal mark {mark.label}: {bar_word} {mark.measure}",
-                    jump_target_measure=mark.measure,
-                )
-            )
+        # start/end pair, no part-name prefix). jump by measure only, so
+        # Ctrl+Home/Ctrl+End resolve via first/last_visible_event_index_of_measure.
+        _point(
+            self.direction_marks,
+            lambda m: f"Rehearsal mark {m.label}: {bar_word} {m.measure}",
+            kind="rehearsal", jump="measure",
+        )
 
         # Plain-text dynamics / tempo instructions ("cresc.", "rall.") -
         # one-shot point rows at their own position (never a fabricated
@@ -1094,138 +1104,69 @@ class MusicData:
         _dynword_part_ids = [
             m.part_id for m in self.direction_marks if m.kind == "dynamics_word"
         ]
-        for mark in self.direction_marks:
-            if mark.kind != "dynamics_word" or mark.measure != slice_.measure:
-                continue
-            prefix = self._marking_part_prefix(mark.part_id, _dynword_part_ids)
-            sense = vocabulary.dynamics_instruction_kind(mark.label) or "dynamics"
-            rows.append(
-                PerformanceRegionRow(
-                    label=f'{prefix}{sense.capitalize()} (marked "{mark.label}")',
-                    jump_target_measure=slice_.measure,
-                    jump_target_quarters=slice_.quarters_from_start,
-                )
-            )
+
+        def _dynword_label(m) -> str:
+            prefix = self._marking_part_prefix(m.part_id, _dynword_part_ids)
+            sense = vocabulary.dynamics_instruction_kind(m.label) or "dynamics"
+            return f'{prefix}{sense.capitalize()} (marked "{m.label}")'
+
+        _point(self.direction_marks, _dynword_label, kind="dynamics_word")
 
         _tempword_part_ids = [
             m.part_id for m in self.direction_marks if m.kind == "tempo_word"
         ]
-        for mark in self.direction_marks:
-            if mark.kind != "tempo_word" or mark.measure != slice_.measure:
-                continue
-            prefix = self._marking_part_prefix(mark.part_id, _tempword_part_ids)
-            rows.append(
-                PerformanceRegionRow(
-                    label=f"{prefix}Tempo instruction: {mark.label}",
-                    jump_target_measure=slice_.measure,
-                    jump_target_quarters=slice_.quarters_from_start,
-                )
-            )
+        _point(
+            self.direction_marks,
+            lambda m: (
+                f"{self._marking_part_prefix(m.part_id, _tempword_part_ids)}"
+                f"Tempo instruction: {m.label}"
+            ),
+            kind="tempo_word",
+        )
 
         # P4: barline / clef-change / measure-style one-shot rows, gated on
-        # the mark's own measure (a point mark, like segno below - not a
-        # per-slice sticky value). D15 keeps only pedal/octave-shift out of
-        # Region 5; these three stay in (rare, structural).
-        for mark in self.barline_marks:
-            if mark.measure == slice_.measure:
-                label = (
-                    "Double barline" if mark.kind == "double_barline"
-                    else f"{mark.style.capitalize()} barline"
-                )
-                rows.append(
-                    PerformanceRegionRow(
-                        label=f"{label}: {bar_word} {mark.measure}",
-                        jump_target_measure=mark.measure,
-                    )
-                )
+        # the mark's own measure (a point mark, like segno below). D15 keeps
+        # only pedal/octave-shift out of Region 5; these three stay in (rare,
+        # structural).
+        def _barline_label(m) -> str:
+            base = (
+                "Double barline" if m.kind == "double_barline"
+                else f"{m.style.capitalize()} barline"
+            )
+            return f"{base}: {bar_word} {m.measure}"
+
+        _point(self.barline_marks, _barline_label, jump="measure")
 
         _clef_pids = {m.part_id for m in self.clef_change_marks}
-        for mark in self.clef_change_marks:
-            if mark.measure != slice_.measure:
-                continue
+
+        def _clef_label(m) -> str:
             prefix = ""
             if len(_clef_pids) > 1:
-                name = next((p.name for p in self.parts_info if p.part_id == mark.part_id), None)
+                name = next((p.name for p in self.parts_info if p.part_id == m.part_id), None)
                 prefix = f"{name}: " if name else ""
-            rows.append(
-                PerformanceRegionRow(
-                    label=f"{prefix}Clef change: {mark.label}, staff {mark.staff}",
-                    jump_target_measure=mark.measure,
-                    jump_target_quarters=mark.quarters_from_start,
-                )
-            )
+            return f"{prefix}Clef change: {m.label}, staff {m.staff}"
 
-        for mark in self.measure_style_marks:
-            if mark.measure == slice_.measure:
-                rows.append(
-                    PerformanceRegionRow(
-                        label=f"{mark.label.capitalize()}: {bar_word} {mark.measure}",
-                        jump_target_measure=mark.measure,
-                    )
-                )
+        _point(self.clef_change_marks, _clef_label, jump="mark")
 
-        # Segno/Coda/D.C./D.S./Fine: one-shot rows, like the time-sig/tempo
-        # rows below - unlike repeat/ending/hairpin spans, each of these is a
-        # single point, not a start/end pair, so the gate is a direct
-        # "does this mark sit at the resolved slice's own measure" check,
-        # not a diff against the previous slice (those marks aren't sticky
-        # per-slice values the way key/time-sig/tempo are). jump_target_*
-        # is always this row's OWN position (a harmless Ctrl+Home/Ctrl+End
-        # no-op, same as the time-sig/tempo rows) - jumping to where a mark
-        # actually points is out of scope; NavigationController.jump_to_span
-        # has no concept of that.
-        def _label_suffix(label: str) -> str:
-            return f" {label}" if label and label != "1" else ""
+        _point(
+            self.measure_style_marks,
+            lambda m: f"{m.label.capitalize()}: {bar_word} {m.measure}",
+            jump="measure",
+        )
 
-        for segno in self.segno_marks:
-            if segno.measure == slice_.measure:
-                rows.append(
-                    PerformanceRegionRow(
-                        label=f"Segno{_label_suffix(segno.label)}",
-                        jump_target_measure=slice_.measure,
-                        jump_target_quarters=slice_.quarters_from_start,
-                    )
-                )
-
-        for coda in self.coda_marks:
-            if coda.measure == slice_.measure:
-                rows.append(
-                    PerformanceRegionRow(
-                        label=f"Coda{_label_suffix(coda.label)}",
-                        jump_target_measure=slice_.measure,
-                        jump_target_quarters=slice_.quarters_from_start,
-                    )
-                )
-
-        for to_coda in self.to_coda_marks:
-            if to_coda.measure == slice_.measure:
-                rows.append(
-                    PerformanceRegionRow(
-                        label=f"To coda{_label_suffix(to_coda.label)}",
-                        jump_target_measure=slice_.measure,
-                        jump_target_quarters=slice_.quarters_from_start,
-                    )
-                )
-
-        for fine in self.fine_marks:
-            if fine.measure == slice_.measure:
-                rows.append(
-                    PerformanceRegionRow(
-                        label="Fine",
-                        jump_target_measure=slice_.measure,
-                        jump_target_quarters=slice_.quarters_from_start,
-                    )
-                )
-
-        for nj in self.navigation_jumps:
-            if nj.measure == slice_.measure:
-                rows.append(
-                    PerformanceRegionRow(
-                        label="Da capo" if nj.kind == "dacapo" else "Dal segno",
-                        jump_target_measure=slice_.measure,
-                        jump_target_quarters=slice_.quarters_from_start,
-                    )
-                )
+        # Segno / Coda / To coda / Fine / D.C. / D.S.: one-shot point rows,
+        # each a single point (not a start/end pair). jump_target_* is always
+        # this row's OWN position (a harmless Ctrl+Home/Ctrl+End no-op) -
+        # jumping to where a mark actually points is out of scope;
+        # NavigationController.jump_to_span has no concept of that.
+        _point(self.segno_marks, lambda m: f"Segno{_label_suffix(m.label)}")
+        _point(self.coda_marks, lambda m: f"Coda{_label_suffix(m.label)}")
+        _point(self.to_coda_marks, lambda m: f"To coda{_label_suffix(m.label)}")
+        _point(self.fine_marks, lambda m: "Fine")
+        _point(
+            self.navigation_jumps,
+            lambda m: "Da capo" if m.kind == "dacapo" else "Dal segno",
+        )
 
         # S7: a one-shot alert - unlike the three span kinds above, this has
         # no start/end pair, it just fires once at the transition itself.
@@ -1446,33 +1387,40 @@ class MusicData:
             lines.append(f"Anacrusis starts on beat {beat_str}")
         lines.append(f"Number of {bar_word.lower()}s: {self.total_measures}")
 
-        if self.section_spans:
-            lines.append(f"Sections: {len(self.section_spans)}")
-            for span in self.section_spans:
-                lines.append(
-                    f"{span.label}: {bar_word} {span.start_measure} to {bar_word} {span.end_measure}"
-                )
+        def _tally(header, items, line_fn, *, omit_if_empty=False):
+            """A "<header>: <count>" line then one `line_fn(item)` line per
+            item. `omit_if_empty` drops the whole block (header included)
+            when there is nothing to list - matching the sections that were
+            hand-written with an `if items:` guard."""
+            if omit_if_empty and not items:
+                return
+            lines.append(f"{header}: {len(items)}")
+            lines.extend(line_fn(it) for it in items)
+
+        _tally(
+            "Sections", self.section_spans,
+            lambda s: f"{s.label}: {bar_word} {s.start_measure} to {bar_word} {s.end_measure}",
+            omit_if_empty=True,
+        )
 
         note_counts: Dict[str, int] = {}
         for s in self._real_timeline_slices:
             for n in s.notes:
                 if n.midi_pitch is not None:
                     note_counts[n.part_name] = note_counts.get(n.part_name, 0) + 1
-        lines.append(f"Instruments: {len(self.parts_info)}")
-        for p in self.parts_info:
-            lines.append(f"{p.name}: {note_counts.get(p.name, 0)} notes")
+        _tally(
+            "Instruments", self.parts_info,
+            lambda p: f"{p.name}: {note_counts.get(p.name, 0)} notes",
+        )
 
-        lines.append(f"Repeated sections: {len(self.repeat_spans)}")
-        for span in self.repeat_spans:
-            lines.append(
-                f"Repeat: {bar_word} {span.start_measure} to {bar_word} {span.end_measure}"
-            )
-
-        lines.append(f"Endings: {len(self.ending_spans)}")
-        for span in self.ending_spans:
-            lines.append(
-                f"Ending {span.number}: {bar_word} {span.start_measure} to {bar_word} {span.end_measure}"
-            )
+        _tally(
+            "Repeated sections", self.repeat_spans,
+            lambda s: f"Repeat: {bar_word} {s.start_measure} to {bar_word} {s.end_measure}",
+        )
+        _tally(
+            "Endings", self.ending_spans,
+            lambda s: f"Ending {s.number}: {bar_word} {s.start_measure} to {bar_word} {s.end_measure}",
+        )
 
         # P3: <direction> spans and points. Pedal/octave-shift appear here
         # (and in Find) but never in Region 5 (D15). Beat-precise (not just
@@ -1483,6 +1431,12 @@ class MusicData:
             start = self._bar_beat_label(bar_word, span.start_measure, span.start_beat_position)
             end = self._bar_beat_label(bar_word, span.end_measure, span.end_beat_position)
             return f"{start} to {end}"
+
+        def _sp(label) -> str:
+            return f" {label}" if label else ""
+
+        def _paren(label) -> str:
+            return f" ({label})" if label else ""
 
         # Dynamics (volume): one chronological list merging every way the
         # file expresses a volume change - real <wedge> hairpins (collected
@@ -1556,85 +1510,64 @@ class MusicData:
             lines.append(f"Pedal change: {bar_word} {mark.measure}")
 
         _octave_spans = [s for s in self.direction_spans if s.kind == "octave_shift"]
-        lines.append(f"Octave shifts: {len(_octave_spans)}")
-        for span in _octave_spans:
-            label = f" {span.label}" if span.label else ""
-            lines.append(f"Octave shift{label}: {_span_range(span)}")
+        _tally(
+            "Octave shifts", _octave_spans,
+            lambda s: f"Octave shift{_sp(s.label)}: {_span_range(s)}",
+        )
 
+        # Rehearsal marks and plain-text tempo instructions ("rall.",
+        # "a tempo") - both omitted entirely when zero (accel./rit. spans are
+        # out of scope, nothing parses them yet).
         _rehearsals = [m for m in self.direction_marks if m.kind == "rehearsal"]
-        if _rehearsals:
-            lines.append(f"Rehearsal marks: {len(_rehearsals)}")
-            for mark in _rehearsals:
-                label = f" {mark.label}" if mark.label else ""
-                lines.append(f"Rehearsal mark{label}: {bar_word} {mark.measure}")
-
-        # Plain-text tempo instructions ("rall.", "a tempo") - point marks,
-        # listed by bar/beat. Omitted entirely when zero, like Rehearsal
-        # marks above (accel./rit. spans are out of scope - nothing parses
-        # them yet).
+        _tally(
+            "Rehearsal marks", _rehearsals,
+            lambda m: f"Rehearsal mark{_sp(m.label)}: {bar_word} {m.measure}",
+            omit_if_empty=True,
+        )
         _tempo_words = [m for m in self.direction_marks if m.kind == "tempo_word"]
-        if _tempo_words:
-            lines.append(f"Tempo instructions: {len(_tempo_words)}")
-            for mark in _tempo_words:
-                position = self._bar_beat_label(bar_word, mark.measure, mark.beat_position)
-                lines.append(f'Tempo instruction (marked "{mark.label}"): {position}')
+        _tally(
+            "Tempo instructions", _tempo_words,
+            lambda m: (
+                f'Tempo instruction (marked "{m.label}"): '
+                f"{self._bar_beat_label(bar_word, m.measure, m.beat_position)}"
+            ),
+            omit_if_empty=True,
+        )
 
         # Every dashed / bracketed line, as written - a "cresc." word and the
         # dashed line drawn under it are two things in the file (the word is
         # a point mark in Dynamics above; the line is here).
-        lines.append(f"Dashed lines: {len(_dashes)}")
-        for span in _dashes:
-            label = f" ({span.label})" if span.label else ""
-            lines.append(f"Dashed line{label}: {_span_range(span)}")
-        lines.append(f"Bracket lines: {len(_brackets)}")
-        for span in _brackets:
-            label = f" ({span.label})" if span.label else ""
-            lines.append(f"Bracket line{label}: {_span_range(span)}")
+        _tally("Dashed lines", _dashes,
+               lambda s: f"Dashed line{_paren(s.label)}: {_span_range(s)}")
+        _tally("Bracket lines", _brackets,
+               lambda s: f"Bracket line{_paren(s.label)}: {_span_range(s)}")
 
         _other_dirs = [m for m in self.direction_marks if m.kind == "other_direction"]
-        lines.append(f"Other directions: {len(_other_dirs)}")
-        for mark in _other_dirs:
-            lines.append(f"Direction {mark.label}: {bar_word} {mark.measure}")
+        _tally("Other directions", _other_dirs,
+               lambda m: f"Direction {m.label}: {bar_word} {m.measure}")
 
         # P4: bar-style points (M6), mid-part clef changes (M7),
         # measure-style points (M8).
-        lines.append(f"Barline changes: {len(self.barline_marks)}")
-        for mark in self.barline_marks:
-            lines.append(f"{mark.style.capitalize()} barline: {bar_word} {mark.measure}")
-
-        lines.append(f"Clef changes: {len(self.clef_change_marks)}")
-        for mark in self.clef_change_marks:
-            lines.append(
-                f"Clef change: {mark.label}, staff {mark.staff}, {bar_word} {mark.measure}"
-            )
-
-        lines.append(f"Measure style markers: {len(self.measure_style_marks)}")
-        for mark in self.measure_style_marks:
-            lines.append(f"{mark.label.capitalize()}: {bar_word} {mark.measure}")
+        _tally("Barline changes", self.barline_marks,
+               lambda m: f"{m.style.capitalize()} barline: {bar_word} {m.measure}")
+        _tally("Clef changes", self.clef_change_marks,
+               lambda m: f"Clef change: {m.label}, staff {m.staff}, {bar_word} {m.measure}")
+        _tally("Measure style markers", self.measure_style_marks,
+               lambda m: f"{m.label.capitalize()}: {bar_word} {m.measure}")
 
         def _label_suffix(label: str) -> str:
             return f" {label}" if label and label != "1" else ""
 
-        lines.append(f"Segno marks: {len(self.segno_marks)}")
-        for segno in self.segno_marks:
-            lines.append(f"Segno{_label_suffix(segno.label)}: {bar_word} {segno.measure}")
-
-        lines.append(f"Coda marks: {len(self.coda_marks)}")
-        for coda in self.coda_marks:
-            lines.append(f"Coda{_label_suffix(coda.label)}: {bar_word} {coda.measure}")
-
-        lines.append(f"To coda marks: {len(self.to_coda_marks)}")
-        for tc in self.to_coda_marks:
-            lines.append(f"To coda{_label_suffix(tc.label)}: {bar_word} {tc.measure}")
-
-        lines.append(f"Fine marks: {len(self.fine_marks)}")
-        for fine in self.fine_marks:
-            lines.append(f"Fine: {bar_word} {fine.measure}")
-
-        lines.append(f"Navigation jumps: {len(self.navigation_jumps)}")
-        for nj in self.navigation_jumps:
-            name = "Da capo" if nj.kind == "dacapo" else "Dal segno"
-            lines.append(f"{name}: {bar_word} {nj.measure}")
+        _tally("Segno marks", self.segno_marks,
+               lambda m: f"Segno{_label_suffix(m.label)}: {bar_word} {m.measure}")
+        _tally("Coda marks", self.coda_marks,
+               lambda m: f"Coda{_label_suffix(m.label)}: {bar_word} {m.measure}")
+        _tally("To coda marks", self.to_coda_marks,
+               lambda m: f"To coda{_label_suffix(m.label)}: {bar_word} {m.measure}")
+        _tally("Fine marks", self.fine_marks,
+               lambda m: f"Fine: {bar_word} {m.measure}")
+        _tally("Navigation jumps", self.navigation_jumps,
+               lambda nj: f"{'Da capo' if nj.kind == 'dacapo' else 'Dal segno'}: {bar_word} {nj.measure}")
 
         return lines
 
