@@ -19,14 +19,12 @@ class Region2ListWidget(RegionFocusCycleMixin, QTreeWidget):
     live: "all the nodes are closed to start with... I think that is
     better") and expand state is never persisted to the .rsc.
 
-    Collapsing a node forgets its children's own expand state too - live-
-    tested and reverted after a "remember each descendant's own state"
-    version turned out to depend on the same missing setExpanded(True)
-    call below and behaved oddly; the user's own call was simplicity over
-    memory ("I'll live with the child nodes collapsing when the parent is
-    collapsed"). Re-expanding a node always rebuilds its immediate
-    children fresh, themselves collapsed. Tab/Shift+Tab forward to the
-    region focus cycle like every other region widget.
+    Collapsing a node forgets its children's own expand state too - the
+    user's own call was simplicity over memory ("I'll live with the child
+    nodes collapsing when the parent is collapsed"). Re-expanding a node
+    always rebuilds its immediate children fresh, themselves collapsed.
+    Tab/Shift+Tab forward to the region focus cycle like every other region
+    widget.
 
     Reported, live-tested against NVDA (real hardware, Pachelbel's Canon):
     collapsing via Qt's native isExpanded()/setExpanded() only visually

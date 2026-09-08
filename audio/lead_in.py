@@ -7,9 +7,9 @@ audio/strum_schedule.py - the timing maths is then directly unit-testable
 without a real event loop, and the controller only has to walk the schedule
 it hands back.
 
-Reported from real practice use: playback used to sound the instant it was
-pressed, leaving no time to get hands back onto the guitar. See
-models/play_settings.py for the settings this reads.
+The lead-in exists because, from real practice use, playback sounding the
+instant Space is pressed leaves no time to get hands back onto the guitar.
+See models/play_settings.py for the settings this reads.
 """
 import math
 from typing import List, Tuple

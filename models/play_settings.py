@@ -2,10 +2,10 @@
 """How the one play transport (Space, Playback > Play Settings) behaves: the
 lead-in count-in before it starts, and whether/how it loops.
 
-Reported from real practice use: the old Preview used to sound the instant it
-was pressed, leaving no time to get hands back onto the guitar, and it always
-played exactly this bar plus the next, once. These settings are what the Play
-Settings dialog (widgets/play_settings_dialog.py) edits and
+The lead-in exists because, from real practice use, playback sounding the
+instant Space is pressed leaves no time to get hands back onto the guitar.
+These settings are what the Play Settings dialog
+(widgets/play_settings_dialog.py) edits and
 controllers/playback_controller.py's play session reads.
 
 Stored GLOBALLY (persistence/app_settings.py), not per score like the mixer

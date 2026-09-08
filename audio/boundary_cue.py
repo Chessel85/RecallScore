@@ -2,11 +2,10 @@
 """Ref 2 AC4/Ref 3 AC4: the short sound played INSTEAD of moving when a
 navigation key would step past the start or end of the active timeline.
 
-Same plain-module shape as audio/performance_cue.py. It used to be a low GM
-contrabass note through the main soundfont (a synthesised "thud"); it is now
-a recorded one-shot sample (tools/bells/bump.wav) routed through the small
-project-authored soundfont, the same path the click / position announcer /
-performance cue already use.
+Same plain-module shape as audio/performance_cue.py. A recorded one-shot
+sample (tools/bells/bump.wav) routed through the small project-authored
+soundfont, the same path the click / position announcer / performance cue
+already use.
 """
 from typing import Tuple
 

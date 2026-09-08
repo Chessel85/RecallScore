@@ -191,15 +191,12 @@ class SynthEngine:
             self._fs.setting(f"audio.{driver}.device", device)
             self._fs.audio_driver = fluidsynth.new_fluid_audio_driver(self._fs.settings, self._fs.synth)
 
-            # Resolve SoundFont path
-            # TEST SWITCH (user-requested, wishlist #4 pan investigation):
-            # temporarily pointed at Airfont_380_final.sf2 instead of
-            # FluidR3_GM.sf2, to compare whether its instrument patches use
-            # the same baked-in dual hard-panned-zone stereo-width trick
-            # that defeats the Mixer dialog's channel pan on FluidR3_GM (see
-            # audio/synth_engine.py git history / the mixer-dialog pan
-            # investigation for the confirmed root cause). Revert to
-            # FluidR3_GM.sf2 here if this doesn't turn out better.
+            # Resolve SoundFont path. Airfont_380 is the project's soundfont
+            # (CLAUDE.md "Local binaries"); do NOT swap in a stock GM font
+            # like FluidR3_GM here - its piano/viola patches bake a
+            # hard-left/hard-right zone layer into every note that a
+            # channel's pan CC can only partially offset, which defeats the
+            # Mixer's pan feature.
             if not soundfont_path:
                 soundfont_path = os.path.join(PROJECT_ROOT, "soundfonts", "Airfont_380_final.sf2")
 

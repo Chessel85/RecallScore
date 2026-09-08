@@ -278,10 +278,10 @@ class MainWindow(QMainWindow):
         instances alive in the same QApplication.
 
         Ctrl+M/Ctrl+P/Ctrl+G/Ctrl+A have no QShortcut here: their menu
-        actions carry the shortcut themselves. Ctrl+A in particular used to
-        be a bare QShortcut right here with no menu presence at all - it's
-        now Edit > Select All (widgets/menu_builder.py), gated to the Note
-        region only by FocusController the same way Home/End already are.
+        actions carry the shortcut themselves. Ctrl+A in particular is
+        Edit > Select All (widgets/menu_builder.py) - do not re-add it as a
+        bare QShortcut here; it is gated to the Note region only by
+        FocusController the same way Home/End already are.
         """
         def window_shortcut(sequence, slot):
             shortcut = QShortcut(QKeySequence(sequence), self)

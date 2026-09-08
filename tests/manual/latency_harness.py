@@ -2,10 +2,11 @@
 """E10/Ref 9 AC3/NFR-04: manual latency benchmark against real audio
 hardware - NOT a pytest test. tests/conftest.py's autouse _forbid_real_audio
 fixture deliberately blocks constructing a real SynthEngine in every test
-(D-7), and pytest.ini scopes discovery to testpaths = tests anyway, so this
-lives at the repo root and is run by hand:
+(D-7), and pytest.ini scopes discovery to testpaths = tests anyway (and pytest
+only collects test_*.py), so this lives in tests/manual/ alongside the
+fingerprint harnesses and is run by hand from the repo root:
 
-    .venv\\Scripts\\python.exe latency_harness.py
+    .venv\\Scripts\\python.exe tests\\manual\\latency_harness.py
 
 Replaces the version recovered from git history (git show
 520f743:test_midi_latency.py), which sent a MIDI message through `mido` to

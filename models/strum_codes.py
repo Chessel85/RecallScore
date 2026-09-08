@@ -6,9 +6,9 @@ models/gm_instruments.py and models/gm_percussion_map.py, which already
 live here - so models/ can read it without importing parsers/.
 
 The full 9-code table below is taken verbatim from UG's own front-end
-bundle (webpack module 78736, each numeric code -> {stroke, effect}); the
-app previously knew only 3 of them and mislabelled 202 (a pause - the
-single most common code in every real pattern) as a "muted strum".
+bundle (webpack module 78736, each numeric code -> {stroke, effect}). Note
+202 is a pause, not a strum - it is the single most common code in every
+real pattern.
 
 parsers/ug_source.py re-exports the names its own callers already import
 from there, so those import sites are unchanged.

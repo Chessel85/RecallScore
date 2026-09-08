@@ -81,3 +81,18 @@ nondeterministic (no timestamps, no dict iteration order that isn't sorted, no
 absolute paths). A parse failure is recorded in the output as a `FAILED:` line
 rather than raised, so one broken fixture can't mask differences in the other
 55 — and a file that fails identically before and after still compares equal.
+
+## `latency_harness.py` — unrelated, also lives here
+
+Not a fingerprint harness and not about refactors. It is the E10 / Ref 9 AC3 /
+NFR-04 manual latency benchmark — per-note dispatch time and Sequencer
+scheduling jitter against a **real** `SynthEngine` (needs `bin/` DLLs and a
+SoundFont; `tests/conftest.py` blocks real audio, so it can't be a pytest
+test). Run it by hand from the repo root:
+
+```powershell
+.venv\Scripts\python.exe tests\manual\latency_harness.py
+```
+
+It just prints numbers for a human to read against the 25 ms budget — there is
+no baseline or `--check`.

@@ -13,11 +13,11 @@ class KeySignatureDialog(QDialog):
     metadata, which drives MidiTimelineBuilder's sharp/flat enharmonic
     spelling choice; this lets the user state the real key.
 
-    Originally lived as a second control inside widgets/instrument_dialog.py
-    (S5's per-part rename/reprogram dialog) - reverted to its own dialog:
-    the user found renaming a part and overriding the score's key too
-    different a pair of actions to share one dialog, even though both are
-    "override what the file declared, save it per file".
+    Deliberately its own dialog, not a second control in
+    widgets/instrument_dialog.py (part rename/reprogram): the user judged
+    renaming a part and overriding the score's key too different a pair of
+    actions to share one dialog, even though both are "override what the
+    file declared, save it per file".
 
     One control, one combo: picking e.g. "G major" sets both the fifths (1)
     and the major/minor display mode together - simpler than two separate

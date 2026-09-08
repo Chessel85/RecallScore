@@ -40,11 +40,11 @@ class InstrumentDialog(QDialog):
     entirely (BluePeter.mid, a real internet-sourced file: every track just
     "Track 1"/"Track 2"/etc).
 
-    S6 (the key signature override) briefly lived as a second control in
-    this same dialog, but the user found renaming/reprogramming a part and
+    The key signature override is deliberately a separate dialog
+    (widgets/key_signature_dialog.py, Edit > Key Signature...), not a second
+    control here: the user judged renaming/reprogramming a part and
     overriding the score's key too different a pair of actions to share one
-    dialog - reverted, key override now lives in its own
-    widgets/key_signature_dialog.py (Edit > Key Signature...).
+    dialog.
 
     Deliberately no live audio preview, unlike MixerDialog - a name/program
     change has nothing to preview live the way a volume/pan slider does,

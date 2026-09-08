@@ -1,0 +1,106 @@
+New report — issues ranked by severity                                                                                  
+                                                                                                                        
+T1 (high) — Error handling is still print() outside score loading                                                       
+                                                                                                                        
+Files: persistence/score_config.py, persistence/app_settings.py, audio/synth_engine.py, main_window.py:_show_user_guide,
+ plus ~40 more.                                                                                                         
+                                                                                                                        
+45 print sites remain. _show_load_error's QMessageBox is still the only user-visible error path. Three cases are        
+actively harmful in a frozen build:                                                                                     
+                                                                                                                        
+- score_config.py "Failed to save score config" — the user's per-score settings are silently lost on exit with no cue   
+whatsoever.                                                                                                             
+- synth_engine.py "SoundFont not found" — the app is mute and the user is never told why.                               
+- main_window.py "User guide not found" — Help does nothing.                                                            
+                                                                                                                        
+Fix: the notify_user(level, message) helper proposed last time, posting a QMessageBox for errors and routing warnings   
+through widgets/accessible_announcer.announce. Migrate those three first.                                               
+                                                                                                                        
+T2 (high, macOS) — Two shortcuts collide with reserved macOS system keys                                                
+                                                                                                                        
+Files: widgets/menu_builder.py:422 (Ctrl+Space, Pause), widgets/menu_builder.py:562 (Ctrl+M).                           
+                                                                                                                        
+Qt swaps Ctrl for Cmd on macOS by default. That makes Pause into Cmd+Space, which Spotlight takes at the system level   
+before the app sees it, and Ctrl+M into Cmd+M, which is the standard macOS Minimize on the Window menu. Neither will    
+work on a Mac, and Cmd+M will minimise the window instead.                                                              
+                                                                                                                        
+Fix: platform-branch both in menu_builder (the file already has the shortcut strings in one place). Ctrl+Alt+Space (Play
+ Metronome) survives the swap and is safe. This is the concrete form of what the last report could only flag as "needs  
+checking".                                                                                                              
+                                                                                                                        
+T3 (medium) — The two Region 5 / report methods are still the largest in the codebase                                   
+                                                                                                                        
+File: models/music_data.py:896 (325 lines), :1369 (204 lines).                                                          
+                                                                                                                        
+S7 delivered the helper extraction but not the declarative spec table, so the stated target ("well under 150 lines      
+combined") is missed by 380 lines. The _pair/_point helpers make the regular cases short; what remains long is the      
+hairpin block (60 lines of near-duplicate PerformanceRegionRow(...) construction across three branches) and the one-shot
+ rows.                                                                                                                  
+                                                                                                                        
+Fix: collapse the hairpin branches to one label-formatting decision plus a single append, and move both methods into    
+models/performance_rows.py — music_data.py is 1,920 lines and these two are 28% of it.                                  
+                                                                                                                        
+T4 (medium) — Bare-letter shortcuts still suppress list type-ahead                                                      
+                                                                                                                        
+Files: main_window.py:301-303 (F/S/D), plus Z/X/C/V/B, 0-9.                                                             
+                                                                                                                        
+Unchanged from S10. F, S, D and the digits are WindowShortcuts, so Qt's native first-letter type-ahead is dead in all   
+five list regions. In a score with hundreds of note rows this is a standard Windows behaviour a screen-reader user      
+brings with them and does not get. Still a design decision rather than a bug, but it is now the single biggest remaining
+ gap in the screen-reader-UX score.                                                                                     
+                                                                                                                        
+T5 (medium) — MainWindow facade                                                                                         
+                                                                                                                        
+File: main_window.py — 1,674 lines, 123 methods, 67 of them single-statement.                                           
+                                                                                                                        
+The 57 self.x_action = actions.x aliases are gone (good), but the delegator count is essentially unchanged. Direction,  
+not defect: point new tests at the owning controller, then drop the delegators that have no non-test caller.            
+                                                                                                                        
+T6 (medium) — VoiceControlTestDialog still constructs its own recognizer                                                
+                                                                                                                        
+File: widgets/voice_control_test_dialog.py:52.                                                                          
+                                                                                                                        
+Unchanged from S16. The widget layer still spawns a subprocess, and MainWindow still has to pause the real session      
+around it.                                                                                                              
+                                                                                                                        
+T7 (low) — score_formats has a leaked special case                                                                      
+                                                                                                                        
+Files: models/score_formats.py:44, main_window.py:531-537.                                                              
+                                                                                                                        
+in_score_files_glob is misnamed — the included list it feeds gates the whole filter row, not just the combined glob. And
+ main_window tests fmt.key == "musescore" by literal, reintroducing exactly the hardcoded format knowledge the registry 
+exists to remove. Rename the field to something like requires_external_tool and have the comprehension ask the format,  
+not the key.                                                                                                            
+                                                                                                                        
+T8 (low) — Parentless QTimers in the synth                                                                              
+                                                                                                                        
+File: audio/synth_engine.py:600, 642, 663. Unchanged from S12. Still the only place in the codebase not using           
+QTimer(self), and still one timer allocated per sounding group per note.                                                
+                                                                                                                        
+T9 (low) — Region 4's context menu is the last self.window() reach-up                                                   
+                                                                                                                        
+File: widgets/region4_list_widget.py:90. Give it a context_menu_requested(row, global_pos) signal to match regions 2, 3 
+and 5. (region_focus_cycle.py:38 is by design and should stay.)                                                         
+                                                                                                                        
+T10 (low) — Misnamed .mxl still refuses rather than reads                                                               
+                                                                                                                        
+File: parsers/file_signature.py:60-64. Unchanged from S14. read_musicxml_root has both code paths and looks_like already
+ knows which is needed; asking a blind user to go and rename a file is the worse outcome.                               
+                                                                                                                        
+T11 (low) — Repo root and documentation volume                                                                          
+                                                                                                                        
+- Still at the root: latency_harness.py, instructions for writing the user guide.txt, MacTesterGuide.txt, ToMac.md,     
+CR8thSept.txt.                                                                                                          
+- Non-code lines are 47% of source (was 46%), with 28 remaining historical-narrative comments matching "REVERTED" /     
+"used to" / "Reported bug". The rule still stands: keep a comment that prevents a future bug, move one that only records
+ how a past bug was found.                                                                                              
+                                                                                                                        
+Suggested order                                                                                                         
+                                                                                                                        
+1. T2 (Mac key collisions — small, and blocks a Mac release)                                                            
+2. T1 (error dialogs, starting with the silent .rsc save failure)                                                       
+3. T9, T7 (small, zero behavioural risk)                                                                                
+4. T3 (gate on tests/manual/model_fingerprint.py --check)                                                               
+5. T4 (design decision — worth putting to the user rather than implementing)                                            
+6. T5, T6, T8 (structural, one at a time)                                                                               
+ 

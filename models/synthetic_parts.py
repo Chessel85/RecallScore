@@ -4,16 +4,12 @@ reading from a file - one definition each, in models/ where both the
 parsers that create them and the model code that recognises them can import
 from the same source.
 
-These were previously spread across three parser modules with the same
-literals repeated: `"chords"`/`"lyrics"` in both parsers/timeline_builder.py
-and parsers/ug_timeline_builder.py, and the display names `"Chords"`/
-`"Lyrics"` a third time in parsers/ug_reader.py (plus GP's own
-CHORD_VOICE_NAME in parsers/gp_reader.py). Every one of those pairs has to
-agree verbatim - MusicData.collapsed_part_ids matches part_ids by string,
-and get_performance_report_lines joins parts_info.name against
+The id and display-name literals have to agree verbatim wherever they
+appear - MusicData.collapsed_part_ids matches part_ids by string, and
+get_performance_report_lines joins parts_info.name against
 NoteData.part_name by exact text - which is precisely the "two independent
-copies of a name must agree" bug class R5 fixed for the reader's own two XML
-passes (see CLAUDE.md). One source here means they cannot drift.
+copies of a name must agree" bug class (see CLAUDE.md). One source here
+means they cannot drift.
 
 Each parser module still re-exports the names it already published, so
 existing import sites (including tests that import them from the parser

@@ -419,8 +419,8 @@ class MenuBuilder:
         QShortcut in main_window.py (same pattern Ctrl+M/Ctrl+P/Ctrl+G
         already use), so Space/Ctrl+Space show up here too.
 
-        Mute/Solo/Unmute All/Unsolo All used to live here too; they moved
-        to the Parts menu (see _parts_menu).
+        Mute/Solo/Unmute All/Unsolo All live in the Parts menu, not here
+        (see _parts_menu).
         """
         playback_menu = menu_bar.addMenu("&Playback")
 
