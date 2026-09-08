@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 
 from models.gm_instruments import GM_INSTRUMENT_NAMES, GM_PROGRAM_BY_NAME, gm_instrument_name
 from models.live_midi_input_settings import LiveMidiInputSettings
+from widgets.form_helpers import add_buddy_row
 from widgets.range_spin_box import RangeSpinBox
 
 # Shown as the device combo's first entry when no device is selected, or
@@ -120,7 +121,7 @@ class LiveMidiInputDialog(QDialog):
         self.pan_spin.valueChanged.connect(self.pan_changed)
 
         form = QFormLayout()
-        form.addRow("&Device:", device_row)
+        add_buddy_row(form, "&Device:", device_row, self.device_combo)
         form.addRow("&Instrument:", self.instrument_combo)
         form.addRow("&Volume:", self.volume_spin)
         form.addRow("Pa&n:", self.pan_spin)

@@ -21,6 +21,7 @@ from models.tuner_instruments import (
     SIGNAL_THRESHOLD_MIN_PERCENT,
 )
 from models.tuner_settings import TunerSettings
+from widgets.form_helpers import add_buddy_row
 from widgets.range_spin_box import RangeSpinBox
 
 # Shown as the device combo's first entry - never a real device name, so it
@@ -106,20 +107,13 @@ class TunerSettingsDialog(QDialog):
         device_row.addWidget(self.device_combo, stretch=1)
         device_row.addWidget(self.refresh_button)
 
-        # An explicit QLabel + setBuddy, not QFormLayout.addRow("&Device:",
-        # device_row) - live-tested (the old tuner_dialog.py this was moved
-        # from): QFormLayout's addRow(str, QLayout) overload does NOT parse
-        # the "&" mnemonic the way its addRow(str, QWidget) overload does
-        # for every other row here, so it rendered the literal "&Device:"
-        # text instead of an underlined "D". Constructing the QLabel
-        # directly sidesteps whichever overload is used.
-        device_label = QLabel("&Device:", self)
-        device_label.setBuddy(self.device_combo)
-
         form = QFormLayout()
         form.addRow("Reference Pitch (&A4):", self.a4_spin)
         form.addRow("Signal &Threshold:", self.threshold_spin)
-        form.addRow(device_label, device_row)
+        # add_buddy_row, not form.addRow("&Device:", device_row): the
+        # addRow(str, QLayout) overload sets no buddy and doesn't parse the
+        # "&" mnemonic. Live-tested against the old tuner_dialog.py.
+        add_buddy_row(form, "&Device:", device_row, self.device_combo)
 
         # Live-tested (moved from the old tuner_dialog.py): a Realtek
         # microphone's own "signal enhancements" (acoustic echo

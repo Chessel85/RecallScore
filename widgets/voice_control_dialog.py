@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from models.voice_control_settings import DEFAULT_CONFIDENCE_THRESHOLD, VoiceControlSettings
+from widgets.form_helpers import add_buddy_row
 from widgets.range_spin_box import RangeSpinBox
 
 # Shown as the device combo's first entry when no device is selected, or
@@ -90,7 +91,7 @@ class VoiceControlDialog(QDialog):
         self.confidence_spin.setKeyboardTracking(False)
 
         form = QFormLayout()
-        form.addRow("&Device:", device_row)
+        add_buddy_row(form, "&Device:", device_row, self.device_combo)
         form.addRow("&Confidence Threshold:", self.confidence_spin)
 
         self.test_button = QPushButton("&Test...", self)
