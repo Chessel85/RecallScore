@@ -34,6 +34,7 @@ from controllers.tuner_controller import TunerController
 from controllers.voice_control_controller import VoiceControlController
 from models.metronome_pattern import default_pattern, snap_time_signature
 from models.music_data import MusicData
+from models.score_formats import SCORE_FORMATS
 from models.vocabulary import bar_word
 from parsers.file_signature import precheck as precheck_score_file
 from parsers.musescore_reader import (
@@ -566,19 +567,22 @@ class MainWindow(QMainWindow):
         musescore = (
             find_musescore_executable(app_settings.load().musescore_path) is not None
         )
-        ms = " *.mscz *.mscx" if musescore else ""
-        filters = [
-            f"Score Files (*.xml *.musicxml *.mxl{ms} *.mid *.midi *.gp *.ug)",
-            "MusicXML Files (*.xml *.musicxml *.mxl)",
+        # S4: built from models/score_formats.py so the extension lists live
+        # in one place. MuseScore opts out of the combined glob unless an
+        # executable was found; every other format is always offered.
+        included = [
+            fmt
+            for fmt in SCORE_FORMATS
+            if fmt.in_score_files_glob or (fmt.key == "musescore" and musescore)
         ]
-        if musescore:
-            filters.append("MuseScore Files (*.mscz *.mscx)")
-        filters += [
-            "MIDI Files (*.mid *.midi)",
-            "Guitar Pro Files (*.gp)",
-            "Recall Score UG Import Files (*.ug)",
-            "All Files (*)",
-        ]
+
+        def _globs(fmt):
+            return " ".join(f"*{ext}" for ext in fmt.extensions)
+
+        combined = " ".join(_globs(fmt) for fmt in included)
+        filters = [f"Score Files ({combined})"]
+        filters += [f"{fmt.dialog_label} ({_globs(fmt)})" for fmt in included]
+        filters.append("All Files (*)")
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "Open Score",

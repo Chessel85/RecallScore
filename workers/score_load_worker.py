@@ -9,6 +9,7 @@ from parsers.musescore_reader import MuseScoreReader
 from parsers.musicXML_reader import MusicXMLReader
 from parsers.score_load_error import ScoreLoadError
 from parsers.ug_reader import UgFileReader
+from models.score_formats import family_for_path
 from persistence import app_settings
 
 _GENERIC_LOAD_ERROR = (
@@ -34,14 +35,17 @@ class ScoreLoadThread(QThread):
         self.file_path = file_path
 
     def run(self):
+        # S4: family_for_path owns the extension lists (models/score_formats.py);
+        # MusicXML is the default/catch-all for an unrecognised extension.
+        family = family_for_path(self.file_path)
         try:
-            if self.file_path.lower().endswith((".mid", ".midi")):
+            if family == "midi":
                 data = MidiReader(self.file_path).load()
-            elif self.file_path.lower().endswith(".gp"):
+            elif family == "gp":
                 data = GpReader(self.file_path).load()
-            elif self.file_path.lower().endswith(".ug"):
+            elif family == "ug":
                 data = UgFileReader(self.file_path).load()
-            elif self.file_path.lower().endswith((".mscz", ".mscx")):
+            elif family == "musescore":
                 data = MuseScoreReader(
                     self.file_path,
                     configured_exe=app_settings.load().musescore_path,

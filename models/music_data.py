@@ -28,6 +28,7 @@ from models.playback_event_builder import PlaybackEventBuilder
 from models.playback_jump_state import PlaybackJumpState
 from models.repeat_span import RepeatSpan
 from models.score_config_data import ScoreConfig
+from models.score_formats import family_for_path
 from models.section_span import SectionSpan
 from models.segno_mark import SegnoMark
 from models.strum_pattern import StrumPattern
@@ -222,16 +223,17 @@ class MusicData:
     @property
     def is_midi(self) -> bool:
         """True for a score loaded from a Standard MIDI File, as opposed to
-        MusicXML - the same extension check __post_init__ uses to pick a
+        MusicXML - the same format family check __post_init__ uses to pick a
         timeline builder, exposed once here so other call sites (Ref 25/S2's
-        Region 2 collapse) don't each repeat it."""
-        return self.file_path.lower().endswith((".mid", ".midi"))
+        Region 2 collapse) don't each repeat it. Extension lists live in
+        models/score_formats.py (S4)."""
+        return family_for_path(self.file_path) == "midi"
 
     @property
     def is_gp(self) -> bool:
         """True for a score loaded from a Guitar Pro (.gp) file - the same
-        extension check __post_init__ uses to pick a timeline builder."""
-        return self.file_path.lower().endswith(".gp")
+        format family check __post_init__ uses to pick a timeline builder."""
+        return family_for_path(self.file_path) == "gp"
 
     @property
     def is_ug(self) -> bool:
@@ -241,7 +243,7 @@ class MusicData:
         Also drives Region 2's collapse_to_parts, same as is_midi - both
         of UG's synthetic parts (Chords/Lyrics) are flat, nothing useful to
         toggle below the part level."""
-        return self.file_path.lower().endswith(".ug")
+        return family_for_path(self.file_path) == "ug"
 
     @property
     def collapsed_part_ids(self) -> Union[bool, Set[str]]:

@@ -15,23 +15,17 @@ before an XML declaration.
 import os
 import zipfile
 
+from models.score_formats import SIGNATURE_EXPECTATIONS
 from parsers.score_load_error import ScoreLoadError
 
 _HEAD_BYTES = 512
 _UTF8_BOM = b"\xef\xbb\xbf"
 
-# extension -> (expected kind from looks_like, human label for messages)
-_EXPECTED = {
-    ".mid": ("midi", "MIDI"),
-    ".midi": ("midi", "MIDI"),
-    ".gp": ("zip", "Guitar Pro"),
-    ".mscz": ("zip", "MuseScore"),
-    ".mscx": ("xml", "MuseScore"),
-    ".ug": ("ug-json", "Recall Score Ultimate Guitar import"),
-    ".xml": ("xml", "MusicXML"),
-    ".musicxml": ("xml", "MusicXML"),
-    ".mxl": ("zip", "compressed MusicXML"),
-}
+# extension -> (expected kind from looks_like, human label for messages).
+# S4: the list itself lives in models/score_formats.py so adding a format is
+# a one-file edit. models.score_formats is pure stdlib, so this module stays
+# dependency-light and identical across Windows/macOS.
+_EXPECTED = SIGNATURE_EXPECTATIONS
 
 
 def looks_like(file_path: str) -> str:
