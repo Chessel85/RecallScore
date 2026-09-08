@@ -406,86 +406,35 @@ class MainWindow(QMainWindow):
         self.focus.connect_tracking()
 
     def setup_menu(self):
-        actions = MenuBuilder(self, self, self.session.uk_terms).build()
-        self._actions = actions
+        # The menu's QActions are reached as self._actions.<name> everywhere
+        # (production and tests). MenuBuilder.Actions is the one list of them;
+        # the window keeps no per-action aliases of its own.
+        self._actions = MenuBuilder(self, self, self.session.uk_terms).build()
 
-        # Kept as individual attributes: the names the tests and the rest of
-        # the window already use.
-        self.clear_preferences_action = actions.clear_preferences
-        self.close_action = actions.close
-        self.performance_report_action = actions.performance_report
-        self.play_stop_action = actions.play_stop
-        self.pause_resume_action = actions.pause_resume
-        self.play_metronome_action = actions.play_metronome
-        self.commit_digits_action = actions.commit_digits
-        self.play_settings_action = actions.play_settings
-        self.play_mode_action = actions.play_mode_cycle
-        self.lead_in_toggle_action = actions.lead_in_toggle
-        self.loop_repeat_mode_action = actions.loop_repeat_mode
         # Global (AppSettings.play), not per-score - the lead-in toggle is
         # checkable and set once here from the loaded settings, kept in sync
         # by toggle_lead_in. The play-mode action is a non-checkable cycle
         # (three states), so it carries no checked state of its own.
-        self.lead_in_toggle_action.setChecked(self.playback.play_settings.lead_in_enabled)
-        self.mute_action = actions.mute
-        self.solo_action = actions.solo
-        self.unmute_all_action = actions.unmute_all
-        self.unsolo_all_action = actions.unsolo_all
-        self.mixer_action = actions.mixer
-        self.instruments_action = actions.instruments
-        self.key_signature_action = actions.key_signature
-        self.strumming_action = actions.strumming
-        self.metronome_player_action = actions.metronome_player
-        self.save_ug_import_action = actions.save_ug_import
-        self.select_all_action = actions.select_all
-        self.first_measure_action = actions.first_measure
-        self.last_measure_action = actions.last_measure
-        self.goto_measure_action = actions.goto_measure
-        self.find_action = actions.find
-        self.find_next_action = actions.find_next
-        self.find_previous_action = actions.find_previous
-        self.next_section_action = actions.next_section
-        self.previous_section_action = actions.previous_section
-        self.move_to_notes_action = actions.move_to_notes
-        self.move_to_metadata_action = actions.move_to_metadata
-        self.move_to_parts_action = actions.move_to_parts
-        self.move_to_attributes_action = actions.move_to_attributes
-        self.move_to_performance_action = actions.move_to_performance
-        self.terminology_language_group = actions.terminology_group
-        self.uk_language_action = actions.uk_language
-        self.us_language_action = actions.us_language
-        self.metronome_action = actions.metronome
-        self.position_announcer_action = actions.position_announcer
-        self.bar_line_indicator_action = actions.bar_line_indicator
-        self.live_midi_input_action = actions.live_midi_input
-        self.live_midi_input_settings_action = actions.live_midi_input_settings
-        # Global (AppSettings), not per-score like metronome/position
-        # announcer above - set once here, never re-set on score load.
-        self.live_midi_input_action.setChecked(self.live_midi.settings.enabled)
-        self.voice_control_action = actions.voice_control
-        self.voice_control_settings_action = actions.voice_control_settings
-        # Global (AppSettings), not per-score - set once here, never re-set
-        # on score load, same reasoning as live_midi_input above.
-        self.voice_control_action.setChecked(self.voice_control.settings.enabled)
-        self.attribute_order_action = actions.attribute_order
-        self.part_order_action = actions.part_order
-        self.tuner_action = actions.tuner
-        self.user_guide_action = actions.user_guide
-        self.about_action = actions.about
+        self._actions.lead_in_toggle.setChecked(self.playback.play_settings.lead_in_enabled)
+        # Global (AppSettings), not per-score like the metronome/position-
+        # announcer toggles - set once here, never re-set on score load.
+        self._actions.live_midi_input.setChecked(self.live_midi.settings.enabled)
+        # Same reasoning as live_midi_input above.
+        self._actions.voice_control.setChecked(self.voice_control.settings.enabled)
 
-        self.persistence.clear_action = actions.clear_preferences
+        self.persistence.clear_action = self._actions.clear_preferences
         self.persistence.refresh_clear_action()
-        self.focus.first_measure_action = actions.first_measure
-        self.focus.last_measure_action = actions.last_measure
-        self.focus.select_all_action = actions.select_all
+        self.focus.first_measure_action = self._actions.first_measure
+        self.focus.last_measure_action = self._actions.last_measure
+        self.focus.select_all_action = self._actions.select_all
         self.focus.update_navigation_actions_enabled()
-        self.focus.mute_action = actions.mute
-        self.focus.solo_action = actions.solo
-        self.focus.unmute_all_action = actions.unmute_all
-        self.focus.unsolo_all_action = actions.unsolo_all
+        self.focus.mute_action = self._actions.mute
+        self.focus.solo_action = self._actions.solo
+        self.focus.unmute_all_action = self._actions.unmute_all
+        self.focus.unsolo_all_action = self._actions.unsolo_all
         self.focus.update_region2_actions_enabled()
 
-        self.recent_files_menu = actions.recent_files_menu
+        self.recent_files_menu = self._actions.recent_files_menu
         self._refresh_recent_files_menu()
 
     def connect_signals(self):
@@ -520,6 +469,17 @@ class MainWindow(QMainWindow):
         self.region_3.itemSelectionChanged.connect(
             self.presenter.on_region_3_selection_changed
         )
+
+        # S6: the Note and Performance regions emit intent rather than
+        # reaching back through self.window() - wired here like
+        # region_2.filter_changed above.
+        self.region_3.navigate_requested.connect(self.navigation.navigate)
+        self.region_3.vertical_move_made.connect(self.on_region_3_vertical_move)
+        self.region_3.loop_length_adjust_requested.connect(self._adjust_loop_length)
+        self.region_3.attribute_number_requested.connect(
+            self.presenter.announce_attribute_by_number
+        )
+        self.region_5.span_jump_requested.connect(self._jump_to_performance_span)
 
     # --- state exposed for the widgets and tests ----------------------
 
@@ -626,9 +586,9 @@ class MainWindow(QMainWindow):
         self.session.close()
 
         self.setWindowTitle("Recall Score")
-        self.close_action.setEnabled(False)
-        self.strumming_action.setEnabled(False)
-        self.save_ug_import_action.setEnabled(False)
+        self._actions.close.setEnabled(False)
+        self._actions.strumming.setEnabled(False)
+        self._actions.save_ug_import.setEnabled(False)
         # Reverts "go to bar N"'s vocabulary to nothing score-specific -
         # go_to_bar_phrases(0) is []. Safe whether or not voice control is
         # currently listening (see _on_score_loaded's own call).
@@ -639,9 +599,9 @@ class MainWindow(QMainWindow):
 
         self.presenter.clear_all()
         self.persistence.refresh_clear_action()
-        self.metronome_action.setChecked(False)
-        self.position_announcer_action.setChecked(False)
-        self.bar_line_indicator_action.setChecked(False)
+        self._actions.metronome.setChecked(False)
+        self._actions.position_announcer.setChecked(False)
+        self._actions.bar_line_indicator.setChecked(False)
 
         self.region_1.setFocus()
 
@@ -741,9 +701,9 @@ class MainWindow(QMainWindow):
         effect before the first audition, or the opening chord includes
         voices the user had switched off."""
         self.setWindowTitle(self._window_title_for(music_data))
-        self.close_action.setEnabled(True)
-        self.strumming_action.setEnabled(bool(music_data.ug_strum_patterns))
-        self.save_ug_import_action.setEnabled(bool(music_data.is_ug))
+        self._actions.close.setEnabled(True)
+        self._actions.strumming.setEnabled(bool(music_data.ug_strum_patterns))
+        self._actions.save_ug_import.setEnabled(bool(music_data.is_ug))
 
         # Ref 19: "go to bar N"'s numeric vocabulary is bounded to this
         # score's own real measure numbers - see audio/voice_commands.
@@ -818,9 +778,9 @@ class MainWindow(QMainWindow):
             self._music_data.get_score_structure(),
             collapse_to_parts=self._music_data.collapsed_part_ids,
         )
-        self.metronome_action.setChecked(self._music_data.metronome_enabled)
-        self.position_announcer_action.setChecked(self._music_data.position_announcer_enabled)
-        self.bar_line_indicator_action.setChecked(self._music_data.bar_line_indicator_enabled)
+        self._actions.metronome.setChecked(self._music_data.metronome_enabled)
+        self._actions.position_announcer.setChecked(self._music_data.position_announcer_enabled)
+        self._actions.bar_line_indicator.setChecked(self._music_data.bar_line_indicator_enabled)
         self.presenter.update_timeline_views(play_all=play_all)
 
     # --- navigation (delegators) --------------------------------------
@@ -851,6 +811,14 @@ class MainWindow(QMainWindow):
 
     def jump_to_performance_span_end(self):
         self.navigation.jump_to_span(self.region_5.current_row_data(), is_start=False)
+
+    def _jump_to_performance_span(self, is_start: bool):
+        """Slot for Region5ListWidget.span_jump_requested (S6): the widget
+        no longer calls the two methods above directly."""
+        if is_start:
+            self.jump_to_performance_span_start()
+        else:
+            self.jump_to_performance_span_end()
 
     def find_next(self):
         self.navigation.find_next()
@@ -910,7 +878,7 @@ class MainWindow(QMainWindow):
         self.presenter.announce_play_mode(mode)
 
     def toggle_lead_in(self):
-        self.lead_in_toggle_action.setChecked(self.playback.toggle_lead_in())
+        self._actions.lead_in_toggle.setChecked(self.playback.toggle_lead_in())
 
     def cycle_loop_repeat_mode(self):
         """Ctrl+R: rotate how a repeat barline clipped by the loop window is
@@ -940,6 +908,11 @@ class MainWindow(QMainWindow):
         self.playback.adjust_loop_length_bars(-1)
         self.presenter.announce_loop_length(self.playback.play_settings.loop_length_bars)
 
+    def _adjust_loop_length(self, delta: int):
+        """Slot for TimelineListWidget.loop_length_adjust_requested (S6):
+        +1 from Alt+PageUp, -1 from Alt+PageDown."""
+        self.increase_loop_length() if delta > 0 else self.decrease_loop_length()
+
     def toggle_mute_current_region2_row(self):
         self.region_2.toggle_mute_current()
 
@@ -965,10 +938,10 @@ class MainWindow(QMainWindow):
         self.presenter.announce_tempo()
 
     def toggle_metronome(self):
-        self.metronome_action.setChecked(self.playback.toggle_metronome())
+        self._actions.metronome.setChecked(self.playback.toggle_metronome())
 
     def toggle_position_announcer(self):
-        self.position_announcer_action.setChecked(
+        self._actions.position_announcer.setChecked(
             self.playback.toggle_position_announcer()
         )
 
@@ -978,17 +951,17 @@ class MainWindow(QMainWindow):
         isn't heard). Per-score - saved in the .rsc via MusicData.export_
         config, like the metronome and position announcer toggles."""
         enabled = self.playback.toggle_bar_line_indicator()
-        self.bar_line_indicator_action.setChecked(enabled)
+        self._actions.bar_line_indicator.setChecked(enabled)
         accessible_announcer.announce(
             self.region_3,
             f"Bar line indicator {'on' if enabled else 'off'}",
         )
 
     def toggle_live_midi_input(self):
-        self.live_midi_input_action.setChecked(self.live_midi.toggle_enabled())
+        self._actions.live_midi_input.setChecked(self.live_midi.toggle_enabled())
 
     def toggle_voice_control(self):
-        self.voice_control_action.setChecked(self.voice_control.toggle_enabled())
+        self._actions.voice_control.setChecked(self.voice_control.toggle_enabled())
 
     def _audition_current_selection(self, with_position_cues: bool = True):
         self.playback.audition_selection(
@@ -1226,7 +1199,7 @@ class MainWindow(QMainWindow):
         return self.playback.is_play_run_active or (seq is not None and seq.is_playing)
 
     def _refresh_metronome_player_action_enabled(self):
-        self.metronome_player_action.setEnabled(not self._metronome_player_is_blocked())
+        self._actions.metronome_player.setEnabled(not self._metronome_player_is_blocked())
 
     def _show_metronome_player_dialog(self):
         """Tools > Metronome Player... (Ctrl+Shift+M) - a standalone practice
@@ -1272,12 +1245,6 @@ class MainWindow(QMainWindow):
 
     def _update_timeline_views(self, play_all: bool = True):
         self.presenter.update_timeline_views(play_all)
-
-    def _refresh_region_3_labels(self):
-        self.presenter.refresh_region_3_labels()
-
-    def _refresh_region_5(self):
-        self.presenter.refresh_region_5()
 
     def _on_region_3_selection_changed(self):
         self.presenter.on_region_3_selection_changed()
@@ -1333,9 +1300,9 @@ class MainWindow(QMainWindow):
         settings = app_settings.load()
         settings.uk_terms = uk_terms
         app_settings.save(settings)
-        self.uk_language_action.setChecked(uk_terms)
-        self.us_language_action.setChecked(not uk_terms)
-        self.goto_measure_action.setText(goto_measure_action_text(uk_terms))
+        self._actions.uk_language.setChecked(uk_terms)
+        self._actions.us_language.setChecked(not uk_terms)
+        self._actions.goto_measure.setText(goto_measure_action_text(uk_terms))
         if not self._music_data:
             return
         self.presenter.refresh_region_1()
@@ -1418,7 +1385,7 @@ class MainWindow(QMainWindow):
                 settings = dialog.play_settings()
                 self.playback.set_play_settings(settings)
                 app_settings.set_play_settings(settings)
-                self.lead_in_toggle_action.setChecked(settings.lead_in_enabled)
+                self._actions.lead_in_toggle.setChecked(settings.lead_in_enabled)
                 if self._music_data:
                     self.playback.set_playback_tempo(dialog.tempo_display_bpm())
 
@@ -1502,7 +1469,7 @@ class MainWindow(QMainWindow):
                 self.live_midi.commit_settings_edit(dialog.result_settings())
             else:
                 self.live_midi.cancel_settings_edit()
-            self.live_midi_input_action.setChecked(self.live_midi.settings.enabled)
+            self._actions.live_midi_input.setChecked(self.live_midi.settings.enabled)
 
     def _show_voice_control_dialog(self):
         """Options > Voice Control Settings... (Ref 19). Pure view (see
@@ -1530,7 +1497,7 @@ class MainWindow(QMainWindow):
                 self.voice_control.commit_settings_edit(dialog.result_settings())
             else:
                 self.voice_control.cancel_settings_edit()
-            self.voice_control_action.setChecked(self.voice_control.settings.enabled)
+            self._actions.voice_control.setChecked(self.voice_control.settings.enabled)
 
     def set_musescore_location(self):
         """Options > Set MuseScore Location... - point at the MuseScore 4

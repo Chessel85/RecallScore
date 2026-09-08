@@ -24,14 +24,14 @@ def test_voice_control_is_constructed_disabled_and_toggle_updates_the_menu_actio
     qtbot.addWidget(w)
 
     assert not w.voice_control.is_listening()
-    assert w.voice_control_action.isChecked() is False
+    assert w._actions.voice_control.isChecked() is False
 
     w.voice_control.settings.device_name = "My Microphone"
     null_voice_recognizer.available_devices = ["My Microphone"]
     w.toggle_voice_control()
 
     assert w.voice_control.is_listening()
-    assert w.voice_control_action.isChecked() is True
+    assert w._actions.voice_control.isChecked() is True
 
 
 def test_loading_a_score_rebuilds_the_go_to_bar_grammar(
@@ -325,10 +325,10 @@ def test_metronome_player_action_is_disabled_while_a_play_run_is_active(
     qtbot.addWidget(w)
     load_and_wait(w, qtbot, minimal_score)
 
-    assert w.metronome_player_action.isEnabled() is True
+    assert w._actions.metronome_player.isEnabled() is True
 
     w.playback.toggle_play_stop()
-    assert w.metronome_player_action.isEnabled() is False
+    assert w._actions.metronome_player.isEnabled() is False
 
     w.playback.stop()
-    assert w.metronome_player_action.isEnabled() is True
+    assert w._actions.metronome_player.isEnabled() is True

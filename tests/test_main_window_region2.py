@@ -11,25 +11,25 @@ from tests.support.main_window_helpers import _focus, _show, load_and_wait
 # --- Playback menu: mute/solo (F8/F9/Alt+F8/Alt+F9) -----------------------
 
 def test_playback_menu_shortcuts(window):
-    assert window.play_stop_action.shortcut() == QKeySequence(Qt.Key.Key_Space)
-    assert window.pause_resume_action.shortcut() == QKeySequence("Ctrl+Space")
-    assert window.pause_resume_action.text() == "Pa&use", (
+    assert window._actions.play_stop.shortcut() == QKeySequence(Qt.Key.Key_Space)
+    assert window._actions.pause_resume.shortcut() == QKeySequence("Ctrl+Space")
+    assert window._actions.pause_resume.text() == "Pa&use", (
         "user-requested 2026-08-26: this shortcut only ever pauses - "
         "resuming is Space, not Ctrl+Space again - so 'Resume' in its own "
         "name was misleading"
     )
     # Enter/Return is a hidden global shortcut that only commits a typed
     # bar number now (Preview is gone - Space is the single play control).
-    assert window.commit_digits_action.shortcut() == QKeySequence(Qt.Key.Key_Enter)
-    assert QKeySequence(Qt.Key.Key_Return) in window.commit_digits_action.shortcuts()
-    assert window.play_settings_action.shortcut() == QKeySequence("Ctrl+Shift+P")
-    assert window.play_mode_action.shortcut() == QKeySequence("Ctrl+L")
-    assert window.lead_in_toggle_action.shortcut() == QKeySequence("Ctrl+I")
-    assert window.mute_action.shortcut() == QKeySequence(Qt.Key.Key_F8)
-    assert window.solo_action.shortcut() == QKeySequence(Qt.Key.Key_F9)
-    assert window.unmute_all_action.shortcut() == QKeySequence("Alt+F8")
-    assert window.unsolo_all_action.shortcut() == QKeySequence("Alt+F9")
-    assert window.mixer_action.shortcut() == QKeySequence("Ctrl+Shift+X")
+    assert window._actions.commit_digits.shortcut() == QKeySequence(Qt.Key.Key_Enter)
+    assert QKeySequence(Qt.Key.Key_Return) in window._actions.commit_digits.shortcuts()
+    assert window._actions.play_settings.shortcut() == QKeySequence("Ctrl+Shift+P")
+    assert window._actions.play_mode_cycle.shortcut() == QKeySequence("Ctrl+L")
+    assert window._actions.lead_in_toggle.shortcut() == QKeySequence("Ctrl+I")
+    assert window._actions.mute.shortcut() == QKeySequence(Qt.Key.Key_F8)
+    assert window._actions.solo.shortcut() == QKeySequence(Qt.Key.Key_F9)
+    assert window._actions.unmute_all.shortcut() == QKeySequence("Alt+F8")
+    assert window._actions.unsolo_all.shortcut() == QKeySequence("Alt+F9")
+    assert window._actions.mixer.shortcut() == QKeySequence("Ctrl+Shift+X")
 
 
 def test_mute_solo_actions_are_only_enabled_with_region_2_focused(
@@ -42,16 +42,16 @@ def test_mute_solo_actions_are_only_enabled_with_region_2_focused(
 
     for region in (window.region_1, window.region_3, window.region_4):
         _focus(region)
-        assert not window.mute_action.isEnabled()
-        assert not window.solo_action.isEnabled()
-        assert not window.unmute_all_action.isEnabled()
-        assert not window.unsolo_all_action.isEnabled()
+        assert not window._actions.mute.isEnabled()
+        assert not window._actions.solo.isEnabled()
+        assert not window._actions.unmute_all.isEnabled()
+        assert not window._actions.unsolo_all.isEnabled()
 
     _focus(window.region_2)
-    assert window.mute_action.isEnabled()
-    assert window.solo_action.isEnabled()
-    assert window.unmute_all_action.isEnabled()
-    assert window.unsolo_all_action.isEnabled()
+    assert window._actions.mute.isEnabled()
+    assert window._actions.solo.isEnabled()
+    assert window._actions.unmute_all.isEnabled()
+    assert window._actions.unsolo_all.isEnabled()
 
 
 def test_mute_solo_actions_stay_enabled_while_the_menu_bar_itself_has_focus(
@@ -66,15 +66,15 @@ def test_mute_solo_actions_stay_enabled_while_the_menu_bar_itself_has_focus(
     load_and_wait(window, qtbot, minimal_score)
     _show(window, qtbot)
     _focus(window.region_2)
-    assert window.mute_action.isEnabled()
+    assert window._actions.mute.isEnabled()
 
     window.menuBar().setFocus()
     QApplication.processEvents()
 
-    assert window.mute_action.isEnabled()
-    assert window.solo_action.isEnabled()
-    assert window.unmute_all_action.isEnabled()
-    assert window.unsolo_all_action.isEnabled()
+    assert window._actions.mute.isEnabled()
+    assert window._actions.solo.isEnabled()
+    assert window._actions.unmute_all.isEnabled()
+    assert window._actions.unsolo_all.isEnabled()
 
 
 def test_f9_solos_the_focused_row_and_overrides_a_muted_ancestor(

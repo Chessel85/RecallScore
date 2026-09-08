@@ -20,25 +20,25 @@ def test_detect_default_uk_terms_false_only_for_a_us_locale():
 
 def test_set_uk_terms_updates_music_data_menu_and_status_bar(window, qtbot, minimal_score):
     load_and_wait(window, qtbot, minimal_score)
-    assert window.uk_language_action.isChecked() is False
-    assert window.us_language_action.isChecked() is True
+    assert window._actions.uk_language.isChecked() is False
+    assert window._actions.us_language.isChecked() is True
     assert window.status_bar._fields[0].text().startswith("Measure ")
 
     window.set_uk_terms(True)
 
     assert window._music_data.uk_terms is True
-    assert window.uk_language_action.isChecked() is True
-    assert window.us_language_action.isChecked() is False
+    assert window._actions.uk_language.isChecked() is True
+    assert window._actions.us_language.isChecked() is False
     assert window.status_bar._fields[0].text().startswith("Bar ")
-    assert window.goto_measure_action.text() == "&Go to Bar..."
+    assert window._actions.goto_measure.text() == "&Go to Bar..."
 
     window.set_uk_terms(False)
 
     assert window._music_data.uk_terms is False
-    assert window.uk_language_action.isChecked() is False
-    assert window.us_language_action.isChecked() is True
+    assert window._actions.uk_language.isChecked() is False
+    assert window._actions.us_language.isChecked() is True
     assert window.status_bar._fields[0].text().startswith("Measure ")
-    assert window.goto_measure_action.text() == "&Go to Measure..."
+    assert window._actions.goto_measure.text() == "&Go to Measure..."
 
 
 def test_terminology_language_actions_fire_set_uk_terms(window, qtbot, minimal_score):
@@ -47,15 +47,15 @@ def test_terminology_language_actions_fire_set_uk_terms(window, qtbot, minimal_s
     always visibly true."""
     load_and_wait(window, qtbot, minimal_score)
 
-    window.uk_language_action.trigger()
+    window._actions.uk_language.trigger()
     assert window._music_data.uk_terms is True
-    assert window.uk_language_action.isChecked() is True
-    assert window.us_language_action.isChecked() is False
+    assert window._actions.uk_language.isChecked() is True
+    assert window._actions.us_language.isChecked() is False
 
-    window.us_language_action.trigger()
+    window._actions.us_language.trigger()
     assert window._music_data.uk_terms is False
-    assert window.uk_language_action.isChecked() is False
-    assert window.us_language_action.isChecked() is True
+    assert window._actions.uk_language.isChecked() is False
+    assert window._actions.us_language.isChecked() is True
 
 
 def test_set_uk_terms_works_with_no_score_loaded(qtbot, null_synth):
@@ -64,13 +64,13 @@ def test_set_uk_terms_works_with_no_score_loaded(qtbot, null_synth):
     toggle_metronome, which is a no-op with no score)."""
     w = MainWindow(synth=null_synth, uk_terms=False)
     qtbot.addWidget(w)
-    assert w.uk_language_action.isChecked() is False
+    assert w._actions.uk_language.isChecked() is False
 
     w.set_uk_terms(True)
 
     assert w._uk_terms is True
-    assert w.uk_language_action.isChecked() is True
-    assert w.us_language_action.isChecked() is False
+    assert w._actions.uk_language.isChecked() is True
+    assert w._actions.us_language.isChecked() is False
 
 
 def test_uk_terms_preference_survives_loading_a_new_score(window, qtbot, minimal_score):
@@ -84,7 +84,7 @@ def test_uk_terms_preference_survives_loading_a_new_score(window, qtbot, minimal
     load_and_wait(window, qtbot, minimal_score)
 
     assert window._music_data.uk_terms is True
-    assert window.uk_language_action.isChecked() is True
+    assert window._actions.uk_language.isChecked() is True
 
 
 # --- Ref 27: app naming, window title, Edit menu, per-file persistence ------
@@ -100,15 +100,15 @@ def test_window_title_shows_loaded_filename(window, qtbot, minimal_score):
 
 
 def test_clear_preferences_action_disabled_with_no_file_loaded(window):
-    assert window.clear_preferences_action.isEnabled() is False
-    assert window.clear_preferences_action.text() == "&Clear Preferences"
+    assert window._actions.clear_preferences.isEnabled() is False
+    assert window._actions.clear_preferences.text() == "&Clear Preferences"
 
 
 def test_clear_preferences_action_enabled_and_labelled_after_load(window, qtbot, minimal_score):
     load_and_wait(window, qtbot, minimal_score)
 
-    assert window.clear_preferences_action.isEnabled() is True
-    assert window.clear_preferences_action.text() == "&Clear Preferences for minimal_4_4.musicxml"
+    assert window._actions.clear_preferences.isEnabled() is True
+    assert window._actions.clear_preferences.text() == "&Clear Preferences for minimal_4_4.musicxml"
 
 
 def test_open_local_folder_action_opens_the_config_directory(window, monkeypatch):
@@ -279,13 +279,13 @@ def test_a_sub_staffs_own_toggle_survives_reload_under_an_off_part(
 # --- File > Close -----------------------------------------------------
 
 def test_close_action_disabled_until_a_score_is_loaded(window, qtbot, minimal_score):
-    assert window.close_action.isEnabled() is False
+    assert window._actions.close.isEnabled() is False
 
     load_and_wait(window, qtbot, minimal_score)
-    assert window.close_action.isEnabled() is True
+    assert window._actions.close.isEnabled() is True
 
     window.close_score()
-    assert window.close_action.isEnabled() is False
+    assert window._actions.close.isEnabled() is False
 
 
 def test_close_score_commits_the_current_config(window, qtbot, minimal_score):
@@ -316,10 +316,10 @@ def test_close_score_reverts_to_first_run_state(window, qtbot, minimal_score):
     assert window.region_3.count() == 0
     assert window.region_4.count() == 0
     assert window.status_bar._fields[0].text() == "Measure - beat -"
-    assert window.clear_preferences_action.isEnabled() is False
-    assert window.clear_preferences_action.text() == "&Clear Preferences"
-    assert window.metronome_action.isChecked() is False
-    assert window.position_announcer_action.isChecked() is False
+    assert window._actions.clear_preferences.isEnabled() is False
+    assert window._actions.clear_preferences.text() == "&Clear Preferences"
+    assert window._actions.metronome.isChecked() is False
+    assert window._actions.position_announcer.isChecked() is False
 
 
 def test_close_score_is_a_noop_with_nothing_loaded(window):
@@ -338,7 +338,7 @@ def test_a_score_can_be_opened_again_after_being_closed(window, qtbot, minimal_s
     assert window._music_data is not None
     assert window.windowTitle() == "Recall Score - minimal_4_4.musicxml"
     assert window.region_3.count() > 0
-    assert window.close_action.isEnabled() is True
+    assert window._actions.close.isEnabled() is True
 
 
 def test_closing_the_window_after_close_score_still_works(window, qtbot, minimal_score):

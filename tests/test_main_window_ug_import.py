@@ -160,14 +160,14 @@ def test_strumming_dialog_demo_routes_through_play_strum_pattern(
 def test_strumming_action_is_enabled_only_for_a_ug_import_with_patterns(
     window, qtbot, monkeypatch, minimal_score
 ):
-    assert not window.strumming_action.isEnabled()
+    assert not window._actions.strumming.isEnabled()
 
     load_and_wait(window, qtbot, minimal_score)
-    assert not window.strumming_action.isEnabled()
+    assert not window._actions.strumming.isEnabled()
 
     content = "[Verse 1]\n\n[tab][ch]C[/ch]\nHi[/tab]\n"
     _load_ug_import(window, qtbot, monkeypatch, content, strum_codes=[1, 202, 101])
-    assert window.strumming_action.isEnabled()
+    assert window._actions.strumming.isEnabled()
 
 
 def test_strumming_demo_click_option_plays_a_metronome_click(

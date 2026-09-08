@@ -180,7 +180,7 @@ def test_play_settings_dialog_sets_the_play_mode_and_lead_in_and_syncs_the_menu(
     assert window.playback.play_settings.play_mode == "loop_forever"
     assert window.playback.play_settings.loop_enabled is True
     assert window.playback.play_settings.lead_in_enabled is False
-    assert window.lead_in_toggle_action.isChecked() is False
+    assert window._actions.lead_in_toggle.isChecked() is False
 
 
 def test_absolute_tempo_persists_per_score(window, qtbot, minimal_score, chord_score):
@@ -793,7 +793,7 @@ def test_ctrl_i_toggles_the_lead_in_and_keeps_the_menu_in_sync(window, qtbot, mi
     window.toggle_lead_in()
 
     assert window.playback.play_settings.lead_in_enabled is False
-    assert window.lead_in_toggle_action.isChecked() is False
+    assert window._actions.lead_in_toggle.isChecked() is False
     assert app_settings.load().play.lead_in_enabled is False
 
 
@@ -925,19 +925,19 @@ def test_space_resumes_from_the_paused_position_not_stops(
 
 def test_toggle_metronome_updates_music_data_menu_and_status_bar(window, qtbot, minimal_score):
     load_and_wait(window, qtbot, minimal_score)
-    assert window.metronome_action.isChecked() is False
+    assert window._actions.metronome.isChecked() is False
     assert window.status_bar._fields[5].text() == "Metronome: Off"
 
     window.toggle_metronome()
 
     assert window._music_data.metronome_enabled is True
-    assert window.metronome_action.isChecked() is True
+    assert window._actions.metronome.isChecked() is True
     assert window.status_bar._fields[5].text() == "Metronome: On"
 
     window.toggle_metronome()
 
     assert window._music_data.metronome_enabled is False
-    assert window.metronome_action.isChecked() is False
+    assert window._actions.metronome.isChecked() is False
     assert window.status_bar._fields[5].text() == "Metronome: Off"
 
 
@@ -954,23 +954,23 @@ def test_ctrl_m_shortcut_toggles_the_metronome(window, qtbot, minimal_score):
 def test_metronome_state_persists_across_reload_of_same_file(window, qtbot, minimal_score):
     load_and_wait(window, qtbot, minimal_score)
     window.toggle_metronome()
-    assert window.metronome_action.isChecked() is True
+    assert window._actions.metronome.isChecked() is True
 
     load_and_wait(window, qtbot, minimal_score)
 
     assert window._music_data.metronome_enabled is True
-    assert window.metronome_action.isChecked() is True
+    assert window._actions.metronome.isChecked() is True
 
 
 def test_metronome_starts_off_for_a_file_with_no_saved_config(window, qtbot, minimal_score, chord_score):
     load_and_wait(window, qtbot, minimal_score)
     window.toggle_metronome()
-    assert window.metronome_action.isChecked() is True
+    assert window._actions.metronome.isChecked() is True
 
     load_and_wait(window, qtbot, chord_score)
 
     assert window._music_data.metronome_enabled is False
-    assert window.metronome_action.isChecked() is False
+    assert window._actions.metronome.isChecked() is False
 
 
 # --- Play Metronome (Alt+Space): a free-running click track ------------
@@ -1064,19 +1064,19 @@ def test_toggle_position_announcer_updates_music_data_menu_and_status_bar(
     window, qtbot, minimal_score
 ):
     load_and_wait(window, qtbot, minimal_score)
-    assert window.position_announcer_action.isChecked() is False
+    assert window._actions.position_announcer.isChecked() is False
     assert window.status_bar._fields[6].text() == "Position Announcer: Off"
 
     window.toggle_position_announcer()
 
     assert window._music_data.position_announcer_enabled is True
-    assert window.position_announcer_action.isChecked() is True
+    assert window._actions.position_announcer.isChecked() is True
     assert window.status_bar._fields[6].text() == "Position Announcer: On"
 
     window.toggle_position_announcer()
 
     assert window._music_data.position_announcer_enabled is False
-    assert window.position_announcer_action.isChecked() is False
+    assert window._actions.position_announcer.isChecked() is False
     assert window.status_bar._fields[6].text() == "Position Announcer: Off"
 
 
@@ -1093,12 +1093,12 @@ def test_ctrl_p_shortcut_toggles_the_position_announcer(window, qtbot, minimal_s
 def test_position_announcer_state_persists_across_reload_of_same_file(window, qtbot, minimal_score):
     load_and_wait(window, qtbot, minimal_score)
     window.toggle_position_announcer()
-    assert window.position_announcer_action.isChecked() is True
+    assert window._actions.position_announcer.isChecked() is True
 
     load_and_wait(window, qtbot, minimal_score)
 
     assert window._music_data.position_announcer_enabled is True
-    assert window.position_announcer_action.isChecked() is True
+    assert window._actions.position_announcer.isChecked() is True
 
 
 def test_toggling_position_announcer_does_not_affect_the_metronome(window, qtbot, minimal_score):
@@ -1108,7 +1108,7 @@ def test_toggling_position_announcer_does_not_affect_the_metronome(window, qtbot
 
     assert window._music_data.position_announcer_enabled is True
     assert window._music_data.metronome_enabled is False
-    assert window.metronome_action.isChecked() is False
+    assert window._actions.metronome.isChecked() is False
 
 
 def test_position_announcer_word_plays_on_region_3_navigation(

@@ -1,15 +1,10 @@
 # timeline_list_widget.py
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QListWidget
 
 from widgets.region_focus_cycle import RegionFocusCycleMixin
-
-if TYPE_CHECKING:
-    from main_window import MainWindow
 
 
 class TimelineListWidget(RegionFocusCycleMixin, QListWidget):
@@ -17,24 +12,34 @@ class TimelineListWidget(RegionFocusCycleMixin, QListWidget):
     Region 3 list widget handling custom timeline traversal (Left/Right)
     and single-note selection collapsing (Up/Down).
 
-    Typing a bar number then Enter (Ref 6) is NOT handled here anymore - it
-    is global: main_window.py's window-wide digit shortcuts feed
+    It reaches nothing back in MainWindow: every keystroke it handles turns
+    into one of the signals below, wired to a controller in
+    MainWindow.connect_signals() the same way Region 2's filter_changed is.
+    That keeps the widget unit-testable without a window.
+
+    Typing a bar number then Enter (Ref 6) is NOT handled here - it is
+    global: main_window.py's window-wide digit shortcuts feed
     NavigationController, Enter commits the typed bar number (via
     audition_phrase), Ctrl+Enter commits it as the loop length, and Escape
     cancels. Any cursor move cancels a half-typed number -
-    NavigationController does that for Left/Right/Home/End/Find, and
-    MainWindow.on_region_3_vertical_move for an in-slice Up/Down here.
+    NavigationController does that for Left/Right/Home/End/Find, and the
+    slot wired to vertical_move_made for an in-slice Up/Down here.
     """
 
-    def _main_window(self) -> "MainWindow":
-        # Only ever created by MainWindow.setup_ui, so window() is always it.
-        # Calling straight through fails loudly if that stops being true,
-        # rather than silently swallowing the keystroke.
-        return self.window()  # type: ignore[return-value]
+    # (direction, by_measure): direction is "left"/"right"/"home"/"end";
+    # by_measure (Ctrl held) is only meaningful for left/right.
+    navigate_requested = Signal(str, bool)
+    # An in-slice Up/Down finished (selection already collapsed here) - the
+    # slot re-auditions the note without position cues and clears any
+    # half-typed bar number.
+    vertical_move_made = Signal()
+    # Alt+PageUp / Alt+PageDown: +1 / -1 to the loop length in bars.
+    loop_length_adjust_requested = Signal(int)
+    # Ctrl+1..9: speak Region 4's Nth attribute row without moving focus.
+    attribute_number_requested = Signal(int)
 
     def keyPressEvent(self, event):
         key = event.key()
-        main_win = self._main_window()
         ctrl = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
         alt = bool(event.modifiers() & Qt.KeyboardModifier.AltModifier)
 
@@ -43,33 +48,27 @@ class TimelineListWidget(RegionFocusCycleMixin, QListWidget):
             # row up a page) - bare PageUp/PageDown would collide with that
             # the same way bare Up/Down would collide with chord-selection
             # handling below, so this is deliberately not bound plain.
-            main_win.increase_loop_length()
+            self.loop_length_adjust_requested.emit(1)
             return
         elif key == Qt.Key.Key_PageDown and alt:
-            main_win.decrease_loop_length()
+            self.loop_length_adjust_requested.emit(-1)
             return
         elif ctrl and Qt.Key.Key_1 <= key <= Qt.Key.Key_9:
             # Quick attribute lookup: speaks Region 4's Nth row without
             # moving focus off Region 3 - see RegionPresenter.
             # announce_attribute_by_number, which silently no-ops if N
             # exceeds the currently displayed attribute list.
-            main_win.announce_region_4_attribute(key - Qt.Key.Key_0)
+            self.attribute_number_requested.emit(key - Qt.Key.Key_0)
             return
 
         if key == Qt.Key.Key_Left:
-            if ctrl:
-                main_win.navigate_measure_left()
-            else:
-                main_win.navigate_timeline_left()
+            self.navigate_requested.emit("left", ctrl)
         elif key == Qt.Key.Key_Right:
-            if ctrl:
-                main_win.navigate_measure_right()
-            else:
-                main_win.navigate_timeline_right()
+            self.navigate_requested.emit("right", ctrl)
         elif key == Qt.Key.Key_Home:
-            main_win.navigate_timeline_home()
+            self.navigate_requested.emit("home", False)
         elif key == Qt.Key.Key_End:
-            main_win.navigate_timeline_end()
+            self.navigate_requested.emit("end", False)
         elif key in (Qt.Key.Key_Up, Qt.Key.Key_Down):
             # Qt's ExtendedSelection arrow handling collapses a multi-row
             # selection only as a side effect of the current row CHANGING.
@@ -82,7 +81,7 @@ class TimelineListWidget(RegionFocusCycleMixin, QListWidget):
             if current is not None:
                 self.clearSelection()
                 current.setSelected(True)
-            main_win.on_region_3_vertical_move()
+            self.vertical_move_made.emit()
         # Tab/Shift+Tab are handled in RegionFocusCycleMixin.event() -
         # QAbstractItemView never lets them reach keyPressEvent here.
         else:

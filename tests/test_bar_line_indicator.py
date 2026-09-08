@@ -91,15 +91,15 @@ def test_ctrl_b_toggles_menu_state_and_announces(
     spoken = []
     monkeypatch.setattr(accessible_announcer, "announce", lambda w, m: spoken.append(m))
 
-    assert window.bar_line_indicator_action.isChecked() is False
+    assert window._actions.bar_line_indicator.isChecked() is False
 
     window.toggle_bar_line_indicator()
-    assert window.bar_line_indicator_action.isChecked() is True
+    assert window._actions.bar_line_indicator.isChecked() is True
     assert window._music_data.bar_line_indicator_enabled is True
     assert spoken == ["Bar line indicator on"]
 
     window.toggle_bar_line_indicator()
-    assert window.bar_line_indicator_action.isChecked() is False
+    assert window._actions.bar_line_indicator.isChecked() is False
     assert window._music_data.bar_line_indicator_enabled is False
     assert spoken == ["Bar line indicator on", "Bar line indicator off"]
 
@@ -145,7 +145,7 @@ def test_saved_per_score_in_the_rsc_and_restored_on_reload(
 
     load_and_wait(window, qtbot, many_measures_score)
     assert window._music_data.bar_line_indicator_enabled is True
-    assert window.bar_line_indicator_action.isChecked() is True
+    assert window._actions.bar_line_indicator.isChecked() is True
 
 
 def test_defaults_off_and_is_per_score_not_carried_between_scores(
@@ -159,4 +159,4 @@ def test_defaults_off_and_is_per_score_not_carried_between_scores(
     # A different score with no saved .rsc starts off, not carried over.
     load_and_wait(window, qtbot, minimal_score)
     assert window._music_data.bar_line_indicator_enabled is False
-    assert window.bar_line_indicator_action.isChecked() is False
+    assert window._actions.bar_line_indicator.isChecked() is False

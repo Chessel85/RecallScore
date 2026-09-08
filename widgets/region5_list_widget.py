@@ -1,16 +1,13 @@
 # widgets/region5_list_widget.py
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional
+from typing import List, Optional
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QListWidget, QListWidgetItem
 
 from models.performance_region_row import PerformanceRegionRow
 from widgets.region_focus_cycle import RegionFocusCycleMixin
-
-if TYPE_CHECKING:
-    from main_window import MainWindow
 
 
 class Region5ListWidget(RegionFocusCycleMixin, QListWidget):
@@ -25,8 +22,15 @@ class Region5ListWidget(RegionFocusCycleMixin, QListWidget):
 
     Ctrl+Home/Ctrl+End jump the timeline cursor to the focused row's span
     start/end - scoped to this region only, distinct from plain Home/End,
-    which mean "first/last note of the piece" when Region 3 has focus.
+    which mean "first/last note of the piece" when Region 3 has focus. The
+    keystroke turns into span_jump_requested rather than a call back into
+    MainWindow, wired in MainWindow.connect_signals() like Region 2's
+    filter_changed.
     """
+
+    # is_start: True for Ctrl+Home (jump to the focused span's start),
+    # False for Ctrl+End.
+    span_jump_requested = Signal(bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -34,10 +38,6 @@ class Region5ListWidget(RegionFocusCycleMixin, QListWidget):
         # / Chord / Lyric), so update_context_rows knows which ones it may
         # relabel in place.
         self._context_row_count = 0
-
-    def _main_window(self) -> "MainWindow":
-        # Only ever created by MainWindow.setup_ui, so window() is always it.
-        return self.window()  # type: ignore[return-value]
 
     def refresh_list(
         self,
@@ -89,14 +89,13 @@ class Region5ListWidget(RegionFocusCycleMixin, QListWidget):
 
     def keyPressEvent(self, event):
         key = event.key()
-        main_win = self._main_window()
         ctrl = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
 
         if key == Qt.Key.Key_Home and ctrl:
-            main_win.jump_to_performance_span_start()
+            self.span_jump_requested.emit(True)
             return
         elif key == Qt.Key.Key_End and ctrl:
-            main_win.jump_to_performance_span_end()
+            self.span_jump_requested.emit(False)
             return
 
         super().keyPressEvent(event)

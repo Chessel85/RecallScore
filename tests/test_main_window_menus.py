@@ -11,14 +11,14 @@ from tests.support.main_window_helpers import _focus, _show, load_and_wait
 
 
 def test_navigation_menu_items_use_home_and_end_shortcuts(window):
-    assert window.first_measure_action.shortcut() == QKeySequence(Qt.Key.Key_Home)
-    assert window.last_measure_action.shortcut() == QKeySequence(Qt.Key.Key_End)
-    assert window.goto_measure_action.shortcut() == QKeySequence("Ctrl+G")
-    assert window.move_to_notes_action.shortcut() == QKeySequence("C")
-    assert window.move_to_metadata_action.shortcut() == QKeySequence("Z")
-    assert window.move_to_parts_action.shortcut() == QKeySequence("X")
-    assert window.move_to_attributes_action.shortcut() == QKeySequence("V")
-    assert window.move_to_performance_action.shortcut() == QKeySequence("B")
+    assert window._actions.first_measure.shortcut() == QKeySequence(Qt.Key.Key_Home)
+    assert window._actions.last_measure.shortcut() == QKeySequence(Qt.Key.Key_End)
+    assert window._actions.goto_measure.shortcut() == QKeySequence("Ctrl+G")
+    assert window._actions.move_to_notes.shortcut() == QKeySequence("C")
+    assert window._actions.move_to_metadata.shortcut() == QKeySequence("Z")
+    assert window._actions.move_to_parts.shortcut() == QKeySequence("X")
+    assert window._actions.move_to_attributes.shortcut() == QKeySequence("V")
+    assert window._actions.move_to_performance.shortcut() == QKeySequence("B")
 
 
 def _mnemonic(text: str):
@@ -44,9 +44,9 @@ def test_reorder_and_performance_report_actions_have_global_dialog_shortcuts(win
     Alt-only menu mnemonic that NVDA nonetheless announced as if it were a
     real global shortcut. Now they have the real thing, and (see the next
     test) no mnemonic to cause that confusion."""
-    assert window.attribute_order_action.shortcut() == QKeySequence("Ctrl+Shift+A")
-    assert window.part_order_action.shortcut() == QKeySequence("Ctrl+Shift+O")
-    assert window.performance_report_action.shortcut() == QKeySequence("Ctrl+Shift+F")
+    assert window._actions.attribute_order.shortcut() == QKeySequence("Ctrl+Shift+A")
+    assert window._actions.part_order.shortcut() == QKeySequence("Ctrl+Shift+O")
+    assert window._actions.performance_report.shortcut() == QKeySequence("Ctrl+Shift+F")
 
 
 def test_set_musescore_location_menu_item_stores_the_chosen_path(window, monkeypatch, tmp_path):
@@ -128,13 +128,13 @@ def test_items_with_no_menu_mnemonic_have_no_ampersand(window):
     "no shortcuts needed"). All of these must now have a literal "&"-free
     label so Qt never registers a mnemonic for them."""
     no_mnemonic_actions = [
-        window.attribute_order_action,
-        window.part_order_action,
-        window.performance_report_action,
-        window.uk_language_action,
-        window.us_language_action,
-        window.user_guide_action,
-        window.about_action,
+        window._actions.attribute_order,
+        window._actions.part_order,
+        window._actions.performance_report,
+        window._actions.uk_language,
+        window._actions.us_language,
+        window._actions.user_guide,
+        window._actions.about,
     ]
     for action in no_mnemonic_actions:
         assert "&" not in action.text(), f"{action.text()!r} still has a mnemonic"

@@ -195,16 +195,16 @@ def test_first_and_last_note_actions_are_only_enabled_in_the_note_region(
 
     for region in (window.region_1, window.region_2, window.region_4):
         _focus(region)
-        assert not window.first_measure_action.isEnabled()
-        assert not window.last_measure_action.isEnabled()
+        assert not window._actions.first_measure.isEnabled()
+        assert not window._actions.last_measure.isEnabled()
 
     _focus(window.status_bar.first_field())
-    assert not window.first_measure_action.isEnabled()
-    assert not window.last_measure_action.isEnabled()
+    assert not window._actions.first_measure.isEnabled()
+    assert not window._actions.last_measure.isEnabled()
 
     _focus(window.region_3)
-    assert window.first_measure_action.isEnabled()
-    assert window.last_measure_action.isEnabled()
+    assert window._actions.first_measure.isEnabled()
+    assert window._actions.last_measure.isEnabled()
 
 
 def test_commit_digits_action_is_enabled_everywhere(window, qtbot, null_synth, minimal_score):
@@ -219,10 +219,10 @@ def test_commit_digits_action_is_enabled_everywhere(window, qtbot, null_synth, m
         window.region_4, window.region_5,
     ):
         _focus(region)
-        assert window.commit_digits_action.isEnabled()
+        assert window._actions.commit_digits.isEnabled()
 
     _focus(window.status_bar.first_field())
-    assert window.commit_digits_action.isEnabled()
+    assert window._actions.commit_digits.isEnabled()
 
 
 @pytest.mark.parametrize(
@@ -274,7 +274,7 @@ def test_move_to_notes_action_focuses_region_3_from_any_pane(
 
     for start in (window.region_1, window.region_2, window.region_4, window.status_bar.first_field()):
         _focus(start)
-        assert window.move_to_notes_action.isEnabled()
+        assert window._actions.move_to_notes.isEnabled()
 
         qtbot.keyClick(window.focusWidget(), Qt.Key.Key_C)
 
@@ -324,13 +324,13 @@ def test_select_all_action_is_only_enabled_in_the_note_region(
 
     for region in (window.region_1, window.region_2, window.region_4, window.region_5):
         _focus(region)
-        assert not window.select_all_action.isEnabled()
+        assert not window._actions.select_all.isEnabled()
 
     _focus(window.status_bar.first_field())
-    assert not window.select_all_action.isEnabled()
+    assert not window._actions.select_all.isEnabled()
 
     _focus(window.region_3)
-    assert window.select_all_action.isEnabled()
+    assert window._actions.select_all.isEnabled()
 
 
 def test_ctrl_a_reselects_every_note_in_the_note_region_only(

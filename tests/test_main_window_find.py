@@ -132,13 +132,13 @@ def test_find_action_lives_only_in_the_navigation_menu(window):
     edit_menu = edit_action.menu()
     navigation_menu = navigation_action.menu()
 
-    assert window.find_action not in edit_menu.actions()
-    assert window.find_action in navigation_menu.actions()
-    assert window.find_action.shortcut().toString() == "Ctrl+F"
+    assert window._actions.find not in edit_menu.actions()
+    assert window._actions.find in navigation_menu.actions()
+    assert window._actions.find.shortcut().toString() == "Ctrl+F"
 
-    find_index = navigation_menu.actions().index(window.find_action)
-    assert navigation_menu.actions()[find_index + 1] is window.find_next_action
-    assert navigation_menu.actions()[find_index + 2] is window.find_previous_action
+    find_index = navigation_menu.actions().index(window._actions.find)
+    assert navigation_menu.actions()[find_index + 1] is window._actions.find_next
+    assert navigation_menu.actions()[find_index + 2] is window._actions.find_previous
 
 
 def test_alt_right_and_alt_left_cycle_through_occurrences_of_the_armed_target(
