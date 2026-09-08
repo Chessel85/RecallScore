@@ -287,7 +287,7 @@ def octave_shift_score() -> str:
 
 @pytest.fixture
 def rehearsal_mark_score() -> str:
-    """P3 (M3) + rehearsal_marks_plan.md: P1 has two 4/4 bars with a
+    """P3 (M3): P1 has two 4/4 bars with a
     <rehearsal> point mark each ("A", "B") - each becomes a DirectionMark,
     a Region 3 Stave Text event, a fabricated Region 2 Stave Text voice, and
     a one-shot Region 5 row. P2 is a bare two-bar part (no <direction>) - the
@@ -297,7 +297,7 @@ def rehearsal_mark_score() -> str:
 
 @pytest.fixture
 def rehearsal_mark_empty_score() -> str:
-    """rehearsal_marks_plan.md: one bar whose <direction-type> holds a real
+    """One bar whose <direction-type> holds a real
     <rehearsal>C</rehearsal> plus a stray empty <rehearsal></rehearsal>
     sibling (the files/Long tune.mxl bar-24 shape). Only "C" counts."""
     return _require(FIXTURES_DIR / "rehearsal_mark_empty.musicxml")
@@ -738,6 +738,19 @@ def _isolate_persistence(monkeypatch, tmp_path):
 
     monkeypatch.setattr(app_settings, "settings_path", lambda: tmp_path / "settings.json")
     monkeypatch.setattr(score_config, "config_dir", lambda: tmp_path / "scores")
+
+
+@pytest.fixture(autouse=True)
+def _clear_musescore_detection_cache():
+    """parsers.musescore_reader memoises its registry/Spotlight probes for
+    the process (CR8thSept.txt S2 - they shell out and freeze the UI). That
+    lru_cache would otherwise leak a result from one test's monkeypatched
+    filesystem/registry state into the next; clear it around every test."""
+    from parsers.musescore_reader import clear_musescore_detection_cache
+
+    clear_musescore_detection_cache()
+    yield
+    clear_musescore_detection_cache()
 
 
 @pytest.fixture(autouse=True)

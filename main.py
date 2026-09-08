@@ -1,6 +1,7 @@
 # main.py
 import os
 import sys
+import threading
 
 
 def _redirect_stdio_if_headless():
@@ -34,6 +35,8 @@ _redirect_stdio_if_headless()
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 from main_window import MainWindow
+from parsers.musescore_reader import warm_musescore_detection_cache
+from persistence import app_settings
 from widgets.accessible_menu_style import AccessibleMenuStyle
 
 
@@ -64,6 +67,19 @@ def main():
         app.setWindowIcon(QIcon(icon_path))
     window = MainWindow()
     window.show()
+    # Populate parsers.musescore_reader's MuseScore-detection cache off the
+    # main thread now, so the first File > Open never blocks on it - on
+    # macOS the miss path shells out to `mdfind` with a 5s timeout, freezing
+    # the UI with no cue for a screen-reader user (CR8thSept.txt S2). Daemon:
+    # the probe is filesystem-only and 5s-bounded, safe to orphan on a fast
+    # quit. Kicked here rather than in MainWindow so the test suite (which
+    # constructs MainWindow directly) never spawns it.
+    threading.Thread(
+        target=warm_musescore_detection_cache,
+        args=(app_settings.load().musescore_path,),
+        name="musescore-detect",
+        daemon=True,
+    ).start()
     sys.exit(app.exec())
 
 

@@ -37,6 +37,7 @@ from models.music_data import MusicData
 from models.vocabulary import bar_word
 from parsers.file_signature import precheck as precheck_score_file
 from parsers.musescore_reader import (
+    clear_musescore_detection_cache,
     find_musescore_executable,
     resolve_musescore_path,
 )
@@ -562,8 +563,11 @@ class MainWindow(QMainWindow):
     def _open_score_file_dialog(self, start_dir: str):
         # Only offer .mscz/.mscx when a MuseScore 4 executable can actually
         # be found - otherwise picking one just fails later on the load
-        # thread with a silent print. Re-checked per open, so Options > Set
-        # MuseScore Location... makes the option reappear with no restart.
+        # thread with a silent print. The expensive probes inside are
+        # memoised for the process (and warmed off-thread at startup), so
+        # this is cheap on every open after the first; Options > Set
+        # MuseScore Location... clears that cache, so the option reappears
+        # with no restart.
         musescore = (
             find_musescore_executable(app_settings.load().musescore_path) is not None
         )
@@ -1561,6 +1565,9 @@ class MainWindow(QMainWindow):
                 app_settings.set_musescore_path(
                     resolve_musescore_path(path) or path
                 )
+                # Drop the memoised "not found" probe results so the next
+                # File > Open re-detects and offers the .mscz/.mscx filter.
+                clear_musescore_detection_cache()
 
     def _show_tuner_dialog(self):
         """Tools > Tuner - a generic chromatic tuner (see controllers/

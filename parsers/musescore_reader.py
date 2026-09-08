@@ -12,6 +12,7 @@ gets by hand today with Save As -> compressed MusicXML, just automated.
 
 The user only needs MuseScore 4+ support.
 """
+import functools
 import os
 import shutil
 import subprocess
@@ -118,6 +119,17 @@ def resolve_musescore_path(path: Optional[str]) -> Optional[str]:
     return resolved if os.path.isfile(resolved) else None
 
 
+# The two probes below are memoised for the process: find_musescore_executable
+# is called on every File > Open (to decide whether to offer the .mscz/.mscx
+# filter) and again on the load thread, and on macOS the Spotlight probe is a
+# subprocess.run(["mdfind", ...], timeout=5) that freezes the Qt main thread -
+# silence with no cue in a screen-reader-first app (CR8thSept.txt S2). A miss
+# result (None) is cached too, so a machine without MuseScore pays the cost at
+# most once. clear_musescore_detection_cache() drops both, called from
+# Options > Set MuseScore Location so a freshly-pointed-at install is picked up
+# with no restart; warm_musescore_detection_cache() fills them off the main
+# thread at startup so the first open doesn't block either.
+@functools.lru_cache(maxsize=1)
 def _musescore_from_windows_registry() -> Optional[str]:
     """Best-effort: locate MuseScore 4 via the .mscz/.mscx file-association
     open command in the registry.
@@ -162,6 +174,7 @@ def _musescore_from_windows_registry() -> Optional[str]:
     return None
 
 
+@functools.lru_cache(maxsize=1)
 def _musescore_from_spotlight() -> Optional[str]:
     """Best-effort (macOS only): locate a MuseScore 4 .app anywhere via
     Spotlight's bundle-identifier index, then redirect to its inner CLI
@@ -225,6 +238,23 @@ def find_musescore_executable(configured: Optional[str]) -> Optional[str]:
             return found
 
     return None
+
+
+def clear_musescore_detection_cache() -> None:
+    """Drop the memoised registry/Spotlight probe results. Call after the
+    configured MuseScore location changes so the next open re-probes."""
+    _musescore_from_windows_registry.cache_clear()
+    _musescore_from_spotlight.cache_clear()
+
+
+def warm_musescore_detection_cache(configured: Optional[str]) -> None:
+    """Run find_musescore_executable purely to populate the probe caches.
+    Safe to call from a background thread: it only reads the filesystem and
+    fills a thread-safe lru_cache, and any failure is swallowed."""
+    try:
+        find_musescore_executable(configured)
+    except Exception:
+        pass
 
 
 def convert_musescore_to_musicxml(src_path: str, exe: str) -> str:

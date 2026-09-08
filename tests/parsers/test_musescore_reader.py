@@ -13,9 +13,11 @@ from parsers import musescore_reader
 from parsers.musescore_reader import (
     MuseScoreNotFoundError,
     MuseScoreReader,
+    clear_musescore_detection_cache,
     convert_musescore_to_musicxml,
     find_musescore_executable,
     resolve_musescore_path,
+    warm_musescore_detection_cache,
 )
 from parsers.score_load_error import ScoreLoadError
 
@@ -119,6 +121,57 @@ def test_find_falls_through_to_the_registry_helper(monkeypatch, tmp_path):
         lambda: str(exe),
     )
     assert find_musescore_executable(None) == str(exe)
+
+
+# --- probe memoisation (CR8thSept.txt S2) --------------------------
+
+def _stub_spotlight(monkeypatch, app_line, calls):
+    """Make _musescore_from_spotlight think it is on macOS with `mdfind`
+    returning `app_line`, counting every subprocess.run into `calls`."""
+    monkeypatch.setattr(musescore_reader.sys, "platform", "darwin")
+
+    def _run(cmd, **kwargs):
+        calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, stdout=app_line, stderr="")
+
+    monkeypatch.setattr(musescore_reader.subprocess, "run", _run)
+
+
+def test_spotlight_probe_is_memoised_for_the_process(monkeypatch, tmp_path):
+    app, binary = _make_fake_app(tmp_path)
+    calls = []
+    _stub_spotlight(monkeypatch, app, calls)
+
+    assert musescore_reader._musescore_from_spotlight() == binary
+    assert musescore_reader._musescore_from_spotlight() == binary
+    assert len(calls) == 1  # second call served from the lru_cache, no mdfind
+
+
+def test_clear_detection_cache_forces_a_re_probe(monkeypatch, tmp_path):
+    app, binary = _make_fake_app(tmp_path)
+    calls = []
+    _stub_spotlight(monkeypatch, app, calls)
+
+    musescore_reader._musescore_from_spotlight()
+    clear_musescore_detection_cache()
+    musescore_reader._musescore_from_spotlight()
+    assert len(calls) == 2
+
+
+def test_warm_detection_cache_populates_so_a_later_find_does_not_probe(monkeypatch, tmp_path):
+    app, binary = _make_fake_app(tmp_path)
+    calls = []
+    _stub_spotlight(monkeypatch, app, calls)
+    monkeypatch.setattr(musescore_reader.shutil, "which", lambda name: None)
+    monkeypatch.setattr(musescore_reader, "_WINDOWS_CANDIDATES", ())
+    monkeypatch.setattr(musescore_reader, "_MACOS_CANDIDATES", ())
+    monkeypatch.setattr(musescore_reader, "_LINUX_CANDIDATES", ())
+    monkeypatch.setattr(musescore_reader.os, "environ", {}, raising=False)
+
+    warm_musescore_detection_cache(None)
+    assert len(calls) == 1
+    assert find_musescore_executable(None) == binary
+    assert len(calls) == 1  # find reused the warmed cache, no second mdfind
 
 
 # --- macOS .app bundle resolution -----------------------------------
