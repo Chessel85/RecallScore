@@ -1,9 +1,16 @@
 # Recall Score Release Notes
 
+## 2026.1.53
+
+** Code review tidy up
+
+## 2026.1.54
+** Added specific support for rehearsal markings as findable attributes 
 
 ## 2026.1.53
 
 ** Support direct loading of MuseScore v4 files
+** General resilience to poorlly formed score files 
 
 ## 2026.1.52
 
