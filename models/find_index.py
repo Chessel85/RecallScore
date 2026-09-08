@@ -37,6 +37,13 @@ class FindIndex:
         # D1: keyed on (key, value) - value None is the "any" target, a set
         # value is one per-value refinement - so the per-value targets each
         # get their own cached list rather than sharing the key's.
+        #
+        # S3: available_targets_with_counts() no longer fills this lazily one
+        # target at a time (re-formatting every note once per key and once
+        # per distinct value). _scan_attribute_candidates does a single pass
+        # that writes every (key, None) and (key, value) list here at once;
+        # the lazy sorted_candidate_indices path below is still the fallback
+        # for anything the scan didn't reach.
         self._attribute_candidate_cache: Dict[Tuple[str, Optional[str]], List[int]] = {}
 
     def invalidate_cache(self) -> None:
@@ -231,32 +238,70 @@ class FindIndex:
             return list(self.tempo_change_indices())
         return []
 
-    def _distinct_values_by_key(
-        self, voice_tuples: Set[Tuple[str, int, int]]
-    ) -> Dict[str, List[str]]:
-        """attribute key -> its distinct comma-split values across the whole
-        score, restricted to VALUE_EXPANDED_KEYS (D1/D2). One pass over
-        _real_timeline_slices (the stable, marker-free timeline - same scan
-        shape as NoteRenderer.attribute_keys_for_voices), so
-        available_targets() never scans once per key. Values come back
-        sorted for a deterministic dialog order (available_targets then
-        re-sorts by count)."""
-        buckets: Dict[str, Set[str]] = {}
-        for event_slice in self.data._real_timeline_slices:
-            for note in event_slice.notes:
-                if (note.part_id, note.staff, note.voice) not in voice_tuples:
-                    continue
-                pairs = self.data._note_attribute_pairs(note)
-                for key in VALUE_EXPANDED_KEYS:
-                    raw = pairs.get(key)
-                    if raw is None:
+    def _scan_attribute_candidates(self) -> Tuple[List[str], Dict[str, List[str]]]:
+        """S3: one pass over timeline_slices that builds every attribute
+        target's occurrence list at once, replacing the old pattern of
+        available_targets_with_counts() re-scanning the whole score once per
+        key (its any-target) and once per distinct value.
+
+        For each visible note (Ref 7 voice filter, read live through
+        _visible_notes - the same note set the old _distinct_values_by_key
+        got by matching voice_tuples, and the same slice list
+        candidate_indices_for_target walks so the indices line up) the
+        attribute pairs are formatted exactly once and fanned out into:
+
+          - a per-key "any" occurrence list        -> cache key (key, None)
+          - a per-(key, value) list, VALUE_EXPANDED_KEYS only -> (key, value)
+
+        Both are appended in ascending slice order with at most one entry
+        per slice, so they are already in the sorted, de-duplicated form
+        sorted_candidate_indices returns - they go straight into
+        _attribute_candidate_cache, so the dialog's own len() reads and the
+        later Alt+Right/Alt+Left navigation both hit the cache with no
+        recompute.
+
+        Returns the ordered list of present optional (non-core) attribute
+        keys - what attribute_keys_for_voices computed for this method - and
+        the distinct comma-split values per VALUE_EXPANDED_KEYS key, sorted
+        for a deterministic dialog order (what _distinct_values_by_key did).
+        """
+        data = self.data
+        any_by_key: Dict[str, List[int]] = {}
+        by_key_value: Dict[Tuple[str, str], List[int]] = {}
+        values_by_key: Dict[str, Set[str]] = {}
+
+        for i in range(len(data.timeline_slices)):
+            seen_keys: Set[str] = set()
+            seen_pairs: Set[Tuple[str, str]] = set()
+            for note in data._visible_notes(index=i):
+                pairs = data._note_attribute_pairs(note)
+                for key, raw in pairs.items():
+                    if key not in seen_keys:
+                        seen_keys.add(key)
+                        any_by_key.setdefault(key, []).append(i)
+                    if key not in VALUE_EXPANDED_KEYS:
                         continue
-                    bucket = buckets.setdefault(key, set())
-                    for value in raw.split(","):
-                        value = value.strip()
-                        if value:
-                            bucket.add(value)
-        return {key: sorted(values) for key, values in buckets.items()}
+                    for value in (v.strip() for v in raw.split(",")):
+                        if not value:
+                            continue
+                        values_by_key.setdefault(key, set()).add(value)
+                        pair = (key, value)
+                        if pair not in seen_pairs:
+                            seen_pairs.add(pair)
+                            by_key_value.setdefault(pair, []).append(i)
+
+        cache = self._attribute_candidate_cache
+        for key, indices in any_by_key.items():
+            cache[(key, None)] = indices
+        for pair, indices in by_key_value.items():
+            cache[pair] = indices
+
+        present_keys = [
+            key for key in data.attribute_order
+            if key in any_by_key and key not in data.CORE_ATTRIBUTE_KEYS
+        ]
+        distinct_values = {key: sorted(values) for key, values in values_by_key.items()}
+        return present_keys, distinct_values
 
     def available_targets(self) -> List[FindTarget]:
         """The Find dialog's list (widgets/find_dialog.py) - see
@@ -277,20 +322,13 @@ class FindIndex:
         actually occur anywhere in the score (structural, like Region 5 -
         not filtered by voice).
 
-        Every target's occurrence list is computed exactly once here, via
-        the cached sorted_candidate_indices path, and both its presence
-        (offered only when non-empty - so no row ever reads "0 occurrences")
-        and its count are read off that same list."""
+        Every target's occurrence list is computed exactly once here - the
+        attribute lists in one combined pass (_scan_attribute_candidates,
+        S3), the marking lists via sorted_candidate_indices - and both a
+        target's presence (offered only when non-empty - so no row ever
+        reads "0 occurrences") and its count are read off that same list."""
         data = self.data
-        voice_tuples = (
-            data.active_voice_filter if data.active_voice_filter is not None
-            else data._all_voice_tuples()
-        )
-        present_attribute_keys = [
-            key for key in data.attribute_keys_for_voices(voice_tuples)
-            if key not in data.CORE_ATTRIBUTE_KEYS
-        ]
-        distinct_values = self._distinct_values_by_key(voice_tuples)
+        present_attribute_keys, distinct_values = self._scan_attribute_candidates()
 
         results: List[Tuple[FindTarget, int]] = []
         for key in present_attribute_keys:
