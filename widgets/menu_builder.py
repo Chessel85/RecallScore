@@ -658,7 +658,7 @@ class MenuBuilder:
 
     def _tools_menu(self, menu_bar, a: Actions) -> None:
         # New top-level menu (the user's own framing) - a microphone-based
-        # chromatic tuner for guitar/bass/violin/etc (see the tuner plan).
+        # chromatic tuner for guitar/bass/violin/etc.
         # Ctrl+Shift+T, matching every other Options/Edit dialog's own
         # Ctrl+Shift+<letter> shortcut (Mixer/X, Instruments/I, Key
         # Signature/K, Live MIDI Input/L, Voice Control/R) - reported live:

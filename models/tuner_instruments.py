@@ -72,7 +72,7 @@ def cents_deviation(detected_hz: float, target_hz: float) -> float:
 
 # Within this many cents of the target, a string reads as "in tune" -
 # comfortably inside a typical tuner's tolerance and under the ~5-10 cent
-# threshold of human pitch discrimination (see the tuner plan's forecast).
+# threshold of human pitch discrimination.
 IN_TUNE_CENTS_TOLERANCE = 5
 
 

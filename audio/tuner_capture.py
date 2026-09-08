@@ -1,7 +1,7 @@
 # audio/tuner_capture.py
 """Microphone capture + periodic pitch detection for Tools > Tuner
 (widgets/tuner_dialog.py). Confirmed in-process compatible with FluidSynth
-(no DLL collision, unlike vosk - see the tuner plan's Step 0 spike): a plain
+(no DLL collision, unlike vosk): a plain
 non-Qt class wrapping sounddevice.InputStream, mirroring audio/midi_input.py's
 MidiInputManager shape (set_callback/list_devices/open/close/is_open) so a
 future test/prod swap is as easy as that module's own. Crossing to Qt's main
@@ -33,7 +33,7 @@ SAMPLE_RATE = 44100
 
 # One detection cycle's worth of audio to analyse - long enough for a low
 # string's fundamental to complete several periods (a double bass low B0,
-# ~31Hz, needs roughly 100-200ms per cycle - see the tuner plan's forecast),
+# ~31Hz, needs roughly 100-200ms per cycle),
 # short enough to stay reasonably responsive for the highest strings. Also
 # comfortably covers ACQUISITION_MIN_HZ below (2*max_lag at 30Hz is ~2940
 # frames, well under BUFFER_FRAMES).
@@ -43,7 +43,7 @@ BUFFER_FRAMES = int(SAMPLE_RATE * BUFFER_SECONDS)
 # How often a detection cycle runs - independent of PortAudio's own callback
 # block size. Chosen to sit comfortably above the low-string analysis window
 # above; expected to need live tuning once audible, like the metronome/
-# position-announcer cadence before it (see the tuner plan).
+# position-announcer cadence before it.
 DETECT_INTERVAL_SECONDS = 0.2
 
 # Tracking-mode search width (controllers/tuner_controller.py) - re-centered

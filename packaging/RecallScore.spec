@@ -56,9 +56,9 @@ datas = [
     (os.path.join(REPO_ROOT, "version.txt"), "."),
 ]
 
-# Bundled example scores (main_window.py examples_dir(), File > Open Example
-# Score...) - a git-tracked folder the user drops MusicXML files into
-# directly, unlike bin/soundfonts above. Guarded like icon_path/has_icon
+# Bundled example scores (examples/ at the repo root) - a git-tracked folder
+# the user drops MusicXML files into directly, unlike bin/soundfonts above.
+# Guarded like icon_path/has_icon
 # below: today's folder holds only a placeholder README, so an empty glob
 # must not break the build - the next build after real files land picks
 # them up automatically, no script changes needed. Three explicit

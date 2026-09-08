@@ -104,10 +104,6 @@ def user_guide_html_path() -> str:
     return os.path.join(_app_base_dir(), "docs", "user_guide.html")
 
 
-def examples_dir() -> str:
-    return os.path.join(_app_base_dir(), "examples")
-
-
 class MainWindow(QMainWindow):
     """The window shell: builds the widgets, owns the controllers, and wires
     them together. Deliberately holds almost no logic of its own.
@@ -379,11 +375,10 @@ class MainWindow(QMainWindow):
             voice_manager=self._voice_control_manager,
         )
         self.voice_control.start()
-        # Tools > Tuner (speculative feature - see the tuner plan):
-        # constructed once here for the same lifetime reasoning as
-        # live_midi/voice_control above, but does NOT auto-start listening -
-        # the dialog itself starts/stops capture on show/close (no explicit
-        # Start/Stop Listening control, per the plan's UI simplification).
+        # Tools > Tuner (speculative feature): constructed once here for the
+        # same lifetime reasoning as live_midi/voice_control above, but does
+        # NOT auto-start listening - the dialog itself starts/stops capture on
+        # show/close (no explicit Start/Stop Listening control).
         self.tuner = TunerController(parent=self, capture=self._tuner_manager)
         self.focus = FocusController(self, regions, self.status_bar)
         self.presenter = RegionPresenter(
@@ -991,9 +986,6 @@ class MainWindow(QMainWindow):
     def toggle_voice_control(self):
         self.voice_control_action.setChecked(self.voice_control.toggle_enabled())
 
-    def _play_boundary_cue(self):
-        self.playback.play_boundary_cue()
-
     def _audition_current_selection(self, with_position_cues: bool = True):
         self.playback.audition_selection(
             self.presenter.selected_region_3_indices(),
@@ -1283,14 +1275,8 @@ class MainWindow(QMainWindow):
     def _refresh_region_5(self):
         self.presenter.refresh_region_5()
 
-    def _update_status_bar(self):
-        self.presenter.update_status_bar()
-
     def _on_region_3_selection_changed(self):
         self.presenter.on_region_3_selection_changed()
-
-    def _on_region_2_filter_changed(self, active_voice_tuples: set):
-        self.presenter.on_region_2_filter_changed(active_voice_tuples)
 
     # --- persistence (delegators) -------------------------------------
 
@@ -1302,9 +1288,6 @@ class MainWindow(QMainWindow):
 
     def _clear_preferences_action_text(self) -> str:
         return self.persistence.clear_action_text()
-
-    def _refresh_clear_preferences_action(self):
-        self.persistence.refresh_clear_action()
 
     def _clear_current_score_preferences(self):
         """Reported bug: clearing only deleted the on-disk .rsc - the
@@ -1694,9 +1677,6 @@ class MainWindow(QMainWindow):
         QDesktopServices.openUrl(QUrl.fromLocalFile(guide_path))
 
     # --- teardown -------------------------------------------------------
-
-    def _disconnect_focus_tracking(self):
-        self.focus.disconnect_tracking()
 
     def closeEvent(self, event):
         self._save_current_score_config()

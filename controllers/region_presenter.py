@@ -81,20 +81,6 @@ class RegionPresenter(QObject):
         self.last_performance_row_labels = None
         self.last_context_labels = None
 
-    def refresh_all(self, play_all: bool = True) -> None:
-        if not self.music_data:
-            return
-        self.region_1.refresh_list(self.music_data.get_region_1_data())
-        self.region_2.load_score_structure(self.music_data.get_score_structure())
-        self.update_timeline_views(play_all=play_all)
-
-    def restore_mute_solo_node_keys(
-        self, parts_muted, staves_muted, voices_muted,
-        parts_soloed, staves_soloed, voices_soloed,
-    ) -> None:
-        self.region_2.apply_muted_node_keys(parts_muted, staves_muted, voices_muted)
-        self.region_2.apply_soloed_node_keys(parts_soloed, staves_soloed, voices_soloed)
-
     # --- Region 2 in-place edits (S5) ---------------------------------
     #
     # ScoreEditController drives these; they live here because this stays

@@ -703,18 +703,6 @@ class MusicData:
             attribute_key, part_id, staff, voice
         )
 
-    def _voice_tuples_for_scope(
-        self, part_id: str, staff: int, voice: int, scope: str
-    ) -> Set[Tuple[str, int, int]]:
-        """See NoteRenderer.voice_tuples_for_scope."""
-        return self.renderer.voice_tuples_for_scope(part_id, staff, voice, scope)
-
-    def _apply_display_attribute(
-        self, attribute_key: str, voice_keys: Set[Tuple[str, int, int]], add: bool
-    ) -> None:
-        """See NoteRenderer.apply_display_attribute."""
-        self.renderer.apply_display_attribute(attribute_key, voice_keys, add)
-
     def set_display_attribute(
         self, attribute_key: str, scope: str, notes: List[NoteData], add: bool
     ) -> None:

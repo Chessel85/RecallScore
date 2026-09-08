@@ -6,8 +6,8 @@ is, and for the same reason: keep DSP-shaped logic Qt-free and testable.
 
 Uses YIN (de Cheveigne & Kawahara, 2002), but restricted to search only
 within a narrow band around an EXPECTED frequency, rather than the whole
-audible range - the tuner's own key derisking insight (see the tuner plan's
-feasibility forecast). Because the instrument/string is already known
+audible range - the tuner's own key derisking insight. Because the
+instrument/string is already known
 (models/tuner_instruments.py) before a single sample is captured, this
 sidesteps YIN's classic real-world failure mode (octave errors - locking
 onto a harmonic instead of the fundamental) instead of needing a

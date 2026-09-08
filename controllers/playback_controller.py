@@ -186,13 +186,6 @@ class PlaybackController(QObject):
     def muted(self) -> bool:
         return self._muted
 
-    def set_muted(self, muted: bool) -> None:
-        """Wishlist #7. Silences anything ringing on the way in, so muting
-        mid-note takes effect immediately rather than at the next note-off."""
-        self._muted = muted
-        if muted:
-            self.synth.stop_all_notes()
-
     def attach_score(self, music_data) -> None:
         """Called on every load: stop whatever the previous score was doing,
         build that score's own Sequencer, and push the score's own saved
