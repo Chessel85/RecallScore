@@ -7,6 +7,8 @@ autouse guard in conftest deliberately blocks (D-7). What's under test here
 is the pure bookkeeping around _active_notes, so a recording stand-in for
 self._fs is all the engine that's needed.
 """
+from PySide6.QtCore import QObject
+
 from audio.synth_engine import SynthEngine
 
 
@@ -27,7 +29,10 @@ class _RecordingFluidSynth:
 
 
 def _engine():
-    engine = object.__new__(SynthEngine)
+    # __init__ is skipped (it opens WASAPI), but SynthEngine is a QObject now
+    # and QTimer(self) needs the C++ half initialised, so run QObject.__init__.
+    engine = SynthEngine.__new__(SynthEngine)
+    QObject.__init__(engine)
     engine._fs = _RecordingFluidSynth()
     engine._sfid = 1
     engine._active_notes = []

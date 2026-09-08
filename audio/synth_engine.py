@@ -3,7 +3,7 @@ import os
 import sys
 import ctypes
 from typing import List, Optional, Tuple
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QObject, QTimer
 
 from audio.metronome import METRONOME_CHANNEL
 from audio.midi_input import LIVE_MIDI_INPUT_CHANNEL
@@ -59,10 +59,17 @@ except ImportError:
     FLUIDSYNTH_AVAILABLE = False
 
 
-class SynthEngine:
-    """In-process FluidSynth engine for low-latency WASAPI audio playback."""
+class SynthEngine(QObject):
+    """In-process FluidSynth engine for low-latency WASAPI audio playback.
+
+    A QObject so every scheduling QTimer can be parented to it (``QTimer(self)``,
+    the codebase-wide convention - see ``Sequencer``): the pending grace/strum/
+    group-off timers are then destroyed with the engine instead of leaking as
+    top-level objects. Only ever touched from the main thread (invariant 12).
+    """
 
     def __init__(self, soundfont_path: Optional[str] = None):
+        super().__init__()
         self._fs = None
         self._sfid = None
         self._click_sfid: Optional[int] = None
@@ -603,7 +610,7 @@ class SynthEngine:
             self._active_notes.extend(group_notes)
             self._schedule_group_off(group_notes, duration_ms)
 
-        timer = QTimer()
+        timer = QTimer(self)
         timer.setSingleShot(True)
         timer.timeout.connect(lambda t=timer: self._fire_delayed_chord(main_events, t))
         self._pending_grace_timers.append(timer)
@@ -645,7 +652,7 @@ class SynthEngine:
         schedule = build_strum_schedule(slots, midi_pitches, slot_ms, note_delay_ms)
         ch = channel & 0x0F
         for start_ms, pitch, velocity, note_duration_ms in schedule:
-            timer = QTimer()
+            timer = QTimer(self)
             timer.setSingleShot(True)
             timer.timeout.connect(
                 lambda p=pitch, v=velocity, d=note_duration_ms, t=timer: self._fire_strum_note(ch, p, v, d, t)
@@ -666,7 +673,7 @@ class SynthEngine:
             self._schedule_group_off(group_notes, duration_ms)
 
     def _schedule_group_off(self, group_notes: List[Tuple[int, int]], duration_ms: int):
-        timer = QTimer()
+        timer = QTimer(self)
         timer.setSingleShot(True)
         timer.timeout.connect(lambda: self._stop_group(group_notes, timer))
         self._group_off_timers.append(timer)
