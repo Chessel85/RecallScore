@@ -3,12 +3,14 @@
 task 1). Pure ElementTree - no music21, no Qt - so these are fast."""
 import xml.etree.ElementTree as ET
 
+from models.music_data import MusicData
 from parsers.score_sections import (
     CARRIED_MARKER,
     detect_section_boundaries,
     split_score_sections,
 )
 from parsers.timeline_builder import TimelineBuilder
+from parsers.timeline_builder_factory import build_sections
 from parsers.xml_source import read_musicxml_root
 
 
@@ -150,3 +152,49 @@ def test_carried_attributes_do_not_emit_a_clef_change_mark(two_sections_score):
     builder.build()
     assert builder.clef_change_marks == []
     assert builder.measure_style_marks == []
+
+
+# --- build_sections (timeline_builder_factory) --------------------------
+
+
+def test_build_sections_multi_section_builds_one_timeline_each(two_sections_score):
+    md = MusicData(file_path=two_sections_score)
+    sections = build_sections(md)
+
+    assert [s.index for s in sections] == [0, 1]
+    assert [s.label for s in sections] == ["Exercise 1", "Exercise 2"]
+    assert all(s.credits == {} for s in sections)
+
+    # Section 0 is bars 1-3 in 4/4 / C major; section 1 is bars 1-2 in
+    # 3/4 / G major - each a standalone build.
+    b0, b1 = sections[0].build, sections[1].build
+    assert b0.total_measures == 3
+    assert b1.total_measures == 2
+    assert b0.timeline_slices[0].time_sig == (4, 4)
+    assert b1.timeline_slices[0].time_sig == (3, 4)
+    assert b0.timeline_slices[0].key_fifths == 0
+    assert b1.timeline_slices[0].key_fifths == 1
+    # The carried treble clef in section 1 is not reported as a change.
+    assert b1.clef_change_marks == []
+
+
+def test_build_sections_single_section_musicxml_is_one_unlabelled_section(minimal_score):
+    md = MusicData(file_path=minimal_score)
+    sections = build_sections(md)
+
+    assert len(sections) == 1
+    assert sections[0].index == 0
+    assert sections[0].label == ""
+    assert sections[0].credits == {}
+    # Bit-identical to the plain single-build path.
+    assert sections[0].build.total_measures == md.total_measures
+    assert len(sections[0].build.timeline_slices) == len(md.timeline_slices)
+
+
+def test_build_sections_real_file(two_flute_exercises_score):
+    md = MusicData(file_path=two_flute_exercises_score)
+    sections = build_sections(md)
+
+    assert [s.label for s in sections] == ["Exercise 1", "Exercise 2"]
+    assert sections[0].build.total_measures == 3
+    assert sections[1].build.total_measures == 2
