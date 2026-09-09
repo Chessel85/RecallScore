@@ -935,3 +935,66 @@ def test_z_lands_on_the_section_bar_when_visible_else_the_list(
     _focus(window.region_3)
     qtbot.keyClick(window.focusWidget(), Qt.Key.Key_Z)
     assert window.focusWidget() is window.region_1
+
+
+# --- multi-section scores: task 6 sweep -----------------------------------
+
+
+def test_status_bar_shows_the_active_sections_key_and_time(window, qtbot, two_sections_score):
+    load_and_wait(window, qtbot, two_sections_score)
+    fields = window.status_bar._fields
+    assert "Key: C major / A minor" in [f.text() for f in fields]
+    assert "Time: 4/4" in [f.text() for f in fields]
+
+    window.navigation.select_section(1)
+
+    assert "Key: G major / E minor" in [f.text() for f in fields]
+    assert "Time: 3/4" in [f.text() for f in fields]
+
+
+def test_typing_a_bar_number_jumps_within_the_active_section(
+    window, qtbot, null_synth, two_sections_score
+):
+    """`Go to bar 1` with section 2 live must land in section 2, even though
+    section 1 also has a bar 1."""
+    load_and_wait(window, qtbot, two_sections_score)
+    _show(window, qtbot)
+    window.navigation.select_section(1)
+    _focus(window.region_3)
+
+    qtbot.keyClicks(window.focusWidget(), "1")
+    qtbot.keyClick(window.focusWidget(), Qt.Key.Key_Return)
+
+    landed = window._music_data.get_current_slice()
+    assert landed.measure == 1
+    assert landed.time_sig == (3, 4)
+
+
+def test_loading_a_single_section_file_after_a_multi_section_one_drops_the_tab_bar(
+    window, qtbot, two_sections_score, minimal_score
+):
+    """MusicData is replaced wholesale on load (invariant 3), so nothing
+    carries a stale ScoreSection into the next score."""
+    load_and_wait(window, qtbot, two_sections_score)
+    assert window._music_data.has_multiple_sections is True
+    assert not window.region_1_section_tabs.isHidden()
+
+    load_and_wait(window, qtbot, minimal_score)
+
+    assert window._music_data.has_multiple_sections is False
+    assert len(window._music_data.sections) == 1
+    assert window.region_1_section_tabs.isHidden()
+    assert not window._actions.select_section.isEnabled()
+
+
+def test_close_score_drops_the_sections_and_hides_the_tab_bar(
+    window, qtbot, two_sections_score
+):
+    load_and_wait(window, qtbot, two_sections_score)
+    assert not window.region_1_section_tabs.isHidden()
+
+    window.close_score()
+
+    assert window._music_data is None
+    assert window.region_1_section_tabs.isHidden()
+    assert not window._actions.select_section.isEnabled()

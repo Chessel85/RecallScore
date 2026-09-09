@@ -83,7 +83,9 @@ def build_sections(music_data) -> List[ScoreSection]:
     if not is_musicxml:
         return [ScoreSection(index=0, label="", build=build_timeline(music_data))]
 
-    root = music_data.xml_root or read_musicxml_root(music_data.file_path)
+    root = music_data.xml_root
+    if root is None:
+        root = read_musicxml_root(music_data.file_path)
     sections_xml = split_score_sections(root)
     if len(sections_xml) <= 1:
         return [ScoreSection(index=0, label="", build=build_timeline(music_data))]

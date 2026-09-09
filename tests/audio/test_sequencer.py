@@ -190,6 +190,27 @@ def test_end_index_bounds_playback_for_phrase_audition(timeline, null_synth, min
     assert timer.running is False
 
 
+def test_play_to_end_stops_at_the_active_sections_final_note(
+    timeline, null_synth, two_sections_score
+):
+    """sounding_bounds() runs over MusicData's live timeline_slices, which
+    is the active section's - so play-to-end stops at section 2's dotted
+    half G5 and never sounds a section 1 note (plan task 6)."""
+    md = timeline(two_sections_score, tempo_bpm=120)
+    assert md.set_active_section(1) is True
+    seq, timer = _build(md, null_synth)
+
+    seq.play_from(0)
+    for _ in range(12):
+        timer.fire()
+
+    sounded = [p["midi_notes"] for p in null_synth.played]
+    assert sounded == [[86], [84], [83], [81], [79]]   # D6 C6 B5 A5, then G5
+    assert seq.is_playing is False
+    # 74/76/77 (D5/E5/F5) belong only to section 1's timeline - never heard.
+    assert not any(n in (74, 76, 77) for chord in sounded for n in chord)
+
+
 def test_update_cursor_flag_is_recorded_for_the_caller_to_read(timeline, null_synth, minimal_score):
     """The Sequencer itself never touches active_event_index - E5/E6 read
     this flag to decide whether to move the cursor as playback proceeds."""
