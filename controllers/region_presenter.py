@@ -275,6 +275,22 @@ class RegionPresenter(QObject):
         )
         accessible_announcer.announce(self.region_3, f"{number}.")
 
+    def announce_section_change(self) -> None:
+        """Spoken after NavigationController.select_section switches which
+        section of a multi-section file is live - "Exercise 2, section 2 of
+        2". A one-shot QAccessibleAnnouncementEvent like the other announce_*
+        helpers, routed through region_3 (a real QWidget - see
+        accessible_announcer). Task 5 makes this conditional so it doesn't
+        double the Region 1 tab bar's own "tab, 2 of 2" when the switch came
+        from there."""
+        if not self.music_data:
+            return
+        md = self.music_data
+        position = f"section {md.active_section_index + 1} of {len(md.sections)}"
+        label = md.active_section.label
+        message = f"{label}, {position}." if label else f"{position.capitalize()}."
+        accessible_announcer.announce(self.region_3, message)
+
     def refresh_region_5(self) -> None:
         """Ref 29: recomputes Region 5's rows for the current position.
 

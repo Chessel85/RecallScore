@@ -51,6 +51,13 @@ class NavigationController(QObject):
         # new score has no matching occurrences, find_occurrence simply
         # returns None and the cue is the ordinary boundary_hit.
         self.current_find_target: Optional[FindTarget] = None
+        # Set by MainWindow after RegionPresenter is constructed (same
+        # deferred wiring as VoiceControlController.presenter - the presenter
+        # doesn't exist yet when this controller is built). Only
+        # select_section needs it: a section switch redraws Region 1 and
+        # resets Region 5's diff state as well as moving the cursor, more
+        # than the position_changed signal alone conveys.
+        self.presenter = None
 
     @property
     def music_data(self):
@@ -229,6 +236,51 @@ class NavigationController(QObject):
             return
         data.active_event_index = target
         self.position_changed.emit(True, False)
+
+    # --- score sections (multi-section MusicXML) -------------------------
+    #
+    # A "section" here is one of N independent pieces packed into a single
+    # file (UserPlans/MultiSectionScores.md) - distinct from the P2 "song
+    # section" jumps above. Selecting one swaps MusicData's live
+    # TimelineBuild so every other region behaves as if that section were
+    # the whole file.
+
+    def select_section(self, index: int) -> bool:
+        """Make section `index` active. Returns True when it actually
+        changed, False for an out-of-range or unchanged index.
+
+        Doesn't emit position_changed: a section switch also rebuilds
+        Region 1 and drops Region 5's cross-section diff state, so it
+        drives RegionPresenter directly (via the injected reference) rather
+        than through the ordinary move signal."""
+        self.clear_pending_digits()
+        data = self.music_data
+        if data is None or not data.set_active_section(index):
+            return False
+        if self.presenter is not None:
+            # Reset FIRST: Region 5 must not be diffed against the previous
+            # section's rows, or its "None" placeholder fails to render.
+            self.presenter.reset_performance_labels()
+            self.presenter.refresh_region_1()
+            # Regions 3/4/5, the status bar and the landing-note audition
+            # all go through the normal move path.
+            self.presenter.update_timeline_views(play_all=True)
+            self.presenter.announce_section_change()
+        return True
+
+    def step_section(self, delta: int) -> bool:
+        """Left/Right on the Region 1 section row: move `delta` sections
+        from the active one, clamped at the ends (no wrap - matches a
+        QTabBar's own arrows and Ref 6's boundary behaviour). Sounds the
+        boundary cue on a no-op at an end."""
+        data = self.music_data
+        if data is None:
+            return False
+        target = data.active_section_index + delta
+        if not (0 <= target < len(data.sections)):
+            self.boundary_hit.emit()
+            return False
+        return self.select_section(target)
 
     def arm_find_target(self, target: FindTarget) -> None:
         """Called by MainWindow on the Find dialog's OK, before the initial

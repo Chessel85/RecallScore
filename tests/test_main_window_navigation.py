@@ -710,3 +710,83 @@ def test_region_1_list_preserves_current_row_across_a_rebuild(window, qtbot, min
     window.set_uk_terms(True)
 
     assert window.region_1.currentRow() == 2
+
+
+# --- multi-section scores: NavigationController.select_section wiring -------
+
+
+def test_select_section_switches_the_note_list_to_the_new_section(
+    window, qtbot, two_sections_score
+):
+    """select_section swaps MusicData's live TimelineBuild, so every region
+    then reads the chosen section as if it were the whole file - Region 3's
+    End here lands on section 2's two-bar range, not section 1's three."""
+    load_and_wait(window, qtbot, two_sections_score)
+    assert window._music_data.measure_numbers() == [1, 2, 3]
+
+    assert window.navigation.select_section(1) is True
+
+    assert window._music_data.active_section_index == 1
+    assert window._music_data.measure_numbers() == [1, 2]
+    window.navigation.timeline_end()
+    assert window._music_data.get_current_slice().measure == 2
+
+
+def test_select_section_announces_the_new_section(
+    window, qtbot, monkeypatch, two_sections_score
+):
+    announcements = []
+    monkeypatch.setattr(
+        accessible_announcer.QAccessible,
+        "updateAccessibility",
+        lambda event: announcements.append(event.message()),
+    )
+    load_and_wait(window, qtbot, two_sections_score)
+    announcements.clear()
+
+    window.navigation.select_section(1)
+
+    assert "Exercise 2, section 2 of 2." in announcements
+
+
+def test_select_section_is_a_no_op_for_the_active_or_out_of_range_index(
+    window, qtbot, two_sections_score
+):
+    load_and_wait(window, qtbot, two_sections_score)
+
+    assert window.navigation.select_section(0) is False   # already active
+    assert window.navigation.select_section(5) is False   # out of range
+    assert window._music_data.active_section_index == 0
+
+
+def test_step_section_clamps_at_the_ends_and_cues_the_boundary(
+    window, qtbot, two_sections_score
+):
+    boundary_hits = []
+    window.navigation.boundary_hit.connect(lambda: boundary_hits.append(True))
+    load_and_wait(window, qtbot, two_sections_score)
+
+    assert window.navigation.step_section(-1) is False    # already at section 0
+    assert boundary_hits == [True]
+
+    assert window.navigation.step_section(1) is True
+    assert window._music_data.active_section_index == 1
+
+    assert window.navigation.step_section(1) is False     # no section 2
+    assert boundary_hits == [True, True]
+
+
+def test_select_section_refreshes_region_1_to_the_new_key_and_time(
+    window, qtbot, two_sections_score
+):
+    """Region 5's diff state is reset before the refresh (so its "None"
+    placeholder still renders), and Region 1 is rebuilt - task 5 fills in
+    the per-section key/time values; here we only assert the refresh ran
+    without disturbing the load."""
+    load_and_wait(window, qtbot, two_sections_score)
+
+    window.navigation.select_section(1)
+
+    assert window.presenter.last_performance_row_labels is not None
+    assert window.region_1.count() > 0
+    assert window.region_3.count() > 0

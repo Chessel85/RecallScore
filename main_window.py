@@ -403,6 +403,10 @@ class MainWindow(QMainWindow):
         # VoiceControlController._dispatch and RegionPresenter.
         # announce_attribute_by_number.
         self.voice_control.presenter = self.presenter
+        # Deferred for the same reason: NavigationController.select_section
+        # (multi-section scores) redraws Region 1 and Region 5 through the
+        # presenter, which doesn't exist when navigation is constructed.
+        self.navigation.presenter = self.presenter
 
         self.focus.connect_tracking()
 
