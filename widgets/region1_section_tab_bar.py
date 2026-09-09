@@ -60,6 +60,22 @@ class Region1SectionTabBar(RegionFocusCycleMixin, QTabBar):
             self.blockSignals(blocked)
         self.setVisible(len(labels) >= 2)
 
+    def step(self, delta: int) -> bool:
+        """Move `delta` tabs from the current one, clamped at the ends - no
+        wrap, matching this bar's own Left/Right arrows and Ref 6's boundary
+        behaviour. Returns True when the bar is showing (so the keystroke is
+        consumed even on a boundary no-op), False when hidden so the caller
+        lets Ctrl+Tab fall through to the region cycle."""
+        if self.isHidden() or self.count() < 2:
+            return False
+        target = max(0, min(self.currentIndex() + delta, self.count() - 1))
+        if target != self.currentIndex():
+            self.setCurrentIndex(target)
+        return True
+
+    def _region_ctrl_tab(self, forward: bool) -> bool:
+        return self.step(1 if forward else -1)
+
     def _on_current_changed(self, index: int) -> None:
         if index >= 0:
             self.section_selected.emit(index)

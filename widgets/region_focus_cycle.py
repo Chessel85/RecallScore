@@ -37,14 +37,29 @@ class RegionFocusCycleMixin:
         silently swallowing the keystroke."""
         return self.window()
 
+    def _region_ctrl_tab(self, forward: bool) -> bool:
+        """Ctrl+Tab / Ctrl+Shift+Tab hook. Region 1's widgets override this to
+        step the section tab bar (forward / backward, no wrap) while it is
+        showing. The default returns False - not handled - so everywhere else
+        Ctrl+Tab keeps falling through to the plain region cycle below."""
+        return False
+
     def event(self, event) -> bool:
         if event.type() == QEvent.Type.KeyPress:
             key = event.key()
-            shift = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
-            if key == Qt.Key.Key_Backtab or (key == Qt.Key.Key_Tab and shift):
+            mods = event.modifiers()
+            shift = bool(mods & Qt.KeyboardModifier.ShiftModifier)
+            ctrl = bool(mods & Qt.KeyboardModifier.ControlModifier)
+            is_tab = key == Qt.Key.Key_Tab
+            is_backtab = key == Qt.Key.Key_Backtab
+            if ctrl and (is_tab or is_backtab):
+                forward = not (is_backtab or shift)
+                if self._region_ctrl_tab(forward):
+                    return True
+            if is_backtab or (is_tab and shift):
                 self._region_cycle_window().focus_previous_region(self)
                 return True
-            if key == Qt.Key.Key_Tab:
+            if is_tab:
                 self._region_cycle_window().focus_next_region(self)
                 return True
         return super().event(event)

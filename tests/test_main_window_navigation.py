@@ -922,6 +922,69 @@ def test_tab_from_the_section_bar_lands_on_region_1_then_region_2(
     assert window.focusWidget() is window.region_5
 
 
+_CTRL = Qt.KeyboardModifier.ControlModifier
+_CTRL_SHIFT = Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier
+
+
+@pytest.mark.parametrize("target", ["region_1_section_tabs", "region_1"])
+def test_ctrl_tab_steps_the_section_tab_bar_from_either_region_1_child(
+    window, qtbot, null_synth, two_sections_score, target
+):
+    """With focus anywhere in Region 1 - the tab bar itself or its property
+    list - Ctrl+Tab moves forward through the sections and Ctrl+Shift+Tab
+    back, without leaving Region 1."""
+    load_and_wait(window, qtbot, two_sections_score)
+    _show(window, qtbot)
+    widget = getattr(window, target)
+    _focus(widget)
+    assert window._music_data.active_section_index == 0
+
+    qtbot.keyClick(widget, Qt.Key.Key_Tab, _CTRL)
+    assert window.region_1_section_tabs.currentIndex() == 1
+    assert window._music_data.active_section_index == 1
+    assert window.focusWidget() is widget
+
+    qtbot.keyClick(widget, Qt.Key.Key_Tab, _CTRL_SHIFT)
+    assert window.region_1_section_tabs.currentIndex() == 0
+    assert window._music_data.active_section_index == 0
+
+
+@pytest.mark.parametrize("mods", [_CTRL, _CTRL_SHIFT])
+def test_ctrl_tab_through_the_section_bar_does_not_wrap(
+    window, qtbot, null_synth, two_sections_score, mods
+):
+    """Ctrl+Tab at the last section and Ctrl+Shift+Tab at the first are
+    consumed no-ops - the section does not wrap and focus stays put."""
+    load_and_wait(window, qtbot, two_sections_score)
+    _show(window, qtbot)
+    tabs = window.region_1_section_tabs
+    start = 1 if mods == _CTRL else 0
+    tabs.setCurrentIndex(start)
+    _focus(window.region_1)
+
+    qtbot.keyClick(window.region_1, Qt.Key.Key_Tab, mods)
+
+    assert tabs.currentIndex() == start
+    assert window.focusWidget() is window.region_1
+
+
+def test_ctrl_tab_in_region_1_without_a_section_bar_still_cycles_regions(
+    window, qtbot, null_synth, minimal_score
+):
+    """A single-section score has no tab bar, so Ctrl+Tab in Region 1 falls
+    through to the ordinary region cycle rather than being swallowed."""
+    load_and_wait(window, qtbot, minimal_score)
+    _show(window, qtbot)
+    assert window.region_1_section_tabs.isHidden()
+
+    calls = []
+    window.focus_next_region = lambda current: calls.append(("next", current))
+    _focus(window.region_1)
+    qtbot.keyClick(window.region_1, Qt.Key.Key_Tab, _CTRL)
+
+    assert calls == [("next", window.region_1)]
+
+
 def test_z_lands_on_the_section_bar_when_visible_else_the_list(
     window, qtbot, null_synth, two_sections_score, minimal_score
 ):
