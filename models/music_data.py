@@ -30,6 +30,7 @@ from models.playback_jump_state import PlaybackJumpState
 from models.repeat_span import RepeatSpan
 from models.score_config_data import ScoreConfig
 from models.score_formats import family_for_path
+from models.score_section import ScoreSection
 from models.section_span import SectionSpan
 from models.segno_mark import SegnoMark
 from models.strum_pattern import StrumPattern
@@ -221,6 +222,18 @@ class MusicData:
     # Region 5 row, a Find target, and Ctrl+Alt+Left/Right section stepping.
     section_spans: List[SectionSpan] = field(default_factory=list)
 
+    # Multi-section MusicXML (UserPlans/MultiSectionScores.md): one file
+    # holding several independent pieces back to back. build_sections()
+    # yields one ScoreSection per piece, each carrying its own complete,
+    # standalone TimelineBuild; set_active_section() swaps which one is
+    # live by re-adopting its build. ALWAYS has at least one entry - every
+    # non-MusicXML format, and an ordinary single-piece MusicXML file,
+    # yields exactly one section with an empty label, so the downstream
+    # path is unchanged from before this feature. Not persisted: every
+    # load starts on section 0 (feedback_simplicity_over_stateful_features).
+    sections: List[ScoreSection] = field(default_factory=list)
+    active_section_index: int = 0
+
     @property
     def is_midi(self) -> bool:
         """True for a score loaded from a Standard MIDI File, as opposed to
@@ -312,35 +325,109 @@ class MusicData:
             # is actually parsed keeps the documented
             # MusicData(file_path=...) shortcut working unchanged - see
             # parsers/timeline_builder_factory.py.
-            from parsers.timeline_builder_factory import build_timeline
+            from parsers.timeline_builder_factory import build_sections
 
-            build_timeline(self).apply_to(self)
+            self.sections = build_sections(self)
+            self._adopt_timeline_build(self.sections[0].build)
             self.active_event_index = 0
             self._set_percussion_voice_names()
         else:
             self._beat_markers: List[EventSlice] = []
+            # A directly-constructed MusicData (caller-supplied
+            # timeline_slices, no file) still has exactly one section so
+            # every section-aware consumer has something to read. Its
+            # build is None - set_active_section is unreachable with one
+            # section, so nothing dereferences it.
+            self.sections = [ScoreSection(index=0, label="", build=None)]
+            self._adopt_timeline_build(None)
+
+    def _adopt_timeline_build(self, build) -> None:
+        """Make `build` (a models.timeline_build.TimelineBuild, or None to
+        keep the current timeline_slices) the live timeline and reset every
+        cache derived from it. Called by __post_init__ and by
+        set_active_section.
+
+        Every timeline-derived cache MUST be dropped here - a missed one is
+        this method's failure mode. A stale _measure_numbers_cache alone
+        makes `Go to bar` in a later section silently jump into an earlier
+        section's slices.
+        """
+        if build is not None:
+            build.apply_to(self)
         # The real, marker-free timeline, kept stable so
         # set_metronome_enabled can restore exactly this when the metronome
         # goes off again.
         self._real_timeline_slices = self.timeline_slices
-        # Safe to cache forever: timeline_slices is never reassigned after
-        # this point. The filter-dependent caches are separate, below.
+        # Safe to cache until the next _adopt_timeline_build:
+        # timeline_slices is not reassigned in between (the metronome
+        # rebuild aside, which invalidates these itself). The
+        # filter-dependent caches are dropped by
+        # _invalidate_visibility_cache below.
         self._measure_numbers_cache: Optional[List[int]] = None
         # M1: parallel list of tempo_changes[i].quarters_from_start for the
-        # bisect in _tempo_change_at. tempo_changes is assigned once by
-        # TimelineBuild.apply_to (above) and never mutated, so this is
-        # built lazily and kept forever, like _measure_numbers_cache.
+        # bisect in _tempo_change_at. tempo_changes is assigned by
+        # TimelineBuild.apply_to and not mutated after, so this is built
+        # lazily and kept, like _measure_numbers_cache.
         self._tempo_change_starts_cache: Optional[List[float]] = None
         # P2 (UG "Tab" import): forward-filled "chord / lyric in effect"
         # context, aligned to _real_timeline_slices (the stable, marker-free
-        # list) and resolved by quarters_from_start - same "cache forever,
-        # source is immutable after apply_to" property _tempo_change_at
-        # relies on, and robust to the metronome splicing markers into
-        # timeline_slices (a marker slice keeps a real quarters_from_start).
+        # list) and resolved by quarters_from_start - same "cache until the
+        # build changes, source is immutable after apply_to" property
+        # _tempo_change_at relies on, and robust to the metronome splicing
+        # markers into timeline_slices (a marker slice keeps a real
+        # quarters_from_start).
         self._chord_context: Optional[List[Optional[Tuple[str, int]]]] = None
         self._lyric_context: Optional[List[Optional[Tuple[str, int]]]] = None
         self._context_quarters: Optional[List[float]] = None
         self._invalidate_visibility_cache()
+
+    @property
+    def has_multiple_sections(self) -> bool:
+        """True for a MusicXML file split into 2+ independent pieces (see
+        `sections`). Drives whether Region 1's section tab bar shows and
+        whether `Navigation > Select Section...` is enabled."""
+        return len(self.sections) > 1
+
+    @property
+    def active_section(self) -> ScoreSection:
+        return self.sections[self.active_section_index]
+
+    def set_active_section(self, index: int) -> bool:
+        """Switch which section's TimelineBuild is live. Returns False (a
+        no-op) for an out-of-range index or the already-active one, True
+        when the switch happened.
+
+        Everything keyed by whole-file facts - active_voice_filter,
+        voice_display_attributes, mixer, the override dicts - carries across
+        untouched; only the timeline-derived caches they feed are dropped
+        (by _adopt_timeline_build). But state that was *baked into* the old
+        section's NoteData at build time has to be re-applied to the fresh
+        slices, in the same order __post_init__/apply_config use.
+        """
+        if not (0 <= index < len(self.sections)):
+            return False
+        if index == self.active_section_index:
+            return False
+
+        metronome_was_on = self.metronome_enabled
+
+        self.active_section_index = index
+        self._adopt_timeline_build(self.active_section.build)
+        self.active_event_index = 0
+
+        self.apply_part_overrides(self.part_name_overrides, self.part_program_overrides)
+        self.apply_percussion_overrides()
+        self.apply_key_signature_override(
+            self.key_signature_override_fifths, self.key_signature_override_mode
+        )
+        self._set_percussion_voice_names()
+        # _adopt_timeline_build swapped in the section's marker-free list,
+        # so metronome_enabled no longer reflects timeline_slices. Force a
+        # clean re-splice past set_metronome_enabled's no-op guard.
+        if metronome_was_on:
+            self.metronome_enabled = False
+            self.set_metronome_enabled(True)
+        return True
 
     def _invalidate_visibility_cache(self) -> None:
         """Drops the navigator's filter-dependent caches - see
