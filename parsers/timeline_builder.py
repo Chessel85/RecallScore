@@ -46,6 +46,14 @@ from models.vocabulary import (
 )
 from parsers.xml_source import read_musicxml_root
 
+# Attribute name marking an <attributes> element synthesised by
+# parsers.score_sections to carry forward state (clef especially) into a
+# later section of a multi-section file. _handle_attributes suppresses the
+# mid-part ClefChangeMark / MeasureStyleMark it would otherwise emit for
+# such an element. Defined here (not in score_sections) because
+# score_sections imports from this module, not the other way round.
+SECTION_CARRIED_MARKER = "recall-score-carried"
+
 # Synthetic parts a real MusicXML file can carry alongside its notated
 # instruments, mirroring parsers/ug_timeline_builder.py's Chords/Lyrics
 # concept but sourced from the file's own <harmony>/<lyric> elements rather
@@ -1216,6 +1224,26 @@ class TimelineBuilder:
         children. Divisions / time / key are already applied by the walker
         (_apply_attributes); this is only the two findable facts on top.
         Per-part/per-staff (D5)."""
+        if elem.attrib.get(SECTION_CARRIED_MARKER) == "yes":
+            # A synthesised carry-forward block prepended by
+            # parsers.score_sections when this part is a later section of a
+            # multi-section file. The walker has already picked up its
+            # divisions/key/time; seed the per-staff clef state so a real
+            # clef change later in the section still diffs, but do NOT
+            # report the carried clef itself as a mid-part change (M7/M8) -
+            # it is section 1's clef restated, not a new one.
+            for clef_el in elem.findall("clef"):
+                try:
+                    staff = int(clef_el.attrib.get("number", "1"))
+                except ValueError:
+                    staff = 1
+                part_state.clef_by_staff[staff] = (
+                    clef_el.findtext("sign"),
+                    clef_el.findtext("line"),
+                    clef_el.findtext("clef-octave-change"),
+                )
+            return
+
         walker = measure_state.walker
         m_num = measure_state.m_num
         offset_q = walker.offset_divs / walker.divisions

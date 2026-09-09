@@ -170,6 +170,26 @@ def flute_crotchets_viola_semibreves_score() -> str:
 
 
 @pytest.fixture
+def two_sections_score() -> str:
+    """Hand-written two-section MusicXML: one <part id="P1">, bars 1-3 in
+    C major / 4/4 preceded by a "Exercise 1" <words> direction, then the
+    <measure number> counter restarts at 1 for bars 1-2 in G major / 3/4
+    preceded by "Exercise 2". Section 2 re-declares divisions/key/time but
+    NOT <clef> - the treble clef is only in section 1's bar 1. Models the
+    shape of files/Two flute exercises.musicxml on the ~1ms ElementTree
+    path."""
+    return _require(FIXTURES_DIR / "two_sections.musicxml")
+
+
+@pytest.fixture
+def two_flute_exercises_score() -> str:
+    """The real files/Two flute exercises.musicxml - the multi-section
+    score this feature exists for. Skipped if the (untracked) file is
+    absent from the working tree."""
+    return _require(SCORES_DIR / "Two flute exercises.musicxml")
+
+
+@pytest.fixture
 def staggered_two_part_entry_score() -> str:
     """One 4/4 bar: Viola (P1) plays two half notes filling the bar; Violin I
     (P2) is silent on beat 1 and enters with a quarter note on beat 2 only -
