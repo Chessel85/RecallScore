@@ -60,6 +60,7 @@ from widgets.part_order_dialog import PartOrderDialog
 from widgets.performance_report_dialog import PerformanceReportDialog
 from widgets.play_settings_dialog import PlaySettingsDialog
 from widgets.region1_list_widget import Region1ListWidget
+from widgets.region1_section_tab_bar import Region1SectionTabBar
 from widgets.region2_list_widget import Region2ListWidget
 from widgets.region2_manager import node_breadcrumb
 from widgets.region4_list_widget import Region4ListWidget
@@ -198,9 +199,14 @@ class MainWindow(QMainWindow):
 
         grid_layout = QGridLayout(central_widget)
 
-        # Region 1: score info
+        # Region 1: score info. The property list is the region proper (it
+        # stays `self.region_1` - the stable name widgets and tests drive);
+        # a section tab bar is spliced in above it for a multi-section
+        # MusicXML score and stays hidden otherwise
+        # (UserPlans/MultiSectionScores.md).
         self.region_1 = Region1ListWidget()
         self.region_1.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        self.region_1_section_tabs = Region1SectionTabBar()
 
         # Region 2: Parts/Staves/Voices hierarchy, navigated Up/Down, O to toggle
         self.region_2 = Region2ListWidget()
@@ -244,6 +250,8 @@ class MainWindow(QMainWindow):
             return container
 
         self.region_1_box = _titled_region(self.region_1, "Score information")
+        # caption at 0, list at 1 -> put the section tab bar between them.
+        self.region_1_box.layout().insertWidget(1, self.region_1_section_tabs)
         self.region_2_box = _titled_region(self.region_2, "Parts")
         self.region_3_box = _titled_region(self.region_3, "Notes")
         self.region_4_box = _titled_region(self.region_4, "Attributes")
@@ -387,8 +395,12 @@ class MainWindow(QMainWindow):
             self.session, self.region_1, self.region_2, self.region_3,
             self.region_4, self.region_5, self.status_bar,
             playback_status_fields=self.playback.status_fields,
+            region_1_section_tabs=self.region_1_section_tabs,
             parent=self,
         )
+        # While it is visible the section tab bar joins the Tab/Shift+Tab
+        # cycle as the stop just ahead of Region 1's list.
+        self.focus.region_1_extra_stop = self.region_1_section_tabs
         self.attributes = AttributeController(self.session, self.presenter, self)
         # S5: the score-data edits behind the Instruments, Key Signature and
         # Reorder Parts dialogs. Built after the presenter, which it drives
@@ -469,6 +481,14 @@ class MainWindow(QMainWindow):
         # Emitted from inside update_timeline_views, and delivered
         # synchronously, so the notes still sound before the performance cue.
         self.presenter.audition_requested.connect(self._audition_current_selection)
+
+        # Multi-section MusicXML: the Region 1 tab bar emits intent; the
+        # section-switch logic lives in NavigationController (invariant 5).
+        # currentChanged is blocked while set_sections rebuilds the tabs on
+        # load, so this cannot re-enter select_section from that path.
+        self.region_1_section_tabs.section_selected.connect(
+            self._on_section_tab_selected
+        )
 
         self.region_2.filter_changed.connect(self.presenter.on_region_2_filter_changed)
         self.region_3.itemSelectionChanged.connect(
@@ -594,6 +614,7 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle("Recall Score")
         self._actions.close.setEnabled(False)
+        self._actions.select_section.setEnabled(False)
         self._actions.strumming.setEnabled(False)
         self._actions.save_ug_import.setEnabled(False)
         # Reverts "go to bar N"'s vocabulary to nothing score-specific -
@@ -709,6 +730,7 @@ class MainWindow(QMainWindow):
         voices the user had switched off."""
         self.setWindowTitle(self._window_title_for(music_data))
         self._actions.close.setEnabled(True)
+        self._actions.select_section.setEnabled(music_data.has_multiple_sections)
         self._actions.strumming.setEnabled(bool(music_data.ug_strum_patterns))
         self._actions.save_ug_import.setEnabled(bool(music_data.is_ug))
 
@@ -997,7 +1019,24 @@ class MainWindow(QMainWindow):
         self.region_3.setFocus()
 
     def _navigation_menu_move_to_metadata(self):
-        self.region_1.setFocus()
+        # Z lands on the section tab bar when it is showing (a multi-section
+        # score), on the property list otherwise.
+        if self.region_1_section_tabs.isHidden():
+            self.region_1.setFocus()
+        else:
+            self.region_1_section_tabs.setFocus()
+
+    def _on_section_tab_selected(self, index: int):
+        """Region 1's section tab bar changed. Wiring only - the switch
+        logic is NavigationController's. announce=False: the tab bar's own
+        NVDA "tab, N of M" already covers it."""
+        self.navigation.select_section(index, announce=False)
+
+    def _navigation_menu_select_section(self):
+        """Navigation > Select Section...: just moves focus to the Region 1
+        section tab bar (the control and the display both). Enabled only for
+        a multi-section score, so the bar is always visible when this runs."""
+        self.region_1_section_tabs.setFocus()
 
     def _navigation_menu_move_to_parts(self):
         self.region_2.setFocus()

@@ -613,8 +613,31 @@ class MusicData:
             number_str = str(int(number)) if float(number).is_integer() else str(round(number, 2))
             unit = vocabulary.duration_name(self.tempo_beat_unit_name, self.uk_terms)
             data["Tempo"] = f"{number_str} {unit} notes per minute"
+        # Multi-section MusicXML (UserPlans/MultiSectionScores.md): credits'
+        # "Key Signature" / "Time Signature" are the whole file's opening
+        # values, parsed once by MusicXMLReader. When the file is really N
+        # independent pieces, Region 1 must show the ACTIVE section's own
+        # opening key/time - taken live from its first slice, the same
+        # "rebuild, don't touch the parsed original" pattern Tempo uses. A
+        # single-section score never enters this branch, so its Region 1 is
+        # bit-identical to before.
+        if self.has_multiple_sections:
+            first = self._real_timeline_slices[0] if self._real_timeline_slices else None
+            if first is not None:
+                data["Key Signature"] = key_signature_display_name(first.key_fifths, None)
+                ts_num, ts_den = first.time_sig
+                data["Time Signature"] = f"{ts_num}/{ts_den}"
+            build = self.active_section.build
+            if build is not None and build.tempo_changes:
+                change = build.tempo_changes[0]
+                number = change.tempo_bpm / change.beat_unit_quarter_length
+                number_str = (
+                    str(int(number)) if float(number).is_integer() else str(round(number, 2))
+                )
+                unit = vocabulary.duration_name(change.beat_unit_name, self.uk_terms)
+                data["Tempo"] = f"{number_str} {unit} notes per minute"
         # S6: same "rebuild live, don't touch the parsed original" pattern
-        # as Tempo above.
+        # as Tempo above - and it must still win over the per-section key.
         if self.key_signature_override_fifths is not None:
             data["Key Signature"] = key_signature_display_name(
                 self.key_signature_override_fifths, self.key_signature_override_mode

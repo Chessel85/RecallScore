@@ -48,6 +48,13 @@ class FocusController:
         self.unsolo_all_action = unsolo_all_action
         self.last_focused_region = regions[0] if regions else None
         self._tracking_connected = False
+        # Multi-section MusicXML (UserPlans/MultiSectionScores.md): Region 1
+        # gains a QTabBar above its property list. Set by MainWindow to that
+        # bar; while it is visible it joins the Tab/Shift+Tab cycle as an
+        # extra stop immediately ahead of Region 1's list, so Region 1 then
+        # has two focus stops - the tab bar first, then the list. None, and
+        # ignored, for every single-section score.
+        self.region_1_extra_stop = None
 
     # --- focus tracking ----------------------------------------------
 
@@ -76,7 +83,7 @@ class FocusController:
     def on_focus_changed(self, old, now) -> None:
         """Remembers the last-focused region so F6 restores it rather than
         always landing on Region 1."""
-        if now in self._regions:
+        if now in self._regions or now is self.region_1_extra_stop:
             self.last_focused_region = now
         self.update_navigation_actions_enabled(now)
         self.update_region2_actions_enabled(now)
@@ -136,16 +143,34 @@ class FocusController:
     def note_region(self):
         return self._regions[2]
 
+    def _cycle_stops(self) -> list:
+        """The ordered focus stops Tab/Shift+Tab move between: the five
+        regions, plus Region 1's section tab bar inserted just ahead of
+        Region 1's list while that bar is visible (a multi-section score).
+        Single-section scores get exactly the five-region list, unchanged.
+        """
+        stops = list(self._regions)
+        extra = self.region_1_extra_stop
+        # isHidden(), not isVisible(): the latter is also False whenever the
+        # window itself is not shown (headless tests), which would drop the
+        # bar from the cycle even for a multi-section score.
+        if extra is not None and not extra.isHidden():
+            stops.insert(0, extra)
+        return stops
+
     def focus_next(self, current) -> None:
         """Tab within the regions area: cycles 1->2->3->4->5->1 and never
-        leaves."""
-        index = self._regions.index(current)
-        self._regions[(index + 1) % len(self._regions)].setFocus()
+        leaves. With the section tab bar visible it is a six-stop ring
+        (tab bar -> Region 1 list -> Region 2 -> ...)."""
+        stops = self._cycle_stops()
+        index = stops.index(current)
+        stops[(index + 1) % len(stops)].setFocus()
 
     def focus_previous(self, current) -> None:
         """Shift+Tab within the regions area: the reverse of focus_next."""
-        index = self._regions.index(current)
-        self._regions[(index - 1) % len(self._regions)].setFocus()
+        stops = self._cycle_stops()
+        index = stops.index(current)
+        stops[(index - 1) % len(stops)].setFocus()
 
     # --- panes --------------------------------------------------------
 

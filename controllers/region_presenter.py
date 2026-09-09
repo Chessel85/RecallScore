@@ -26,10 +26,14 @@ class RegionPresenter(QObject):
     audition_requested = Signal()
 
     def __init__(self, session, region_1, region_2, region_3, region_4, region_5,
-                 status_bar, playback_status_fields, parent=None):
+                 status_bar, playback_status_fields, region_1_section_tabs=None,
+                 parent=None):
         super().__init__(parent)
         self.session = session
         self.region_1 = region_1
+        # Multi-section MusicXML: the QTabBar above Region 1's list. None in
+        # the Region 5 unit tests, which build a bare presenter.
+        self.region_1_section_tabs = region_1_section_tabs
         self.region_2 = region_2
         self.region_3 = region_3
         self.region_4 = region_4
@@ -73,6 +77,8 @@ class RegionPresenter(QObject):
         must run with self.music_data already None - it is the inverse of a
         load's refresh, not part of one."""
         self.region_1.clear()
+        if self.region_1_section_tabs is not None:
+            self.region_1_section_tabs.set_sections([], 0)
         self.region_2.load_score_structure([])
         self.region_3.clear()
         self.region_4.clear()
@@ -372,5 +378,13 @@ class RegionPresenter(QObject):
             self.update_status_bar()
 
     def refresh_region_1(self) -> None:
-        if self.music_data:
-            self.region_1.refresh_list(self.music_data.get_region_1_data())
+        if not self.music_data:
+            return
+        md = self.music_data
+        if self.region_1_section_tabs is not None:
+            # Idempotent: on a section switch this re-sets the already-current
+            # tab with signals blocked, so it never re-enters select_section.
+            self.region_1_section_tabs.set_sections(
+                [section.label for section in md.sections], md.active_section_index
+            )
+        self.region_1.refresh_list(md.get_region_1_data())

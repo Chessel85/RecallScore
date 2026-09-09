@@ -790,3 +790,148 @@ def test_select_section_refreshes_region_1_to_the_new_key_and_time(
     assert window.presenter.last_performance_row_labels is not None
     assert window.region_1.count() > 0
     assert window.region_3.count() > 0
+
+
+# --- multi-section scores: Region 1 tab bar (plan task 5) ------------------
+
+
+def _region_1_rows(window):
+    return [window.region_1.item(i).text() for i in range(window.region_1.count())]
+
+
+def test_section_tab_bar_shows_one_tab_per_section_labelled(window, qtbot, two_sections_score):
+    load_and_wait(window, qtbot, two_sections_score)
+
+    tabs = window.region_1_section_tabs
+    assert not tabs.isHidden()
+    assert [tabs.tabText(i) for i in range(tabs.count())] == ["Exercise 1", "Exercise 2"]
+    assert tabs.currentIndex() == 0
+    assert window._actions.select_section.isEnabled()
+
+
+def test_section_tab_bar_is_hidden_for_a_single_section_score(window, qtbot, minimal_score):
+    load_and_wait(window, qtbot, minimal_score)
+
+    assert window.region_1_section_tabs.isHidden()
+    assert not window._actions.select_section.isEnabled()
+
+
+def test_setting_the_current_tab_switches_section_and_region_3(window, qtbot, two_sections_score):
+    """The tab bar's own currentChanged is the switch trigger - selecting
+    tab 2 swaps MusicData's live TimelineBuild, so Region 3 now shows
+    section 2's two bars, and Region 1 its G major / 3/4."""
+    load_and_wait(window, qtbot, two_sections_score)
+    assert window._music_data.measure_numbers() == [1, 2, 3]
+
+    window.region_1_section_tabs.setCurrentIndex(1)
+
+    assert window._music_data.active_section_index == 1
+    assert window._music_data.measure_numbers() == [1, 2]
+    assert "Key Signature: G major / E minor" in _region_1_rows(window)
+    assert "Time Signature: 3/4" in _region_1_rows(window)
+
+
+def test_region_1_shows_the_active_sections_own_key_and_time(window, qtbot, two_sections_score):
+    load_and_wait(window, qtbot, two_sections_score)
+
+    assert "Key Signature: C major / A minor" in _region_1_rows(window)
+    assert "Time Signature: 4/4" in _region_1_rows(window)
+
+    window.navigation.select_section(1)
+
+    assert "Key Signature: G major / E minor" in _region_1_rows(window)
+    assert "Time Signature: 3/4" in _region_1_rows(window)
+
+
+def test_loading_a_multi_section_file_does_not_re_enter_select_section(
+    window, qtbot, two_sections_score, monkeypatch
+):
+    """set_sections rebuilds the tabs with signals blocked, so populating
+    the bar on load must not fire currentChanged back into select_section
+    and reset the cursor a second time (plan task 5d)."""
+    calls = []
+    monkeypatch.setattr(window, "_on_section_tab_selected", lambda index: calls.append(index))
+
+    load_and_wait(window, qtbot, two_sections_score)
+
+    assert calls == []
+
+
+def test_tab_bar_selection_does_not_double_announce(
+    window, qtbot, monkeypatch, two_sections_score
+):
+    """The tab bar voices itself via NVDA; select_section's own
+    QAccessible announcement is suppressed for that path (plan task 5g),
+    but kept for a direct/menu call."""
+    announcements = []
+    monkeypatch.setattr(
+        accessible_announcer.QAccessible,
+        "updateAccessibility",
+        lambda event: announcements.append(event.message()),
+    )
+    load_and_wait(window, qtbot, two_sections_score)
+    announcements.clear()
+
+    window.region_1_section_tabs.setCurrentIndex(1)
+    assert not any("section 2 of 2" in m for m in announcements)
+
+    announcements.clear()
+    window.navigation.select_section(0)
+    assert any("section 1 of 2" in m for m in announcements)
+
+
+def test_region_focus_cycle_steps_out_of_region_1_from_both_children(
+    window, qtbot, null_synth, two_sections_score
+):
+    """With the tab bar visible Region 1 has two focus stops - the tab bar
+    then the list - and Tab/Shift+Tab route through the region cycle from
+    either (invariant 7), never Qt's global chain."""
+    load_and_wait(window, qtbot, two_sections_score)
+    _show(window, qtbot)
+
+    calls = []
+    window.focus_next_region = lambda current: calls.append(("next", current))
+    window.focus_previous_region = lambda current: calls.append(("prev", current))
+
+    for child in (window.region_1_section_tabs, window.region_1):
+        _focus(child)
+        calls.clear()
+        qtbot.keyClick(child, Qt.Key.Key_Tab)
+        assert calls == [("next", child)]
+        calls.clear()
+        qtbot.keyClick(child, Qt.Key.Key_Tab, Qt.KeyboardModifier.ShiftModifier)
+        assert calls == [("prev", child)]
+
+
+def test_tab_from_the_section_bar_lands_on_region_1_then_region_2(
+    window, qtbot, null_synth, two_sections_score
+):
+    load_and_wait(window, qtbot, two_sections_score)
+    _show(window, qtbot)
+    _focus(window.region_1_section_tabs)
+
+    qtbot.keyClick(window.focusWidget(), Qt.Key.Key_Tab)
+    assert window.focusWidget() is window.region_1
+
+    qtbot.keyClick(window.focusWidget(), Qt.Key.Key_Tab)
+    assert window.focusWidget() is window.region_2
+
+    # ... and Shift+Tab off the bar wraps to Region 5.
+    _focus(window.region_1_section_tabs)
+    qtbot.keyClick(window.focusWidget(), Qt.Key.Key_Tab, Qt.KeyboardModifier.ShiftModifier)
+    assert window.focusWidget() is window.region_5
+
+
+def test_z_lands_on_the_section_bar_when_visible_else_the_list(
+    window, qtbot, null_synth, two_sections_score, minimal_score
+):
+    load_and_wait(window, qtbot, two_sections_score)
+    _show(window, qtbot)
+    _focus(window.region_3)
+    qtbot.keyClick(window.focusWidget(), Qt.Key.Key_Z)
+    assert window.focusWidget() is window.region_1_section_tabs
+
+    load_and_wait(window, qtbot, minimal_score)
+    _focus(window.region_3)
+    qtbot.keyClick(window.focusWidget(), Qt.Key.Key_Z)
+    assert window.focusWidget() is window.region_1

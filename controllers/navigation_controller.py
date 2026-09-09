@@ -245,14 +245,20 @@ class NavigationController(QObject):
     # TimelineBuild so every other region behaves as if that section were
     # the whole file.
 
-    def select_section(self, index: int) -> bool:
+    def select_section(self, index: int, announce: bool = True) -> bool:
         """Make section `index` active. Returns True when it actually
         changed, False for an out-of-range or unchanged index.
 
         Doesn't emit position_changed: a section switch also rebuilds
         Region 1 and drops Region 5's cross-section diff state, so it
         drives RegionPresenter directly (via the injected reference) rather
-        than through the ordinary move signal."""
+        than through the ordinary move signal.
+
+        `announce` is False when the switch came from Region 1's tab bar,
+        which NVDA already voices ("Exercise 2, tab, 2 of 2") - a second
+        QAccessible announcement would just double up (the same trap noted
+        in RegionPresenter.update_timeline_views). It stays True for the
+        menu / any programmatic caller, where nothing else speaks."""
         self.clear_pending_digits()
         data = self.music_data
         if data is None or not data.set_active_section(index):
@@ -265,7 +271,8 @@ class NavigationController(QObject):
             # Regions 3/4/5, the status bar and the landing-note audition
             # all go through the normal move path.
             self.presenter.update_timeline_views(play_all=True)
-            self.presenter.announce_section_change()
+            if announce:
+                self.presenter.announce_section_change()
         return True
 
     def step_section(self, delta: int) -> bool:

@@ -37,6 +37,7 @@ class Actions:
     first_measure: Optional[QAction] = None
     last_measure: Optional[QAction] = None
     goto_measure: Optional[QAction] = None
+    select_section: Optional[QAction] = None
     find: Optional[QAction] = None
     find_next: Optional[QAction] = None
     find_previous: Optional[QAction] = None
@@ -322,6 +323,19 @@ class MenuBuilder:
             goto_measure_action_text(self.uk_terms),
             self.slots._show_goto_measure_dialog, QKeySequence("Ctrl+G"),
         )
+        # Multi-section MusicXML (UserPlans/MultiSectionScores.md): a
+        # keyboard route to the section choice from any region without
+        # first jumping to Region 1. Not redundant with Region 1's tab bar,
+        # which is the display as well as the control - this just moves
+        # focus there (it is not a modal dialog; with the tab bar present a
+        # select dialog would have nothing left to do). Disabled unless the
+        # loaded score actually has more than one section (main_window.py
+        # keeps it in sync in _on_score_loaded / close_score).
+        a.select_section = self._action(
+            "Select &Section...", self.slots._navigation_menu_select_section,
+            status_tip="Move focus to the section tab bar in Score information",
+        )
+        a.select_section.setEnabled(False)
         # Find (attributes like "articulation"/"string", and performance
         # markings like repeat/ending/hairpin/Segno/Coda/D.C./D.S./key/
         # time-sig/tempo changes): pick a target, jump to occurrences of it.
@@ -399,6 +413,7 @@ class MenuBuilder:
         navigation_menu.addAction(a.last_measure)
         navigation_menu.addSeparator()
         navigation_menu.addAction(a.goto_measure)
+        navigation_menu.addAction(a.select_section)
         navigation_menu.addSeparator()
         navigation_menu.addAction(a.find)
         navigation_menu.addAction(a.find_next)
