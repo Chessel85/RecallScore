@@ -215,12 +215,14 @@ def test_live_all_notes_off_force_releases_every_held_note():
 def test_synth_midi_channels_constant_is_256():
     """MoreThan16Parts Task 1: the synth is created with all 256 MIDI
     channels, and that number is an explicit constant, not a library
-    default. Task 2 adds the cross-check that this equals
-    MusicData.MAX_MIDI_CHANNELS (the fact is duplicated across audio/ and
-    models/, which may not import each other)."""
+    default. Task 2's cross-check that it equals MusicData.MAX_MIDI_CHANNELS
+    (the fact is duplicated across audio/ and models/, which may not import
+    each other)."""
     from audio.synth_engine import SYNTH_MIDI_CHANNELS
+    from models.music_data import MusicData
 
     assert SYNTH_MIDI_CHANNELS == 256
+    assert SYNTH_MIDI_CHANNELS == MusicData.MAX_MIDI_CHANNELS
 
 
 def test_channel_arguments_reach_the_engine_unmasked_above_15():

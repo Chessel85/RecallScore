@@ -1258,6 +1258,13 @@ class MusicData:
     # depend on audio/. Keeping parts off these is what stops an instrument
     # colliding with the click, the spoken position word or the change cue.
     #
+    # The six sit at the top of the 256-channel range so real parts get
+    # plain channels 0, 1, 2 ... in part-list order with no gaps (see
+    # get_channel_for_part). Every reserved value is >= MAX_PARTS, and
+    # ScoreSession refuses any score with more parts than that, so a part
+    # index can never collide with one - a test asserts
+    # min(RESERVED_CHANNELS) >= MAX_PARTS.
+    #
     # Named METRONOME_CLICK_CHANNEL, not PERCUSSION_CHANNEL (its old name,
     # before wishlist #8): a REAL percussion part (is_percussion=True) is
     # NOT routed here - it gets an ordinary channel like any other part,
@@ -1265,36 +1272,33 @@ class MusicData:
     # get_playback_events_for_indices). This channel is reserved only
     # because audio/metronome.py's click sound already owns it - the old
     # name would now wrongly suggest real percussion notes land here too.
-    METRONOME_CLICK_CHANNEL = 9    # audio/metronome.py METRONOME_CHANNEL
-    POSITION_ANNOUNCER_CHANNEL = 8  # audio/position_announcer.py
-    PERFORMANCE_CUE_CHANNEL = 7     # audio/performance_cue.py
-    LIVE_MIDI_INPUT_CHANNEL = 6     # audio/midi_input.py LIVE_MIDI_INPUT_CHANNEL
-    VOICE_CONTROL_CUE_CHANNEL = 5   # audio/voice_confirmation_cue.py
-    BOUNDARY_CUE_CHANNEL = 4        # audio/boundary_cue.py
+    METRONOME_CLICK_CHANNEL = 255   # audio/metronome.py METRONOME_CHANNEL
+    POSITION_ANNOUNCER_CHANNEL = 254  # audio/position_announcer.py
+    PERFORMANCE_CUE_CHANNEL = 253   # audio/performance_cue.py
+    LIVE_MIDI_INPUT_CHANNEL = 252   # audio/midi_input.py LIVE_MIDI_INPUT_CHANNEL
+    VOICE_CONTROL_CUE_CHANNEL = 251  # audio/voice_confirmation_cue.py
+    BOUNDARY_CUE_CHANNEL = 250      # audio/boundary_cue.py
     RESERVED_CHANNELS = {
         POSITION_ANNOUNCER_CHANNEL, METRONOME_CLICK_CHANNEL,
         PERFORMANCE_CUE_CHANNEL, LIVE_MIDI_INPUT_CHANNEL, VOICE_CONTROL_CUE_CHANNEL,
         BOUNDARY_CUE_CHANNEL,
     }
-    MAX_MIDI_CHANNELS = 16
+    MAX_MIDI_CHANNELS = 256  # mirrors audio.synth_engine.SYNTH_MIDI_CHANNELS
+    # The most parts a score may have: one plain channel each below the six
+    # reserved ones. ScoreSession refuses anything larger.
+    MAX_PARTS = MAX_MIDI_CHANNELS - len(RESERVED_CHANNELS)  # 250
 
     def get_channel_for_part(self, part_id: str) -> int:
-        """One MIDI channel per part, in part-list order, skipping
-        RESERVED_CHANNELS. Wraps if a score has more melodic parts than the
-        16 channels minus reservations allow.
+        """One MIDI channel per part: the part's index in ``parts_info``.
 
-        The usable list is built per call, not as a class attribute: only a
-        comprehension's outermost iterable is evaluated in the enclosing
-        class scope, not its condition, so referring to RESERVED_CHANNELS
-        there raises NameError. 16 elements is too cheap to be worth caching
-        another way.
+        Every reserved channel now sits at or above MAX_PARTS (250), and a
+        score with more than MAX_PARTS parts is refused on load, so a part's
+        index is always a free, unreserved channel - no skip list and no
+        wrap needed.
         """
-        usable_channels = [
-            c for c in range(self.MAX_MIDI_CHANNELS) if c not in self.RESERVED_CHANNELS
-        ]
         for idx, p in enumerate(self.parts_info):
             if p.part_id == part_id:
-                return usable_channels[idx % len(usable_channels)]
+                return idx
         return 0
 
     def get_gmidi_program_for_part(self, part_id: str) -> int:

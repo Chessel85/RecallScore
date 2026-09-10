@@ -15,10 +15,11 @@ from typing import Optional, Tuple
 # alongside FluidR3_GM and program_selects it on METRONOME_CHANNEL.
 # Synthesised clicks (a sawtooth lead, then GM Claves accented by velocity)
 # were both tried and rejected as sounds.
-METRONOME_CHANNEL = 9  # reserved in MusicData.RESERVED_CHANNELS so no real
-                       # part lands here. Nothing depends on channel 10's
-                       # GM-percussion behaviour any more - the reservation
-                       # is purely collision avoidance.
+METRONOME_CHANNEL = 255  # reserved in MusicData.RESERVED_CHANNELS so no real
+                         # part lands here. The six Recall Score channels sit
+                         # at the top of the 256-channel range (250-255) so
+                         # parts get plain channels 0, 1, 2 ... with no gaps;
+                         # the reservation is purely collision avoidance.
 METRONOME_BANK = 0
 METRONOME_PROGRAM = 1  # [preset:click_default] in tools/config.ini
 METRONOME_ACCENT_NOTE = 60  # "accent" sample - beat 1 of every bar

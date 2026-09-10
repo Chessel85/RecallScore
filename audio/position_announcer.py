@@ -26,7 +26,9 @@ from models.beat_position_words import (  # noqa: F401
 # matching that pair regardless of preset, so silencing one would silence
 # both. Two channels sidesteps it with no note-numbering convention to
 # remember. MusicData.RESERVED_CHANNELS keeps real parts off this one.
-POSITION_ANNOUNCER_CHANNEL = 8
+# The six Recall Score channels sit at the top of the 256-channel range
+# (250-255) so parts get plain channels 0, 1, 2 ... with no gaps.
+POSITION_ANNOUNCER_CHANNEL = 254
 POSITION_ANNOUNCER_BANK = 0
 POSITION_ANNOUNCER_PROGRAM = 0  # [preset:talking_metronome_default]
 POSITION_ANNOUNCER_VELOCITY = 100

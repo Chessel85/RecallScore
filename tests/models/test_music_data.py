@@ -682,31 +682,40 @@ def test_get_channel_for_part_assigns_one_channel_per_part_in_order():
     assert md.get_channel_for_part("P2") == 1
 
 
-def test_get_channel_for_part_skips_the_metronome_announcer_cue_live_input_and_voice_control_channels():
-    """MIDI channel 10 (0-indexed 9) is reserved for the click metronome
-    (D-5) - a REAL percussion part is NOT routed here (wishlist #8: it gets
-    an ordinary channel like any other part, program-selected to the GM
-    percussion bank instead); channel 9 (0-indexed 8) is reserved for the
-    position announcer (Ref 28); channel 8 (0-indexed 7) is reserved for the
-    Performance region's change cue (Ref 29); channel 7 (0-indexed 6) is
-    reserved for live MIDI input (audio/midi_input.py); channel 6
-    (0-indexed 5) is reserved for the hands-free voice control confirmation
-    cue (Ref 19, audio/voice_confirmation_cue.py); channel 5 (0-indexed 4)
-    is reserved for the navigation boundary cue (Ref 2 AC4/Ref 3 AC4,
-    audio/boundary_cue.py) - see MusicData.RESERVED_CHANNELS. 11 parts
-    (idx 0-10) walk straight through the 4 usable channels below the
-    reservations, then resume past all six."""
+def test_get_channel_for_part_is_the_part_index_with_no_reserved_channel_skips():
+    """The six Recall Score channels (click, position announcer, performance
+    cue, live MIDI input, voice-control ding, boundary cue) now sit at the
+    top of the 256-channel range (250-255), above MAX_PARTS - see
+    MusicData.RESERVED_CHANNELS. So a part's channel is simply its index in
+    parts_info: no skips, no wrap. 11 parts walk 0..10 unbroken."""
     parts = [PartStructureInfo(part_id=f"P{i}", gmidi_program=1) for i in range(1, 12)]
     md = MusicData(parts_info=parts)
 
-    assert md.get_channel_for_part("P4") == 3, "last channel before all six reservations"
-    assert md.get_channel_for_part("P5") == 10, "channel indices 4, 5, 6, 7, 8 and 9 are all skipped"
-    assert md.get_channel_for_part("P6") == 11
-    assert md.get_channel_for_part("P7") == 12
-    assert md.get_channel_for_part("P8") == 13
-    assert md.get_channel_for_part("P9") == 14
-    assert md.get_channel_for_part("P10") == 15
-    assert md.get_channel_for_part("P11") == 0, "wraps past all six reservations"
+    assert md.get_channel_for_part("P4") == 3
+    assert md.get_channel_for_part("P5") == 4, "no reserved channel skipped"
+    assert md.get_channel_for_part("P10") == 9, "channel 9 carries an ordinary part now"
+    assert md.get_channel_for_part("P11") == 10
+
+
+def test_get_channel_for_part_does_not_wrap_within_the_part_limit():
+    """A score filled to MAX_PARTS gets one distinct channel per part, all
+    below every reserved channel - the old modulo wrap is gone (Task 3
+    refuses anything larger before it reaches here)."""
+    parts = [PartStructureInfo(part_id=f"P{i}", gmidi_program=1)
+             for i in range(MusicData.MAX_PARTS)]
+    md = MusicData(parts_info=parts)
+
+    channels = [md.get_channel_for_part(f"P{i}") for i in range(MusicData.MAX_PARTS)]
+    assert channels == list(range(MusicData.MAX_PARTS))
+    assert not (set(channels) & MusicData.RESERVED_CHANNELS)
+
+
+def test_reserved_channels_all_sit_above_the_part_limit():
+    """The simplification in get_channel_for_part (part index == channel, no
+    skip list) is only safe while every reserved channel is out of reach of
+    a valid part index. Guard it so reserving a seventh channel low can't
+    silently reintroduce a collision."""
+    assert min(MusicData.RESERVED_CHANNELS) >= MusicData.MAX_PARTS
 
 
 def test_get_channel_for_part_returns_zero_for_an_unknown_part():

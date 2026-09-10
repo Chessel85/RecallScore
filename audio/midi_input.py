@@ -43,8 +43,10 @@ except ImportError:
 # channels, so no real score part ever lands here (models/music_data.py
 # mirrors this constant the same way it already mirrors METRONOME_CLICK_
 # CHANNEL/POSITION_ANNOUNCER_CHANNEL/PERFORMANCE_CUE_CHANNEL from their own
-# audio/ modules).
-LIVE_MIDI_INPUT_CHANNEL = 6
+# audio/ modules). The six reserved channels sit at the top of the
+# 256-channel range (250-255) so parts get plain channels 0, 1, 2 ... with
+# no gaps.
+LIVE_MIDI_INPUT_CHANNEL = 252
 
 # Raw MIDI status-byte nibbles (channel is the low nibble, ignored here -
 # python-rtmidi's callback already delivers only the channel the port sends
