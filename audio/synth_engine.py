@@ -58,6 +58,14 @@ try:
 except ImportError:
     FLUIDSYNTH_AVAILABLE = False
 
+# The number of MIDI channels the synth is created with. pyfluidsynth's
+# Synth() already defaults to 256 (it sets synth.midi-channels), so this is
+# the current value - but a load-bearing number must be an explicit
+# constructor argument, not a library default we hope stays put (the same
+# lesson as samplerate, invariant 13). Mirrors MusicData.MAX_MIDI_CHANNELS,
+# which models/ can't import from here; a test asserts they match.
+SYNTH_MIDI_CHANNELS = 256
+
 
 class SynthEngine(QObject):
     """In-process FluidSynth engine for low-latency WASAPI audio playback.
@@ -146,7 +154,9 @@ class SynthEngine(QObject):
             # renders at 44100 while WASAPI opens the stream at 48000: a
             # 48000/44100 speed-up, heard as everything playing about a
             # semitone sharp. Confirmed by measuring rendered frequency.
-            self._fs = fluidsynth.Synth(gain=0.7, samplerate=48000.0)
+            self._fs = fluidsynth.Synth(
+                gain=0.7, samplerate=48000.0, channels=SYNTH_MIDI_CHANNELS
+            )
 
             # Optimise for low latency using WASAPI
             self._fs.setting("audio.period-size", 128)
@@ -278,7 +288,7 @@ class SynthEngine(QObject):
         "Hyper Kit". Every other caller leaves this at the default 0."""
         if self._fs is None or self._sfid is None:
             return
-        self._fs.program_select(channel & 0x0F, self._sfid, max(0, bank), max(0, min(127, program)))
+        self._fs.program_select(channel, self._sfid, max(0, bank), max(0, min(127, program)))
 
     # MIDI continuous-controller numbers for the two mixer parameters.
     VOLUME_CC = 7
@@ -290,7 +300,7 @@ class SynthEngine(QObject):
         the engine's own default."""
         if self._fs is None:
             return
-        self._fs.cc(channel & 0x0F, self.VOLUME_CC, max(0, min(127, value)))
+        self._fs.cc(channel, self.VOLUME_CC, max(0, min(127, value)))
 
     def set_channel_pan(self, channel: int, value: int):
         """Wishlist #4. Same CC the click/announcer/cue channels are panned
@@ -298,7 +308,7 @@ class SynthEngine(QObject):
         those simply replaces the fixed value."""
         if self._fs is None:
             return
-        self._fs.cc(channel & 0x0F, self.PAN_CC, max(0, min(127, value)))
+        self._fs.cc(channel, self.PAN_CC, max(0, min(127, value)))
 
     def stop_all_notes(self):
         """Deliberately does NOT touch _live_input_active_notes - see that
@@ -416,7 +426,7 @@ class SynthEngine(QObject):
 
         self._stop_performance_cue()
 
-        ch = channel & 0x0F
+        ch = channel
         self._fs.program_select(ch, self._click_sfid, bank, program)
         self._fs.noteon(ch, pitch, velocity)
         self._active_performance_cue = (ch, pitch)
@@ -429,7 +439,7 @@ class SynthEngine(QObject):
 
         self._stop_voice_confirmation_cue()
 
-        ch = channel & 0x0F
+        ch = channel
         self._fs.program_select(ch, self._click_sfid, bank, program)
         self._fs.noteon(ch, pitch, velocity)
         self._active_voice_confirmation_cue = (ch, pitch)
@@ -444,7 +454,7 @@ class SynthEngine(QObject):
 
         self._stop_boundary_cue()
 
-        ch = channel & 0x0F
+        ch = channel
         self._fs.program_select(ch, self._click_sfid, bank, program)
         self._fs.noteon(ch, pitch, velocity)
         self._active_boundary_cue = (ch, pitch)
@@ -469,7 +479,7 @@ class SynthEngine(QObject):
 
         self._stop_click()
 
-        ch = channel & 0x0F
+        ch = channel
         self._fs.program_select(ch, self._click_sfid, bank, program)
         self._fs.noteon(ch, pitch, velocity)
         self._active_click = (ch, pitch)
@@ -484,7 +494,7 @@ class SynthEngine(QObject):
 
         self._stop_announcement()
 
-        ch = channel & 0x0F
+        ch = channel
         self._fs.program_select(ch, self._click_sfid, bank, program)
         self._fs.noteon(ch, pitch, velocity)
         self._active_announcement = (ch, pitch)
@@ -541,7 +551,7 @@ class SynthEngine(QObject):
             if not midi_notes:
                 continue
 
-            ch = channel & 0x0F
+            ch = channel
             if program is not None:
                 self.set_program(ch, program, bank)
 
@@ -600,7 +610,7 @@ class SynthEngine(QObject):
         for channel, program, pitches in grace_events:
             if not pitches:
                 continue
-            ch = channel & 0x0F
+            ch = channel
             if program is not None:
                 self.set_program(ch, program)
             group_notes: List[Tuple[int, int]] = []
@@ -647,10 +657,10 @@ class SynthEngine(QObject):
             self.stop_all_notes()
 
         if program is not None:
-            self.set_program(channel & 0x0F, program)
+            self.set_program(channel, program)
 
         schedule = build_strum_schedule(slots, midi_pitches, slot_ms, note_delay_ms)
-        ch = channel & 0x0F
+        ch = channel
         for start_ms, pitch, velocity, note_duration_ms in schedule:
             timer = QTimer(self)
             timer.setSingleShot(True)

@@ -17,6 +17,7 @@ class _RecordingFluidSynth:
         self.note_offs = []
         self.note_ons = []
         self.program_selects = []
+        self.ccs = []
 
     def noteoff(self, channel, note):
         self.note_offs.append((channel, note))
@@ -26,6 +27,9 @@ class _RecordingFluidSynth:
 
     def program_select(self, channel, sfid, bank, program):
         self.program_selects.append((channel, sfid, bank, program))
+
+    def cc(self, channel, ctrl, value):
+        self.ccs.append((channel, ctrl, value))
 
 
 def _engine():
@@ -206,6 +210,40 @@ def test_live_all_notes_off_force_releases_every_held_note():
 
     assert sorted(engine._fs.note_offs) == [(LIVE_MIDI_INPUT_CHANNEL, 60), (LIVE_MIDI_INPUT_CHANNEL, 64)]
     assert engine._live_input_active_notes == set()
+
+
+def test_synth_midi_channels_constant_is_256():
+    """MoreThan16Parts Task 1: the synth is created with all 256 MIDI
+    channels, and that number is an explicit constant, not a library
+    default. Task 2 adds the cross-check that this equals
+    MusicData.MAX_MIDI_CHANNELS (the fact is duplicated across audio/ and
+    models/, which may not import each other)."""
+    from audio.synth_engine import SYNTH_MIDI_CHANNELS
+
+    assert SYNTH_MIDI_CHANNELS == 256
+
+
+def test_channel_arguments_reach_the_engine_unmasked_above_15():
+    """MoreThan16Parts Task 1: every `& 0x0F` mask is gone, so a part
+    assigned a channel >= 16 addresses that channel rather than silently
+    wrapping into 0-15 and colliding with another part. An out-of-range
+    channel is harmless - FluidSynth returns -1 and does nothing."""
+    engine = _engine()
+    engine._click_sfid = 2
+
+    engine.set_program(40, program=24, bank=0)
+    engine.set_channel_volume(37, 100)
+    engine.set_channel_pan(200, 0)
+    engine.play_chord([(41, 24, [60])], duration_ms=0)
+    engine.play_click(250, 0, 0, 60, 100)
+
+    assert engine._fs.program_selects[0][0] == 40
+    assert (37, engine.VOLUME_CC, 100) in engine._fs.ccs
+    assert (200, engine.PAN_CC, 0) in engine._fs.ccs
+    assert (41, 60, 90) in engine._fs.note_ons
+    assert engine._active_click == (250, 60)
+    for timer in engine._group_off_timers:
+        timer.stop()
 
 
 def test_stopping_a_group_is_safe_with_no_engine():
