@@ -1148,3 +1148,10 @@ by tests feeding an invented element name.
 **Not made audible** (standing decision, unchanged): ties, arpeggios, ornaments,
 pedal and octave shift stay label-only; `<octave-shift>` does not transpose
 playback. See Known gaps in `CLAUDE.md`.
+
+**Instrument transposition is the exception** — `<attributes>/<transpose>` for a
+B♭ trumpet, F horn, double bass at `<octave-change>-1`, … *is* applied, but only
+to `midi_pitch` (playback + Region 4's `midi` row). `step_name`/`octave` and all
+region text stay as written, so the note list shows what is on the player's part
+while the MIDI sounds in concert pitch with it. See `docs/parsers.md` →
+Transposing instruments.

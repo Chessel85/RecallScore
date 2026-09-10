@@ -93,6 +93,28 @@ def tempo_change_score() -> str:
 
 
 @pytest.fixture
+def transposing_instrument_score() -> str:
+    """One part for a B flat instrument (<transpose> chromatic -2), one
+    complete 4/4 bar written C5 D5 E5 F5.
+
+    The written names/octaves must survive to the region text unchanged
+    while midi_pitch carries the concert (sounding) pitch - a major second
+    down - so the user can play the part and hear the MIDI in unison.
+    """
+    return _require(FIXTURES_DIR / "transposing_instrument.musicxml")
+
+
+@pytest.fixture
+def tempo_malformed_later_metronome_score() -> str:
+    """Two complete 4/4 bars: a well-formed opening Largo quarter=52, then
+    a malformed <metronome> (empty <beat-unit>) in bar 2 that aborts
+    music21's whole parse - the shape seen in the Dvorak "New World" Largo.
+    MusicXMLReader must still report the opening tempo as 52.
+    """
+    return _require(FIXTURES_DIR / "tempo_malformed_later_metronome.musicxml")
+
+
+@pytest.fixture
 def key_change_score() -> str:
     """One part, two complete 4/4 bars: C major (M1) -> D major (M2).
 

@@ -16,6 +16,20 @@ def test_reader_extracts_key_time_and_tempo(minimal_score):
 
 
 @pytest.mark.slow
+def test_opening_tempo_falls_back_to_the_xml_when_music21_cannot_parse(
+    tempo_malformed_later_metronome_score,
+):
+    """A malformed <metronome> later in the score (empty <beat-unit>)
+    aborts music21's whole parse - the Dvorak "New World" Largo does
+    exactly this. The opening tempo must then come from the first valid
+    marking in the XML (52), not the 120 fallback."""
+    data = MusicXMLReader(tempo_malformed_later_metronome_score).load()
+
+    assert data.tempo_bpm == 52
+    assert data.get_region_1_data()["Tempo"] == "52 quarter notes per minute"
+
+
+@pytest.mark.slow
 def test_reader_captures_part_structure(minimal_score):
     data = MusicXMLReader(minimal_score).load()
 

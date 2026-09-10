@@ -221,7 +221,9 @@ bottom row); Tab/Shift+Tab cycle.
     attacks); a pickup bar makes the pickup measure **0**; beat positions and
     durations are **relative to the time-signature denominator**, not to quarter
     notes; read repeatable `<notations>` children with `.findall()`, never
-    `.find()`.
+    `.find()`. A transposing instrument's `<attributes>/<transpose>` shifts
+    **`midi_pitch` only** (concert pitch for playback); `step_name`/`octave` and
+    all region text stay as written — don't "fix" one to match the other.
 
 Everything behind these — why, and what else follows from them — is in
 `docs/architecture.md` and `docs/parsers.md`.

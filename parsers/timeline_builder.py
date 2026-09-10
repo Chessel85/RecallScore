@@ -452,6 +452,42 @@ def _staff_number(elem, default):
     return default
 
 
+def _transpose_semitones(transpose_el) -> int:
+    """Sounding-pitch offset in semitones for an <attributes>/<transpose>
+    (a transposing instrument: B flat cornet, F horn, double bass at
+    <octave-change>-1, ...). <chromatic> is the semitone shift; each
+    <octave-change> adds a full octave. <diatonic> only affects how the
+    same sound is *spelled*, and this app keeps the written spelling, so it
+    is ignored. A malformed value contributes nothing rather than raising."""
+    semitones = 0
+    chromatic = (transpose_el.findtext("chromatic") or "").strip()
+    if chromatic:
+        try:
+            semitones += int(round(float(chromatic)))
+        except ValueError:
+            pass
+    octave_change = (transpose_el.findtext("octave-change") or "").strip()
+    if octave_change:
+        try:
+            semitones += 12 * int(octave_change)
+        except ValueError:
+            pass
+    return semitones
+
+
+def _transpose_staff_key(transpose_el) -> int:
+    """Which staff a <transpose> applies to: its `number` attribute, or 0
+    for the part-wide default when it has none (the common case - most
+    transposing parts are single-staff)."""
+    number = transpose_el.attrib.get("number")
+    if number:
+        try:
+            return int(number)
+        except ValueError:
+            pass
+    return 0
+
+
 def _displaced_offset_divs(elem, walker) -> int:
     """The walker's current offset, displaced by an <offset> child if the
     element has one. <direction> and <harmony> are both <measure> children
@@ -628,8 +664,25 @@ class _PartState:
         default_factory=dict
     )
 
+    # A transposing instrument's concert-pitch offset in semitones, from
+    # <attributes>/<transpose> (written pitch + offset = what the player
+    # hears on the real instrument). Keyed by staff number; key 0 is the
+    # part-wide default, used by a <transpose> with no `number` attribute.
+    # _read_pitch applies it to midi_pitch ONLY - step_name/octave stay as
+    # written, so the note list still shows what is on the player's part
+    # and the MIDI sounds along with them (D: "they can play along to the
+    # midi").
+    transpose_semitones_by_staff: Dict[int, int] = field(default_factory=dict)
+
     def __post_init__(self):
         self.refresh_bar_shape()
+
+    def transpose_for_staff(self, staff: int) -> int:
+        """The concert-pitch semitone offset in force for a staff: its own
+        <transpose number=...> if it had one, else the part-wide default,
+        else 0 (a non-transposing instrument)."""
+        by_staff = self.transpose_semitones_by_staff
+        return by_staff.get(staff, by_staff.get(0, 0))
 
     def refresh_bar_shape(self, walker=None) -> None:
         """Recompute the beat unit and bar length. Called once per part from
@@ -1242,6 +1295,14 @@ class TimelineBuilder:
                     clef_el.findtext("line"),
                     clef_el.findtext("clef-octave-change"),
                 )
+            # A transposing instrument's <transpose> is one of the per-staff
+            # <attributes> children score_sections carries into a later
+            # section (_CARRIED_PER_STAFF), so a section that never
+            # re-declares it still sounds at concert pitch.
+            for transpose_el in elem.findall("transpose"):
+                part_state.transpose_semitones_by_staff[
+                    _transpose_staff_key(transpose_el)
+                ] = _transpose_semitones(transpose_el)
             return
 
         walker = measure_state.walker
@@ -1272,6 +1333,17 @@ class TimelineBuilder:
                         quarters_from_start=quarters,
                     )
                 )
+
+        # <transpose> for a transposing instrument. Only playback is
+        # affected (see _PartState.transpose_semitones_by_staff / _read_pitch);
+        # there is no findable "transposition" mark, matching how the
+        # written spelling is what the region text reports (invariant 14).
+        # A mid-part change (rare - a doubling player switching instrument)
+        # is just last-seen-wins, like the seed.
+        for transpose_el in elem.findall("transpose"):
+            part_state.transpose_semitones_by_staff[
+                _transpose_staff_key(transpose_el)
+            ] = _transpose_semitones(transpose_el)
 
         for ms_el in elem.findall("measure-style"):
             try:
@@ -1548,10 +1620,16 @@ class TimelineBuilder:
 
         acc_words = {1: " sharp", -1: " flat", 2: " double sharp", -2: " double flat", 0: ""}
         step_offsets = {'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11}
+        written_midi = (octave + 1) * 12 + step_offsets.get(step, 0) + alter
+        # For a transposing instrument, midi_pitch is the CONCERT (sounding)
+        # pitch - what the player hears when they read this note off their
+        # part - while step_name/octave stay exactly as written. A
+        # non-transposing part has an offset of 0 and is unaffected.
+        transpose = part_state.transpose_for_staff(_staff_number(elem, default=1))
         return _NoteReading(
             step_name=f"{step}{acc_words.get(alter, '')}",
             octave=octave,
-            midi_pitch=(octave + 1) * 12 + step_offsets.get(step, 0) + alter,
+            midi_pitch=written_midi + transpose,
         )
 
     def _read_notations(

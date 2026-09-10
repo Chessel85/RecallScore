@@ -121,6 +121,37 @@ def _note_by_pitch(md, step_name, octave):
     )
 
 
+def test_transposing_instrument_sounds_at_concert_pitch_but_displays_as_written(
+    timeline, transposing_instrument_score
+):
+    """A B flat instrument's <transpose> (chromatic -2) shifts only what is
+    heard: midi_pitch becomes the concert pitch (a major second down),
+    while step_name/octave - and so every region's text - stay exactly as
+    the player reads them off the part. That is what lets the user play
+    along to the MIDI in unison (parsers/timeline_builder.py
+    _PartState.transpose_semitones_by_staff / _read_pitch)."""
+    md = timeline(transposing_instrument_score)
+
+    notes = [n for s in md.timeline_slices for n in s.notes]
+    assert [(n.step_name, n.octave) for n in notes] == [
+        ("C", 5), ("D", 5), ("E", 5), ("F", 5)
+    ]
+    # written C5 D5 E5 F5 -> concert B flat 4 / C5 / D5 / E flat 5
+    assert [n.midi_pitch for n in notes] == [70, 72, 74, 75]
+
+    # Region 3 / Region 4 render the written note name, never the concert
+    # pitch the midi_pitch above would spell.
+    assert [md._format_note_for_region_3(n) for n in notes] == ["C", "D", "E", "F"]
+
+
+def test_non_transposing_instrument_pitch_is_left_alone(timeline, minimal_score):
+    """A part with no <transpose> gets a 0-semitone offset, so an ordinary
+    instrument's midi_pitch is still exactly the written pitch."""
+    md = timeline(minimal_score)
+
+    assert _note_by_pitch(md, "C", 4).midi_pitch == 60
+
+
 def test_direction_dynamics_attach_to_the_chord_that_follows(timeline, dynamics_articulation_fingering_score):
     """F3/Ref 16 AC3: a <direction><dynamics><f/></dynamics></direction>
     sibling is matched to the note landing at the same offset/staff, and
