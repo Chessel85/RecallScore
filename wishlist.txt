@@ -1,10 +1,9 @@
-Need to write the user guide better. Need a getting going separate help entry and also a keyboard shortcuts doc with shortcut control slash.
+Need to write the user guide better. 
+Need a getting going separate help entry and also a keyboard shortcuts doc with shortcut control slash.
 Can I make github present a nicer web page where people can download the latest releases from?
-Do we cope with both part wise and time wise music xml?
-Need to declare that opuses are not catered for when loading an opus tag.
+nvda + T should read out title of modal dialogues not python or application title.
 Try a offset feature where the regions are updated either ahead or behind the playback of sounds, or indeed, do not refresh the regions during playback at all.
 Implement an f12 feature which announces what each keystroke does when pressed. Is it easy to allow people to define their own shortcuts?  Need a default factory settings to revert to.
-Can file open remember the last folder rather than defaulting to the same original folder
 surfacing region 5 data better
 Generally want option to add region 5 items to note list as well. Crescendo start, crescendo end. 
 Is there a difference between score text and stave text?  Is score text generally just at the beginning?

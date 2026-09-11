@@ -178,7 +178,7 @@ _CATEGORY_OVERRIDES: Dict[str, str] = {
     "Close Preferences for Current File": "File",
     "Exit": "File",
     "Select All": "Notes",
-    "Key Signature": "Edit",
+    "Key Signature": "Notes",
     "Instruments": "Parts",
     "Reorder Parts": "Parts",
     "Solo": "Parts",
