@@ -3,7 +3,7 @@ import json
 import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from PySide6.QtCore import QStandardPaths
 
@@ -45,7 +45,16 @@ class AppSettings:
     Tools > Tuner, controllers/tuner_controller.py) is global for the same
     reasoning as live_midi_input/voice_control above - which instrument
     you're tuning and what microphone you use is the user's own practice
-    setup, not a property of any one score."""
+    setup, not a property of any one score.
+
+    shortcuts (action id -> user-chosen QKeySequence, as PortableText, or ""
+    for "no shortcut") is global for the same reasoning as live_midi_input/
+    voice_control/tuner above - it's the user's own habit, not a property of
+    a score. It stores only the user's differences from the factory
+    defaults built by MenuBuilder/MainWindow.setup_shortcuts
+    (models/shortcut_map.py, controllers/shortcut_controller.py), so a
+    changed default in a future version still reaches users who never
+    touched that action."""
 
     uk_terms: Optional[bool] = None
     recent_files: List[str] = field(default_factory=list)
@@ -55,6 +64,7 @@ class AppSettings:
     live_midi_input: LiveMidiInputSettings = field(default_factory=LiveMidiInputSettings)
     voice_control: VoiceControlSettings = field(default_factory=VoiceControlSettings)
     tuner: TunerSettings = field(default_factory=TunerSettings)
+    shortcuts: Dict[str, str] = field(default_factory=dict)
 
 
 def settings_path() -> Path:
@@ -62,6 +72,15 @@ def settings_path() -> Path:
         QStandardPaths.StandardLocation.AppLocalDataLocation
     )
     return Path(app_data_dir) / "settings.json"
+
+
+def _str_dict(value: object) -> Dict[str, str]:
+    """Coerces a loaded JSON value to a str->str dict, keeping only entries
+    where both key and value are strings and returning {} for anything else
+    (a missing key, a list, or a hand-edited file with non-str values)."""
+    if not isinstance(value, dict):
+        return {}
+    return {k: v for k, v in value.items() if isinstance(k, str) and isinstance(v, str)}
 
 
 def load() -> AppSettings:
@@ -78,6 +97,7 @@ def load() -> AppSettings:
             live_midi_input=LiveMidiInputSettings.from_dict(data.get("live_midi_input")),
             voice_control=VoiceControlSettings.from_dict(data.get("voice_control")),
             tuner=TunerSettings.from_dict(data.get("tuner")),
+            shortcuts=_str_dict(data.get("shortcuts")),
         )
     except FileNotFoundError:
         return AppSettings()
@@ -159,4 +179,13 @@ def set_tuner_settings(settings: TunerSettings) -> None:
     above."""
     current = load()
     current.tuner = settings.copy()
+    save(current)
+
+
+def set_shortcut_overrides(overrides: Dict[str, str]) -> None:
+    """Records the user's keyboard-shortcut overrides (action id -> chosen
+    PortableText sequence, or "" for none), load-mutate-save for the same
+    reason as add_recent_file/set_play_settings above."""
+    current = load()
+    current.shortcuts = dict(overrides)
     save(current)

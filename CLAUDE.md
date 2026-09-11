@@ -224,6 +224,10 @@ bottom row); Tab/Shift+Tab cycle.
     `.find()`. A transposing instrument's `<attributes>/<transpose>` shifts
     **`midi_pitch` only** (concert pitch for playback); `step_name`/`octave` and
     all region text stay as written — don't "fix" one to match the other.
+16. **Default shortcuts live only where the QAction/QShortcut is built**
+    (`MenuBuilder`, `setup_shortcuts`); `ShortcutController` snapshots them at
+    startup — never copy them into a table. A new hardcoded key in a widget's
+    `keyPressEvent` must also go into `ShortcutController`'s reserved list.
 
 Everything behind these — why, and what else follows from them — is in
 `docs/architecture.md` and `docs/parsers.md`.

@@ -1,6 +1,10 @@
 # Recall Score Release Notes
 
-## 5#2026.1.57
+## 2026.1.58
+
+* Added a keystroke shortcuts dialogue in tools menu  to allow users to change the shortcuts for actions 
+
+## 2026.1.57
 
 * File / Open remembers  last location a file was opened
 * Supports music XML timewise as well as partwise ordering 

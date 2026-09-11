@@ -30,6 +30,7 @@ from controllers.region_presenter import RegionPresenter
 from controllers.score_edit_controller import ScoreEditController
 from controllers.score_persistence import ScorePersistenceController
 from controllers.score_session import ScoreSession
+from controllers.shortcut_controller import ShortcutController, ShortcutTarget
 from controllers.tuner_controller import TunerController
 from controllers.voice_control_controller import VoiceControlController
 from models.metronome_pattern import default_pattern, snap_time_signature
@@ -52,6 +53,7 @@ from widgets.find_dialog import FindDialog
 from widgets.goto_measure_dialog import GotoMeasureDialog
 from widgets.instrument_dialog import InstrumentDialog
 from widgets.key_signature_dialog import KeySignatureDialog
+from widgets.keyboard_shortcuts_dialog import KeyboardShortcutsDialog
 from widgets.live_midi_input_dialog import LiveMidiInputDialog
 from widgets.menu_builder import MenuBuilder, goto_measure_action_text
 from widgets.metronome_player_dialog import MetronomePlayerDialog
@@ -453,6 +455,38 @@ class MainWindow(QMainWindow):
 
         self.recent_files_menu = self._actions.recent_files_menu
         self._refresh_recent_files_menu()
+
+        # Both the menu QActions and the four window-level QShortcuts below
+        # already exist by now (setup_shortcuts runs during setup_ui, before
+        # setup_controllers/setup_menu) - see UserPlans/KeyboardShortcuts.md.
+        self.shortcuts = ShortcutController(
+            self, self._actions, self._keyboard_only_shortcut_targets()
+        )
+
+    def _keyboard_only_shortcut_targets(self) -> list:
+        """The four window-level QShortcuts (Ref 12/13) that aren't menu
+        QActions but are still single, rebindable commands - the "Keyboard
+        only" category in the dialog. QShortcut.key()/setKey() take a single
+        QKeySequence, not a list, so each target wraps them to match
+        ShortcutTarget's get/set -> List[QKeySequence] contract."""
+        def _target(id_, label, shortcut):
+            def get():
+                key = shortcut.key()
+                return [] if key.isEmpty() else [key]
+
+            def set_(seqs):
+                shortcut.setKey(seqs[0] if seqs else QKeySequence())
+
+            return ShortcutTarget(
+                id=id_, category="Keyboard only", name=lambda: label, get=get, set=set_
+            )
+
+        return [
+            _target("tempo_faster", "Tempo Faster", self.tempo_faster_shortcut),
+            _target("tempo_slower", "Tempo Slower", self.tempo_slower_shortcut),
+            _target("tempo_reset", "Reset Tempo", self.tempo_reset_shortcut),
+            _target("chord_audition", "Play Selected Notes", self.chord_audition_shortcut),
+        ]
 
     def connect_signals(self):
         """The one place the controllers are joined up. Each is otherwise
@@ -1632,6 +1666,13 @@ class MainWindow(QMainWindow):
             )
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 self.score_edit.apply_instrument_overrides(*dialog.overrides())
+
+    def _show_keyboard_shortcuts_dialog(self):
+        """Tools > Keyboard Shortcuts... - wiring only, per
+        UserPlans/KeyboardShortcuts.md; every change the dialog makes is
+        already live and saved via self.shortcuts before this returns."""
+        with self._preserving_focus():
+            KeyboardShortcutsDialog(self, self.shortcuts).exec()
 
     def _show_key_signature_dialog(self):
         """S6: a single whole-piece key signature override, for MIDI files

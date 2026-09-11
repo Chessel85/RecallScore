@@ -262,6 +262,23 @@ def test_about_action_opens_without_crashing(window, qtbot, monkeypatch):
     assert opened == [True]
 
 
+def test_tools_menu_has_keyboard_shortcuts_action_that_opens_the_dialog(window, monkeypatch):
+    assert window._actions.keyboard_shortcuts is not None
+    assert window._actions.keyboard_shortcuts.text() == "&Keyboard Shortcuts..."
+
+    opened = []
+    monkeypatch.setattr(
+        "main_window.KeyboardShortcutsDialog",
+        lambda parent, controller: type(
+            "FakeDialog", (), {"exec": lambda self: opened.append(controller)}
+        )(),
+    )
+
+    window._show_keyboard_shortcuts_dialog()
+
+    assert opened == [window.shortcuts]
+
+
 def test_missing_user_guide_reports_an_error_instead_of_doing_nothing(window, monkeypatch):
     """CR8thSept2.txt T1: Help > User Guide used to just print and return when
     the file was absent, so a frozen-build user saw Help do nothing at all."""

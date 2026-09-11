@@ -434,6 +434,47 @@ single play control, and there is one settings dialog.
 
 ---
 
+## Keyboard shortcuts (`UserPlans/KeyboardShortcuts.md`)
+
+Tools > Keyboard Shortcuts opens a dialog (`widgets/keyboard_shortcuts_dialog.py`)
+that rebinds any menu `QAction` plus four window-level `QShortcut`s (tempo
+faster/slower/reset, play selected notes). The design follows invariant 8
+("two copies of the same fact will diverge"): there is no separate table of
+factory-default shortcuts anywhere in the codebase.
+
+* **`models/shortcut_map.py`** (`ShortcutMap`, Qt-free) holds the actual logic
+  on canonical `QKeySequence` PortableText strings (`"Ctrl+Shift+K"`):
+  `defaults` is a snapshot handed in by the caller, `overrides` holds only the
+  user's *differences* from it (`""` means "no shortcut"). `bindings()`
+  resolves the two into what's actually live, so an action the user never
+  touched automatically picks up a changed default in a later version instead
+  of being frozen at whatever the snapshot said when the user last saved.
+* **`controllers/shortcut_controller.py`** (`ShortcutController`) is the only
+  place that touches Qt for this feature. At construction it walks the menu
+  bar (`_build_targets`) to build one `ShortcutTarget` per rebindable
+  `QAction`/`QShortcut`, then takes the defaults snapshot from
+  `target.get()` **before** loading and applying `app_settings.load().shortcuts`
+  — that snapshot *is* the factory-defaults table `ShortcutMap` needs, taken
+  from wherever `MenuBuilder` / `MainWindow.setup_shortcuts` actually built
+  those objects. It also owns `_build_reserved()`, the table of keys the
+  dialog refuses to rebind because a widget's `keyPressEvent`/`event()`
+  handles them directly (region-cycle Tab, the typed-bar-number family,
+  list navigation, Ctrl+1-9, etc.) — each entry's comment names the file that
+  owns that key. **A new hardcoded key added to a widget's `keyPressEvent`
+  must be added there too**, or the dialog will silently let the user steal
+  it for something else.
+* Every mutation (`assign`/`clear`/`restore_defaults`) re-applies the live
+  `QKeySequence`s to every target and immediately saves the override diff via
+  `app_settings.set_shortcut_overrides`, the same "commit right away" pattern
+  as `set_uk_terms` — there's no working copy, matching the dialog's Apply +
+  Close (no Cancel) design.
+* `ShortcutController` holds QActions and QShortcuts but no widgets;
+  `widgets/keyboard_shortcuts_dialog.py` and `widgets/shortcut_capture_edit.py`
+  (the key-combination-recording `QLineEdit`) only ever call the controller's
+  public methods, so a test can hand the dialog a fake controller.
+
+---
+
 ## `widgets/`
 
 `region_table_widget.py` (`RegionTableWidget`, a plain property-list table used

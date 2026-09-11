@@ -111,3 +111,51 @@ def test_saving_other_preferences_leaves_play_settings_alone():
     app_settings.add_recent_file("b.xml")
 
     assert app_settings.load().play.loop_length_bars == 8
+
+
+# --- Keyboard shortcuts (global, not per score) -------------------------
+
+def test_shortcuts_default_to_an_empty_dict():
+    assert app_settings.load().shortcuts == {}
+
+
+def test_set_shortcut_overrides_round_trips():
+    app_settings.set_shortcut_overrides({"mixer": "Ctrl+B", "bar_line_indicator": ""})
+    assert app_settings.load().shortcuts == {"mixer": "Ctrl+B", "bar_line_indicator": ""}
+
+
+def test_loading_a_shortcuts_list_falls_back_to_empty_dict():
+    path = app_settings.settings_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text('{"shortcuts": ["Ctrl+B"]}', encoding="utf-8")
+
+    assert app_settings.load().shortcuts == {}
+
+
+def test_loading_shortcuts_with_non_str_values_filters_them_out():
+    path = app_settings.settings_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        '{"shortcuts": {"mixer": "Ctrl+B", "bad": 5, "also_bad": null}}',
+        encoding="utf-8",
+    )
+
+    assert app_settings.load().shortcuts == {"mixer": "Ctrl+B"}
+
+
+def test_set_shortcut_overrides_leaves_the_other_preferences_alone():
+    app_settings.save(AppSettings(uk_terms=True, recent_files=["a.xml"]))
+
+    app_settings.set_shortcut_overrides({"mixer": "Ctrl+B"})
+
+    settings = app_settings.load()
+    assert settings.uk_terms is True
+    assert settings.recent_files == ["a.xml"]
+
+
+def test_other_set_helpers_do_not_wipe_shortcut_overrides():
+    app_settings.set_shortcut_overrides({"mixer": "Ctrl+B"})
+
+    app_settings.add_recent_file("b.xml")
+
+    assert app_settings.load().shortcuts == {"mixer": "Ctrl+B"}

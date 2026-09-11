@@ -75,6 +75,7 @@ class Actions:
     attribute_order: Optional[QAction] = None
     set_musescore_location: Optional[QAction] = None
     tuner: Optional[QAction] = None
+    keyboard_shortcuts: Optional[QAction] = None
     user_guide: Optional[QAction] = None
     about: Optional[QAction] = None
 
@@ -754,6 +755,15 @@ class MenuBuilder:
                        "per-beat click pattern and a tempo",
         )
         tools_menu.addAction(a.metronome_player)
+
+        # Rebinds any menu action's keyboard shortcut.
+        tools_menu.addSeparator()
+        a.keyboard_shortcuts = self._action(
+            "&Keyboard Shortcuts...", self.slots._show_keyboard_shortcuts_dialog,
+            "Ctrl+Shift+Y",
+            status_tip="Change the keyboard shortcut for any action",
+        )
+        tools_menu.addAction(a.keyboard_shortcuts)
 
     def _help_menu(self, menu_bar, a: Actions) -> None:
         # No mnemonics on either item (user-requested 2026-08-26: "false
