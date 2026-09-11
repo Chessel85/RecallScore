@@ -42,13 +42,30 @@ scope; it reinstates both the layering inversion and the import cost.
 every real `.mxl` seen internally names that member `score.xml` regardless of the
 outer filename, so the manifest has to be read, not assumed.
 
+The returned root is always `<score-partwise>`. A `<score-timewise>` document
+(parts nested inside measures, rather than measures inside parts) is converted
+in memory by `timewise_to_partwise`: measures are matched across parts by
+position, never by the `number` attribute (multi-section scores restart
+numbering); part order is first-appearance order scanning measures in document
+order; a timewise measure with no `<part>` for some id still produces an empty
+partwise measure, so every part ends up with the same number of measures and
+bar indices stay aligned. Downstream code (readers, timeline builders, models)
+may assume partwise and never handles timewise itself. A separate function,
+`read_musicxml_root_and_origin`, returns `(root, was_timewise)`; it exists only
+so `MusicXMLReader` can hand music21 the converted tree when the source file was
+timewise — everything else should call `read_musicxml_root`.
+
 ### `parsers/musicXML_reader.py`
 
 `MusicXMLReader` builds header/metadata: credits, key, time signature, tempo,
 per-part structure (staff-to-clef, staff-to-voices, GM program). It parses the
 file **twice**: raw `ElementTree` for credits/part-list/clefs, and
 `music21.converter.parse` for tempo/key/time, with the ElementTree values as
-fallback when music21 returns nothing.
+fallback when music21 returns nothing. When the source file is timewise,
+music21 is instead fed the already-converted partwise tree via
+`music21.converter.parseData` (music21 refuses timewise documents outright) —
+the plain `converter.parse(file_path)` path stays byte-for-byte unchanged for
+partwise files.
 
 **Tempo has a genuine ElementTree fallback, not just an absent-value one.**
 `_extract_tempo` (music21) returns `None` — not a default — when it finds no

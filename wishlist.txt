@@ -4,9 +4,6 @@ Do we cope with both part wise and time wise music xml?
 Need to declare that opuses are not catered for when loading an opus tag.
 Try a offset feature where the regions are updated either ahead or behind the playback of sounds, or indeed, do not refresh the regions during playback at all.
 Implement an f12 feature which announces what each keystroke does when pressed. Is it easy to allow people to define their own shortcuts?  Need a default factory settings to revert to.
-Rearrange the default attributes so the order is step, octave, duration, bar, position part, stave, voice.
-If the user adds the octave from the attributes list to the note list, and it immediately follows the step attribute, append just the number to the step.  So C"C, octave 4" becomes "C4".  
-If the step is not present or follows  the octave, or there is another attribute between step and octave, then do the usual display. e.g. "C, midi 60, octtave 5"
 Can file open remember the last folder rather than defaulting to the same original folder
 surfacing region 5 data better
 Generally want option to add region 5 items to note list as well. Crescendo start, crescendo end. 

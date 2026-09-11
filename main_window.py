@@ -540,7 +540,7 @@ class MainWindow(QMainWindow):
     # --- loading -------------------------------------------------------
 
     def open_file_dialog(self):
-        self._open_score_file_dialog(start_dir="")
+        self._open_score_file_dialog(start_dir=app_settings.load().last_open_dir or "")
 
     def _open_score_file_dialog(self, start_dir: str):
         # Only offer .mscz/.mscx when a MuseScore 4 executable can actually
@@ -747,6 +747,7 @@ class MainWindow(QMainWindow):
         # excludes that case without needing to special-case is_ug here.
         if os.path.exists(music_data.file_path):
             app_settings.add_recent_file(music_data.file_path)
+            app_settings.set_last_open_dir(os.path.dirname(music_data.file_path))
             self._refresh_recent_files_menu()
 
         saved_config = self.persistence.load_for_current()

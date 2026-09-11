@@ -26,7 +26,7 @@ from parsers.timeline_builder import (
     has_harmony_elements,
     has_lyric_elements,
 )
-from parsers.xml_source import read_musicxml_root
+from parsers.xml_source import read_musicxml_root_and_origin
 
 class MusicXMLReader:
     """Parses MusicXML metadata via ElementTree and streams via music21 into MusicData."""
@@ -35,6 +35,7 @@ class MusicXMLReader:
 
     def __init__(self, file_path: str):
         self.file_path = file_path
+        self._was_timewise = False
 
     def load(self) -> MusicData:
         root = self._parse_xml_root()
@@ -45,7 +46,12 @@ class MusicXMLReader:
 
         score = None
         try:
-            score = music21.converter.parse(self.file_path)
+            if self._was_timewise:
+                score = music21.converter.parseData(
+                    ET.tostring(root, encoding="unicode"), format="musicxml"
+                )
+            else:
+                score = music21.converter.parse(self.file_path)
         except Exception as e:
             print(f"[ERROR] music21 parse failed: {e}")
 
@@ -117,14 +123,20 @@ class MusicXMLReader:
 
     def _parse_xml_root(self) -> Optional[ET.Element]:
         """Parses the file once; every etree-based extractor below reads
-        from this same root rather than re-parsing.
+        from this same root rather than re-parsing. The returned root is
+        always <score-partwise> - a <score-timewise> file is converted in
+        memory (parsers/xml_source.py::timewise_to_partwise) - and
+        self._was_timewise records whether that happened, so load() knows to
+        hand music21 the converted tree via parseData rather than parse()ing
+        the (timewise) file directly, since music21 refuses timewise outright.
 
         A genuine parse failure (malformed XML, broken .mxl container) is
-        raised, not swallowed - read_musicxml_root raises ScoreLoadError for
-        those, and the load worker turns it into an accessible error dialog.
-        Degrading to an empty score here would report a corrupt file as a
-        blank piece."""
-        return read_musicxml_root(self.file_path)
+        raised, not swallowed - read_musicxml_root_and_origin raises
+        ScoreLoadError for those, and the load worker turns it into an
+        accessible error dialog. Degrading to an empty score here would
+        report a corrupt file as a blank piece."""
+        root, self._was_timewise = read_musicxml_root_and_origin(self.file_path)
+        return root
 
     def _extract_tempo(
         self, score: music21.stream.Score

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<score-timewise version="4.0">
+  <part-list>
+    <score-part id="P1"><part-name>Flute</part-name></score-part>
+    <score-part id="P2"><part-name>Cello</part-name></score-part>
+  </part-list>
+  <measure number="1">
+    <part id="P1">
+      <attributes><divisions>1</divisions><key><fifths>0</fifths></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef><sign>G</sign><line>2</line></clef></attributes>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>1</duration><type>quarter</type></note>
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>1</duration><type>quarter</type></note>
+      <note><pitch><step>E</step><octave>5</octave></pitch><duration>1</duration><type>quarter</type></note>
+      <note><pitch><step>F</step><octave>5</octave></pitch><duration>1</duration><type>quarter</type></note>
+    </part>
+    <part id="P2">
+      <attributes><divisions>1</divisions><key><fifths>0</fifths></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef><sign>F</sign><line>4</line></clef></attributes>
+      <note><pitch><step>C</step><octave>3</octave></pitch><duration>4</duration><type>whole</type></note>
+    </part>
+  </measure>
+  <measure number="2">
+    <part id="P1">
+      <note><pitch><step>G</step><octave>5</octave></pitch><duration>4</duration><type>whole</type></note>
+    </part>
+    <part id="P2">
+      <note><pitch><step>G</step><octave>2</octave></pitch><duration>2</duration><type>half</type></note>
+      <note><pitch><step>C</step><octave>3</octave></pitch><duration>2</duration><type>half</type></note>
+    </part>
+  </measure>
+</score-timewise>

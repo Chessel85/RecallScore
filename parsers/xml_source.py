@@ -1,14 +1,91 @@
 # parsers/xml_source.py
 import xml.etree.ElementTree as ET
 import zipfile
-from typing import Optional
+from typing import Optional, Tuple
 
 from parsers.score_load_error import ScoreLoadError
 
 
+def timewise_to_partwise(root: ET.Element) -> ET.Element:
+    """Converts a <score-timewise> root to an equivalent <score-partwise>
+    root, in memory. Returns `root` itself, unchanged, when it is not
+    timewise (the tag check is the only work done in that case).
+
+    A timewise document nests parts inside measures; partwise nests measures
+    inside parts. The header children (work, identification, defaults,
+    credit, part-list, ...) are identical in both shapes and are reused as-is
+    (no deep copy - the timewise tree is discarded after conversion).
+
+    Part order is first-appearance order, scanning measures in document
+    order - this matches "parts of measure 1" whenever measure 1 contains
+    every part, but also keeps a part that is absent from measure 1 instead
+    of silently dropping it.
+
+    Measures are matched across parts by position, never by the `number`
+    attribute, since multi-section scores restart numbering. Each output
+    measure carries a copy of the timewise measure's own attributes
+    (`number`, `implicit`, `width`, ...); a timewise measure with no <part>
+    for some id still produces an empty measure for that part, so every
+    part ends up with the same number of measures and bar indices stay
+    aligned.
+    """
+    if root.tag != "score-timewise":
+        return root
+
+    new_root = ET.Element("score-partwise", dict(root.attrib))
+
+    part_ids_in_order = []
+    seen_ids = set()
+    measures = [child for child in root if child.tag == "measure"]
+    for measure in measures:
+        for part in measure.findall("part"):
+            part_id = part.get("id")
+            if part_id not in seen_ids:
+                seen_ids.add(part_id)
+                part_ids_in_order.append(part_id)
+
+    for child in root:
+        if child.tag != "measure":
+            new_root.append(child)
+
+    new_parts = {
+        part_id: ET.SubElement(new_root, "part", {"id": part_id})
+        for part_id in part_ids_in_order
+    }
+
+    for measure in measures:
+        parts_by_id = {part.get("id"): part for part in measure.findall("part")}
+        for part_id in part_ids_in_order:
+            new_measure = ET.SubElement(
+                new_parts[part_id], "measure", dict(measure.attrib)
+            )
+            source_part = parts_by_id.get(part_id)
+            if source_part is not None:
+                for note_or_attr in source_part:
+                    new_measure.append(note_or_attr)
+
+    return new_root
+
+
+def read_musicxml_root_and_origin(file_path: str) -> Tuple[Optional[ET.Element], bool]:
+    """Returns `(root, was_timewise)`, where `root` is always a
+    <score-partwise> Element - a timewise document is converted in memory by
+    `timewise_to_partwise` - and `was_timewise` says whether that conversion
+    happened. Exists only so `MusicXMLReader` can hand music21 the converted
+    tree (music21 refuses timewise documents outright); everything else
+    should call `read_musicxml_root`.
+    """
+    raw_root = _read_root_as_written(file_path)
+    return timewise_to_partwise(raw_root), raw_root.tag == "score-timewise"
+
+
 def read_musicxml_root(file_path: str) -> Optional[ET.Element]:
-    """Returns the root <score-partwise>/<score-timewise> Element for either
-    a plain MusicXML file or a compressed .mxl one.
+    """Returns the root Element for either a plain MusicXML file or a
+    compressed .mxl one, always normalised to <score-partwise> - a
+    <score-timewise> document is converted in memory (see
+    `timewise_to_partwise`) so this is the single normalisation point and
+    nothing downstream (parsers, timeline builders, models) ever needs to
+    handle timewise.
 
     Dispatch is on the file's actual contents, not its extension: a plain
     MusicXML document misnamed .mxl still loads, and a zip container is
@@ -24,6 +101,14 @@ def read_musicxml_root(file_path: str) -> Optional[ET.Element]:
     XML, a broken .mxl container). Callers must let that propagate rather
     than degrade to an empty score - a file that cannot be read is a failure
     the user needs told about, not a silently blank piece.
+    """
+    return read_musicxml_root_and_origin(file_path)[0]
+
+
+def _read_root_as_written(file_path: str) -> Optional[ET.Element]:
+    """Returns the root Element exactly as the file encodes it - either
+    <score-partwise> or <score-timewise>, unconverted. Callers almost always
+    want `read_musicxml_root` (always partwise) instead.
     """
     if not zipfile.is_zipfile(file_path):
         try:

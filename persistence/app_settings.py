@@ -49,6 +49,7 @@ class AppSettings:
 
     uk_terms: Optional[bool] = None
     recent_files: List[str] = field(default_factory=list)
+    last_open_dir: Optional[str] = None
     musescore_path: Optional[str] = None
     play: PlaySettings = field(default_factory=PlaySettings)
     live_midi_input: LiveMidiInputSettings = field(default_factory=LiveMidiInputSettings)
@@ -71,6 +72,7 @@ def load() -> AppSettings:
         return AppSettings(
             uk_terms=data.get("uk_terms"),
             recent_files=data.get("recent_files", []),
+            last_open_dir=data.get("last_open_dir"),
             musescore_path=data.get("musescore_path"),
             play=PlaySettings.from_dict(data.get("play") or data.get("preview")),
             live_midi_input=LiveMidiInputSettings.from_dict(data.get("live_midi_input")),
@@ -105,6 +107,14 @@ def add_recent_file(file_path: str) -> None:
     recents = [p for p in settings.recent_files if p != file_path]
     recents.insert(0, file_path)
     settings.recent_files = recents[:MAX_RECENT_FILES]
+    save(settings)
+
+
+def set_last_open_dir(directory: str) -> None:
+    """Records the folder the File > Open dialog should start in next time,
+    load-mutate-save for the same reason as add_recent_file above."""
+    settings = load()
+    settings.last_open_dir = directory
     save(settings)
 
 

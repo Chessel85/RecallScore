@@ -138,6 +138,15 @@ def string_fret_score() -> str:
 
 
 @pytest.fixture
+def timewise_two_parts_score() -> str:
+    """A genuine on-disk <score-timewise> file (not generated from a
+    partwise fixture): two complete 4/4 bars, flute C D E F over cello
+    whole-note C then half-notes G C. Proves timewise loading end to end
+    without depending on this suite's own partwise<->timewise inverse."""
+    return _require(FIXTURES_DIR / "timewise_two_parts.musicxml")
+
+
+@pytest.fixture
 def grace_note_score() -> str:
     """One complete 4/4 bar: a single acciaccatura (<grace slash="yes"/>)
     B4 leading into a quarter A4, then C4/D4/E4 filling out the bar."""

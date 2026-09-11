@@ -1,5 +1,11 @@
 # Recall Score Release Notes
 
+## 5#2026.1.57
+
+* File / Open remembers  last location a file was opened
+* Supports music XML timewise as well as partwise ordering 
+
+
 ## 5#2026.1.56
 
 * Support for more than 16 instruments - limit is towards 256
