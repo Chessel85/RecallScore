@@ -76,6 +76,12 @@ def read_musicxml_root_and_origin(file_path: str) -> Tuple[Optional[ET.Element],
     should call `read_musicxml_root`.
     """
     raw_root = _read_root_as_written(file_path)
+    if raw_root.tag == "opus":
+        raise ScoreLoadError(
+            "This is an opus file, a collection of multiple scores in one "
+            "file. Opus files are not supported - please open one of the "
+            "individual scores instead."
+        )
     return timewise_to_partwise(raw_root), raw_root.tag == "score-timewise"
 
 

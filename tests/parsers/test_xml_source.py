@@ -2,11 +2,21 @@
 import xml.etree.ElementTree as ET
 import zipfile
 
+import pytest
+
+from parsers.score_load_error import ScoreLoadError
 from parsers.xml_source import (
     read_musicxml_root,
     read_musicxml_root_and_origin,
     timewise_to_partwise,
 )
+
+OPUS_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<opus>
+  <opus-link xlink:href="piece1.musicxml" xmlns:xlink="http://www.w3.org/1999/xlink"/>
+  <opus-link xlink:href="piece2.musicxml" xmlns:xlink="http://www.w3.org/1999/xlink"/>
+</opus>
+"""
 
 CONTAINER_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <container>
@@ -58,6 +68,17 @@ def test_read_musicxml_root_follows_container_manifest_not_a_guessed_name(tmp_pa
 def test_timewise_to_partwise_returns_same_object_for_partwise(minimal_score):
     root = ET.parse(minimal_score).getroot()
     assert timewise_to_partwise(root) is root
+
+
+def test_read_musicxml_root_rejects_opus(tmp_path):
+    """An <opus> document is a collection of multiple scores in one file -
+    unsupported (wishlist #4). The user must be told plainly rather than
+    handed a blank or partial score."""
+    opus_path = tmp_path / "collection.musicxml"
+    opus_path.write_text(OPUS_XML, encoding="utf-8")
+
+    with pytest.raises(ScoreLoadError, match="opus"):
+        read_musicxml_root(str(opus_path))
 
 
 TIMEWISE_TWO_PARTS_TWO_MEASURES = """<?xml version="1.0" encoding="UTF-8"?>
