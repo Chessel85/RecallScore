@@ -153,14 +153,34 @@ deck — only the in-run advance is non-destructive.
 
 ### Reserved channels
 
-`MusicData.RESERVED_CHANNELS` keeps real instrument parts off four channels:
+The synth addresses all 256 MIDI channels (`audio.synth_engine.SYNTH_MIDI_CHANNELS`,
+passed to the `Synth()` constructor and mirrored by `MusicData.MAX_MIDI_CHANNELS`;
+a test asserts they match). `MusicData.RESERVED_CHANNELS` keeps real instrument
+parts off six of them:
 
 | Channel (0-idx) | Owner | Pan |
 |---|---|---|
-| 9 | `METRONOME_CLICK_CHANNEL` — the click metronome | full right (127) |
-| 8 | `POSITION_ANNOUNCER_CHANNEL` — the talking metronome | full left (0) |
-| 7 | `PERFORMANCE_CUE_CHANNEL` — Region 5's change cue | centre (64) |
-| 6 | `LIVE_MIDI_INPUT_CHANNEL` — live MIDI input | — |
+| 255 | `METRONOME_CLICK_CHANNEL` — the click metronome | full right (127) |
+| 254 | `POSITION_ANNOUNCER_CHANNEL` — the talking metronome | full left (0) |
+| 253 | `PERFORMANCE_CUE_CHANNEL` — Region 5's change cue | centre (64) |
+| 252 | `LIVE_MIDI_INPUT_CHANNEL` — live MIDI input | — |
+| 251 | `VOICE_CONTROL_CUE_CHANNEL` — voice-control confirmation ding | — |
+| 250 | `BOUNDARY_CUE_CHANNEL` — Region navigation boundary cue | — |
+
+**Why 250–255, at the top of the range.** Parts take plain channels 0, 1, 2 … in
+part-list order (`get_channel_for_part` — see below), so the reserved channels
+have to sit above every channel a part could claim. `MAX_PARTS`
+(`MAX_MIDI_CHANNELS - len(RESERVED_CHANNELS)` = 250) is exactly `min(RESERVED_CHANNELS)`,
+and `ScoreSession` refuses any score with more parts than that, so a part index
+can never collide with a reserved channel. A test asserts
+`min(RESERVED_CHANNELS) >= MAX_PARTS` so the simplification can't silently break
+if someone reserves a seventh channel low. Keeping the six separate (rather than
+folding them onto one) avoids the `noteoff(channel, key)` collisions below and
+preserves click-hard-right / announcer-hard-left panning.
+
+Channel 9 (and 25, 41, …) is FluidSynth's default drum channel, but the engine
+always calls `program_select` with an explicit sfont/bank/preset, which bypasses
+that — so the 10th part, now on channel 9, sounds as its own instrument.
 
 **Why a channel per sound, not a note-numbering convention.** Several presets in
 `recall_score_sounds.sf2` start their note numbering at 60, so a click and a word
@@ -789,16 +809,18 @@ GM programs are **1-indexed in the model** (25 = nylon guitar, from MusicXML
 `get_playback_events_for_indices` does the `-1` conversion per part, so **don't
 convert twice**.
 
-Each part gets its own MIDI channel (`get_channel_for_part`, skipping every
-channel in `RESERVED_CHANNELS`) so a chord spanning two parts plays both
+Each part gets its own MIDI channel — `get_channel_for_part` returns the part's
+index in `parts_info`, unmodified — so a chord spanning two parts plays both
 instruments instead of collapsing onto `parts_info[0]`'s program.
 `SynthEngine.play_chord` / `NullSynth.play_chord` take the resulting
 `(channel, program, midi_notes, duration_ms)` groups and sound them together.
 
-The usable-channel list is computed fresh inside `get_channel_for_part` on each
-call, **not cached as a class attribute** — a class-body list comprehension can
-only see its own outermost iterable, not other class attributes referenced inside
-its condition.
+There is no skip list and no wrap: every `RESERVED_CHANNELS` entry sits at or
+above `MAX_PARTS` (250), and `ScoreSession._on_loaded` refuses any score whose
+`parts_info` (synthetic Chords/Lyrics parts included, since each takes a channel)
+exceeds `MAX_PARTS` — emitting `load_failed` with an accessible message and
+leaving the previous score open — so a part index is always a free, unreserved
+channel.
 
 **`duration_ms` is per-group, not per-slice.** Each part's duration comes from the
 `max` `quarter_length` of *that part's* notes at this slice, not from
@@ -1126,3 +1148,10 @@ by tests feeding an invented element name.
 **Not made audible** (standing decision, unchanged): ties, arpeggios, ornaments,
 pedal and octave shift stay label-only; `<octave-shift>` does not transpose
 playback. See Known gaps in `CLAUDE.md`.
+
+**Instrument transposition is the exception** — `<attributes>/<transpose>` for a
+B♭ trumpet, F horn, double bass at `<octave-change>-1`, … *is* applied, but only
+to `midi_pitch` (playback + Region 4's `midi` row). `step_name`/`octave` and all
+region text stay as written, so the note list shows what is on the player's part
+while the MIDI sounds in concert pitch with it. See `docs/parsers.md` →
+Transposing instruments.

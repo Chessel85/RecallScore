@@ -4,7 +4,11 @@ from typing import Dict, List, Optional, Tuple
 
 import music21
 
-from models.duration_units import beat_unit_display_name
+from models.duration_units import (
+    QUARTER_LENGTH_BY_TYPE,
+    beat_unit_display_name,
+    beat_unit_quarter_length,
+)
 from models.key_signatures import FIFTHS_MAP
 from models.music_data import MusicData
 from models.parts_structure import PartStructureInfo
@@ -45,8 +49,17 @@ class MusicXMLReader:
         except Exception as e:
             print(f"[ERROR] music21 parse failed: {e}")
 
+        # music21's tempo read is preferred, but it returns None when the
+        # file has no usable MetronomeMark *or* when music21 couldn't parse
+        # the file at all (score is None - a single malformed <metronome>
+        # later in the piece aborts its whole parse). The ElementTree scan
+        # then finds the first valid tempo marking straight from the XML, so
+        # the header and playback show the real opening tempo rather than
+        # the 120 fallback.
         tempo_bpm, tempo_display, tempo_beat_unit_quarter_length, tempo_beat_unit_name = (
-            self._extract_tempo(score) if score else (120, "120 quarter notes per minute", 1.0, "quarter")
+            (self._extract_tempo(score) if score else None)
+            or self._extract_tempo_etree(root)
+            or (120, "120 quarter notes per minute", 1.0, "quarter")
         )
         key_sig = self._extract_key(score) or etree_key
         time_sig = self._extract_time(score) or etree_time
@@ -113,17 +126,20 @@ class MusicXMLReader:
         blank piece."""
         return read_musicxml_root(self.file_path)
 
-    def _extract_tempo(self, score: music21.stream.Score) -> Tuple[int, str, float, str]:
+    def _extract_tempo(
+        self, score: music21.stream.Score
+    ) -> Optional[Tuple[int, str, float, str]]:
         """(quarter-note BPM for playback timing, display string in the
-        score's OWN beat unit, that unit's quarter-length ratio, its name).
+        score's OWN beat unit, that unit's quarter-length ratio, its name),
+        or None when the score carries no usable MetronomeMark - the caller
+        then falls back to the ElementTree scan.
 
         A score marked eighth=96 yields 48 BPM internally but must display
         as "96 eighth notes per minute" - the ratio and name are what let
         the status bar and tempo dialog convert back live (Ref 12)."""
         try:
             tempos = score.flatten().getElementsByClass(music21.tempo.MetronomeMark)
-            if tempos:
-                mm = tempos[0]
+            for mm in tempos:
                 quarter_bpm = mm.getQuarterBPM()
                 if quarter_bpm and mm.number and mm.referent:
                     beat_unit = self._beat_unit_name(mm.referent)
@@ -136,7 +152,79 @@ class MusicXMLReader:
                     )
         except Exception as e:
             print(f"[WARN] Error reading tempo: {e}")
-        return 120, "120 quarter notes per minute", 1.0, "quarter"
+        return None
+
+    def _extract_tempo_etree(
+        self, root: Optional[ET.Element]
+    ) -> Optional[Tuple[int, str, float, str]]:
+        """The first valid tempo marking in the score, read straight from
+        the XML. Same return shape as _extract_tempo. Used when music21
+        found nothing (or couldn't parse the file), so the opening tempo is
+        still the score's own rather than the 120 fallback.
+
+        "Valid" = a <direction-type>/<metronome> with a known <beat-unit>
+        and a positive numeric <per-minute>. A <sound tempo="..."> (already
+        in quarter-note BPM by the MusicXML spec) is remembered as a
+        secondary fallback for a direction that has no readable metronome.
+        Mirrors TimelineBuilder._tempo_change_from_direction, which does the
+        same for every *later* marking."""
+        if root is None:
+            return None
+        sound_fallback: Optional[Tuple[int, str, float, str]] = None
+        # Structural facts come from the first part (the convention
+        # _scan_first_part / _detect_pickup already follow); a global tempo
+        # direction lives there too.
+        first_part = root.find("part")
+        if first_part is None:
+            return None
+        for measure in first_part.findall("measure"):
+            for direction in measure.findall("direction"):
+                metro = direction.find("direction-type/metronome")
+                if metro is not None:
+                    beat_unit = (metro.findtext("beat-unit") or "").strip()
+                    per_minute_raw = (metro.findtext("per-minute") or "").strip()
+                    if beat_unit in QUARTER_LENGTH_BY_TYPE and per_minute_raw:
+                        try:
+                            per_minute = float(per_minute_raw)
+                        except ValueError:
+                            per_minute = 0.0
+                        if per_minute > 0:
+                            dots = len(metro.findall("beat-unit-dot"))
+                            beat_unit_ql = beat_unit_quarter_length(beat_unit, dots)
+                            name = beat_unit_display_name(beat_unit, dots)
+                            # <sound tempo> in the same direction is
+                            # authoritative for the quarter BPM when present
+                            # (no float round-trip); otherwise derive it.
+                            sound_el = direction.find("sound[@tempo]")
+                            try:
+                                quarter_bpm = (
+                                    float(sound_el.attrib["tempo"])
+                                    if sound_el is not None
+                                    else per_minute * beat_unit_ql
+                                )
+                            except (ValueError, KeyError):
+                                quarter_bpm = per_minute * beat_unit_ql
+                            return (
+                                int(round(quarter_bpm)),
+                                f"{self._format_number(per_minute)} {name} notes per minute",
+                                beat_unit_ql,
+                                name,
+                            )
+                if sound_fallback is None:
+                    sound_el = direction.find("sound[@tempo]")
+                    if sound_el is not None:
+                        try:
+                            quarter_bpm = float(sound_el.attrib["tempo"])
+                        except (ValueError, KeyError):
+                            quarter_bpm = 0.0
+                        if quarter_bpm > 0:
+                            sound_fallback = (
+                                int(round(quarter_bpm)),
+                                f"{self._format_number(quarter_bpm)} quarter notes per minute",
+                                1.0,
+                                "quarter",
+                            )
+        return sound_fallback
 
     def _beat_unit_name(self, duration: music21.duration.Duration) -> str:
         return beat_unit_display_name(duration.type, duration.dots)

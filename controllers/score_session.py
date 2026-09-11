@@ -85,6 +85,19 @@ class ScoreSession(QObject):
             self.music_data.uk_terms = uk_terms
 
     def _on_loaded(self, music_data: MusicData) -> None:
+        # One MIDI channel per part, and the six Recall Score channels sit
+        # just above MAX_PARTS - so a score with more parts than that has
+        # nowhere left to put them and is refused here rather than silently
+        # wrapping parts onto shared channels. This is the single choke point
+        # for both file loads and Ultimate Guitar imports. The previous score
+        # stays loaded because self.music_data is left untouched.
+        part_count = len(music_data.parts_info)
+        if part_count > MusicData.MAX_PARTS:
+            self.load_failed.emit(
+                f"This score has {part_count} parts. Recall Score can play at "
+                f"most {MusicData.MAX_PARTS}, so it cannot be opened."
+            )
+            return
         self.music_data = music_data
         # MusicData is wholly replaced on every load, so the global dialect
         # must be reapplied or it silently resets to MusicData's own

@@ -138,8 +138,14 @@ class NoteRenderer:
         data = self.data
         wanted = self.attributes_for_voice(note.part_id, note.staff, note.voice)
         pairs = self.note_attribute_pairs(note)
+        order = data.attribute_order
         parts = []
-        for key in data.attribute_order:
+        skip_next_octave = False
+        for i, key in enumerate(order):
+            if skip_next_octave and key == "octave":
+                skip_next_octave = False
+                continue
+            skip_next_octave = False
             if key not in wanted or key not in pairs:
                 continue
             unprefixed = key in data.REGION_3_UNPREFIXED_ATTRIBUTES
@@ -147,6 +153,17 @@ class NoteRenderer:
                 # No clean word match - the raw number needs the label,
                 # unlike a self-explanatory word. See _duration_text.
                 unprefixed = False
+            if key == "step":
+                next_key = order[i + 1] if i + 1 < len(order) else None
+                # "C4" only when octave immediately follows step in the live
+                # order AND is actually rendering (on for this voice, present
+                # on the note) - otherwise fall through to the usual
+                # "C, octave 4" so a hidden/reordered octave never silently
+                # merges into the step text.
+                if next_key == "octave" and "octave" in wanted and "octave" in pairs:
+                    parts.append(f"{pairs[key]}{pairs['octave']}")
+                    skip_next_octave = True
+                    continue
             if unprefixed:
                 parts.append(pairs[key])
             else:

@@ -1,27 +1,33 @@
 # Recall Score Release Notes
 
-## 2026.1.53
+## 5#2026.1.56
 
-** Code review tidy up
+* Support for more than 16 instruments - limit is towards 256
+* Updated default order of attributes and streamlined how octave is presented in notes region
+
+## 2026.1.55
+
+* Code review tidy up
 
 ## 2026.1.54
-** Added specific support for rehearsal markings as findable attributes 
+
+* Added specific support for rehearsal markings as findable attributes 
 
 ## 2026.1.53
 
-** Support direct loading of MuseScore v4 files
-** General resilience to poorlly formed score files 
+* Support direct loading of MuseScore v4 files
+* General resilience to poorlly formed score files 
 
 ## 2026.1.52
 
-** Changed bell to a clap sound and end of score to a thud sound
-** Added a label to each region
+* Changed bell to a clap sound and end of score to a thud sound
+* Added a label to each region
 
 ## 2026.1.51
 
 
-** Added a standalone metronome tool which gives more control over the pattern and clicks
-* Voice control commands for play and stop now respect looping 
+* Added a standalone metronome tool which gives more control over the pattern and clicks
+ Voice control commands for play and stop now respect looping 
 
 ## 2026.1.50
 
@@ -38,7 +44,7 @@
 
 ## 2026.1.48
 
-** Introduced extra feature for playback to allow the user to define how looping around repeats and endings works.
+* Introduced extra feature for playback to allow the user to define how looping around repeats and endings works.
 
 ## 2026.1.47
 
@@ -79,7 +85,7 @@
 
 ## 2026.1.36
 
-** Tidied up user experience for reorder attributes and reorder parts dialogues so buttons have correct shortcuts announced and focus is generally more sticky.
+* Tidied up user experience for reorder attributes and reorder parts dialogues so buttons have correct shortcuts announced and focus is generally more sticky.
 
 ## 2026.1.35
 
@@ -168,4 +174,4 @@ grace notes and similar ornaments are now sounded and marked up in the noet regi
 
 ## 2026.1.17
 
-- Preview settings dialogue added to Playback menu
+* - Preview settings dialogue added to Playback menu

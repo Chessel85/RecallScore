@@ -9,14 +9,16 @@ already use.
 """
 from typing import Tuple
 
-# Sixth reserved channel, alongside METRONOME_CLICK_CHANNEL (9),
-# POSITION_ANNOUNCER_CHANNEL (8), PERFORMANCE_CUE_CHANNEL (7),
-# LIVE_MIDI_INPUT_CHANNEL (6) and VOICE_CONTROL_CUE_CHANNEL (5), for the
+# One of the six reserved channels, alongside METRONOME_CLICK_CHANNEL (255),
+# POSITION_ANNOUNCER_CHANNEL (254), PERFORMANCE_CUE_CHANNEL (253),
+# LIVE_MIDI_INPUT_CHANNEL (252) and VOICE_CONTROL_CUE_CHANNEL (251), for the
 # reason spelled out in position_announcer.py: FluidSynth releases a ringing
 # one-shot by channel+key, not by preset, so unrelated sounds sharing a
-# channel can cut each other off. MusicData.BOUNDARY_CUE_CHANNEL duplicates
-# this value (models/ doesn't import audio/).
-BOUNDARY_CUE_CHANNEL = 4
+# channel can cut each other off. The six sit at the top of the 256-channel
+# range (250-255) so parts get plain channels 0, 1, 2 ... with no gaps.
+# MusicData.BOUNDARY_CUE_CHANNEL duplicates this value (models/ doesn't
+# import audio/).
+BOUNDARY_CUE_CHANNEL = 250
 BOUNDARY_CUE_BANK = 0
 BOUNDARY_CUE_PROGRAM = 6  # [preset:boundary_cue] in tools/config.ini
 BOUNDARY_CUE_NOTE = 60

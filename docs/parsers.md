@@ -50,6 +50,19 @@ file **twice**: raw `ElementTree` for credits/part-list/clefs, and
 `music21.converter.parse` for tempo/key/time, with the ElementTree values as
 fallback when music21 returns nothing.
 
+**Tempo has a genuine ElementTree fallback, not just an absent-value one.**
+`_extract_tempo` (music21) returns `None` — not a default — when it finds no
+usable `MetronomeMark`, *and* `score` is `None` whenever music21 couldn't parse
+the file at all. A single malformed later `<metronome>` (empty `<beat-unit>`,
+as MuseScore emitted in the Dvořák "New World" Largo) aborts music21's whole
+parse, which used to drop the header and playback tempo to a hardcoded 120.
+`_extract_tempo_etree` then walks the first part's `<direction>` elements for
+the first valid marking — a `<metronome>` with a known `<beat-unit>` and a
+positive `<per-minute>` (a same-`<direction>` `<sound tempo>` is authoritative
+for the quarter BPM when present) — mirroring
+`TimelineBuilder._tempo_change_from_direction`, which does the same for every
+*later* marking.
+
 `_extract_part_structure_etree`'s `<part-name>` read populates
 `PartStructureInfo.name`, and **`TimelineBuilder` derives `NoteData.part_name`
 from that same `parts_info`** (R5, `TimelineBuilder._part_names`) rather than
@@ -69,6 +82,20 @@ then element), dispatching each measure child to the handler that owns it:
   Chords-part stroke), calling **`_read_pitch`** (`<pitch>`/`<unpitched>` to
   name/octave/sounding key/percussion voice override) and **`_read_notations`**.
 * **`_flush_pending_grace`** and **`_assemble_slices`** close out.
+
+**Transposing instruments (`<attributes>/<transpose>`).** `_handle_attributes`
+reads every `<transpose>` into `_PartState.transpose_semitones_by_staff`
+(`<chromatic>` + 12·`<octave-change>`; `<diatonic>` is ignored — it only affects
+spelling, which stays as-written), keyed by the block's `number` attribute or `0`
+for a part-wide one. `_read_pitch` then adds that offset to **`midi_pitch` only**:
+`step_name`/`octave` — and so every region's text and Find — stay exactly as the
+player reads them off the part, while playback and Region 4's `midi` row carry the
+concert (sounding) pitch, so a user can play along to the MIDI in unison. A
+non-transposing part has offset 0 and is untouched. `score_sections` already
+carries `<transpose>` as one of its `_CARRIED_PER_STAFF` attributes, so a later
+section of a multi-section file still sounds at concert pitch. Ornaments/octave
+shift/pedal remain label-only (see below) — instrument transposition is the one
+pitch adjustment the builder applies.
 
 **Three small state objects** carry what must survive between elements:
 **`_PartState`** (divisions/time signature/key carried forward, the sticky
