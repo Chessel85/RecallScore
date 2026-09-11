@@ -385,7 +385,9 @@ def test_region_4_attribute_menu_add_updates_region_3_without_reauditioning(
     null_synth.played.clear()
     actions[0][1]()  # "Add to notes for this voice"
 
-    assert _region_3_labels(window) == ["C, octave 4"]
+    # "octave" immediately follows "step" in attribute_order, so it merges
+    # onto the step as a bare number ("C4") rather than "C, octave 4".
+    assert _region_3_labels(window) == ["C4"]
     assert null_synth.played == [], "an attribute toggle must not re-audition the note"
     assert len(window.region_3.selectedIndexes()) == 1, "selection must be preserved"
     assert window.region_4.count() > 0, "Region 4 refreshed alongside Region 3"
@@ -456,7 +458,7 @@ def test_region_4_attribute_menu_callback_survives_qactions_checked_argument(
     actions = window.attributes.menu_actions(1)  # row 1 = octave
     actions[0][1](False)  # exactly how QAction.triggered(bool) calls it
 
-    assert _region_3_labels(window) == ["C, octave 4"]
+    assert _region_3_labels(window) == ["C4"]
 
 
 def test_region_4_attribute_menu_omits_voice_and_stave_scopes_for_a_collapsed_part(
@@ -484,7 +486,7 @@ def test_region_4_attribute_menu_switches_to_remove_once_present(
 ):
     load_and_wait(window, qtbot, minimal_score)
     window.attributes.menu_actions(1)[0][1]()  # add octave to the voice
-    assert _region_3_labels(window) == ["C, octave 4"]
+    assert _region_3_labels(window) == ["C4"]
 
     actions = window.attributes.menu_actions(1)
     assert [label for label, _ in actions] == [
@@ -523,8 +525,8 @@ def test_region_4_attribute_menu_stave_scope_fans_out_to_every_voice_on_that_sta
 
     labels = _region_3_labels(window)
     assert labels[0] == "G", "P1 staff 1 voice 1 untouched"
-    assert labels[1].startswith("G, octave "), "P1 staff 2 voice 6 - the note the menu was opened on"
-    assert labels[2].startswith("D, octave "), "P1 staff 2 voice 5 - same stave, different voice"
+    assert labels[1].startswith("G") and labels[1] != "G", "P1 staff 2 voice 6 - the note the menu was opened on"
+    assert labels[2].startswith("D") and labels[2] != "D", "P1 staff 2 voice 5 - same stave, different voice"
     assert labels[3] == "D" and labels[4] == "D", "P2's notes untouched"
 
 
@@ -542,4 +544,6 @@ def test_region_4_attribute_menu_score_scope_fans_out_to_every_part(
     score_add()
 
     labels = _region_3_labels(window)
-    assert all("octave " in label for label in labels), "every voice in the score, including P2, is affected"
+    # "octave" merges onto the step as a bare number ("G3"), so every label
+    # gains a trailing digit rather than the literal word "octave".
+    assert all(label[-1].isdigit() for label in labels), "every voice in the score, including P2, is affected"

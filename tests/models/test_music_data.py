@@ -1150,9 +1150,11 @@ def test_region_3_appends_configured_extra_attributes_comma_separated(timeline, 
     md.voice_display_attributes[voice_key] = {"duration", "step", "octave"}  # order must not matter
 
     # "duration" renders as a bare US/UK duration word ("quarter"), with no
-    # "Duration" prefix - unlike every other extra attribute (e.g. "octave
-    # 4") - because the word alone already says what it is.
-    assert md.get_region_3_data() == ["C, octave 4, quarter"]
+    # "Duration" prefix - unlike every other extra attribute - because the
+    # word alone already says what it is. "octave" immediately follows
+    # "step" in the live attribute_order here, so it merges onto the step
+    # as a bare number ("C4") rather than rendering as "C, octave 4".
+    assert md.get_region_3_data() == ["C4, quarter"]
 
 
 def test_region_3_prefixes_duration_when_it_has_no_word():
@@ -1181,7 +1183,7 @@ def test_region_3_omits_missing_attributes_without_a_dangling_comma(timeline, re
     md.voice_display_attributes[("P1", 1, 1)] = {"step", "octave", "midi", "duration"}
 
     md.active_event_index = 0
-    assert md.get_region_3_data() == ["C, octave 4, midi 60, quarter"]
+    assert md.get_region_3_data() == ["C4, quarter, midi 60"]
 
     md.active_event_index = 1  # the rest
     assert md.get_region_3_data() == ["rest, quarter"]

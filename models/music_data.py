@@ -708,15 +708,16 @@ class MusicData:
     # extra attributes and Region 4's rows - every fresh MusicData starts
     # attribute_order (see __post_init__) as a copy of this. F2's
     # attribute-order dialog mutates that live copy, never this constant.
-    # "text" sits right before "measure" rather than beside "step" - it and
-    # "step"/"octave"/"midi" are mutually exclusive per note (an ordinary
-    # note never has "text", a stave text event never has step/octave/midi),
-    # so its exact position among those three doesn't affect rendering
-    # either way; placed here instead so it doesn't disturb the "step"/
-    # "octave" adjacency and "strum is last" behaviour existing tests pin.
+    # "text" sits right beside "step"/"octave" rather than beside "measure" -
+    # it and "step"/"octave"/"midi" are mutually exclusive per note (an
+    # ordinary note never has "text", a stave text event never has
+    # step/octave/midi), so its exact position among those three doesn't
+    # affect rendering either way. "midi" is deliberately last among the
+    # core identity/position attributes, after "voice", rather than beside
+    # "step"/"octave".
     DISPLAY_ATTRIBUTE_ORDER = [
-        "step", "octave", "midi", "text", "measure", "beat position", "duration",
-        "part", "stave", "voice", "string", "fret",
+        "step", "octave", "text", "duration", "measure", "beat position",
+        "part", "stave", "voice", "midi", "string", "fret",
         "dynamic", "articulation", "fingering", "pluck", "strum",
         # P1 (D9): note-attached notations, grouped
         # after the existing optional tail. "other notation" is the D6

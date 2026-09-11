@@ -1,11 +1,19 @@
-Can music xml have multiple pieces in one file?
-Do we support rehearsal marks?
-Need a way to support multiple sections within a file.
+Need to write the user guide better. Need a getting going separate help entry and also a keyboard shortcuts doc with shortcut control slash.
+Can I make github present a nicer web page where people can download the latest releases from?
+Do we cope with both part wise and time wise music xml?
+Need to declare that opuses are not catered for when loading an opus tag.
+Try a offset feature where the regions are updated either ahead or behind the playback of sounds, or indeed, do not refresh the regions during playback at all.
+Implement an f12 feature which announces what each keystroke does when pressed. Is it easy to allow people to define their own shortcuts?  Need a default factory settings to revert to.
+Rearrange the default attributes so the order is step, octave, duration, bar, position part, stave, voice.
+If the user adds the octave from the attributes list to the note list, and it immediately follows the step attribute, append just the number to the step.  So C"C, octave 4" becomes "C4".  
+If the step is not present or follows  the octave, or there is another attribute between step and octave, then do the usual display. e.g. "C, midi 60, octtave 5"
+Can file open remember the last folder rather than defaulting to the same original folder
 surfacing region 5 data better
-exchange ding for clap
-change cello for a non pitched bump sound
+Generally want option to add region 5 items to note list as well. Crescendo start, crescendo end. 
+Is there a difference between score text and stave text?  Is score text generally just at the beginning?
+How to distinguish between text meant just for one part instructions meant for all staves?
+If add octave to note region, make sure it does not say octave but C5. Or c sharp 5.
 stripping announcement of attribute name during playback
-
 Really want to condense  down to as few midi channels as possible because I've come across scores with 16 instruments.
 If a stave has only one voice, then no point opening it in the parts view and no point having "Add attribute to voice" etc.
 The performance summary report should not list something if there are zero occurances.
