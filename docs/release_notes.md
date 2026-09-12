@@ -1,5 +1,9 @@
 # Recall Score Release Notes
 
+## 2026.1.59
+
+** Added a keyboard echo mode to test keystrokes. Toggled with f12. 
+
 ## 2026.1.58
 
 * Added a keystroke shortcuts dialogue in tools menu  to allow users to change the shortcuts for actions 
