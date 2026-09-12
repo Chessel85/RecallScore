@@ -27,6 +27,7 @@ from controllers.keyboard_echo_controller import KeyboardEchoController
 from controllers.live_midi_input_controller import LiveMidiInputController
 from controllers.navigation_controller import NavigationController
 from controllers.playback_controller import PlaybackController
+from controllers.refresh_delay_controller import RefreshDelayController
 from controllers.region_presenter import RegionPresenter
 from controllers.score_edit_controller import ScoreEditController
 from controllers.score_persistence import ScorePersistenceController
@@ -376,6 +377,13 @@ class MainWindow(QMainWindow):
         # loaded once here rather than per file load - unlike the absolute
         # playback tempo, which travels with the score's own .rsc config.
         self.playback.set_play_settings(app_settings.load().play)
+        # Delay Refresh gate (UserPlans/DelayRefresh.md): global, like play
+        # settings above. Wired to the playback controller as a plain
+        # optional collaborator (invariant 6 - RegionPresenter is the only
+        # controller that touches widgets, so the gate itself never does).
+        self.refresh_gate = RefreshDelayController(self.session, parent=self)
+        self.refresh_gate.set_settings(app_settings.load().refresh)
+        self.playback.refresh_gate = self.refresh_gate
         # Live MIDI input (device/instrument/volume/pan) is likewise global,
         # not per-score - constructed once here, outliving every file load,
         # the same lifetime ScoreSession/SynthEngine already have. .start()
@@ -506,12 +514,27 @@ class MainWindow(QMainWindow):
         self.session.score_loaded.connect(self._on_score_loaded)
         self.session.load_failed.connect(self._on_score_load_failed)
 
+        # Manual navigation must not leave a stale playback index stranded in
+        # the Delay Refresh gate (UserPlans/DelayRefresh.md) - flush it
+        # FIRST (connection order matters: Qt runs slots in the order
+        # connected) so any pending gated position is applied and then
+        # immediately superseded by the keypress's own, more current,
+        # position via the direct connection right after.
+        self.navigation.position_changed.connect(lambda *_: self.refresh_gate.flush())
         # Both "the cursor moved" sources land on the same redraw.
         self.navigation.position_changed.connect(self.presenter.update_timeline_views)
         self.navigation.boundary_hit.connect(self.playback.play_boundary_cue)
         self.navigation.barline_crossed.connect(self.playback.play_barline_indicator)
         self.navigation.pending_digits_changed.connect(self.presenter.show_pending_digits)
+        # Only a Delay Refresh gate on its default settings (refresh on, no
+        # delay) reaches update_timeline_views from here directly; the
+        # per-step path (Ref 10 AC4's live tracking) instead flows
+        # playback_cursor_stepped -> refresh_gate.handle_cursor_moved ->
+        # refresh_requested, wired below. cursor_moved itself is still
+        # emitted directly (stop, finish, loop restart) and stays ungated.
         self.playback.cursor_moved.connect(self.presenter.update_timeline_views)
+        self.playback.playback_cursor_stepped.connect(self.refresh_gate.handle_cursor_moved)
+        self.refresh_gate.refresh_requested.connect(self.presenter.update_timeline_views)
         self.playback.status_text_changed.connect(self.presenter.update_status_bar)
         self.playback.playback_state_changed.connect(
             self.presenter.update_playback_status_field

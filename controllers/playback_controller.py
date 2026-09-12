@@ -119,11 +119,17 @@ class PlaybackController(QObject):
       cursor_moved(play_all)   - the timeline position changed
       status_text_changed()    - the whole status bar needs rebuilding
       playback_state_changed() - only the Playing/Paused/Stopped field
+      playback_cursor_stepped(index, play_all) - one Sequencer step, en
+        route to the Delay Refresh gate (see refresh_gate below) rather
+        than straight to the regions - unlike cursor_moved, which stays
+        immediate and ungated everywhere else it's emitted (stop, finish,
+        loop restart).
     """
 
     cursor_moved = Signal(bool)
     status_text_changed = Signal()
     playback_state_changed = Signal()
+    playback_cursor_stepped = Signal(int, bool)
 
     # Boundary cue (Ref 2 AC4/Ref 3 AC4): a short sound played INSTEAD of
     # moving, deliberately unlike anything in the score so it isn't mistaken
@@ -151,6 +157,13 @@ class PlaybackController(QObject):
         # on startup and again whenever the dialog is accepted.
         self.play_settings = PlaySettings()
         self._play_run: Optional[_PlayRun] = None
+        # Delay Refresh gate (controllers/refresh_delay_controller.py): a
+        # plain optional collaborator slot, not an import - this controller
+        # must not know the gate's type, only that it has flush()/cancel().
+        # Set by MainWindow after both are constructed; every call site
+        # below guards it being None (unit tests build a PlaybackController
+        # with no gate at all).
+        self.refresh_gate = None
         # timer: injectable like Sequencer's, so tests can drive the
         # count-in and the loop without waiting on the clock.
         if timer is None:
@@ -186,6 +199,13 @@ class PlaybackController(QObject):
     def muted(self) -> bool:
         return self._muted
 
+    @property
+    def is_paused(self) -> bool:
+        """Task 8 (Escape stops a paused playback): a thin read of the
+        Sequencer, False when there is none (no score loaded, or between
+        loads)."""
+        return self.sequencer is not None and self.sequencer.is_paused
+
     def attach_score(self, music_data) -> None:
         """Called on every load: stop whatever the previous score was doing,
         build that score's own Sequencer, and push the score's own saved
@@ -193,6 +213,8 @@ class PlaybackController(QObject):
         before this runs, see main_window.py's _on_score_loaded)."""
         self.cancel_play_run()
         self.stop_play_metronome()
+        if self.refresh_gate is not None:
+            self.refresh_gate.cancel()
         if self.sequencer is not None:
             self.sequencer.stop()
         self.sequencer = Sequencer(music_data, self.synth, parent=self)
@@ -208,6 +230,8 @@ class PlaybackController(QObject):
         is needed here where closeEvent can rely on synth.close()."""
         self.cancel_play_run()
         self.stop_play_metronome()
+        if self.refresh_gate is not None:
+            self.refresh_gate.cancel()
         if self.sequencer is not None:
             self.sequencer.stop()
         self.sequencer = None
@@ -471,15 +495,25 @@ class PlaybackController(QObject):
             return
         if self.sequencer.is_playing:
             self.sequencer.pause()
+            if self.refresh_gate is not None:
+                self.refresh_gate.flush()
             self.playback_state_changed.emit()
 
     def toggle_pause_resume(self) -> None:
         """Ctrl+Space (Ref 10 AC3): pauses only. Resuming is Space's job -
-        having both resume collides and leaves users pressing Space twice."""
+        having both resume collides and leaves users pressing Space twice.
+
+        flush()es the Delay Refresh gate before announcing the pause: with a
+        positive delay in effect, a pending cursor move may still be sitting
+        in the gate rather than applied to the regions yet - without this,
+        "pause refreshes the regions" (see _on_sequencer_step's docstring)
+        would land on a stale position that hasn't caught up yet."""
         if self.sequencer is None:
             return
         if self.sequencer.is_playing:
             self.sequencer.pause()
+            if self.refresh_gate is not None:
+                self.refresh_gate.flush()
             self.playback_state_changed.emit()
 
     def stop(self) -> None:
@@ -499,6 +533,8 @@ class PlaybackController(QObject):
             looping_restore_index = self._play_run.restore_index
         self.cancel_play_run()
         self.stop_play_metronome()
+        if self.refresh_gate is not None:
+            self.refresh_gate.cancel()
         if self.sequencer is None:
             return
         was_tracking_cursor = self.sequencer.update_cursor
@@ -1049,9 +1085,14 @@ class PlaybackController(QObject):
 
     def _on_sequencer_step(self, index: int) -> None:
         """Ref 10 AC4: a cursor-tracking run moves active_event_index and
-        refreshes the regions as it goes. That is what makes "pause
-        refreshes the regions" true for free - they already track the live
-        position throughout, not just at the moment of pausing.
+        refreshes the regions as it goes - though WHEN that actually lands
+        is now the Delay Refresh gate's call (controllers/
+        refresh_delay_controller.py), not this method's: it only hands the
+        index off via playback_cursor_stepped, which MainWindow routes into
+        the gate. That is what makes "pause refreshes the regions" true for
+        free (see toggle_pause_resume/pause_command's flush()) - the gate
+        already has the live position throughout, not just at the moment of
+        pausing.
 
         A looping run also tracks here even though the Sequencer's own
         update_cursor is False for it (so the Sequencer's stop/finish
@@ -1063,8 +1104,7 @@ class PlaybackController(QObject):
         looping_run = self._play_run is not None and self._play_run.looping
         if not self.sequencer.update_cursor and not looping_run:
             return
-        self.music_data.active_event_index = index
-        self.cursor_moved.emit(False)
+        self.playback_cursor_stepped.emit(index, False)
 
     def _on_sequencer_finished(self) -> None:
         """A run ending on its own flips is_playing without anyone calling

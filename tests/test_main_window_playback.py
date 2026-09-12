@@ -360,6 +360,39 @@ def test_sequencer_steps_advance_the_cursor_and_regions_over_real_time(
     assert window.status_bar._fields[0].text() == "Measure 1 beat 1"
 
 
+# --- Delay Refresh (UserPlans/DelayRefresh.md) --------------------------
+
+def test_refresh_off_holds_the_cursor_until_pause_flushes_it(
+    window, qtbot, null_synth, minimal_score
+):
+    """Ref: Task 4's end-to-end test. With refresh off, a Sequencer step
+    must not move active_event_index/Region 3 at all; pausing (which
+    flush()es the Delay Refresh gate) is what catches the regions up to the
+    real playing position."""
+    load_and_wait(window, qtbot, minimal_score)
+    no_lead_in(window)
+    window.refresh_gate.set_refresh_during_playback(False)
+
+    window.toggle_play_stop()
+    assert window._music_data.active_event_index == 0
+    starting_row_text = window.region_3.item(0).text()
+
+    # Force the next step without waiting on the real clock (same idiom
+    # test_looping_run_tracks_the_playing_position_in_the_note_region uses).
+    window.sequencer._advance()
+    stepped_index = window.sequencer.current_index
+    assert stepped_index != 0
+
+    # The step happened (and sounded), but refresh being off held the
+    # regions on the old position.
+    assert window._music_data.active_event_index == 0
+    assert window.region_3.item(0).text() == starting_row_text
+
+    window.toggle_pause_resume()
+
+    assert window._music_data.active_event_index == stepped_index
+
+
 # --- The one lead-in/looping play session -------------------------------
 
 def test_looping_space_plays_from_the_bar_line_and_restores_the_cursor_on_stop(

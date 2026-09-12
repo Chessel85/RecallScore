@@ -65,7 +65,7 @@ class RefreshDelayController(QObject):
         self.set_settings(settings)
         return self._settings.refresh_during_playback
 
-    def handle_cursor_moved(self, index: int, play_all: bool, is_playing: bool) -> None:
+    def handle_cursor_moved(self, index: int, play_all: bool, is_playing: bool = True) -> None:
         """The whole decision:
         * not playing, or refresh on with delay_ms <= 0 -> apply immediately
           (today's path, unchanged in effect).
@@ -74,6 +74,12 @@ class RefreshDelayController(QObject):
           apply on timeout. A later step inside the same window overwrites
           the pending index - it's a slot, not a queue.
         A negative delay_ms needs nothing here - the music is what moves.
+
+        is_playing defaults to True: PlaybackController.playback_cursor_stepped
+        (this method's usual signal source) only ever fires while a run is
+        actually stepping through the score, so MainWindow connects the
+        two-arg signal straight to this three-arg slot and lets the default
+        stand in for "yes, playing".
         """
         if not is_playing or (
             self._settings.refresh_during_playback and self._settings.delay_ms <= 0
