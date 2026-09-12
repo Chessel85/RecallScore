@@ -579,8 +579,13 @@ def test_lead_offset_queues_rather_than_drops_a_step_that_arrives_before_the_pre
     lead_timer.fire()  # first step's audio finally sounds
     assert len(null_synth.played) == 1
     assert null_synth.played[0]["midi_notes"] == [60]
-    # The second step queued up in the meantime - draining it must re-arm.
-    assert lead_timer.scheduled_ms == [300, 300]
+    # The second step queued up in the meantime - draining it must re-arm,
+    # but only for the REMAINING time until ITS true due time (500ms: the
+    # step arrived at t=500, so it is due at 500+300=800, and the first
+    # item's fire left the lead clock at 300) - not another flat 300ms,
+    # which would re-space every note lead_offset_ms apart and slow
+    # playback down (the exact bug reported live).
+    assert lead_timer.scheduled_ms == [300, 500]
 
     lead_timer.fire()  # second step's audio sounds
     assert len(null_synth.played) == 2

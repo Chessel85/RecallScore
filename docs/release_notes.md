@@ -1,10 +1,14 @@
 # Recall Score Release Notes
 
+## 2026.1.60
+
+* Added a text refresh toggle and a delay text refresh feature 
+
 ## 2026.1.59
 
 * Added a quick start guide
-** Added a shortcuts reference guide 
-** Added a keyboard echo mode to test keystrokes. Toggled with f12. 
+* Added a shortcuts reference guide 
+* Added a keyboard echo mode to test keystrokes. Toggled with f12. 
 
 ## 2026.1.58
 

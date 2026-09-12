@@ -508,6 +508,44 @@ def test_loop_until_stopped_restarts_from_the_sequencers_finished_signal(
     window.toggle_play_stop()
 
 
+def test_loop_restart_with_negative_delay_does_not_pad_or_stop_notes(
+    window, qtbot, null_synth, many_measures_score
+):
+    """Regression, reported live: an earlier version padded
+    loop_tail_pad_ms by lead_offset_ms and let play_from's default
+    stop_previous=True silence everything on every restart. That shifted
+    each new iteration's own internal clock late by lead_offset_ms,
+    stretching its first beat by that much. The fix removes the pad and
+    skips stop_all_notes() for a same-run restart instead, letting the
+    previous iteration's deferred last note ring out on its own."""
+    load_and_wait(window, qtbot, many_measures_score)
+    assert window._music_data.jump_to_measure(3) is True
+    no_lead_in(window, loop_enabled=True, loop_length_bars=2)
+    window.refresh_gate.set_settings(RefreshSettings(delay_ms=-200))
+
+    window.toggle_play_stop()
+    run = window.playback._play_run
+    assert run is not None and run.looping is True
+    # Not padded by lead_offset_ms any more (see loop_tail_pad_ms's comment)
+    # - same as it would be with no delay set at all.
+    pad_with_delay = run.loop_tail_pad_ms
+    window.refresh_gate.set_settings(RefreshSettings())
+    window.playback._refresh_play_span(run)
+    assert pad_with_delay == run.loop_tail_pad_ms
+    window.refresh_gate.set_settings(RefreshSettings(delay_ms=-200))
+
+    window.playback._on_sequencer_finished()
+    stop_count_before_restart = null_synth.stop_count
+    window.playback._on_play_timer()  # fires ("loop",) -> the restart's play_from
+
+    assert null_synth.stop_count == stop_count_before_restart, (
+        "a same-run loop restart must not stop_all_notes() - it would clip "
+        "the previous iteration's still-ringing, lead_offset-deferred last note"
+    )
+
+    window.toggle_play_stop()
+
+
 def test_a_second_space_while_looping_stops_it(window, qtbot, null_synth, many_measures_score):
     load_and_wait(window, qtbot, many_measures_score)
     no_lead_in(window, loop_enabled=True, loop_length_bars=2)

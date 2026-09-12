@@ -860,11 +860,17 @@ class PlaybackController(QObject):
             max(0.0, run.end_quarters - last_slice.quarters_from_start) * 60000.0 / float(bpm)
         )
         ring_out_ms = self.music_data.get_ring_out_ms_for_index(last_index)
-        # Plus lead_offset_ms (Delay Refresh's negative-delay half): the
-        # Sequencer defers every step's audio, including the iteration's
-        # last note, so the loop's own restart must wait that much longer
-        # too or it clips the shifted tail (UserPlans/DelayRefresh.md).
-        run.loop_tail_pad_ms = max(0, bar_line_ms - ring_out_ms) + self._lead_offset_ms
+        # Delay Refresh's negative-delay half (UserPlans/DelayRefresh.md):
+        # deliberately NOT padded by lead_offset_ms here. The Sequencer
+        # defers the iteration's last note's audio, so at this natural
+        # restart time it may still legitimately be ringing - but the fix
+        # for that is _fire_play_event's stop_previous=False on the restart
+        # (let it ring out on its own, same as an ordinary retrigger=False
+        # advance), not delaying the restart itself. An earlier version
+        # added + self._lead_offset_ms here instead, which shifted the next
+        # iteration's own internal clock late by that much, stretching its
+        # first beat by lead_offset_ms at every loop seam (reported live).
+        run.loop_tail_pad_ms = max(0, bar_line_ms - ring_out_ms)
 
     def _loop_seed_jump_state(
         self, mode: str, iteration_count: int
@@ -1049,6 +1055,21 @@ class PlaybackController(QObject):
         elif kind == "play":
             run.playing = True
             if self.sequencer is not None:
+                # A "loop until stopped" restart past the first iteration,
+                # with no per-iteration lead-in of its own, is a NATURAL
+                # continuation - the previous iteration's own deferred last
+                # note may legitimately still be ringing at this (unpadded,
+                # natural) restart moment. stop_previous=False lets it
+                # finish on its own rather than being cut off, and - just as
+                # importantly - keeps THIS run's own internal clock starting
+                # exactly on the natural schedule, so its first beat isn't
+                # stretched by lead_offset_ms (both reported live; see
+                # play_from's own docstring and loop_tail_pad_ms's).
+                continuous_restart = (
+                    run.looping
+                    and run.iteration_count > 0
+                    and not (run.settings.loop_lead_in and run.settings.has_lead_in())
+                )
                 if run.looping and run.respect_repeats:
                     # No linear end_index - the iteration follows
                     # repeats/endings and stops on a bar-count budget, and
@@ -1063,6 +1084,7 @@ class PlaybackController(QObject):
                         initial_jump_state=run.seed_jump_state,
                         measure_budget=run.settings.loop_length_bars,
                         lead_offset_ms=self._lead_offset_ms,
+                        stop_previous=not continuous_restart,
                     )
                 elif run.looping:
                     self.sequencer.play_from(
@@ -1071,6 +1093,7 @@ class PlaybackController(QObject):
                         update_cursor=False,
                         jump_lower_bound=run.start_index,
                         lead_offset_ms=self._lead_offset_ms,
+                        stop_previous=not continuous_restart,
                     )
                 else:
                     # Lead-in only: play to the end of the score, cursor

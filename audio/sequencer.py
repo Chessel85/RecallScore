@@ -78,6 +78,18 @@ class Sequencer(QObject):
         # whether draining is already under way.
         self._pending_audio_queue: list = []
         self._lead_timer_running: bool = False
+        # Real elapsed ms since play_from's first step, accumulated from the
+        # exact intervals handed to self._timer.start() (never measured off
+        # the wall clock, so FakeTimer-driven tests stay deterministic).
+        # Used to compute each deferred audio block's true due time
+        # (step_time + lead_offset_ms) so a backlog (steps arriving faster
+        # than lead_offset_ms drains) catches up to the ORIGINAL tempo
+        # instead of re-spacing notes lead_offset_ms apart - which silently
+        # slowed playback down at any offset close to the step interval
+        # (reported live: worst at -1s, negligible near 0). lead_clock_ms is
+        # the same kind of clock for the lead timer's own chain of fires.
+        self._elapsed_ms: int = 0
+        self._lead_clock_ms: int = 0
         # Set via play_from's own kwarg (controllers/playback_controller.py
         # derives it from RefreshSettings.delay_ms). 0 keeps
         # _sound_current_step's synchronous path byte-for-byte as it was
@@ -141,6 +153,7 @@ class Sequencer(QObject):
         initial_jump_state: Optional[PlaybackJumpState] = None,
         measure_budget: Optional[int] = None,
         lead_offset_ms: int = 0,
+        stop_previous: bool = True,
     ) -> None:
         """Ref 10 AC1: play from start_index through end_index (inclusive),
         or to the end of the visible timeline. update_cursor tells MainWindow
@@ -162,17 +175,39 @@ class Sequencer(QObject):
         meaningless. lead_offset_ms is Delay Refresh's negative-delay half
         (UserPlans/DelayRefresh.md): 0 keeps every step's audio synchronous
         exactly as before; a positive value defers each step's audio block
-        by that many ms so the text refreshes ahead of the sound. All four
-        default to today's behaviour when absent."""
+        by that many ms so the text refreshes ahead of the sound - via the
+        SAME per-step due-time mechanism for every step of the run,
+        including the first (see _sound_current_step/step_time_ms), which is
+        why a negative delay makes even the very first note of a run late.
+
+        stop_previous controls whether this call silences whatever's still
+        sounding first. True (the default) for every ordinary start - an
+        explicit reposition, where retrigger=False alone isn't enough
+        because there is no "previous step" to just let ring. A "loop until
+        stopped" restart is different: it is a NATURAL continuation, not a
+        reposition, of a run whose own last note may still legitimately be
+        ringing (deferred by lead_offset_ms, per the ring-out math in
+        playback_controller.py's loop_tail_pad_ms) - False there lets it
+        finish on its own, exactly like an ordinary retrigger=False advance
+        lets another part's note ring through a new attack. Silencing it
+        anyway would clip the tail; delaying THIS call instead (an earlier
+        version of this feature did, via an extra pad) shifted this run's
+        own internal clock late by lead_offset_ms, stretching the very first
+        beat of every loop repeat by that much (reported live) - stopping
+        nothing and starting right on the natural schedule avoids both.
+        All five default to today's behaviour when absent."""
         self._timer.stop()
         self._lead_timer.stop()
         self._pending_audio_queue.clear()
         self._lead_timer_running = False
+        self._elapsed_ms = 0
+        self._lead_clock_ms = 0
         self.lead_offset_ms = max(0, lead_offset_ms)
         # An explicit reposition clears the deck; _sound_current_step uses
         # retrigger=False and won't, which is what lets other parts' notes
         # ring across an unrelated part's attack during a normal run.
-        self.synth.stop_all_notes()
+        if stop_previous:
+            self.synth.stop_all_notes()
         self._current_index = start_index
         self._original_start_index = start_index
         self._end_index = end_index
@@ -252,6 +287,10 @@ class Sequencer(QObject):
         # overwrites it for the NEXT step before a non-zero lead_offset_ms's
         # timer ever fires.
         retrigger = self._pending_retrigger
+        # This step's own position on the real-time clock, captured before
+        # the timer calls below advance it for the NEXT step - the basis for
+        # this step's deferred audio's true due time (see _elapsed_ms).
+        step_time_ms = self._elapsed_ms
 
         def _sound_audio_block() -> None:
             if events:
@@ -296,10 +335,16 @@ class Sequencer(QObject):
             # harnesses see no change.
             _sound_audio_block()
         else:
-            self._pending_audio_queue.append(_sound_audio_block)
+            due_ms = step_time_ms + self.lead_offset_ms
+            self._pending_audio_queue.append((due_ms, _sound_audio_block))
             if not self._lead_timer_running:
+                # Idle - no backlog to catch up on, so "now" is simply this
+                # step's own time and the wait is exactly lead_offset_ms.
+                self._lead_clock_ms = step_time_ms
+                wait = due_ms - self._lead_clock_ms
                 self._lead_timer_running = True
-                self._lead_timer.start(self.lead_offset_ms)
+                self._lead_timer.start(wait)
+                self._lead_clock_ms += wait
 
         self.step_played.emit(index)
 
@@ -336,10 +381,13 @@ class Sequencer(QObject):
             # from the last note, i.e. just play the boundary cue.
             self._pending_next_index = None
             self._timer.start(ring_out_ms)
+            self._elapsed_ms += ring_out_ms
             return
 
         self._pending_next_index = next_index
-        self._timer.start(self._delay_ms_to(next_index))
+        delay_ms = self._delay_ms_to(next_index)
+        self._timer.start(delay_ms)
+        self._elapsed_ms += delay_ms
 
     def _delay_ms_to(self, next_index: int) -> int:
         """Uses the tempo at the CURRENT step, not the next one: a marking
@@ -377,20 +425,31 @@ class Sequencer(QObject):
         return max(1, int(delta_quarters * 60000.0 / bpm))
 
     def _on_lead_timer(self) -> None:
-        """Fires lead_offset_ms after the step at the front of the queue -
-        sounds the notes, click and position announcer that
-        _sound_current_step deferred, then re-arms itself if another step
-        queued up behind it while this one was waiting (steps advance on
-        the untouched original clock, so at a large offset several can
-        queue up before the first ever fires). pause()/stop() clear the
-        queue before this can fire into silence."""
+        """Fires the step at the front of the queue - sounds the notes,
+        click and position announcer that _sound_current_step deferred, then
+        re-arms for whichever step queued up behind it while this one was
+        waiting (steps advance on the untouched original clock, so at a
+        large offset several can queue up before the first ever fires).
+        pause()/stop() clear the queue before this can fire into silence.
+
+        The re-arm waits only until the NEXT item's own true due time
+        (step_time + lead_offset_ms), not another full lead_offset_ms - a
+        backlog must catch up to the original tempo, not re-space every
+        note lead_offset_ms apart. An earlier version restarted with a flat
+        lead_offset_ms every time, which silently slowed playback down at
+        any offset close to the step interval (reported live: worst at
+        -1s, negligible near 0 - exactly the "steps queue up faster than
+        the offset drains" case)."""
         self._lead_timer_running = False
         if self._pending_audio_queue:
-            fn = self._pending_audio_queue.pop(0)
+            _, fn = self._pending_audio_queue.pop(0)
             fn()
         if self._pending_audio_queue:
+            next_due_ms = self._pending_audio_queue[0][0]
+            wait = max(1, next_due_ms - self._lead_clock_ms)
             self._lead_timer_running = True
-            self._lead_timer.start(self.lead_offset_ms)
+            self._lead_timer.start(wait)
+            self._lead_clock_ms += wait
 
     def _advance(self) -> None:
         if self._pending_next_index is None:
