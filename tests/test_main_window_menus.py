@@ -31,10 +31,12 @@ def test_refresh_on_playback_action_is_checkable_with_ctrl_h(window):
 
 
 def test_toggle_refresh_on_playback_flips_the_gate_persists_and_announces(
-    window, monkeypatch
+    window, qtbot, minimal_score, monkeypatch
 ):
-    from persistence import app_settings
+    from persistence import score_config
     from widgets import accessible_announcer
+
+    load_and_wait(window, qtbot, minimal_score)
 
     announced = []
     monkeypatch.setattr(
@@ -45,14 +47,33 @@ def test_toggle_refresh_on_playback_flips_the_gate_persists_and_announces(
 
     assert window.refresh_gate.settings.refresh_during_playback is False
     assert window._actions.refresh_on_playback.isChecked() is False
-    assert app_settings.load().refresh.refresh_during_playback is False
-    assert announced == ["Refresh on playback off."]
+    assert announced == ["Text refresh off."]
+
+    window._save_current_score_config()
+    assert score_config.load_for(minimal_score).refresh_settings.refresh_during_playback is False
 
     window.toggle_refresh_on_playback()
 
     assert window.refresh_gate.settings.refresh_during_playback is True
     assert window._actions.refresh_on_playback.isChecked() is True
-    assert announced[-1] == "Refresh on playback on."
+    assert announced[-1] == "Text refresh on."
+
+
+def test_toggle_refresh_on_playback_is_a_noop_with_no_score(window, monkeypatch):
+    """Per-score (UserPlans/DelayRefresh.md), like toggle_metronome - there
+    is nothing to store the flag on before a score is loaded."""
+    from widgets import accessible_announcer
+
+    announced = []
+    monkeypatch.setattr(
+        accessible_announcer, "announce", lambda widget, message: announced.append(message)
+    )
+
+    window.toggle_refresh_on_playback()
+
+    assert window.refresh_gate.settings.refresh_during_playback is True
+    assert window._actions.refresh_on_playback.isChecked() is True
+    assert announced == ["Text refresh on."]
 
 
 def test_delay_refresh_action_has_ctrl_shift_d(window):

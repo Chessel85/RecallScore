@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Tuple
 
 from models.mixer_settings import MixerSettings
+from models.refresh_settings import RefreshSettings
 
 VoiceKey = Tuple[str, int, int]
 StaffKey = Tuple[str, int]
@@ -63,6 +64,11 @@ class ScoreConfig:
     # Wishlist #4/#7: per-instrument volume/pan and the global mute. Empty
     # by default, which means "nothing overridden" - see MixerSettings.
     mixer: MixerSettings = field(default_factory=MixerSettings)
+    # UserPlans/DelayRefresh.md: whether/how far the regions and status bar
+    # refresh during playback. Per-score like mixer above, not global - a
+    # newly opened score always gets RefreshSettings' own defaults (ticked,
+    # no delay) unless this .rsc says otherwise.
+    refresh_settings: RefreshSettings = field(default_factory=RefreshSettings)
     # S5: per-part display-name/instrument overrides, keyed by part_id.
     # Same "explicit overrides only" shape as mixer above - empty means
     # every part keeps showing exactly what the file itself declared.

@@ -27,6 +27,7 @@ from models.performance_region_row import PerformanceRegionRow
 from models.performance_rows import PerformanceRows
 from models.playback_event_builder import PlaybackEventBuilder
 from models.playback_jump_state import PlaybackJumpState
+from models.refresh_settings import RefreshSettings
 from models.repeat_span import RepeatSpan
 from models.score_config_data import ScoreConfig
 from models.score_formats import family_for_path
@@ -140,6 +141,13 @@ class MusicData:
     # mixer only as a local variable, and the next save silently wrote back
     # an empty one).
     mixer: MixerSettings = field(default_factory=MixerSettings)
+
+    # UserPlans/DelayRefresh.md: whether/how far the regions and status bar
+    # refresh during playback. Per-score like mixer above (not global - a
+    # fresh score always opens with the defaults in RefreshSettings itself,
+    # ticked/no-delay, unless a saved .rsc says otherwise) - export_config()/
+    # apply_config() carry it the same way.
+    refresh_settings: RefreshSettings = field(default_factory=RefreshSettings)
 
     # S5: per-part display-name/instrument overrides the user set via
     # widgets/instrument_dialog.py, keyed by part_id. Bookkeeping only -
@@ -907,6 +915,7 @@ class MusicData:
             },
             attribute_order=list(self.attribute_order),
             mixer=self.mixer.copy(),
+            refresh_settings=self.refresh_settings.copy(),
             part_name_overrides=dict(self.part_name_overrides),
             part_program_overrides=dict(self.part_program_overrides),
             key_signature_override_fifths=self.key_signature_override_fifths,
@@ -946,6 +955,7 @@ class MusicData:
         self.set_position_announcer_enabled(config.position_announcer_enabled)
         self.set_bar_line_indicator_enabled(config.bar_line_indicator_enabled)
         self.mixer = config.mixer.copy()
+        self.refresh_settings = config.refresh_settings.copy()
 
         known_part_ids = {p.part_id for p in self.parts_info}
         self.apply_part_overrides(

@@ -14,9 +14,10 @@ reader's speech and the sounding note apart in time, in either direction:
   note name, then it plays); the music itself is what moves in this case
   (audio/sequencer.py's lead_offset_ms), not just the text.
 
-Stored GLOBALLY (persistence/app_settings.py), same reasoning as
-models/play_settings.py: this is a property of how the user hears things, not
-of the piece.
+Stored PER-SCORE (models/score_config_data.py / persistence/score_config.py),
+same reasoning as models/mixer_settings.py: a fresh score always opens with
+the defaults below (ticked, no delay) regardless of what any other score was
+last left at, and a saved choice travels with that score's .rsc file.
 
 stdlib-only - models/ must stay Qt-free (guarded by
 test_models_package_does_not_import_qt).

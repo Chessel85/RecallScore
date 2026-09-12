@@ -9,7 +9,6 @@ from PySide6.QtCore import QStandardPaths
 
 from models.live_midi_input_settings import LiveMidiInputSettings
 from models.play_settings import PlaySettings
-from models.refresh_settings import RefreshSettings
 from models.tuner_settings import TunerSettings
 from models.voice_control_settings import VoiceControlSettings
 
@@ -48,11 +47,6 @@ class AppSettings:
     you're tuning and what microphone you use is the user's own practice
     setup, not a property of any one score.
 
-    refresh (whether/how far the regions and status bar refresh during
-    playback, controllers/refresh_delay_controller.py) is global for the
-    same reasoning as play/live_midi_input/voice_control/tuner above - it's
-    a property of how the user hears things, not of the piece.
-
     shortcuts (action id -> user-chosen QKeySequence, as PortableText, or ""
     for "no shortcut") is global for the same reasoning as live_midi_input/
     voice_control/tuner above - it's the user's own habit, not a property of
@@ -71,7 +65,6 @@ class AppSettings:
     voice_control: VoiceControlSettings = field(default_factory=VoiceControlSettings)
     tuner: TunerSettings = field(default_factory=TunerSettings)
     shortcuts: Dict[str, str] = field(default_factory=dict)
-    refresh: RefreshSettings = field(default_factory=RefreshSettings)
 
 
 def settings_path() -> Path:
@@ -105,7 +98,6 @@ def load() -> AppSettings:
             voice_control=VoiceControlSettings.from_dict(data.get("voice_control")),
             tuner=TunerSettings.from_dict(data.get("tuner")),
             shortcuts=_str_dict(data.get("shortcuts")),
-            refresh=RefreshSettings.from_dict(data.get("refresh")),
         )
     except FileNotFoundError:
         return AppSettings()
@@ -196,12 +188,4 @@ def set_shortcut_overrides(overrides: Dict[str, str]) -> None:
     reason as add_recent_file/set_play_settings above."""
     current = load()
     current.shortcuts = dict(overrides)
-    save(current)
-
-
-def set_refresh_settings(settings: RefreshSettings) -> None:
-    """Records the Delay Refresh settings, load-mutate-save for the same
-    reason as add_recent_file/set_play_settings above."""
-    current = load()
-    current.refresh = settings.copy()
     save(current)

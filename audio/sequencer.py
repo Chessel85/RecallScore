@@ -67,7 +67,17 @@ class Sequencer(QObject):
         self._lead_timer = lead_timer
         self._lead_timer.setSingleShot(True)
         self._lead_timer.timeout.connect(self._on_lead_timer)
-        self._pending_audio_fn = None
+        # A QUEUE, not a slot: at a large lead_offset_ms, steps can advance
+        # (on the untouched original clock - see play_from's docstring)
+        # faster than the offset drains. Restarting a single-shot timer per
+        # step, as an earlier version of this did, silently DISCARDS
+        # whatever audio block was already waiting - live-tested at -1s and
+        # found to drop almost every note. Queuing preserves every step's
+        # audio, in order; _lead_timer_running (not the timer's own active
+        # state - FakeTimer, used by tests, exposes no such query) tracks
+        # whether draining is already under way.
+        self._pending_audio_queue: list = []
+        self._lead_timer_running: bool = False
         # Set via play_from's own kwarg (controllers/playback_controller.py
         # derives it from RefreshSettings.delay_ms). 0 keeps
         # _sound_current_step's synchronous path byte-for-byte as it was
@@ -156,7 +166,8 @@ class Sequencer(QObject):
         default to today's behaviour when absent."""
         self._timer.stop()
         self._lead_timer.stop()
-        self._pending_audio_fn = None
+        self._pending_audio_queue.clear()
+        self._lead_timer_running = False
         self.lead_offset_ms = max(0, lead_offset_ms)
         # An explicit reposition clears the deck; _sound_current_step uses
         # retrigger=False and won't, which is what lets other parts' notes
@@ -194,7 +205,8 @@ class Sequencer(QObject):
         # it was waiting to fire - otherwise a pause lands in the gap and the
         # note fires into the silence a moment later.
         self._lead_timer.stop()
-        self._pending_audio_fn = None
+        self._pending_audio_queue.clear()
+        self._lead_timer_running = False
         self.synth.stop_all_notes()
         self._is_playing = False
         self._is_paused = True
@@ -215,7 +227,8 @@ class Sequencer(QObject):
         self._timer.stop()
         # Same ordering reason as pause() above.
         self._lead_timer.stop()
-        self._pending_audio_fn = None
+        self._pending_audio_queue.clear()
+        self._lead_timer_running = False
         self.synth.stop_all_notes()
         self._is_playing = False
         self._is_paused = False
@@ -283,8 +296,10 @@ class Sequencer(QObject):
             # harnesses see no change.
             _sound_audio_block()
         else:
-            self._pending_audio_fn = _sound_audio_block
-            self._lead_timer.start(self.lead_offset_ms)
+            self._pending_audio_queue.append(_sound_audio_block)
+            if not self._lead_timer_running:
+                self._lead_timer_running = True
+                self._lead_timer.start(self.lead_offset_ms)
 
         self.step_played.emit(index)
 
@@ -362,14 +377,20 @@ class Sequencer(QObject):
         return max(1, int(delta_quarters * 60000.0 / bpm))
 
     def _on_lead_timer(self) -> None:
-        """Fires lead_offset_ms after the step it belongs to - sounds the
-        notes, click and position announcer that _sound_current_step
-        deferred. pause()/stop() clear _pending_audio_fn before this can
-        fire into silence."""
-        fn = self._pending_audio_fn
-        self._pending_audio_fn = None
-        if fn is not None:
+        """Fires lead_offset_ms after the step at the front of the queue -
+        sounds the notes, click and position announcer that
+        _sound_current_step deferred, then re-arms itself if another step
+        queued up behind it while this one was waiting (steps advance on
+        the untouched original clock, so at a large offset several can
+        queue up before the first ever fires). pause()/stop() clear the
+        queue before this can fire into silence."""
+        self._lead_timer_running = False
+        if self._pending_audio_queue:
+            fn = self._pending_audio_queue.pop(0)
             fn()
+        if self._pending_audio_queue:
+            self._lead_timer_running = True
+            self._lead_timer.start(self.lead_offset_ms)
 
     def _advance(self) -> None:
         if self._pending_next_index is None:

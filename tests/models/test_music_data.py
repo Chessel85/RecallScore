@@ -13,6 +13,7 @@ from models.find_target import FindTarget
 from models.music_data import MusicData
 from models.note_data import NoteData
 from models.parts_structure import PartStructureInfo
+from models.refresh_settings import RefreshSettings
 from models.vocabulary import attribute_label
 from persistence.score_config import ScoreConfig
 
@@ -1543,6 +1544,7 @@ def test_export_config_defaults_to_an_all_visible_empty_config(timeline, minimal
     assert config.position_announcer_enabled is False
     assert config.voice_display_attributes == {}
     assert config.attribute_order == md.DISPLAY_ATTRIBUTE_ORDER
+    assert config.refresh_settings == RefreshSettings()
 
 
 def test_export_then_apply_config_round_trips_full_state(
@@ -1556,6 +1558,7 @@ def test_export_then_apply_config_round_trips_full_state(
     md.toggle_position_announcer()
     md.mixer.set_volume("P1", 86)
     md.mixer.set_pan("click", 0)
+    md.refresh_settings = RefreshSettings(refresh_during_playback=False, delay_ms=-400)
 
     config = md.export_config()
 
@@ -1569,6 +1572,9 @@ def test_export_then_apply_config_round_trips_full_state(
     assert fresh.position_announcer_enabled is True
     assert fresh.mixer.volume_for("P1") == 86
     assert fresh.mixer.pan_for("click") == 0
+    assert fresh.refresh_settings == RefreshSettings(
+        refresh_during_playback=False, delay_ms=-400
+    )
 
 
 def test_export_config_copies_the_mixer_not_alias_it(timeline, minimal_score):

@@ -1221,6 +1221,8 @@ def _fake_delay_refresh_dialog(window, monkeypatch, *, settings=None, accept=Tru
 
 
 def test_delay_refresh_dialog_sets_the_gate_and_persists(window, qtbot, minimal_score, monkeypatch):
+    from persistence import score_config
+
     load_and_wait(window, qtbot, minimal_score)
     dialog = _fake_delay_refresh_dialog(window, monkeypatch)
     dialog.refresh_check.setChecked(False)
@@ -1230,8 +1232,11 @@ def test_delay_refresh_dialog_sets_the_gate_and_persists(window, qtbot, minimal_
 
     assert window.refresh_gate.settings.refresh_during_playback is False
     assert window.refresh_gate.settings.delay_ms == -400
-    assert app_settings.load().refresh.delay_ms == -400
     assert window._actions.refresh_on_playback.isChecked() is False
+
+    window._save_current_score_config()
+    saved = score_config.load_for(minimal_score).refresh_settings
+    assert saved.delay_ms == -400
 
 
 def test_delay_refresh_dialog_cancelled_changes_nothing(window, qtbot, minimal_score, monkeypatch):

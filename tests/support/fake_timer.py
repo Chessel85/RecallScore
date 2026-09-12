@@ -30,6 +30,9 @@ class FakeTimer:
     def stop(self) -> None:
         self.running = False
 
+    def isActive(self) -> bool:
+        return self.running
+
     def fire(self) -> None:
         """Test helper: simulate the scheduled interval elapsing."""
         if not self.running:

@@ -378,12 +378,13 @@ class MainWindow(QMainWindow):
         # loaded once here rather than per file load - unlike the absolute
         # playback tempo, which travels with the score's own .rsc config.
         self.playback.set_play_settings(app_settings.load().play)
-        # Delay Refresh gate (UserPlans/DelayRefresh.md): global, like play
-        # settings above. Wired to the playback controller as a plain
+        # Delay Refresh gate (UserPlans/DelayRefresh.md): per-score, unlike
+        # play settings above - its settings live on music_data.refresh_
+        # settings (invariant 8), so there is nothing to seed here before a
+        # score is loaded. Wired to the playback controller as a plain
         # optional collaborator (invariant 6 - RegionPresenter is the only
         # controller that touches widgets, so the gate itself never does).
         self.refresh_gate = RefreshDelayController(self.session, parent=self)
-        self.refresh_gate.set_settings(app_settings.load().refresh)
         self.playback.refresh_gate = self.refresh_gate
         # Live MIDI input (device/instrument/volume/pan) is likewise global,
         # not per-score - constructed once here, outliving every file load,
@@ -453,10 +454,11 @@ class MainWindow(QMainWindow):
         # by toggle_lead_in. The play-mode action is a non-checkable cycle
         # (three states), so it carries no checked state of its own.
         self._actions.lead_in_toggle.setChecked(self.playback.play_settings.lead_in_enabled)
-        # Global (AppSettings.refresh), same reasoning as lead_in_toggle
-        # above - set once here from the loaded settings, kept in sync by
-        # toggle_refresh_on_playback (and, once Task 7's dialog exists, by
-        # accepting it).
+        # Per-score (music_data.refresh_settings), unlike lead_in_toggle
+        # above - set here from RefreshSettings' own defaults (no score is
+        # loaded yet), then re-synced in _update_ui_regions on every score
+        # load and kept in sync by toggle_refresh_on_playback and the Delay
+        # Refresh dialog.
         self._actions.refresh_on_playback.setChecked(
             self.refresh_gate.settings.refresh_during_playback
         )
@@ -888,6 +890,9 @@ class MainWindow(QMainWindow):
         self._actions.metronome.setChecked(self._music_data.metronome_enabled)
         self._actions.position_announcer.setChecked(self._music_data.position_announcer_enabled)
         self._actions.bar_line_indicator.setChecked(self._music_data.bar_line_indicator_enabled)
+        self._actions.refresh_on_playback.setChecked(
+            self._music_data.refresh_settings.refresh_during_playback
+        )
         self.presenter.update_timeline_views(play_all=play_all)
 
     # --- navigation (delegators) --------------------------------------
@@ -984,16 +989,16 @@ class MainWindow(QMainWindow):
         self._actions.lead_in_toggle.setChecked(self.playback.toggle_lead_in())
 
     def toggle_refresh_on_playback(self):
-        """Ctrl+H: flips the Delay Refresh gate's on/off setting, persists it
-        globally (RefreshSettings is the single source of truth - invariant
-        8 - the action's tick is only ever a view of it), keeps the menu
-        action's checked state in sync, and speaks the new state aloud since
-        Ctrl+H is pressed with focus in the Note region."""
+        """Ctrl+H: flips the Delay Refresh gate's on/off setting for the
+        current score (music_data.refresh_settings is the single source of
+        truth - invariant 8 - the action's tick is only ever a view of it;
+        it is saved to the score's .rsc the same way as metronome_enabled),
+        keeps the menu action's checked state in sync, and speaks the new
+        state aloud since Ctrl+H is pressed with focus in the Note region."""
         enabled = self.refresh_gate.set_refresh_during_playback(
             not self.refresh_gate.settings.refresh_during_playback
         )
         self._actions.refresh_on_playback.setChecked(enabled)
-        app_settings.set_refresh_settings(self.refresh_gate.settings)
         self.presenter.announce_refresh_on_playback(enabled)
 
     def cycle_loop_repeat_mode(self):
@@ -1502,14 +1507,15 @@ class MainWindow(QMainWindow):
         """Playback > Delay Refresh... (Ctrl+Shift+D) - whether and how far
         the regions/status bar refresh is offset from the sounding note
         during playback (UserPlans/DelayRefresh.md). Pushes the result into
-        the gate, persists it, and re-syncs the Ctrl+H action's tick -
-        RefreshSettings stays the single source of truth (invariant 8)."""
+        the gate (which stores it on the current score's music_data, saved
+        to its .rsc like any other per-score toggle) and re-syncs the
+        Ctrl+H action's tick - music_data.refresh_settings stays the single
+        source of truth (invariant 8)."""
         with self._preserving_focus():
             dialog = DelayRefreshDialog(self, refresh_settings=self.refresh_gate.settings)
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 settings = dialog.refresh_settings()
                 self.refresh_gate.set_settings(settings)
-                app_settings.set_refresh_settings(settings)
                 self._actions.refresh_on_playback.setChecked(settings.refresh_during_playback)
 
     def _show_performance_report_dialog(self):

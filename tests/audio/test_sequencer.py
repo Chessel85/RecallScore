@@ -552,6 +552,41 @@ def test_lead_offset_defers_the_audio_until_the_lead_timer_fires(
     assert null_synth.played[0]["midi_notes"] == [60]
 
 
+def test_lead_offset_queues_rather_than_drops_a_step_that_arrives_before_the_previous_fires(
+    timeline, null_synth, minimal_score
+):
+    """Regression: an earlier version restarted the single-shot lead timer
+    on every step, which - since steps advance on the untouched original
+    clock (play_from's own docstring) - DISCARDED whatever audio block was
+    already waiting whenever a step arrived before the offset drained.
+    Live-tested at -1s: almost every note was silently dropped. Both
+    steps' audio must eventually sound, in order, none lost."""
+    md = timeline(minimal_score, tempo_bpm=120)
+    timer = FakeTimer()
+    lead_timer = FakeTimer()
+    seq = Sequencer(md, null_synth, timer=timer, lead_timer=lead_timer)
+
+    seq.play_from(0, lead_offset_ms=300)
+    assert lead_timer.scheduled_ms == [300]
+
+    # The main timer fires (the next step arrives) before the lead timer
+    # for the FIRST step has fired - lead_offset_ms >= the natural gap
+    # between steps.
+    timer.fire()
+    assert lead_timer.scheduled_ms == [300], "still draining the first step - must not re-arm yet"
+    assert null_synth.played == []
+
+    lead_timer.fire()  # first step's audio finally sounds
+    assert len(null_synth.played) == 1
+    assert null_synth.played[0]["midi_notes"] == [60]
+    # The second step queued up in the meantime - draining it must re-arm.
+    assert lead_timer.scheduled_ms == [300, 300]
+
+    lead_timer.fire()  # second step's audio sounds
+    assert len(null_synth.played) == 2
+    assert null_synth.played[1]["midi_notes"] == [62]  # D4
+
+
 def test_pause_during_the_lead_gap_silences_the_deferred_step(
     timeline, null_synth, minimal_score
 ):

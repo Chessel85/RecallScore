@@ -1,5 +1,5 @@
 """models/refresh_settings.py - the shape the Delay Refresh dialog edits and
-persistence/app_settings.py stores globally."""
+persistence/score_config.py stores per-score."""
 from models.refresh_settings import (
     MAX_REFRESH_DELAY_MS,
     MIN_REFRESH_DELAY_MS,

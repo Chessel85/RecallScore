@@ -15,6 +15,7 @@ from typing import Optional
 from PySide6.QtCore import QStandardPaths
 
 from models.mixer_settings import MixerSettings
+from models.refresh_settings import RefreshSettings
 from models.score_config_data import PercussionItemKey, ScoreConfig, StaffKey, VoiceKey
 
 __all__ = [
@@ -89,6 +90,7 @@ def load_for(file_path: str) -> Optional[ScoreConfig]:
             },
             attribute_order=list(data.get("attribute_order", [])),
             mixer=MixerSettings.from_dict(data.get("mixer")),
+            refresh_settings=RefreshSettings.from_dict(data.get("refresh_settings")),
             part_name_overrides={
                 str(k): str(v) for k, v in (data.get("part_name_overrides") or {}).items()
             },
@@ -135,6 +137,7 @@ def save(file_path: str, config: ScoreConfig) -> None:
         },
         "attribute_order": list(config.attribute_order),
         "mixer": config.mixer.to_dict(),
+        "refresh_settings": config.refresh_settings.to_dict(),
         "part_name_overrides": dict(config.part_name_overrides),
         "part_program_overrides": dict(config.part_program_overrides),
         "key_signature_override_fifths": config.key_signature_override_fifths,

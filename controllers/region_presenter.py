@@ -261,7 +261,7 @@ class RegionPresenter(QObject):
         heard on every press."""
         accessible_announcer.announce(
             self.region_3,
-            "Refresh on playback on." if enabled else "Refresh on playback off.",
+            "Text refresh on." if enabled else "Text refresh off.",
         )
 
     def announce_loop_repeat_mode(self, mode: str) -> None:

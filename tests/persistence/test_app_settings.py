@@ -3,7 +3,6 @@
 autouse _isolate_persistence fixture, so these never touch the real
 developer machine's %LOCALAPPDATA%."""
 from models.play_settings import PlaySettings
-from models.refresh_settings import RefreshSettings
 from persistence import app_settings
 from persistence.app_settings import AppSettings
 
@@ -160,38 +159,3 @@ def test_other_set_helpers_do_not_wipe_shortcut_overrides():
     app_settings.add_recent_file("b.xml")
 
     assert app_settings.load().shortcuts == {"mixer": "Ctrl+B"}
-
-
-# --- Delay Refresh settings (global, not per score) ----------------------
-
-def test_refresh_settings_default_when_nothing_has_been_saved():
-    assert app_settings.load().refresh == RefreshSettings()
-
-
-def test_set_refresh_settings_round_trips():
-    app_settings.set_refresh_settings(
-        RefreshSettings(refresh_during_playback=False, delay_ms=-400)
-    )
-
-    saved = app_settings.load().refresh
-    assert saved.refresh_during_playback is False
-    assert saved.delay_ms == -400
-
-
-def test_set_refresh_settings_leaves_the_other_preferences_alone():
-    app_settings.save(AppSettings(uk_terms=True, recent_files=["a.xml"]))
-
-    app_settings.set_refresh_settings(RefreshSettings(delay_ms=250))
-
-    settings = app_settings.load()
-    assert settings.uk_terms is True
-    assert settings.recent_files == ["a.xml"]
-    assert settings.refresh.delay_ms == 250
-
-
-def test_saving_other_preferences_leaves_refresh_settings_alone():
-    app_settings.set_refresh_settings(RefreshSettings(delay_ms=250))
-
-    app_settings.add_recent_file("b.xml")
-
-    assert app_settings.load().refresh.delay_ms == 250

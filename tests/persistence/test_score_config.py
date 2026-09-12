@@ -2,6 +2,7 @@
 """config_dir() is redirected into a per-test tmp_path by conftest's
 autouse _isolate_persistence fixture, so these never touch the real
 developer machine's %LOCALAPPDATA%."""
+from models.refresh_settings import RefreshSettings
 from persistence import score_config
 from persistence.score_config import ScoreConfig
 
@@ -52,6 +53,36 @@ def test_save_then_load_round_trips_all_fields():
     assert loaded.position_announcer_enabled is True
     assert loaded.voice_display_attributes == {("P1", 1, 1): {"step", "string", "fret"}}
     assert loaded.attribute_order == ["step", "string", "fret", "octave"]
+
+
+def test_save_then_load_round_trips_refresh_settings():
+    """UserPlans/DelayRefresh.md: per-score, like mixer - a saved choice
+    travels with this score's .rsc, not with AppSettings."""
+    config = ScoreConfig(
+        refresh_settings=RefreshSettings(refresh_during_playback=False, delay_ms=-400)
+    )
+    score_config.save("Chessel Duet.mxl", config)
+
+    loaded = score_config.load_for("Chessel Duet.mxl")
+    assert loaded.refresh_settings.refresh_during_playback is False
+    assert loaded.refresh_settings.delay_ms == -400
+
+
+def test_load_for_a_file_saved_before_refresh_settings_existed():
+    """An .rsc written before this feature existed has no "refresh_settings"
+    key at all - loading it must default to RefreshSettings' own defaults
+    (ticked, no delay) rather than erroring."""
+    path = score_config.path_for("Chessel Duet.mxl")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        '{"schema_version": 3, "parts_muted": [], "metronome_enabled": false, '
+        '"voice_display_attributes": {}, "attribute_order": []}',
+        encoding="utf-8",
+    )
+
+    loaded = score_config.load_for("Chessel Duet.mxl")
+
+    assert loaded.refresh_settings == RefreshSettings()
 
 
 def test_load_for_a_file_missing_parts_muted_staves_muted_keys():

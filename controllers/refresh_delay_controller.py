@@ -13,7 +13,13 @@ Only positive delays and "refresh off" live here. A negative delay instead
 holds the MUSIC back (audio/sequencer.py's lead_offset_ms) so the text is
 already early relative to what is heard - this controller has nothing to do
 in that case.
-"""
+
+The settings themselves live on MusicData (music_data.refresh_settings), not
+on this controller - per-score, like mixer/metronome_enabled (invariant 8:
+never write the same fact in two places). This controller reads/writes that
+field directly rather than caching its own copy, so a freshly loaded score's
+defaults (or its saved .rsc choice, via apply_config) take effect with no
+separate seeding step here."""
 from typing import Optional
 
 from PySide6.QtCore import QObject, QTimer, Signal
@@ -31,7 +37,6 @@ class RefreshDelayController(QObject):
     def __init__(self, session, timer=None, parent=None):
         super().__init__(parent)
         self.session = session
-        self._settings = RefreshSettings()
         self._pending_index: Optional[int] = None
         self._pending_play_all: bool = False
         # timer: injectable like PlaybackController's/Sequencer's, so tests
@@ -48,22 +53,30 @@ class RefreshDelayController(QObject):
 
     @property
     def settings(self) -> RefreshSettings:
-        """A read-only copy, for the dialog and for persistence."""
-        return self._settings.copy()
+        """A read-only copy of the current score's settings, for the dialog
+        and for the Ctrl+H toggle. No score loaded yet -> RefreshSettings'
+        own defaults (ticked, no delay)."""
+        music_data = self.music_data
+        if music_data is None:
+            return RefreshSettings()
+        return music_data.refresh_settings.copy()
 
     def set_settings(self, settings: RefreshSettings) -> None:
         """Flushes first so changing the setting mid-playback cannot strand
-        a pending refresh under the old settings."""
+        a pending refresh under the old settings. A no-op (beyond the flush)
+        when no score is loaded - there is nowhere to store the setting."""
         self.flush()
-        self._settings = settings.copy()
+        music_data = self.music_data
+        if music_data is not None:
+            music_data.refresh_settings = settings.copy()
 
     def set_refresh_during_playback(self, enabled: bool) -> bool:
         """The Ctrl+H toggle's entry point. Returns the new state so the
         caller can announce it."""
-        settings = self._settings.copy()
+        settings = self.settings
         settings.refresh_during_playback = enabled
         self.set_settings(settings)
-        return self._settings.refresh_during_playback
+        return self.settings.refresh_during_playback
 
     def handle_cursor_moved(self, index: int, play_all: bool, is_playing: bool = True) -> None:
         """The whole decision:
@@ -81,16 +94,29 @@ class RefreshDelayController(QObject):
         two-arg signal straight to this three-arg slot and lets the default
         stand in for "yes, playing".
         """
+        settings = self.settings
         if not is_playing or (
-            self._settings.refresh_during_playback and self._settings.delay_ms <= 0
+            settings.refresh_during_playback and settings.delay_ms <= 0
         ):
             self._apply(index, play_all)
             return
 
         self._pending_index = index
         self._pending_play_all = play_all
-        if self._settings.refresh_during_playback and self._settings.delay_ms > 0:
-            self._timer.start(self._settings.delay_ms)
+        if settings.refresh_during_playback and settings.delay_ms > 0:
+            # Only arm when idle. Restarting on every step - QTimer.start()
+            # on an already-running timer resets its countdown - starved
+            # the refresh entirely during continuous playback: any step
+            # inside the window kept pushing the deadline out, so the timer
+            # never actually fired until a gap longer than delay_ms opened
+            # up (live-tested: at +1s, the note list never refreshed while
+            # notes kept arriving faster than that). Leaving the first
+            # timer to run its course means it fires delay_ms after the
+            # window opened, applying whatever index is pending at that
+            # point - still "a slot, not a queue", just one that actually
+            # drains.
+            if not self._timer.isActive():
+                self._timer.start(settings.delay_ms)
 
     def flush(self) -> None:
         """Applies any pending index now. No-op when nothing is pending."""
