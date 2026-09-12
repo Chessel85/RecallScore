@@ -23,6 +23,7 @@ from audio.metronome import click_event_for_beat, click_event_for_symbol
 from audio.synth_engine import SynthEngine
 from controllers.attribute_controller import AttributeController
 from controllers.focus_controller import FocusController
+from controllers.keyboard_echo_controller import KeyboardEchoController
 from controllers.live_midi_input_controller import LiveMidiInputController
 from controllers.navigation_controller import NavigationController
 from controllers.playback_controller import PlaybackController
@@ -461,6 +462,9 @@ class MainWindow(QMainWindow):
         # setup_controllers/setup_menu) - see UserPlans/KeyboardShortcuts.md.
         self.shortcuts = ShortcutController(
             self, self._actions, self._keyboard_only_shortcut_targets()
+        )
+        self.keyboard_echo = KeyboardEchoController(
+            self, self.shortcuts, self._actions.keyboard_echo_mode, "keyboard_echo_mode"
         )
 
     def _keyboard_only_shortcut_targets(self) -> list:
@@ -1688,6 +1692,9 @@ class MainWindow(QMainWindow):
             dialog = KeySignatureDialog(self, current_key=self.score_edit.current_key_override())
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 self.score_edit.apply_key_signature_override(*dialog.key_override())
+
+    def _toggle_keyboard_echo_mode(self):
+        self.keyboard_echo.toggle()
 
     def _show_about_dialog(self):
         AboutDialog(self).exec()

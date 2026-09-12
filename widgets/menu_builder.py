@@ -76,6 +76,7 @@ class Actions:
     set_musescore_location: Optional[QAction] = None
     tuner: Optional[QAction] = None
     keyboard_shortcuts: Optional[QAction] = None
+    keyboard_echo_mode: Optional[QAction] = None
     user_guide: Optional[QAction] = None
     about: Optional[QAction] = None
 
@@ -775,3 +776,17 @@ class MenuBuilder:
         help_menu.addAction(a.user_guide)
         a.about = self._action("About Recall Score...", self.slots._show_about_dialog)
         help_menu.addAction(a.about)
+
+        # Tutorial aid: press F12, then any key, to hear what it does instead
+        # of doing it - so a new/visually-impaired user can safely check a
+        # keystroke before committing to it. F12 again exits. Checkable so
+        # the menu itself (and NVDA, arrowing onto it) reflects whether it's
+        # currently on; no "&" mnemonic, matching every other item here that
+        # carries a real global shortcut.
+        help_menu.addSeparator()
+        a.keyboard_echo_mode = self._action(
+            "Keyboard Echo Mode", self.slots._toggle_keyboard_echo_mode,
+            QKeySequence(Qt.Key.Key_F12), checkable=True,
+            status_tip="Press a key to hear what it does, without doing it. Press F12 again to exit.",
+        )
+        help_menu.addAction(a.keyboard_echo_mode)
