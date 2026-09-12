@@ -110,6 +110,10 @@ def user_guide_html_path() -> str:
     return os.path.join(_app_base_dir(), "docs", "user_guide.html")
 
 
+def quick_start_html_path() -> str:
+    return os.path.join(_app_base_dir(), "docs", "quick_start.html")
+
+
 class MainWindow(QMainWindow):
     """The window shell: builds the widgets, owns the controllers, and wires
     them together. Deliberately holds almost no logic of its own.
@@ -1706,6 +1710,17 @@ class MainWindow(QMainWindow):
                 "error",
                 "The user guide could not be found, so Help could not open "
                 f"it.\n\nExpected it at: {guide_path}",
+            )
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(guide_path))
+
+    def _show_quick_start(self):
+        guide_path = quick_start_html_path()
+        if not os.path.exists(guide_path):
+            notify_user(
+                "error",
+                "The quick start guide could not be found, so Help could not "
+                f"open it.\n\nExpected it at: {guide_path}",
             )
             return
         QDesktopServices.openUrl(QUrl.fromLocalFile(guide_path))

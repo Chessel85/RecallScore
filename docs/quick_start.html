@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Recall Score Quick Start Guide</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Recall Score Quick Start Guide</h1>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#recall-start-quick-start-guide"
+id="toc-recall-start-quick-start-guide">Recall Start Quick Start
+Guide</a></li>
+</ul>
+</nav>
+<h1 id="recall-start-quick-start-guide">Recall Start Quick Start
+Guide</h1>
+<ul>
+<li>Download the installer from
+https://chessel85.github.io/RecallScore/web_page and run Recall
+Score</li>
+<li>From the File menu, select Open and load files of type music XML
+(musicxml, mxl), MuseScore (mscz), Guitar Pro (GP and GPx) and midi
+(mid).</li>
+<li>Alternatively, in the file menu, import an Ultimate Guitar web
+page</li>
+<li>Once loaded, there are five regions which can be reached with tab
+and shift+tab: ** Score Information. A list containing information about
+the score. ** Parts. A list of the parts / instruments in the score.
+Each can be expanded and collapsed with right and left arrow keys to
+show the staves. Each stave can also be expanded or collapsed to show
+the voices on that stave. ** Notes list. The active notes present at the
+current position. This is where you will spend most of your time. **
+Attributes list. Extra information about each note selected in the note
+list. ** Performance Information. Information on how to perform the
+piece based on the current position within the score e.g. Repeat
+bars.</li>
+<li>Use keyboard quick navigation keys of Z, X, C, V and B to jump to
+any area.</li>
+<li>F6 moves between the 5 areas and the status bar. When on the status
+bar, use tab to move through the information.</li>
+<li>Press spacebar to hear the music. Press control+space to pause.
+Spacebar also restarts or stops playback.</li>
+<li>Use S to slow down playback; F to go faster or D to return to the
+original speed. In the notes list:</li>
+<li>Use left and right arrow keys to move through the score.</li>
+<li>Use control and the left and right arrow keys to move a bar at a
+time.</li>
+<li>Type a number and hit enter to jump to that bar number.</li>
+<li>If there is more than one note in the note list, use up and down
+arrow keys to select individual notes. From the attributes list:</li>
+<li>Use up and down arrow keys to get more information about selected
+notes.</li>
+<li>Use the context menu on any attribute and use the down arrow key to
+select options to add the attribute for notes in the current voice,
+stave or part<br />
+</li>
+<li>Use the Reorder Attributes in the Options menu to adjust the order
+the attributes are displayed both for notes and the attributes list
+Parts list:</li>
+<li>Use this list to filter which notes are shown from parts, staves and
+voices.</li>
+<li>Press F8 to toggle solo for a part, stave or voice<br />
+</li>
+<li>Press F9 to toggle mute for a part, stave or voice.</li>
+<li>Muted notes are not displayed in the note list. Soloed notes are
+always shown in the notes list overriding a mute.</li>
+<li>Alt+F* and alt+F9 unmute and unsolo all.</li>
+</ul>
+<p>Explore the File, Parts, Playback, Options, tools and Help menus for
+more features.</p>
+<p>Full details of are in the Recall Score User Guide.</p>
+</body>
+</html>

@@ -78,6 +78,7 @@ class Actions:
     keyboard_shortcuts: Optional[QAction] = None
     keyboard_echo_mode: Optional[QAction] = None
     user_guide: Optional[QAction] = None
+    quick_start: Optional[QAction] = None
     about: Optional[QAction] = None
 
 
@@ -774,6 +775,8 @@ class MenuBuilder:
         help_menu = menu_bar.addMenu("&Help")
         a.user_guide = self._action("User Guide...", self.slots._show_user_guide)
         help_menu.addAction(a.user_guide)
+        a.quick_start = self._action("Quick Start...", self.slots._show_quick_start)
+        help_menu.addAction(a.quick_start)
         a.about = self._action("About Recall Score...", self.slots._show_about_dialog)
         help_menu.addAction(a.about)
 

@@ -94,6 +94,11 @@ the three with sanity checks; none of the steps depend on it.
   not a build step, to avoid making `pandoc` a build dependency). After editing
   the `.md`, run `pandoc docs/user_guide.md -s --toc --metadata title="Recall
   Score User Guide" -o docs/user_guide.html` and commit both together.
+* **`docs/quick_start.md`** / **`.html`** — same pattern as the user guide
+  above: the `.md` is the maintained source, the `.html` is a checked-in,
+  manually regenerated artifact. After editing the `.md`, run `pandoc
+  docs/quick_start.md -s --toc --metadata title="Recall Score Quick Start
+  Guide" -o docs/quick_start.html` and commit both together.
 * **`examples/`** — git-tracked (unlike `bin/`/`soundfonts/`), bundled example
   scores for end users. Distinct from `files/` at the repo root, which holds
   developer/test fixtures. Drop `.xml`/`.musicxml`/`.mxl` in and the next build
