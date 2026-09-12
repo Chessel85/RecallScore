@@ -158,6 +158,7 @@ def test_items_with_no_menu_mnemonic_have_no_ampersand(window):
         window._actions.us_language,
         window._actions.user_guide,
         window._actions.quick_start,
+        window._actions.keystrokes,
         window._actions.about,
     ]
     for action in no_mnemonic_actions:
@@ -302,5 +303,17 @@ def test_missing_quick_start_reports_an_error_instead_of_doing_nothing(window, m
     monkeypatch.setattr("main_window.notify_user", lambda level, message: calls.append((level, message)))
 
     window._show_quick_start()
+
+    assert len(calls) == 1 and calls[0][0] == "error"
+
+
+def test_missing_keystrokes_reports_an_error_instead_of_doing_nothing(window, monkeypatch):
+    monkeypatch.setattr("main_window.keystrokes_html_path", lambda: "/no/such/guide.html")
+    monkeypatch.setattr("main_window.QDesktopServices.openUrl",
+                        lambda *_: pytest.fail("must not try to open a missing guide"))
+    calls = []
+    monkeypatch.setattr("main_window.notify_user", lambda level, message: calls.append((level, message)))
+
+    window._show_keystrokes()
 
     assert len(calls) == 1 and calls[0][0] == "error"

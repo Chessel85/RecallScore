@@ -114,6 +114,10 @@ def quick_start_html_path() -> str:
     return os.path.join(_app_base_dir(), "docs", "quick_start.html")
 
 
+def keystrokes_html_path() -> str:
+    return os.path.join(_app_base_dir(), "docs", "keystrokes.html")
+
+
 class MainWindow(QMainWindow):
     """The window shell: builds the widgets, owns the controllers, and wires
     them together. Deliberately holds almost no logic of its own.
@@ -1721,6 +1725,17 @@ class MainWindow(QMainWindow):
                 "error",
                 "The quick start guide could not be found, so Help could not "
                 f"open it.\n\nExpected it at: {guide_path}",
+            )
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(guide_path))
+
+    def _show_keystrokes(self):
+        guide_path = keystrokes_html_path()
+        if not os.path.exists(guide_path):
+            notify_user(
+                "error",
+                "The keyboard shortcuts reference could not be found, so "
+                f"Help could not open it.\n\nExpected it at: {guide_path}",
             )
             return
         QDesktopServices.openUrl(QUrl.fromLocalFile(guide_path))

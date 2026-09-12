@@ -89,18 +89,34 @@ the three with sanity checks; none of the steps depend on it.
   preferences shared across users — confirmed with the user before choosing
   Program Files. Uninstalling deliberately does not delete that config; Edit >
   "Open Local Folder" exposes it if the user wants to clear it by hand.
-* **`docs/user_guide.md`** / **`.html`** — the `.md` is the maintained source;
-  the `.html` is a **checked-in, manually regenerated** artifact (deliberately
-  not a build step, to avoid making `pandoc` a build dependency). After editing
-  the `.md`, run `pandoc docs/user_guide.md -s --toc --metadata title="Recall
-  Score User Guide" -o docs/user_guide.html` and commit both together.
-* **`docs/quick_start.md`** / **`.html`** — same pattern as the user guide
-  above: the `.md` is the maintained source, the `.html` is a checked-in,
-  manually regenerated artifact. After editing the `.md`, run `pandoc
-  docs/quick_start.md -s --metadata title="Recall Score Quick Start
-  Guide" -o docs/quick_start.html` and commit both together. No `--toc` here
-  (unlike the user guide) — it's short enough that a table of contents is
-  just an extra screen-reader landmark with nothing to navigate to.
+* **Every Help-menu `.md`/`.html` pair** (`docs/user_guide.md`,
+  `docs/quick_start.md`, `docs/keystrokes.md`) follows the same pattern: the
+  `.md` is the maintained source, the `.html` is a **checked-in, manually
+  regenerated** artifact (deliberately not a build step, to avoid making
+  `pandoc` a build dependency). Regenerate with `pandoc docs/<name>.md -s
+  --metadata pagetitle="<Page Title>" -o docs/<name>.html` and commit both
+  together. Two deliberate omissions from pandoc's defaults, for **every**
+  doc in this family (not just these three):
+  - `--metadata pagetitle=...`, never `--metadata title=...` — `title` makes
+    pandoc render an extra `<header id="title-block-header">` block ahead of
+    the body, duplicating the page's own top-level Markdown heading as a
+    screen-reader landmark with nothing else in it. `pagetitle` sets only the
+    `<title>` tag (the browser-tab text) without that block.
+  - No `--toc` — a generated table of contents is one more screen-reader
+    landmark, and every reader here can already move heading-to-heading
+    without one.
+  - `docs/user_guide.md` → `pandoc docs/user_guide.md -s --metadata
+    pagetitle="Recall Score User Guide" -o docs/user_guide.html`
+  - `docs/quick_start.md` → `pandoc docs/quick_start.md -s --metadata
+    pagetitle="Recall Score Quick Start Guide" -o docs/quick_start.html`
+  - `docs/keystrokes.md` → `pandoc docs/keystrokes.md -s --metadata
+    pagetitle="Recall Score Keyboard Shortcuts" -o docs/keystrokes.html`.
+    Its category headings mirror `controllers/shortcut_controller.py`'s
+    `_CATEGORY_OVERRIDES` grouping (the same one shown in Tools > Keyboard
+    Shortcuts...), alphabetized; its keystrokes mirror the QAction/QShortcut
+    defaults built in `widgets/menu_builder.py` and `main_window.py`'s
+    `setup_shortcuts` — none of that is read programmatically, so a shortcut
+    changed in either place must be updated here by hand too.
 * **`examples/`** — git-tracked (unlike `bin/`/`soundfonts/`), bundled example
   scores for end users. Distinct from `files/` at the repo root, which holds
   developer/test fixtures. Drop `.xml`/`.musicxml`/`.mxl` in and the next build

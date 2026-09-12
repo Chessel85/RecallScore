@@ -79,6 +79,7 @@ class Actions:
     keyboard_echo_mode: Optional[QAction] = None
     user_guide: Optional[QAction] = None
     quick_start: Optional[QAction] = None
+    keystrokes: Optional[QAction] = None
     about: Optional[QAction] = None
 
 
@@ -777,8 +778,17 @@ class MenuBuilder:
         help_menu.addAction(a.user_guide)
         a.quick_start = self._action("Quick Start...", self.slots._show_quick_start)
         help_menu.addAction(a.quick_start)
-        a.about = self._action("About Recall Score...", self.slots._show_about_dialog)
-        help_menu.addAction(a.about)
+
+        # A printable reference of every default keyboard shortcut, grouped
+        # by the same categories as Tools > Keyboard Shortcuts... (the
+        # rebinding dialog) - "Reference" in the name distinguishes it from
+        # that dialog, which changes shortcuts rather than just listing them.
+        a.keystrokes = self._action(
+            "Keyboard Shortcuts Reference...", self.slots._show_keystrokes,
+            QKeySequence("Ctrl+/"),
+            status_tip="Open a document listing every default keyboard shortcut",
+        )
+        help_menu.addAction(a.keystrokes)
 
         # Tutorial aid: press F12, then any key, to hear what it does instead
         # of doing it - so a new/visually-impaired user can safely check a
@@ -793,3 +803,6 @@ class MenuBuilder:
             status_tip="Press a key to hear what it does, without doing it. Press F12 again to exit.",
         )
         help_menu.addAction(a.keyboard_echo_mode)
+
+        a.about = self._action("About Recall Score...", self.slots._show_about_dialog)
+        help_menu.addAction(a.about)

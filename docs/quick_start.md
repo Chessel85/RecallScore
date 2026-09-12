@@ -5,6 +5,7 @@
 * Alternatively, in the file menu, import an Ultimate Guitar web page 
 
 Once loaded, there are five regions which can be reached with tab and shift+tab:
+
 * Score Information.  A list containing information about the score.
 * Parts. A list of the parts / instruments in the score.  Each can be expanded and collapsed with right and left arrow keys to show the staves.  Each stave can also be expanded or collapsed to show the voices on that stave.
 * Notes list. The active notes present at the current position.  This is where you will spend most of your time.
@@ -14,21 +15,25 @@ Once loaded, there are five regions which can be reached with tab and shift+tab:
 * F6 moves between the 5 areas and the status bar.  When on the status bar, use tab to move through the information.
 
 Playback with:
+
 * Press spacebar to hear the music.  Press control+space to pause.  Spacebar also restarts or stops playback.
 * Use S to slow down playback; F to go faster or D to return to the original speed.
 
 In the notes list:
+
 * Use left and right arrow keys to move through the score.
 * Use control and the left and right arrow keys to move a bar at a time.
 * Type a number and hit enter to jump to that bar number.
 * If there is more than one note in the note list, use up and down arrow keys to select individual notes.
 
 From the attributes list:
+
 * Use up and down arrow keys to get more information about selected notes.
 * Use the context menu on any attribute and use the down arrow key to select options to add the attribute for notes in the current voice, stave or part  
 * Use the Reorder Attributes in the Options menu to adjust the order the attributes are displayed both for notes and the attributes list
 
 Parts list:
+
 * Use this list to filter which notes are shown from parts, staves and voices.
 * Press F8 to toggle solo for a part, stave or voice  
 * Press F9 to toggle mute for a part, stave or voice.
