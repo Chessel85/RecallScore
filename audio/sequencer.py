@@ -28,7 +28,7 @@ class Sequencer(QObject):
     step_played = Signal(int)  # emits the timeline index just sounded
     finished = Signal()
 
-    def __init__(self, music_data, synth, timer=None, parent=None):
+    def __init__(self, music_data, synth, timer=None, lead_timer=None, parent=None):
         super().__init__(parent)
         self.music_data = music_data
         self.synth = synth
@@ -54,6 +54,26 @@ class Sequencer(QObject):
         self._timer = timer
         self._timer.setSingleShot(True)
         self._timer.timeout.connect(self._advance)
+
+        # Delay Refresh's negative-delay half (UserPlans/DelayRefresh.md):
+        # a second, independent single-shot timer that defers just the
+        # AUDIO block of a step (notes, click, position announcer) by
+        # lead_offset_ms, so the text refreshes early relative to what is
+        # heard. Injectable like _timer above, for the same reason - tests
+        # must drive the gap without waiting on the clock.
+        if lead_timer is None:
+            lead_timer = QTimer(self)
+            lead_timer.setTimerType(Qt.TimerType.PreciseTimer)
+        self._lead_timer = lead_timer
+        self._lead_timer.setSingleShot(True)
+        self._lead_timer.timeout.connect(self._on_lead_timer)
+        self._pending_audio_fn = None
+        # Set via play_from's own kwarg (controllers/playback_controller.py
+        # derives it from RefreshSettings.delay_ms). 0 keeps
+        # _sound_current_step's synchronous path byte-for-byte as it was
+        # before this feature, both for the 25ms audition latency budget and
+        # so the fingerprint harnesses see no change.
+        self.lead_offset_ms: int = 0
 
         self._current_index: Optional[int] = None
         self._pending_next_index: Optional[int] = None
@@ -110,6 +130,7 @@ class Sequencer(QObject):
         jump_lower_bound: int = 0,
         initial_jump_state: Optional[PlaybackJumpState] = None,
         measure_budget: Optional[int] = None,
+        lead_offset_ms: int = 0,
     ) -> None:
         """Ref 10 AC1: play from start_index through end_index (inclusive),
         or to the end of the visible timeline. update_cursor tells MainWindow
@@ -128,8 +149,15 @@ class Sequencer(QObject):
         pass already happened. measure_budget stops the run after that many
         distinct bar-entries instead of at end_index - the looped
         respect-repeats path, where a backward jump makes a linear end_index
-        meaningless. Both default to today's behaviour when absent."""
+        meaningless. lead_offset_ms is Delay Refresh's negative-delay half
+        (UserPlans/DelayRefresh.md): 0 keeps every step's audio synchronous
+        exactly as before; a positive value defers each step's audio block
+        by that many ms so the text refreshes ahead of the sound. All four
+        default to today's behaviour when absent."""
         self._timer.stop()
+        self._lead_timer.stop()
+        self._pending_audio_fn = None
+        self.lead_offset_ms = max(0, lead_offset_ms)
         # An explicit reposition clears the deck; _sound_current_step uses
         # retrigger=False and won't, which is what lets other parts' notes
         # ring across an unrelated part's attack during a normal run.
@@ -162,6 +190,11 @@ class Sequencer(QObject):
         if not self._is_playing:
             return
         self._timer.stop()
+        # Stop the deferred-audio timer BEFORE silencing, and drop whatever
+        # it was waiting to fire - otherwise a pause lands in the gap and the
+        # note fires into the silence a moment later.
+        self._lead_timer.stop()
+        self._pending_audio_fn = None
         self.synth.stop_all_notes()
         self._is_playing = False
         self._is_paused = True
@@ -180,6 +213,9 @@ class Sequencer(QObject):
         """Ref 10 AC5: revert to the original start position and silence
         whatever's currently sounding."""
         self._timer.stop()
+        # Same ordering reason as pause() above.
+        self._lead_timer.stop()
+        self._pending_audio_fn = None
         self.synth.stop_all_notes()
         self._is_playing = False
         self._is_paused = False
@@ -189,54 +225,68 @@ class Sequencer(QObject):
         if self._current_index is None:
             return
 
-        events = self.music_data.get_playback_events_at_index(self._current_index)
-        grace_events = self.music_data.get_grace_note_events_at_index(self._current_index)
-        if events:
-            # retrigger=False for a natural advance: it must not silence
-            # other parts' still-ringing notes just because this part has a
-            # new attack here (play_from/resume clear the deck themselves).
-            # But a step reached via a repeat/D.C./D.S./Coda jump
-            # (self._pending_retrigger, set after the PREVIOUS step's
-            # next_playback_index call - see PlaybackJumpState.
-            # last_step_was_jump) is a reposition, not a continuation, and
-            # must retrigger: without it, the departing note's own
-            # scheduled note-off timer races this step's note-on, which
-            # could easily lose the race and briefly double-sound - an
-            # audible stutter right at the jump (reported, live-tested).
-            # sound_events (audio/strum_schedule.py) routes a UG score's
-            # Chords bar through a real strummed pattern when one is
-            # available, else falls through to the unchanged play_chord
-            # path.
-            sound_events(
-                self.synth, self.music_data, events, retrigger=self._pending_retrigger, grace_events=grace_events
-            )
+        index = self._current_index
+        events = self.music_data.get_playback_events_at_index(index)
+        grace_events = self.music_data.get_grace_note_events_at_index(index)
         # Groups carry their own durations, so the longest is what has to
         # finish ringing before this step is done - which matters below
         # when this is the run's final step. Shared with playback_span_ms
         # (MusicData.get_ring_out_ms_for_index) so Preview's loop-restart
         # timing agrees with what a real run actually waits out.
-        ring_out_ms = self.music_data.get_ring_out_ms_for_index(self._current_index, events=events)
+        ring_out_ms = self.music_data.get_ring_out_ms_for_index(index, events=events)
+        # Captured now, not read from self._pending_retrigger inside the
+        # (possibly deferred) audio block below: next_playback_index
+        # overwrites it for the NEXT step before a non-zero lead_offset_ms's
+        # timer ever fires.
+        retrigger = self._pending_retrigger
 
-        # Ref 14 AC1/AC2: the click layers on top of whatever sounds here
-        # (or nothing), whenever the step is a whole beat. No separate
-        # scheduling needed - a silent beat is reached at all only because
-        # next_visible_event_index counts metronome-only beat markers.
-        if self.music_data.metronome_enabled:
-            current_slice = self.music_data.timeline_slices[self._current_index]
-            click = click_event_for_beat(current_slice.beat_position)
-            if click is not None:
-                self.synth.play_click(*click)
+        def _sound_audio_block() -> None:
+            if events:
+                # retrigger=False for a natural advance: it must not silence
+                # other parts' still-ringing notes just because this part
+                # has a new attack here (play_from/resume clear the deck
+                # themselves). But a step reached via a repeat/D.C./D.S./
+                # Coda jump is a reposition, not a continuation, and must
+                # retrigger: without it, the departing note's own scheduled
+                # note-off timer races this step's note-on, which could
+                # easily lose the race and briefly double-sound - an
+                # audible stutter right at the jump (reported, live-tested).
+                # sound_events (audio/strum_schedule.py) routes a UG score's
+                # Chords bar through a real strummed pattern when one is
+                # available, else falls through to the unchanged play_chord
+                # path.
+                sound_events(
+                    self.synth, self.music_data, events, retrigger=retrigger, grace_events=grace_events
+                )
+            # Ref 14 AC1/AC2: the click layers on top of whatever sounds
+            # here (or nothing), whenever the step is a whole beat. No
+            # separate scheduling needed - a silent beat is reached at all
+            # only because next_visible_event_index counts metronome-only
+            # beat markers.
+            if self.music_data.metronome_enabled:
+                current_slice = self.music_data.timeline_slices[index]
+                click = click_event_for_beat(current_slice.beat_position)
+                if click is not None:
+                    self.synth.play_click(*click)
+            # Ref 28 AC1/AC2: independent of the click - either can be on
+            # alone, and they use separate channels so simultaneous ones
+            # don't cancel each other (see audio/position_announcer.py).
+            if self.music_data.position_announcer_enabled:
+                current_slice = self.music_data.timeline_slices[index]
+                announcement = announcement_event_for_beat(current_slice.beat_position)
+                if announcement is not None:
+                    self.synth.play_word(*announcement)
 
-        # Ref 28 AC1/AC2: independent of the click - either can be on
-        # alone, and they use separate channels so simultaneous ones don't
-        # cancel each other (see audio/position_announcer.py).
-        if self.music_data.position_announcer_enabled:
-            current_slice = self.music_data.timeline_slices[self._current_index]
-            announcement = announcement_event_for_beat(current_slice.beat_position)
-            if announcement is not None:
-                self.synth.play_word(*announcement)
+        if self.lead_offset_ms == 0:
+            # Unchanged from before this feature existed - no timer hop, for
+            # the 25ms audition latency budget and so the fingerprint
+            # harnesses see no change.
+            _sound_audio_block()
+        else:
+            self._pending_audio_fn = _sound_audio_block
+            self._lead_timer.start(self.lead_offset_ms)
 
-        self.step_played.emit(self._current_index)
+        self.step_played.emit(index)
 
         next_index = self.music_data.next_playback_index(
             self._current_index, self._jump_state, self._end_index, self._jump_lower_bound
@@ -310,6 +360,16 @@ class Sequencer(QObject):
         delta_quarters = next_slice.quarters_from_start - current_slice.quarters_from_start
         bpm = self.music_data.effective_tempo_bpm(self._current_index)
         return max(1, int(delta_quarters * 60000.0 / bpm))
+
+    def _on_lead_timer(self) -> None:
+        """Fires lead_offset_ms after the step it belongs to - sounds the
+        notes, click and position announcer that _sound_current_step
+        deferred. pause()/stop() clear _pending_audio_fn before this can
+        fire into silence."""
+        fn = self._pending_audio_fn
+        self._pending_audio_fn = None
+        if fn is not None:
+            fn()
 
     def _advance(self) -> None:
         if self._pending_next_index is None:

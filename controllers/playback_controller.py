@@ -200,6 +200,18 @@ class PlaybackController(QObject):
         return self._muted
 
     @property
+    def _lead_offset_ms(self) -> int:
+        """Delay Refresh's negative-delay half (UserPlans/DelayRefresh.md):
+        a negative RefreshSettings.delay_ms holds the MUSIC back by that
+        many ms rather than the gate holding the text back - see
+        audio/sequencer.py's own lead_offset_ms. 0 with no gate wired
+        (unit tests that build a bare PlaybackController) or with a
+        zero/positive delay, where the gate handles it instead."""
+        if self.refresh_gate is None:
+            return 0
+        return max(0, -self.refresh_gate.settings.delay_ms)
+
+    @property
     def is_paused(self) -> bool:
         """Task 8 (Escape stops a paused playback): a thin read of the
         Sequencer, False when there is none (no score loaded, or between
@@ -463,7 +475,9 @@ class PlaybackController(QObject):
             self._play_run = run
             self._start_play_iteration(with_lead_in=run.settings.has_lead_in())
         else:
-            self.sequencer.play_from(start_index, update_cursor=True)
+            self.sequencer.play_from(
+                start_index, update_cursor=True, lead_offset_ms=self._lead_offset_ms
+            )
             self.playback_state_changed.emit()
 
     def play_command(self) -> None:
@@ -846,7 +860,11 @@ class PlaybackController(QObject):
             max(0.0, run.end_quarters - last_slice.quarters_from_start) * 60000.0 / float(bpm)
         )
         ring_out_ms = self.music_data.get_ring_out_ms_for_index(last_index)
-        run.loop_tail_pad_ms = max(0, bar_line_ms - ring_out_ms)
+        # Plus lead_offset_ms (Delay Refresh's negative-delay half): the
+        # Sequencer defers every step's audio, including the iteration's
+        # last note, so the loop's own restart must wait that much longer
+        # too or it clips the shifted tail (UserPlans/DelayRefresh.md).
+        run.loop_tail_pad_ms = max(0, bar_line_ms - ring_out_ms) + self._lead_offset_ms
 
     def _loop_seed_jump_state(
         self, mode: str, iteration_count: int
@@ -962,7 +980,16 @@ class PlaybackController(QObject):
             )
             events.extend((offset, ("count", beat)) for offset, beat in clicks)
 
-        events.append((lead_in_ms + play_gap_ms, ("play",)))
+        # Delay Refresh's negative-delay half (UserPlans/DelayRefresh.md):
+        # the Sequencer itself defers each step's actual audio by
+        # lead_offset_ms (audio/sequencer.py), so without this subtraction
+        # the count-in's last click would be followed by play_gap_ms of
+        # silence AND THEN another lead_offset_ms before the first note -
+        # an audible double gap. Subtracting it here means the ("play",)
+        # event (and so the Sequencer's own deferred audio for the first
+        # step) lands exactly play_gap_ms after the count-in, same as
+        # before this feature existed.
+        events.append((max(0, lead_in_ms + play_gap_ms - self._lead_offset_ms), ("play",)))
         # No ("loop",) event is scheduled here any more, for EITHER loop
         # mode. "loop once" ends via _on_sequencer_finished; "loop until
         # stopped" restarts from there too, off the Sequencer's own
@@ -1035,6 +1062,7 @@ class PlaybackController(QObject):
                         jump_lower_bound=0,
                         initial_jump_state=run.seed_jump_state,
                         measure_budget=run.settings.loop_length_bars,
+                        lead_offset_ms=self._lead_offset_ms,
                     )
                 elif run.looping:
                     self.sequencer.play_from(
@@ -1042,11 +1070,14 @@ class PlaybackController(QObject):
                         end_index=run.end_index,
                         update_cursor=False,
                         jump_lower_bound=run.start_index,
+                        lead_offset_ms=self._lead_offset_ms,
                     )
                 else:
                     # Lead-in only: play to the end of the score, cursor
                     # following, ending on its own via _on_sequencer_finished.
-                    self.sequencer.play_from(run.start_index, update_cursor=True)
+                    self.sequencer.play_from(
+                        run.start_index, update_cursor=True, lead_offset_ms=self._lead_offset_ms
+                    )
             self.playback_state_changed.emit()
         elif kind == "loop":
             # Advance the iteration counter BEFORE the next iteration is

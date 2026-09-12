@@ -511,3 +511,76 @@ def test_restarting_playback_while_already_playing_replaces_the_previous_run(
     assert seq.current_index == 3
     assert seq.original_start_index == 3
     assert null_synth.played[-1]["midi_notes"] == [65]  # F4
+
+
+# --- Delay Refresh's negative-delay half (UserPlans/DelayRefresh.md) ---
+# lead_offset_ms holds the AUDIO back so the text can refresh ahead of it.
+
+def test_lead_offset_zero_sounds_synchronously(timeline, null_synth, minimal_score):
+    """Proves the default path did not gain a timer hop from this feature -
+    the 25ms audition latency budget (Ref 9) depends on it."""
+    md = timeline(minimal_score, tempo_bpm=120)
+    seq, timer = _build(md, null_synth)
+
+    seq.play_from(0, lead_offset_ms=0)
+
+    assert len(null_synth.played) == 1
+    assert null_synth.played[0]["midi_notes"] == [60]
+
+
+def test_lead_offset_defers_the_audio_until_the_lead_timer_fires(
+    timeline, null_synth, minimal_score
+):
+    md = timeline(minimal_score, tempo_bpm=120)
+    timer = FakeTimer()
+    lead_timer = FakeTimer()
+    seq = Sequencer(md, null_synth, timer=timer, lead_timer=lead_timer)
+    stepped = []
+    seq.step_played.connect(stepped.append)
+
+    seq.play_from(0, lead_offset_ms=300)
+
+    # step_played has already fired - the text can refresh now - but no
+    # synth call has happened yet.
+    assert stepped == [0]
+    assert null_synth.played == []
+    assert lead_timer.scheduled_ms == [300]
+
+    lead_timer.fire()
+
+    assert len(null_synth.played) == 1
+    assert null_synth.played[0]["midi_notes"] == [60]
+
+
+def test_pause_during_the_lead_gap_silences_the_deferred_step(
+    timeline, null_synth, minimal_score
+):
+    md = timeline(minimal_score, tempo_bpm=120)
+    timer = FakeTimer()
+    lead_timer = FakeTimer()
+    seq = Sequencer(md, null_synth, timer=timer, lead_timer=lead_timer)
+
+    seq.play_from(0, lead_offset_ms=300)
+    seq.pause()
+
+    assert lead_timer.running is False
+    lead_timer.fire()  # no-op even if the stale callback were still armed
+
+    assert null_synth.played == []
+
+
+def test_stop_during_the_lead_gap_silences_the_deferred_step(
+    timeline, null_synth, minimal_score
+):
+    md = timeline(minimal_score, tempo_bpm=120)
+    timer = FakeTimer()
+    lead_timer = FakeTimer()
+    seq = Sequencer(md, null_synth, timer=timer, lead_timer=lead_timer)
+
+    seq.play_from(0, lead_offset_ms=300)
+    seq.stop()
+
+    assert lead_timer.running is False
+    lead_timer.fire()
+
+    assert null_synth.played == []
