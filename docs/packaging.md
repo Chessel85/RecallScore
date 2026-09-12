@@ -97,8 +97,10 @@ the three with sanity checks; none of the steps depend on it.
 * **`docs/quick_start.md`** / **`.html`** — same pattern as the user guide
   above: the `.md` is the maintained source, the `.html` is a checked-in,
   manually regenerated artifact. After editing the `.md`, run `pandoc
-  docs/quick_start.md -s --toc --metadata title="Recall Score Quick Start
-  Guide" -o docs/quick_start.html` and commit both together.
+  docs/quick_start.md -s --metadata title="Recall Score Quick Start
+  Guide" -o docs/quick_start.html` and commit both together. No `--toc` here
+  (unlike the user guide) — it's short enough that a table of contents is
+  just an extra screen-reader landmark with nothing to navigate to.
 * **`examples/`** — git-tracked (unlike `bin/`/`soundfonts/`), bundled example
   scores for end users. Distinct from `files/` at the repo root, which holds
   developer/test fixtures. Drop `.xml`/`.musicxml`/`.mxl` in and the next build
