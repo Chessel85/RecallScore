@@ -357,9 +357,9 @@ class MainWindow(QMainWindow):
             for d in range(10)
         ]
         # A lambda, not a bound-method reference: setup_shortcuts() runs
-        # before setup_controllers() creates self.navigation.
+        # before setup_controllers() creates self.navigation/self.playback.
         self._cancel_digits_shortcut = window_shortcut(
-            Qt.Key.Key_Escape, lambda: self.navigation.clear_pending_digits()
+            Qt.Key.Key_Escape, lambda: self._on_escape()
         )
         # Ctrl+Enter/Ctrl+Return: commit a typed number as the LOOP LENGTH
         # (instead of Enter's jump-to-bar). Global like the digit buffer
@@ -961,6 +961,17 @@ class MainWindow(QMainWindow):
         self.playback.set_loop_length_bars(n)
         self.navigation.clear_pending_digits()
         self.presenter.announce_loop_length(self.playback.play_settings.loop_length_bars)
+
+    def _on_escape(self):
+        """Escape means "cancel the thing in progress". While playback is
+        paused that is the pause itself; otherwise it is a half-typed bar
+        number. Paused-and-mid-typed-number is not reachable in practice
+        (typing a digit jumps the cursor), so this ordering needs no further
+        thought (UserPlans/DelayRefresh.md, Task 8)."""
+        if self.playback.is_paused:
+            self.playback.stop()
+        else:
+            self.navigation.clear_pending_digits()
 
     def cycle_play_mode(self):
         """Ctrl+L: rotate play to end -> play loop once -> play loop until

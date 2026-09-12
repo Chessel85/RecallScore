@@ -100,12 +100,16 @@ def _build_reserved() -> Dict[str, str]:
     # main_window.setup_shortcuts
     add(
         "type a bar number or loop length",
-        _seq(Key.Key_Escape),
         _seq(Key.Key_Enter),
         _seq(Key.Key_Return),
         _seq(Key.Key_Enter, Mod.ControlModifier),
         _seq(Key.Key_Return, Mod.ControlModifier),
         *[_seq(Qt.Key(Key.Key_0 + d)) for d in range(10)],
+    )
+    # main_window.setup_shortcuts / main_window._on_escape
+    add(
+        "cancel a typed bar number, or stop a paused playback",
+        _seq(Key.Key_Escape),
     )
     # widgets/timeline_list_widget.py, Qt list navigation
     add(

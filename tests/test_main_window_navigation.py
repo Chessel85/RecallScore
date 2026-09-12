@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QDialog
 from audio.boundary_cue import boundary_cue_event
 from widgets import accessible_announcer
 from widgets.goto_measure_dialog import GotoMeasureDialog
-from tests.support.main_window_helpers import _focus, _show, load_and_wait
+from tests.support.main_window_helpers import _focus, _show, load_and_wait, no_lead_in
 
 
 def test_constructs_without_touching_audio(window, null_synth):
@@ -490,6 +490,35 @@ def test_escape_clears_pending_digits_without_moving(window, qtbot, null_synth, 
     # A subsequent Enter (no pending digits left) is E6's phrase audition,
     # not this key's concern - see test_a_second_enter_while_a_phrase_is_playing_stops_it
     # and friends.
+
+
+def test_escape_stops_a_paused_playback(window, qtbot, null_synth, minimal_score):
+    load_and_wait(window, qtbot, minimal_score)
+    no_lead_in(window)
+    _show(window, qtbot)
+    _focus(window.region_1)
+    window.toggle_play_stop()
+    window.toggle_pause_resume()
+    assert window.sequencer.is_paused is True
+
+    qtbot.keyClick(window, Qt.Key.Key_Escape)
+
+    assert window.sequencer.is_playing is False
+    assert window.sequencer.is_paused is False
+
+
+def test_escape_with_no_pause_clears_pending_digits_and_does_not_touch_the_transport(
+    window, qtbot, null_synth, many_measures_score
+):
+    load_and_wait(window, qtbot, many_measures_score)
+    _show(window, qtbot)
+    _focus(window.region_3)
+    qtbot.keyClicks(window.focusWidget(), "5")
+
+    qtbot.keyClick(window.focusWidget(), Qt.Key.Key_Escape)
+
+    assert window.navigation.pending_digits == ""
+    assert window.sequencer is None or not window.sequencer.is_playing
 
 
 def test_an_arrow_key_clears_any_pending_digits(window, qtbot, null_synth, many_measures_score):
