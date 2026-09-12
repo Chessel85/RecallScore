@@ -57,6 +57,7 @@ class Actions:
     lead_in_toggle: Optional[QAction] = None
     loop_repeat_mode: Optional[QAction] = None
     refresh_on_playback: Optional[QAction] = None
+    delay_refresh: Optional[QAction] = None
     mute: Optional[QAction] = None
     solo: Optional[QAction] = None
     unmute_all: Optional[QAction] = None
@@ -553,6 +554,14 @@ class MenuBuilder:
             status_tip="Update the regions and status bar while playback runs",
         )
         playback_menu.addAction(a.refresh_on_playback)
+
+        # Ctrl+Shift+D alongside the other dialogs' Ctrl+Shift+I/K/X/P/F.
+        a.delay_refresh = self._action(
+            "&Delay Refresh...", self.slots._show_delay_refresh_dialog,
+            QKeySequence("Ctrl+Shift+D"),
+            status_tip="Set whether and when the regions refresh during playback",
+        )
+        playback_menu.addAction(a.delay_refresh)
 
         playback_menu.addSeparator()
 

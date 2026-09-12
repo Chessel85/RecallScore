@@ -55,6 +55,11 @@ def test_toggle_refresh_on_playback_flips_the_gate_persists_and_announces(
     assert announced[-1] == "Refresh on playback on."
 
 
+def test_delay_refresh_action_has_ctrl_shift_d(window):
+    assert window._actions.delay_refresh.shortcut() == QKeySequence("Ctrl+Shift+D")
+    assert not window._actions.delay_refresh.isCheckable()
+
+
 def test_pause_and_metronome_shortcuts_dodge_reserved_macos_keys(window, monkeypatch):
     """Qt remaps its "Ctrl" token to Command on macOS, which would turn
     Pause (Ctrl+Space) into Cmd+Space (Spotlight, swallowed system-wide) and

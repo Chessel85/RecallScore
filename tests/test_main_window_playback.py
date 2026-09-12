@@ -14,6 +14,8 @@ _LOOP_ONCE = PLAY_MODES.index("loop_once")
 _LOOP_FOREVER = PLAY_MODES.index("loop_forever")
 from persistence import app_settings
 from widgets import accessible_announcer
+from models.refresh_settings import RefreshSettings
+from widgets.delay_refresh_dialog import DelayRefreshDialog
 from widgets.play_settings_dialog import PlaySettingsDialog
 from tests.support.main_window_helpers import _focus, _show, load_and_wait, no_lead_in
 
@@ -1198,3 +1200,46 @@ def test_no_click_on_navigation_when_metronome_is_off(window, qtbot, null_synth,
     qtbot.keyClick(window.region_3, Qt.Key.Key_Right)
 
     assert null_synth.clicks == []
+
+
+# --- Delay Refresh dialog (Ctrl+Shift+D) --------------------------------
+
+def _fake_delay_refresh_dialog(window, monkeypatch, *, settings=None, accept=True):
+    dialog = DelayRefreshDialog(
+        window, refresh_settings=settings or window.refresh_gate.settings
+    )
+    monkeypatch.setattr(
+        dialog, "exec",
+        lambda: DelayRefreshDialog.DialogCode.Accepted if accept
+        else DelayRefreshDialog.DialogCode.Rejected,
+    )
+    monkeypatch.setattr(
+        "main_window.DelayRefreshDialog",
+        lambda *a, **k: dialog,
+    )
+    return dialog
+
+
+def test_delay_refresh_dialog_sets_the_gate_and_persists(window, qtbot, minimal_score, monkeypatch):
+    load_and_wait(window, qtbot, minimal_score)
+    dialog = _fake_delay_refresh_dialog(window, monkeypatch)
+    dialog.refresh_check.setChecked(False)
+    dialog.delay_spin.setValue(-0.4)
+
+    window._show_delay_refresh_dialog()
+
+    assert window.refresh_gate.settings.refresh_during_playback is False
+    assert window.refresh_gate.settings.delay_ms == -400
+    assert app_settings.load().refresh.delay_ms == -400
+    assert window._actions.refresh_on_playback.isChecked() is False
+
+
+def test_delay_refresh_dialog_cancelled_changes_nothing(window, qtbot, minimal_score, monkeypatch):
+    load_and_wait(window, qtbot, minimal_score)
+    dialog = _fake_delay_refresh_dialog(window, monkeypatch, accept=False)
+    dialog.refresh_check.setChecked(False)
+    dialog.delay_spin.setValue(0.7)
+
+    window._show_delay_refresh_dialog()
+
+    assert window.refresh_gate.settings == RefreshSettings()

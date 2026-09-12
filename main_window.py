@@ -62,6 +62,7 @@ from widgets.metronome_player_dialog import MetronomePlayerDialog
 from widgets.mixer_dialog import MixerDialog
 from widgets.part_order_dialog import PartOrderDialog
 from widgets.performance_report_dialog import PerformanceReportDialog
+from widgets.delay_refresh_dialog import DelayRefreshDialog
 from widgets.play_settings_dialog import PlaySettingsDialog
 from widgets.region1_list_widget import Region1ListWidget
 from widgets.region1_section_tab_bar import Region1SectionTabBar
@@ -1485,6 +1486,20 @@ class MainWindow(QMainWindow):
                 self._actions.lead_in_toggle.setChecked(settings.lead_in_enabled)
                 if self._music_data:
                     self.playback.set_playback_tempo(dialog.tempo_display_bpm())
+
+    def _show_delay_refresh_dialog(self):
+        """Playback > Delay Refresh... (Ctrl+Shift+D) - whether and how far
+        the regions/status bar refresh is offset from the sounding note
+        during playback (UserPlans/DelayRefresh.md). Pushes the result into
+        the gate, persists it, and re-syncs the Ctrl+H action's tick -
+        RefreshSettings stays the single source of truth (invariant 8)."""
+        with self._preserving_focus():
+            dialog = DelayRefreshDialog(self, refresh_settings=self.refresh_gate.settings)
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                settings = dialog.refresh_settings()
+                self.refresh_gate.set_settings(settings)
+                app_settings.set_refresh_settings(settings)
+                self._actions.refresh_on_playback.setChecked(settings.refresh_during_playback)
 
     def _show_performance_report_dialog(self):
         """Ref 29: read-only, no live signal wiring - build from current
