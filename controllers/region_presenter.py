@@ -252,6 +252,18 @@ class RegionPresenter(QObject):
             self.region_3, phrases.get(mode, phrases["to_end"])
         )
 
+    def announce_refresh_on_playback(self, enabled: bool) -> None:
+        """Ctrl+H (main_window.toggle_refresh_on_playback) is pressed with
+        focus in the Note region, so the menu tick and the status bar are
+        both invisible at that moment - spoken aloud like the other Playback
+        toggles above. Kept short (UserPlans/DelayRefresh.md): the user
+        hears the CLI and the app through NVDA, and a long phrase here is
+        heard on every press."""
+        accessible_announcer.announce(
+            self.region_3,
+            "Refresh on playback on." if enabled else "Refresh on playback off.",
+        )
+
     def announce_loop_repeat_mode(self, mode: str) -> None:
         """Ctrl+R (main_window.cycle_loop_repeat_mode) rotates how a repeat
         barline clipped by the loop window is read, without moving focus off

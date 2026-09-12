@@ -56,6 +56,7 @@ class Actions:
     play_mode_cycle: Optional[QAction] = None
     lead_in_toggle: Optional[QAction] = None
     loop_repeat_mode: Optional[QAction] = None
+    refresh_on_playback: Optional[QAction] = None
     mute: Optional[QAction] = None
     solo: Optional[QAction] = None
     unmute_all: Optional[QAction] = None
@@ -539,6 +540,19 @@ class MenuBuilder:
             status_tip="Choose how repeat barlines are handled inside a loop",
         )
         playback_menu.addAction(a.loop_repeat_mode)
+
+        # Delay Refresh (UserPlans/DelayRefresh.md): checkable, so a screen
+        # reader announces its state on focus - the same pattern as Toggle
+        # Lead-in/Toggle Metronome. Mnemonic on r: this menu's own P, O, U,
+        # T, Y, I, H (Cycle Loop Repeat &Handling) and X are already taken -
+        # h collides with that last one, so &Refresh is used instead (the
+        # shortcut itself stays Ctrl+H, unrelated to the mnemonic letter).
+        a.refresh_on_playback = self._action(
+            "Toggle &Refresh on Playback", self.slots.toggle_refresh_on_playback,
+            QKeySequence("Ctrl+H"), checkable=True,
+            status_tip="Update the regions and status bar while playback runs",
+        )
+        playback_menu.addAction(a.refresh_on_playback)
 
         playback_menu.addSeparator()
 

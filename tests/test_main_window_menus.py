@@ -24,6 +24,37 @@ def test_navigation_menu_items_use_home_and_end_shortcuts(window):
     assert window._actions.move_to_performance.shortcut() == QKeySequence("B")
 
 
+def test_refresh_on_playback_action_is_checkable_with_ctrl_h(window):
+    assert window._actions.refresh_on_playback.shortcut() == QKeySequence("Ctrl+H")
+    assert window._actions.refresh_on_playback.isCheckable()
+    assert window._actions.refresh_on_playback.isChecked() is True
+
+
+def test_toggle_refresh_on_playback_flips_the_gate_persists_and_announces(
+    window, monkeypatch
+):
+    from persistence import app_settings
+    from widgets import accessible_announcer
+
+    announced = []
+    monkeypatch.setattr(
+        accessible_announcer, "announce", lambda widget, message: announced.append(message)
+    )
+
+    window.toggle_refresh_on_playback()
+
+    assert window.refresh_gate.settings.refresh_during_playback is False
+    assert window._actions.refresh_on_playback.isChecked() is False
+    assert app_settings.load().refresh.refresh_during_playback is False
+    assert announced == ["Refresh on playback off."]
+
+    window.toggle_refresh_on_playback()
+
+    assert window.refresh_gate.settings.refresh_during_playback is True
+    assert window._actions.refresh_on_playback.isChecked() is True
+    assert announced[-1] == "Refresh on playback on."
+
+
 def test_pause_and_metronome_shortcuts_dodge_reserved_macos_keys(window, monkeypatch):
     """Qt remaps its "Ctrl" token to Command on macOS, which would turn
     Pause (Ctrl+Space) into Cmd+Space (Spotlight, swallowed system-wide) and

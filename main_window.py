@@ -452,6 +452,13 @@ class MainWindow(QMainWindow):
         # by toggle_lead_in. The play-mode action is a non-checkable cycle
         # (three states), so it carries no checked state of its own.
         self._actions.lead_in_toggle.setChecked(self.playback.play_settings.lead_in_enabled)
+        # Global (AppSettings.refresh), same reasoning as lead_in_toggle
+        # above - set once here from the loaded settings, kept in sync by
+        # toggle_refresh_on_playback (and, once Task 7's dialog exists, by
+        # accepting it).
+        self._actions.refresh_on_playback.setChecked(
+            self.refresh_gate.settings.refresh_during_playback
+        )
         # Global (AppSettings), not per-score like the metronome/position-
         # announcer toggles - set once here, never re-set on score load.
         self._actions.live_midi_input.setChecked(self.live_midi.settings.enabled)
@@ -963,6 +970,19 @@ class MainWindow(QMainWindow):
 
     def toggle_lead_in(self):
         self._actions.lead_in_toggle.setChecked(self.playback.toggle_lead_in())
+
+    def toggle_refresh_on_playback(self):
+        """Ctrl+H: flips the Delay Refresh gate's on/off setting, persists it
+        globally (RefreshSettings is the single source of truth - invariant
+        8 - the action's tick is only ever a view of it), keeps the menu
+        action's checked state in sync, and speaks the new state aloud since
+        Ctrl+H is pressed with focus in the Note region."""
+        enabled = self.refresh_gate.set_refresh_during_playback(
+            not self.refresh_gate.settings.refresh_during_playback
+        )
+        self._actions.refresh_on_playback.setChecked(enabled)
+        app_settings.set_refresh_settings(self.refresh_gate.settings)
+        self.presenter.announce_refresh_on_playback(enabled)
 
     def cycle_loop_repeat_mode(self):
         """Ctrl+R: rotate how a repeat barline clipped by the loop window is
