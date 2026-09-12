@@ -46,6 +46,11 @@ through Tools > Keyboard Shortcuts.
 | Previous Section | Ctrl+Alt+Left |
 | Next Section | Ctrl+Alt+Right |
 
+Typing digits jumps to a bar number (Enter) or sets the loop length
+(Ctrl+Enter); **Escape** cancels a half-typed bar number, or — while
+playback is paused — stops the paused playback instead. These are fixed,
+not rebindable through Tools > Keyboard Shortcuts.
+
 ## Notes
 
 | Action | Keystroke |
@@ -93,6 +98,8 @@ through Tools > Keyboard Shortcuts.
 | Toggle Lead-in | Ctrl+I |
 | Cycle Loop Repeat Handling | Ctrl+R |
 | Mixer | Ctrl+Shift+X |
+| Toggle Refresh on Playback | Ctrl+H |
+| Delay Refresh... | Ctrl+Shift+D |
 
 ## Quick nav
 

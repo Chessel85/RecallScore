@@ -2,7 +2,11 @@
 
 ## 2026.1.60
 
-* Added a text refresh toggle and a delay text refresh feature 
+* Added a text refresh toggle (Ctrl+H) and a delay refresh feature
+  (Ctrl+Shift+D) so the regions and status bar can lag behind or run ahead
+  of playback, keeping speech and sound from colliding
+* Escape now stops a paused playback, as well as its existing job of
+  cancelling a half-typed bar number
 
 ## 2026.1.59
 

@@ -432,6 +432,75 @@ single play control, and there is one settings dialog.
   differ* on tempo-derived fields (playback is now flat) — re-capture the
   baseline. `parser_fingerprint.py` is unchanged.
 
+### Delay Refresh: the refresh gate (`userPlans/DelayRefresh.md`)
+
+Lets the screen reader's speech and the sounding note move apart in time
+in either direction, so NVDA never talks over what's playing. Positive
+delays hold the *text* back; negative delays hold the *music* back — two
+separate mechanisms, chosen so each stays a single timer rather than one
+shared lookahead clock (see the plan doc for why the lookahead alternative
+was rejected).
+
+* **`models/refresh_settings.py`** (`RefreshSettings`, Qt-free) —
+  `refresh_during_playback: bool`, `delay_ms: int` clamped to
+  ±1000 ms. Lives on `MusicData.refresh_settings`, **per-score** like
+  `mixer`/`metronome_enabled` (invariant 8) — not global as first drafted,
+  so a percussion-heavy piece and a slow ballad can each carry their own
+  pacing.
+* **`controllers/refresh_delay_controller.py`** (`RefreshDelayController`,
+  the gate) sits between `PlaybackController`'s per-step signal and
+  `RegionPresenter.update_timeline_views`, and touches no widgets
+  (invariant 6). `PlaybackController._on_sequencer_step` emits
+  `playback_cursor_stepped(index, play_all)` — a signal separate from
+  `cursor_moved`, which keeps going straight to the presenter from the six
+  other places it fires (stop, finish, loop restart) so those stay
+  immediate. `MainWindow.connect_signals()` wires
+  `playback_cursor_stepped → refresh_gate.handle_cursor_moved` and
+  `refresh_gate.refresh_requested → presenter.update_timeline_views`.
+  `handle_cursor_moved` applies immediately when not playing or when
+  refresh is on with `delay_ms <= 0` (today's behaviour, unchanged); when
+  refresh is off it just records the pending index; when `delay_ms > 0` it
+  starts a single-shot timer and applies on timeout. A negative `delay_ms`
+  needs nothing here — the text is already early once the *music* is
+  delayed (below). `flush()` (called on pause and on manual navigation) and
+  `cancel()` (called on stop/detach) keep a pending index from stranding or
+  leaking into the next run.
+* **Negative delay lives in `audio/sequencer.py`** as
+  `lead_offset_ms` (`= max(0, -delay_ms)`, passed through `play_from`).
+  `_sound_current_step` stays byte-for-byte its old synchronous self when
+  `lead_offset_ms == 0` (no timer hop — the 25 ms audition budget and the
+  fingerprint harnesses both depend on that). When non-zero, it emits
+  `step_played` first and defers `sound_events`/the metronome click/the
+  position announcer into one single-shot timer, so notes, click and
+  announcer shift together as one stream. `pause()`/`stop()` stop that
+  timer *before* `stop_all_notes()`, so a pause during the gap can't let a
+  note fire into silence afterwards. `PlaybackController` also subtracts
+  `lead_offset_ms` from the lead-in total (so a count-in runs straight into
+  the first note) and adds it to `loop_tail_pad_ms` (so a loop restart
+  doesn't clip the shifted tail of the last note).
+* **`Ctrl+H`** (`MainWindow.toggle_refresh_on_playback`) flips
+  `refresh_during_playback` through the gate, persists it via
+  `ScoreConfig`/`apply_config`, and announces the new state with
+  `RegionPresenter.announce_refresh_on_playback` (`QAccessible` event, not
+  a widget's persisted text — see invariant on accessible announcements).
+  **`Ctrl+Shift+D`** opens `widgets/delay_refresh_dialog.py`
+  (`DelayRefreshDialog`), modelled on `play_settings_dialog.py`: a tickbox
+  plus a seconds-scaled `QDoubleSpinBox` (±1.00 s, converted to/from the
+  model's milliseconds at the dialog boundary, not in the model). Both
+  actions' checked/state sync back from the gate's settings on score load
+  and dialog accept — the gate's `RefreshSettings` is the single source
+  (invariant 8), the menu tick just a view of it.
+* **Escape stops a paused playback.** Escape was already bound
+  (`main_window.py`'s `_cancel_digits_shortcut`) to clearing a half-typed
+  bar number; rather than add a second `QShortcut` on the same key (two
+  `WindowShortcut`s on one sequence are ambiguous — neither fires), that
+  binding now calls `MainWindow._on_escape()`, a small router:
+  `playback.is_paused` → `playback.stop()`, otherwise
+  `navigation.clear_pending_digits()`. `PlaybackController.is_paused` is a
+  thin read of `self.sequencer`. Paused-and-mid-typed-number isn't
+  reachable in practice (typing a digit jumps the cursor first), so the
+  ordering needs no further thought.
+
 ---
 
 ## Keyboard shortcuts (`UserPlans/KeyboardShortcuts.md`)
