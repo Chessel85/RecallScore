@@ -132,8 +132,8 @@ class RegionPresenter(QObject):
         self.region_3.blockSignals(True)
         self.region_3.clear()
 
-        for item in self.music_data.get_region_3_data():
-            self.region_3.addItem(QListWidgetItem(item))
+        for row in self.music_data.get_region_3_rows():
+            self.region_3.addItem(QListWidgetItem(row.text))
 
         self.region_3.selectAll()
         self.region_3.blockSignals(False)
@@ -193,12 +193,12 @@ class RegionPresenter(QObject):
         if not self.music_data:
             return
 
-        labels = self.music_data.get_region_3_data()
+        rows = self.music_data.get_region_3_rows()
         self.region_3.blockSignals(True)
-        for row, text in enumerate(labels):
-            item = self.region_3.item(row)
+        for row_index, row in enumerate(rows):
+            item = self.region_3.item(row_index)
             if item is not None:
-                item.setText(text)
+                item.setText(row.text)
         self.region_3.blockSignals(False)
 
         self.on_region_3_selection_changed()
@@ -218,7 +218,8 @@ class RegionPresenter(QObject):
         nothing at that position to read."""
         if not self.music_data:
             return
-        rows = self.music_data.get_region_4_rows_for_indices(self.selected_region_3_indices())
+        indices = self.music_data.note_indices_from_selection(self.selected_region_3_indices())
+        rows = self.music_data.get_region_4_rows_for_indices(indices)
         if number < 1 or number > len(rows):
             return
         display_key, _attribute_key, value = rows[number - 1]
@@ -351,9 +352,10 @@ class RegionPresenter(QObject):
     def on_region_3_selection_changed(self) -> None:
         if not self.music_data:
             return
-        region_4_rows = self.music_data.get_region_4_rows_for_indices(
+        indices = self.music_data.note_indices_from_selection(
             self.selected_region_3_indices()
         )
+        region_4_rows = self.music_data.get_region_4_rows_for_indices(indices)
         self.region_4.refresh_list(region_4_rows)
 
     def on_region_2_filter_changed(self, active_voice_tuples: set) -> None:

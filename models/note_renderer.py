@@ -19,6 +19,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from models import vocabulary
 from models.note_data import NoteData
+from models.region3_row import MarkingRow, NoteRow, Region3Row
 from models.synthetic_parts import STAVE_TEXT_VOICE_ID
 
 
@@ -171,7 +172,14 @@ class NoteRenderer:
                 parts.append(f"{label} {pairs[key]}")
         return ", ".join(parts)
 
-    def region_3_data(self) -> List[str]:
+    def region_3_data(self) -> List[Region3Row]:
+        """PerformanceMarkingsStrategy.md section 15 (stage 2): one typed row
+        per visible note, in the same order/indexing _visible_notes() has
+        always used - a fabricated Stave Text/Rehearsal event (voice ==
+        STAVE_TEXT_VOICE_ID) becomes a MarkingRow carrying that NoteData
+        rather than a NoteRow, since it isn't a real note; everything else
+        is unchanged. MusicData.get_region_3_data() is the thin
+        string-list wrapper every existing caller still uses."""
         data = self.data
         notes = data._visible_notes()
         if not notes:
@@ -181,9 +189,16 @@ class NoteRenderer:
                 and current is not None
                 and float(current.beat_position).is_integer()
             ):
-                return ["Click"]
-            return ["None"]
-        return [self.format_note_for_region_3(n) for n in notes]
+                return [MarkingRow(text="Click", marking=None)]
+            return [MarkingRow(text="None", marking=None)]
+        rows: List[Region3Row] = []
+        for i, note in enumerate(notes):
+            text = self.format_note_for_region_3(note)
+            if note.voice == STAVE_TEXT_VOICE_ID:
+                rows.append(MarkingRow(text=text, marking=note))
+            else:
+                rows.append(NoteRow(text=text, note_index=i))
+        return rows
 
     # --- Region 4 -----------------------------------------------------
 

@@ -32,15 +32,15 @@ def test_section_spans_populated_with_verbatim_labels_and_ranges():
     ]
 
 
-def test_region_5_shows_a_section_row_pair_for_the_cursor_position():
+def test_region_5_shows_a_section_row_for_the_cursor_position():
     md = _md()
     md.active_event_index = 3  # bar 4, inside "Verse 1"
-    labels = [r.label for r in md.get_performance_region_rows()]
-    assert "Section start: Verse 1: measure 3 to measure 4" in labels
-    assert "Section end: Verse 1: measure 3 to measure 4" in labels
-    starts = {r.label: r.jump_target_measure for r in md.get_performance_region_rows()}
-    assert starts["Section start: Verse 1: measure 3 to measure 4"] == 3
-    assert starts["Section end: Verse 1: measure 3 to measure 4"] == 4
+    rows = md.get_performance_region_rows()
+    labels = [r.label for r in rows]
+    assert "Section Verse 1, measures 3 to 4" in labels
+    row = next(r for r in rows if r.label == "Section Verse 1, measures 3 to 4")
+    assert row.jump_target_measure == 3
+    assert row.end_target_measure == 4
 
 
 def test_section_is_offered_as_a_find_target_with_the_right_count():

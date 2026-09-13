@@ -2599,8 +2599,8 @@ def test_p3_dashes_and_bracket_get_region_5_rows(timeline, direction_lines_score
             "bracket_line_start", "bracket_line_end"} <= _marking_keys(md)
 
     labels = [r.label for r in md.get_performance_region_rows(0)]
-    assert "Dashed line start: measure 1" in labels
-    assert any(l.startswith("Bracket line end") for l in labels)
+    assert any(l.startswith("Dashed line measure 1") for l in labels)
+    assert any(l.startswith("Bracket line measure") for l in labels)
 
 
 def test_p3_dashes_and_bracket_labels_from_sibling_words(
@@ -2624,8 +2624,8 @@ def test_p3_dashes_and_bracket_labels_from_sibling_words(
     assert "Bracket line (8vb sim.): Measure 1 to Measure 1 beat 4" in lines
 
     labels = [r.label for r in md.get_performance_region_rows(0)]
-    assert "Dashed line (cresc.) start: measure 1" in labels
-    assert any(l.startswith("Bracket line (8vb sim.) end") for l in labels)
+    assert any(l.startswith("Dashed line (cresc.) measure 1") for l in labels)
+    assert any(l.startswith("Bracket line (8vb sim.) measure") for l in labels)
     assert 'Crescendo (marked "cresc.")' in labels
 
 
@@ -2653,19 +2653,17 @@ def test_nested_hairpin_region_5_and_report_state_full_ranges(
     labels = [r.label for r in md.get_performance_region_rows(
         md.slice_index_at_or_after_quarters(3.0))]
     assert labels == [
-        "Crescendo start: measure 1, to measure 3 beat 3",
-        "Crescendo end: measure 3 beat 3, from measure 1",
-        "Crescendo start: measure 1 beat 3, to measure 2",
-        "Crescendo end: measure 2, from measure 1 beat 3",
+        "Crescendo measure 1 to measure 3 beat 3",
+        "Crescendo measure 1 beat 3 to measure 2",
     ]
 
     unmatched = [r.label for r in md.get_performance_region_rows(
         md.slice_index_at_or_after_quarters(13.0))]
-    assert unmatched == ["Hairpin end: measure 4 beat 3, no start marked in the file"]
+    assert unmatched == ["Hairpin ending measure 4 beat 3, no start marked in the file"]
 
     unclosed = [r.label for r in md.get_performance_region_rows(
         md.slice_index_at_or_after_quarters(15.0))]
-    assert unclosed == ["Crescendo start: measure 4 beat 4, no end marked in the file"]
+    assert unclosed == ["Crescendo from measure 4 beat 4, no end marked in the file"]
 
 
 def test_hairpin_rows_part_prefixed_only_when_several_parts_contribute(
@@ -2686,14 +2684,14 @@ def test_hairpin_rows_part_prefixed_only_when_several_parts_contribute(
 
     r5 = [r.label for r in md.get_performance_region_rows(
         md.slice_index_at_or_after_quarters(3.0))]
-    assert "Cello: Crescendo start: measure 1 beat 3, to measure 2 beat 2" in r5
+    assert "Cello: Crescendo measure 1 beat 3 to measure 2 beat 2" in r5
 
     solo = timeline(hairpin_score)
     solo_lines = solo.get_performance_report_lines()
     assert "Crescendo: Measure 1 beat 3 to Measure 2 beat 2" in solo_lines
     solo_r5 = [r.label for r in solo.get_performance_region_rows(
         solo.slice_index_at_or_after_quarters(2.0))]
-    assert solo_r5[0] == "Crescendo start: measure 1 beat 3, to measure 2 beat 2"
+    assert solo_r5[0] == "Crescendo measure 1 beat 3 to measure 2 beat 2"
 
 
 def test_instruction_words_become_point_marks_findable_and_reported(

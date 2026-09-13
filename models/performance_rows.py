@@ -15,7 +15,7 @@ diffs the Region 5 label list to detect a real change.
 """
 from typing import Dict, List, Optional, Tuple
 
-from models import vocabulary
+from models import marking_labels, vocabulary
 from models.key_signatures import key_signature_display_name
 from models.performance_region_row import PerformanceRegionRow
 
@@ -25,18 +25,20 @@ class PerformanceRows:
         self.data = data
 
     def get_performance_region_rows(self, index: Optional[int] = None) -> List[PerformanceRegionRow]:
-        """Ref 29: Region 5's rows - a start and an end line per span active
-        at the given position (default: the cursor), plus (S7) a one-shot
-        row for a key-signature, time-signature, or immediate/point tempo
-        change landing exactly here.
+        """Ref 29: Region 5's rows - one line per span active at the given
+        position (default: the cursor), stating its whole range
+        (PerformanceMarkingsStrategy.md section 6), plus (S7) a one-shot row
+        for a key-signature, time-signature, or immediate/point tempo change
+        landing exactly here.
 
         Repeat/ending containment is a measure-number range check (barlines
         fall at measure boundaries); hairpins compare quarters_from_start,
-        since a wedge can start or stop mid-measure. The order (repeats,
-        endings, hairpins, then the one-shot rows, each in span-list order)
-        must stay stable - MainWindow diffs the resulting label list to
-        detect a real change. Wording goes through vocabulary.bar_word,
-        never a hardcoded "bar"/"measure"."""
+        since a wedge can start or stop mid-measure. The order (sections,
+        repeats, endings, hairpins, then the one-shot rows, each in
+        span-list order) must stay stable - MainWindow diffs the resulting
+        label list to detect a real change. Wording goes through
+        vocabulary.bar_word and models.marking_labels, never a hardcoded
+        "bar"/"measure" or a second copy of the range-rendering rules."""
         data = self.data
         resolved_index = data.active_event_index if index is None else index
         slice_ = (
@@ -60,25 +62,24 @@ class PerformanceRows:
         def _label_suffix(label: str) -> str:
             return f" {label}" if label and label != "1" else ""
 
-        def _pair(spans, contained, start_label, end_label, *, jump_quarters=False):
-            """A start row then an end row for every span `contained` at the
-            cursor. jump_target_measure is the span's own start/end measure;
-            jump_target_quarters is added only when the span can begin or end
-            mid-bar (a hairpin-style line, not a repeat/ending barline)."""
+        def _span_row(spans, contained, label, *, jump_quarters=False):
+            """One row per span `contained` at the cursor (section 6): the
+            whole range in one line, with both ends as jump targets.
+            jump_target_measure/end_target_measure are the span's own
+            start/end measure; the *_quarters fields are added only when the
+            span can begin or end mid-bar (a hairpin-style line, not a
+            repeat/ending barline)."""
             for span in spans:
                 if not contained(span):
                     continue
                 rows.append(PerformanceRegionRow(
-                    label=start_label(span),
+                    label=label(span),
                     jump_target_measure=span.start_measure,
                     jump_target_quarters=(
                         span.start_quarters_from_start if jump_quarters else None
                     ),
-                ))
-                rows.append(PerformanceRegionRow(
-                    label=end_label(span),
-                    jump_target_measure=span.end_measure,
-                    jump_target_quarters=(
+                    end_target_measure=span.end_measure,
+                    end_target_quarters=(
                         span.end_quarters_from_start if jump_quarters else None
                     ),
                 ))
@@ -106,41 +107,35 @@ class PerformanceRows:
                     jump_target_quarters=jump_q,
                 ))
 
-        # P2: the song section(s) containing the cursor come first - a start
-        # row (Ctrl+Home -> first bar) and an end row (Ctrl+End -> last bar),
-        # each stating the full range so one row read alone conveys it. The
-        # label only changes when the cursor crosses a section boundary, so
-        # _refresh_region_5's diff means one change cue per section.
-        def _section_range(s) -> str:
-            return f"{bar_word} {s.start_measure} to {bar_word} {s.end_measure}"
-
-        _pair(
+        # P2 / section 6: the song section(s) containing the cursor come
+        # first, one row stating the full range (Ctrl+Home -> first bar,
+        # Ctrl+End -> last bar). The label only changes when the cursor
+        # crosses a section boundary, so _refresh_region_5's diff means one
+        # change cue per section.
+        _span_row(
             data.section_spans, _in_measure,
-            lambda s: f"Section start: {s.label}: {_section_range(s)}",
-            lambda s: f"Section end: {s.label}: {_section_range(s)}",
+            lambda s: f"Section {s.label}, "
+                      f"{marking_labels.range_label(bar_word, s.start_measure, 1.0, s.end_measure, 1.0)}",
         )
 
         # Repeat / ending spans: a measure-number range check (barlines fall
         # at measure boundaries), so these rows never name a beat and never
-        # set jump_target_quarters.
-        _pair(
+        # set jump_target_quarters/end_target_quarters.
+        _span_row(
             data.repeat_spans, _in_measure,
-            lambda s: f"Repeat start: {bar_word} {s.start_measure}",
-            lambda s: f"Repeat end: {bar_word} {s.end_measure}",
+            lambda s: f"Repeat {marking_labels.range_label(bar_word, s.start_measure, 1.0, s.end_measure, 1.0)}",
         )
-        _pair(
+        _span_row(
             data.ending_spans, _in_measure,
-            lambda s: f"Ending {s.number} start: {bar_word} {s.start_measure}",
-            lambda s: f"Ending {s.number} end: {bar_word} {s.end_measure}",
+            lambda s: f"Ending {s.number} "
+                      f"{marking_labels.range_label(bar_word, s.start_measure, 1.0, s.end_measure, 1.0)}",
         )
 
         # Hairpins carry a part_id (collected per part, not first-part-only)
-        # and completeness flags. A complete span gets a start row and an end
-        # row, each stating the FULL range so one row read alone conveys it;
-        # an unmatched wedge gets a single row with the gap stated. The
-        # 3-way branch is one label decision producing a small list of
-        # (label, jump_measure, jump_quarters) triples, then one append loop.
-        # D5: part-prefixed only when >1 part has a hairpin.
+        # and completeness flags. A complete span gets one row stating the
+        # full range (section 6); an unmatched wedge gets a single row with
+        # the gap stated (section 6's "honest wording"). D5: part-prefixed
+        # only when >1 part has a hairpin.
         _hairpin_part_ids = [s.part_id for s in data.hairpin_spans]
         for span in data.hairpin_spans:
             if not (span.start_quarters_from_start <= slice_.quarters_from_start
@@ -150,27 +145,29 @@ class PerformanceRows:
             kind_label = span.kind.capitalize() if span.kind else "Hairpin"
             start_bb = data._bar_beat_label(bar_word, span.start_measure, span.start_beat_position)
             end_bb = data._bar_beat_label(bar_word, span.end_measure, span.end_beat_position)
-            base_start = f"{prefix}{kind_label} start: {start_bb}"
-            base_end = f"{prefix}{kind_label} end: {end_bb}"
             if not span.start_known:
-                emit = [(f"{base_end}, no start marked in the file",
-                         span.end_measure, span.end_quarters_from_start)]
+                label = f"{prefix}{kind_label} ending {end_bb}, no start marked in the file"
+                jump_m, jump_q = span.end_measure, span.end_quarters_from_start
+                end_m, end_q = jump_m, jump_q
             elif not span.end_known:
-                emit = [(f"{base_start}, no end marked in the file",
-                         span.start_measure, span.start_quarters_from_start)]
+                label = f"{prefix}{kind_label} from {start_bb}, no end marked in the file"
+                jump_m, jump_q = span.start_measure, span.start_quarters_from_start
+                end_m, end_q = jump_m, jump_q
             else:
-                emit = [
-                    (f"{base_start}, to {end_bb}",
-                     span.start_measure, span.start_quarters_from_start),
-                    (f"{base_end}, from {start_bb}",
-                     span.end_measure, span.end_quarters_from_start),
-                ]
-            for label, jump_m, jump_q in emit:
-                rows.append(PerformanceRegionRow(
-                    label=label,
-                    jump_target_measure=jump_m,
-                    jump_target_quarters=jump_q,
-                ))
+                rng = marking_labels.range_label(
+                    bar_word, span.start_measure, span.start_beat_position,
+                    span.end_measure, span.end_beat_position,
+                )
+                label = f"{prefix}{kind_label} {rng}"
+                jump_m, jump_q = span.start_measure, span.start_quarters_from_start
+                end_m, end_q = span.end_measure, span.end_quarters_from_start
+            rows.append(PerformanceRegionRow(
+                label=label,
+                jump_target_measure=jump_m,
+                jump_target_quarters=jump_q,
+                end_target_measure=end_m,
+                end_target_quarters=end_q,
+            ))
 
         # P3: dashed / bracketed lines and the D6 catch-all get Region 5
         # rows (D12 order: after hairpins, before the one-shot rows). Pedal
@@ -193,16 +190,12 @@ class PerformanceRows:
             base = _DIR_LINE_LABELS[s.kind]
             return f"{base} ({s.label})" if s.label else base
 
-        _pair(
+        _span_row(
             [s for s in data.direction_spans if s.kind in _DIR_LINE_LABELS],
             _in_quarters,
             lambda s: (
-                f"{_dir_prefix(s.kind, s.part_id)}{_line_label(s)} start: "
-                f"{data._bar_beat_label(bar_word, s.start_measure, s.start_beat_position)}"
-            ),
-            lambda s: (
-                f"{_dir_prefix(s.kind, s.part_id)}{_line_label(s)} end: "
-                f"{data._bar_beat_label(bar_word, s.end_measure, s.end_beat_position)}"
+                f"{_dir_prefix(s.kind, s.part_id)}{_line_label(s)} "
+                f"{marking_labels.range_label(bar_word, s.start_measure, s.start_beat_position, s.end_measure, s.end_beat_position)}"
             ),
             jump_quarters=True,
         )

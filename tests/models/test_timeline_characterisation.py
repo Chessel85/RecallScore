@@ -539,9 +539,9 @@ def test_get_performance_region_rows_include_jump_marks(
 def test_performance_region_rows_follow_the_cursor_into_and_out_of_a_span(
     timeline, repeats_and_endings_score
 ):
-    """Ref 29: Region 5's rows are empty outside any span, two rows per
-    active repeat/ending span while inside one, in the documented order
-    (repeats, then endings)."""
+    """Ref 29: Region 5's rows are empty outside any span, one row per active
+    repeat/ending span while inside one, in the documented order (repeats,
+    then endings)."""
     md = timeline(repeats_and_endings_score)
 
     m1_index = next(i for i, s in enumerate(md.timeline_slices) if s.measure == 1)
@@ -551,10 +551,8 @@ def test_performance_region_rows_follow_the_cursor_into_and_out_of_a_span(
     rows = md.get_performance_region_rows(m3_index)
     labels = [r.label for r in rows]
     assert labels == [
-        "Repeat start: measure 2",
-        "Repeat end: measure 3",
-        "Ending 1 start: measure 3",
-        "Ending 1 end: measure 3",
+        "Repeat measures 2 to 3",
+        "Ending 1 measure 3",
     ]
 
 
@@ -571,10 +569,7 @@ def test_performance_region_rows_hairpin_wording_omits_beat_on_the_downbeat(
 
     crescendo_start_index = md.slice_index_at_or_after_quarters(2.0)  # m1 beat 3
     labels = [r.label for r in md.get_performance_region_rows(crescendo_start_index)]
-    assert labels == [
-        "Crescendo start: measure 1 beat 3, to measure 2 beat 2",
-        "Crescendo end: measure 2 beat 2, from measure 1 beat 3",
-    ]
+    assert labels == ["Crescendo measure 1 beat 3 to measure 2 beat 2"]
 
     diminuendo_start_index = next(
         i
@@ -582,10 +577,7 @@ def test_performance_region_rows_hairpin_wording_omits_beat_on_the_downbeat(
         if s.measure == 3 and s.notes[0].step_name == "D"
     )
     labels = [r.label for r in md.get_performance_region_rows(diminuendo_start_index)]
-    assert labels == [
-        "Diminuendo start: measure 3, to measure 3 beat 3",
-        "Diminuendo end: measure 3 beat 3, from measure 3",
-    ]
+    assert labels == ["Diminuendo measure 3 beat 1 to beat 3"]
 
 
 # --- S7: one-shot key/time-signature/tempo change alerts --------------------
@@ -1017,6 +1009,82 @@ def test_stave_text_sorts_before_the_real_notes_it_shares_a_slice_with(timeline,
     assert any(n.midi_pitch is not None for n in slice_with_iii.notes[1:]), (
         "sanity check: this slice really does share real sounding notes, not just other stave text"
     )
+
+
+# --- S2 (PerformanceMarkingsImplementationPlan.md stage 2): Region 3's rows
+# are typed - a fabricated Stave Text/Rehearsal event becomes a MarkingRow,
+# never a NoteRow, so it renders identically but is skipped by the index
+# consumers that only make sense for real notes.
+
+def test_region_3_rows_classify_stave_text_as_a_marking_row(timeline, score_etude_1_tablature):
+    from models.region3_row import MarkingRow, NoteRow
+
+    md = timeline(score_etude_1_tablature)
+    index = next(
+        i for i, s in enumerate(md.timeline_slices)
+        if any(n.step_name == "III" and n.voice == 1000 for n in s.notes)
+    )
+    md.active_event_index = index
+
+    rows = md.get_region_3_rows()
+    strings = md.get_region_3_data()
+    assert [r.text for r in rows] == strings, "the string rendering is unchanged by the row typing"
+    assert isinstance(rows[0], MarkingRow)
+    assert rows[0].marking.step_name == "III"
+    assert all(isinstance(r, NoteRow) for r in rows[1:])
+    assert [r.note_index for r in rows[1:]] == list(range(1, len(rows)))
+
+
+def test_marking_row_contributes_no_playback_event(timeline, score_etude_1_tablature):
+    md = timeline(score_etude_1_tablature)
+    index = next(
+        i for i, s in enumerate(md.timeline_slices)
+        if any(n.step_name == "III" and n.voice == 1000 for n in s.notes)
+    )
+    md.active_event_index = index
+
+    assert md.get_playback_events_for_indices([0]) == []
+
+
+def test_chord_audition_still_sounds_every_note_when_row_0_is_a_marking_row(
+    timeline, score_etude_1_tablature
+):
+    """selectAll()'s all-indices audition (RegionPresenter.update_
+    timeline_views) must still sound every real note of the slice even
+    though row 0 is now a MarkingRow, not a NoteRow."""
+    md = timeline(score_etude_1_tablature)
+    index = next(
+        i for i, s in enumerate(md.timeline_slices)
+        if any(n.step_name == "III" and n.voice == 1000 for n in s.notes)
+    )
+    md.active_event_index = index
+    slice_ = md.timeline_slices[index]
+    expected_pitches = {n.midi_pitch for n in slice_.notes if n.midi_pitch is not None}
+
+    events = md.get_playback_events_for_indices(list(range(len(slice_.notes))))
+    sounded_pitches = {p for _channel, _program, pitches, *_ in events for p in pitches}
+    assert sounded_pitches == expected_pitches
+
+
+def test_note_indices_from_selection_drops_marking_rows_only_when_mixed(
+    timeline, score_etude_1_tablature
+):
+    """Region 4's build must not let a marking row's own attributes
+    ("text", "measure"...) contaminate a mixed selection's pooled view, but
+    a selection made up entirely of marking rows (including a lone one)
+    passes through unfiltered - selecting just a Stave Text row still shows
+    its own attributes, exactly as before Region 3's rows were typed."""
+    md = timeline(score_etude_1_tablature)
+    index = next(
+        i for i, s in enumerate(md.timeline_slices)
+        if any(n.step_name == "III" and n.voice == 1000 for n in s.notes)
+    )
+    md.active_event_index = index
+    slice_ = md.timeline_slices[index]
+    all_indices = list(range(len(slice_.notes)))
+
+    assert md.note_indices_from_selection(all_indices) == all_indices[1:]
+    assert md.note_indices_from_selection([0]) == [0]
 
 
 def test_stave_text_word_becomes_its_own_event_on_the_originating_part(timeline, stave_text_score):

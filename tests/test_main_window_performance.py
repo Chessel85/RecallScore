@@ -26,7 +26,7 @@ def test_navigating_into_a_repeated_section_updates_region_5_and_plays_the_cue(
 
     qtbot.keyClick(window.region_3, Qt.Key.Key_Right)  # measure 1 -> measure 2 (repeat opens here)
 
-    assert _region_5_labels(window) == ["Repeat start: measure 2", "Repeat end: measure 3"]
+    assert _region_5_labels(window) == ["Repeat measures 2 to 3"]
     assert len(null_synth.performance_cues) == 1
 
 
@@ -52,10 +52,7 @@ def test_performance_cue_fires_again_when_leaving_a_repeated_section(
         qtbot.keyClick(window.region_3, Qt.Key.Key_Right)
     null_synth.performance_cues.clear()
 
-    assert _region_5_labels(window) == [
-        "Ending 2 start: measure 4",
-        "Ending 2 end: measure 4",
-    ]
+    assert _region_5_labels(window) == ["Ending 2 measure 4"]
 
 
 def test_ctrl_home_on_region_5_jumps_to_the_span_start(
@@ -63,7 +60,7 @@ def test_ctrl_home_on_region_5_jumps_to_the_span_start(
 ):
     load_and_wait(window, qtbot, repeats_and_endings_score)
     qtbot.keyClick(window.region_3, Qt.Key.Key_Right)  # -> measure 2 note 1 (repeat span active)
-    window.region_5.setCurrentRow(0)  # "Repeat start: measure 2"
+    window.region_5.setCurrentRow(0)  # "Repeat measures 2 to 3"
 
     qtbot.keyClick(window.region_5, Qt.Key.Key_Home, Qt.KeyboardModifier.ControlModifier)
 
@@ -78,7 +75,7 @@ def test_ctrl_end_on_region_5_jumps_to_the_last_note_of_the_end_bar(
     not the first)."""
     load_and_wait(window, qtbot, repeats_and_endings_score)
     qtbot.keyClick(window.region_3, Qt.Key.Key_Right)  # -> measure 2 note 1
-    window.region_5.setCurrentRow(1)  # "Repeat end: measure 3"
+    window.region_5.setCurrentRow(0)  # "Repeat measures 2 to 3" - one row, both jump targets
 
     qtbot.keyClick(window.region_5, Qt.Key.Key_End, Qt.KeyboardModifier.ControlModifier)
 
@@ -96,7 +93,7 @@ def test_performance_cue_refires_when_arrowing_back_onto_a_beginning_repeat_targ
     onto the first note in bar 1" and must re-ding even though Region 5's
     row set (the same repeat span) hasn't changed."""
     load_and_wait(window, qtbot, unmatched_backward_repeat_score)  # starts on measure 1, span already active
-    assert _region_5_labels(window) == ["Repeat start: measure 1", "Repeat end: measure 2"]
+    assert _region_5_labels(window) == ["Repeat measures 1 to 2"]
 
     qtbot.keyClick(window.region_3, Qt.Key.Key_Right)  # -> measure 2 (same active span, no refire)
     null_synth.performance_cues.clear()

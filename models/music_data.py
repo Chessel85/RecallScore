@@ -17,6 +17,7 @@ from models.find_index import FindIndex
 from models.find_target import FindTarget
 from models.hairpin_span import HairpinSpan
 from models.key_signatures import key_signature_display_name
+from models import marking_labels
 from models.mixer_settings import MixerSettings
 from models.navigation_jump import NavigationJump
 from models.note_data import NoteData
@@ -28,6 +29,7 @@ from models.performance_rows import PerformanceRows
 from models.playback_event_builder import PlaybackEventBuilder
 from models.playback_jump_state import PlaybackJumpState
 from models.refresh_settings import RefreshSettings
+from models.region3_row import NoteRow, Region3Row
 from models.repeat_span import RepeatSpan
 from models.score_config_data import ScoreConfig
 from models.score_formats import family_for_path
@@ -793,7 +795,36 @@ class MusicData:
         return self.renderer.format_note_for_region_3(note)
 
     def get_region_3_data(self) -> List[str]:
+        """The plain-text row list every existing caller uses - a thin
+        wrapper over get_region_3_rows() (S2), so nothing outside this
+        stage's own callers needs to change."""
+        return [row.text for row in self.renderer.region_3_data()]
+
+    def get_region_3_rows(self) -> List[Region3Row]:
+        """See NoteRenderer.region_3_data - the typed rows behind
+        get_region_3_data(), for callers that need to tell a note row from
+        a marking row (PerformanceMarkingsStrategy.md section 15)."""
         return self.renderer.region_3_data()
+
+    def note_indices_from_selection(self, selected_indices: List[int]) -> List[int]:
+        """Region 4's build (RegionPresenter.on_region_3_selection_changed/
+        announce_attribute_by_number) reads Region 3's selection by index.
+        A marking row's index carries no note, so it is dropped here before
+        those consumers pool attributes across a selection - a marking
+        should never inject its own fields ("text", "measure"...) into a
+        chord's merged attribute list. The one exception is a selection made
+        up ENTIRELY of marking rows (including a lone one): there the
+        original indices pass through unfiltered, so selecting just a Stave
+        Text/Rehearsal row still shows its own attributes exactly as before
+        this row typing existed - a bare accessor call
+        (get_region_4_rows_for_indices) is unaffected either way, since it
+        never routes through this filter."""
+        rows = self.get_region_3_rows()
+        note_only = [
+            i for i in selected_indices
+            if 0 <= i < len(rows) and isinstance(rows[i], NoteRow)
+        ]
+        return note_only if note_only else selected_indices
 
     def get_region_4_data_for_indices(self, selected_indices: List[int]) -> Dict[str, str]:
         return self.renderer.region_4_data_for_indices(selected_indices)
@@ -1125,15 +1156,10 @@ class MusicData:
 
     @staticmethod
     def _bar_beat_label(bar_word: str, measure: int, beat_position: float) -> str:
-        """"bar N" on the downbeat (the bar number already pins it down, and
-        repeat/ending rows are always this case since barlines fall at
-        measure boundaries); "bar N beat B" otherwise, worded exactly as
-        get_status_bar_fields does so it reads the same everywhere. Only
-        markers actually falling mid-bar name a beat (user's decision)."""
-        if float(beat_position) == 1.0:
-            return f"{bar_word} {measure}"
-        beat_str = str(int(beat_position)) if float(beat_position).is_integer() else str(beat_position)
-        return f"{bar_word} {measure} beat {beat_str}"
+        """Delegates to models.marking_labels, the single source of this
+        wording (invariant 8) - kept here as a thin wrapper since
+        performance_rows.py calls it as `data._bar_beat_label(...)`."""
+        return marking_labels.bar_beat_label(bar_word, measure, beat_position)
 
     def _marking_part_prefix(self, part_id: str, contributing_part_ids) -> str:
         """D5: a Region 5 / Performance Report row for a per-part marking is

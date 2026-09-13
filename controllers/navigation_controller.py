@@ -175,9 +175,15 @@ class NavigationController(QObject):
         """Region 5's Ctrl+Home/Ctrl+End (Ref 29). `row` is the focused
         PerformanceRegionRow, passed in rather than read off the widget.
 
-        A hairpin row carries jump_target_quarters, because a wedge can
-        start or stop mid-measure; a repeat/ending row has None and resolves
-        by measure, barlines falling only at measure boundaries. Ctrl+End on
+        A row carries two jump targets (PerformanceMarkingsStrategy.md
+        section 6): the start target (jump_target_measure/_quarters) and
+        the end target (end_target_measure/_quarters). A point/structural
+        row has only one position, so end_target_measure is None and both
+        Ctrl+Home and Ctrl+End resolve to the start target.
+
+        A hairpin/line row carries *_quarters, because a wedge can start or
+        stop mid-measure; a repeat/ending row has None there and resolves by
+        measure, barlines falling only at measure boundaries. Ctrl+End on
         one of those lands on the LAST sounding note of the end bar (the
         user's decision) - the app's only "last event in a measure" target.
         """
@@ -185,12 +191,17 @@ class NavigationController(QObject):
         if not self.music_data or row is None:
             return
 
-        if row.jump_target_quarters is not None:
-            index = self.music_data.slice_index_at_or_after_quarters(row.jump_target_quarters)
-        elif is_start:
-            index = self.music_data.first_visible_event_index_of_measure(row.jump_target_measure)
+        if is_start or row.end_target_measure is None:
+            measure, quarters = row.jump_target_measure, row.jump_target_quarters
         else:
-            index = self.music_data.last_visible_event_index_of_measure(row.jump_target_measure)
+            measure, quarters = row.end_target_measure, row.end_target_quarters
+
+        if quarters is not None:
+            index = self.music_data.slice_index_at_or_after_quarters(quarters)
+        elif is_start:
+            index = self.music_data.first_visible_event_index_of_measure(measure)
+        else:
+            index = self.music_data.last_visible_event_index_of_measure(measure)
 
         if index is None:
             self.boundary_hit.emit()
