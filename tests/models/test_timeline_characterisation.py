@@ -182,10 +182,36 @@ def test_articulation_captured_from_notations_articulations(timeline, dynamics_a
 
 
 def test_ornament_captured_from_notations_ornaments(timeline, dynamics_articulation_fingering_score):
+    """Stage 10: ornaments are split out of the merged articulation field
+    into their own findable/toggleable `ornament` attribute."""
     md = timeline(dynamics_articulation_fingering_score)
 
     f5 = _note_by_pitch(md, "F", 5)
-    assert f5.articulation == "trill"
+    assert f5.ornament == "trill"
+    assert f5.articulation is None
+
+
+def test_breath_mark_and_caesura_read_from_both_articulations_and_bare_notations(
+    timeline, breath_mark_caesura_score
+):
+    """Stage 10: previously only the conventional notations/articulations/
+    breath-mark|caesura location was read - a bare notations/breath-mark or
+    notations/caesura (some exporters' choice) fell into the D6 catch-all
+    instead of the `articulation` attribute. Both locations now read the
+    same value."""
+    md = timeline(breath_mark_caesura_score)
+
+    c4 = _note_by_pitch(md, "C", 4)  # nested inside <articulations>
+    d4 = _note_by_pitch(md, "D", 4)  # bare notations/breath-mark
+    assert c4.articulation == "breath mark"
+    assert d4.articulation == "breath mark"
+    assert c4.other_notation is None
+    assert d4.other_notation is None
+
+    e4 = _note_by_pitch(md, "E", 4)  # nested inside <articulations>
+    f4 = _note_by_pitch(md, "F", 4)  # bare notations/caesura
+    assert e4.articulation == "caesura"
+    assert f4.articulation == "caesura"
 
 
 def test_piano_fingering_captured_on_both_staves(timeline, dynamics_articulation_fingering_score):

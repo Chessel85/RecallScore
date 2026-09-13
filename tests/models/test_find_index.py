@@ -34,7 +34,8 @@ def test_value_expanded_key_offers_an_any_target_plus_one_per_distinct_value(
         if t.category == "attribute" and t.key == "articulation"
     ]
 
-    assert [t.value for t in articulation] == [None, "staccato", "trill"]
+    # Stage 10: the trill moved out into its own `ornament` key.
+    assert [t.value for t in articulation] == [None, "staccato"]
     assert articulation[0].label == "articulation (any)"
     assert all(t.label == "articulation" for t in articulation[1:])
 
@@ -64,7 +65,7 @@ def test_a_value_target_matches_only_its_own_value(
 ):
     md = timeline(dynamics_articulation_fingering_score)
     staccato = _target(md, "articulation", "staccato")
-    trill = _target(md, "articulation", "trill")
+    trill = _target(md, "ornament", "trill")
 
     staccato_idx = md.find_index.sorted_candidate_indices(staccato)
     trill_idx = md.find_index.sorted_candidate_indices(trill)
@@ -98,8 +99,9 @@ def test_available_targets_with_counts_reports_position_counts(
     md = timeline(dynamics_articulation_fingering_score)
     counts = dict(md.available_find_targets_with_counts())
 
+    # Stage 10: the trill is now `ornament`, not `articulation`.
     any_articulation = _target(md, "articulation")
-    assert counts[any_articulation] == 2  # staccato slice + trill slice
+    assert counts[any_articulation] == 1  # staccato slice only
 
 
 def test_a_chord_of_all_staccato_notes_counts_as_one_occurrence(
@@ -124,8 +126,11 @@ def test_no_offered_row_ever_reads_zero_occurrences(
 def test_the_count_equals_the_number_of_alt_right_presses_to_wrap(
     timeline, dynamics_articulation_fingering_score
 ):
+    # Stage 10 split articulation/ornament into two single-occurrence keys
+    # (staccato, trill) - fingering (two distinct positions, G5 and C3) is
+    # what still gives this test a real multi-step wrap to exercise.
     md = timeline(dynamics_articulation_fingering_score)
-    target = _target(md, "articulation")  # any: 2 occurrences
+    target = _target(md, "fingering")  # any: 2 occurrences
     (count,) = [c for t, c in md.available_find_targets_with_counts() if t == target]
     assert count == 2
 

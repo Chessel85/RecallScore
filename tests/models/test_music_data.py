@@ -2024,7 +2024,7 @@ def test_available_find_targets_excludes_core_attribute_keys(
 
     keys = {t.key for t in md.available_find_targets() if t.category == "attribute"}
 
-    assert keys == {"dynamic", "articulation", "fingering", "pluck"}
+    assert keys == {"dynamic", "articulation", "ornament", "fingering", "pluck"}
     assert not (keys & MusicData.CORE_ATTRIBUTE_KEYS)
 
 
@@ -2038,20 +2038,24 @@ def test_available_find_targets_attribute_labels_and_order_match_attribute_order
     # The "any" targets (value is None) appear in attribute_order order, one
     # per present optional key.
     any_targets = [t for t in attribute_targets if t.value is None]
-    assert [t.key for t in any_targets] == ["dynamic", "articulation", "fingering", "pluck"]
+    assert [t.key for t in any_targets] == [
+        "dynamic", "articulation", "ornament", "fingering", "pluck",
+    ]
 
     # A value-expanded key's per-value targets (D1/D2) sit immediately after
-    # its "any" target, sharing the plain attribute label.
+    # its "any" target, sharing the plain attribute label. Stage 10: the
+    # trill moved out of articulation into its own ornament key.
     keys_in_order = [t.key for t in attribute_targets]
     assert keys_in_order == [
         "dynamic", "dynamic",  # any + forte
-        "articulation", "articulation", "articulation",  # any + staccato + trill
+        "articulation", "articulation",  # any + staccato
+        "ornament", "ornament",  # any + trill
         "fingering",  # not value-expanded
         "pluck",  # not value-expanded
     ]
     for t in attribute_targets:
         base = attribute_label(t.key, md.uk_terms)
-        expected = f"{base} (any)" if (t.value is None and t.key in {"dynamic", "articulation"}) else base
+        expected = f"{base} (any)" if (t.value is None and t.key in {"dynamic", "articulation", "ornament"}) else base
         assert t.label == expected
 
 
@@ -2067,7 +2071,7 @@ def test_available_find_targets_attributes_respect_the_active_voice_filter(
 
     keys = {t.key for t in md.available_find_targets() if t.category == "attribute"}
 
-    assert keys == {"dynamic", "articulation", "fingering"}
+    assert keys == {"dynamic", "articulation", "ornament", "fingering"}
 
 
 def test_available_find_targets_lists_only_marking_kinds_actually_present(
@@ -2137,18 +2141,17 @@ def _find_target(md, key, category="attribute"):
 def test_find_occurrence_for_an_attribute_scans_forward_and_wraps(
     timeline, dynamics_articulation_fingering_score
 ):
-    """articulation occurs at beat 2 (D5 staccato) and beat 3 (F5 trill) of
-    the piano part's own slices."""
+    """Stage 10: the trill moved out of articulation into its own ornament
+    key, so articulation now has a single occurrence (D5 staccato, beat 2) -
+    it wraps straight back to itself."""
     md = timeline(dynamics_articulation_fingering_score)
     target = _find_target(md, "articulation")
 
     staccato_index = md.find_occurrence(target, from_index=0, direction=1)
-    trill_index = md.find_occurrence(target, from_index=staccato_index, direction=1)
-    wrapped_index = md.find_occurrence(target, from_index=trill_index, direction=1)
+    wrapped_index = md.find_occurrence(target, from_index=staccato_index, direction=1)
 
     assert md.timeline_slices[staccato_index].beat_position == 2.0
-    assert md.timeline_slices[trill_index].beat_position == 3.0
-    assert wrapped_index == staccato_index, "no further occurrence ahead - wraps to the first"
+    assert wrapped_index == staccato_index, "the only occurrence - wraps to itself"
 
 
 def test_find_occurrence_for_an_attribute_scans_backward_and_wraps(
@@ -2158,13 +2161,26 @@ def test_find_occurrence_for_an_attribute_scans_backward_and_wraps(
     target = _find_target(md, "articulation")
     last_index = md.last_event_index()
 
-    trill_index = md.find_occurrence(target, from_index=last_index, direction=-1)
-    staccato_index = md.find_occurrence(target, from_index=trill_index, direction=-1)
+    staccato_index = md.find_occurrence(target, from_index=last_index, direction=-1)
     wrapped_index = md.find_occurrence(target, from_index=staccato_index, direction=-1)
 
-    assert md.timeline_slices[trill_index].beat_position == 3.0
     assert md.timeline_slices[staccato_index].beat_position == 2.0
-    assert wrapped_index == trill_index, "no further occurrence behind - wraps to the last"
+    assert wrapped_index == staccato_index, "the only occurrence - wraps to itself"
+
+
+def test_find_occurrence_for_ornament_scans_the_trill(
+    timeline, dynamics_articulation_fingering_score
+):
+    """Stage 10: the trill (F5, beat 3) is now the sole occurrence of the
+    separate `ornament` key."""
+    md = timeline(dynamics_articulation_fingering_score)
+    target = _find_target(md, "ornament")
+
+    trill_index = md.find_occurrence(target, from_index=0, direction=1)
+    wrapped_index = md.find_occurrence(target, from_index=trill_index, direction=1)
+
+    assert md.timeline_slices[trill_index].beat_position == 3.0
+    assert wrapped_index == trill_index, "the only occurrence - wraps to itself"
 
 
 def test_find_occurrence_for_an_attribute_with_no_occurrences_returns_none(

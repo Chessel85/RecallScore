@@ -47,10 +47,12 @@ def test_find_dialog_lists_attributes_and_markings_by_category_and_label(
     labels = [dialog.target_list.item(i).text() for i in range(dialog.target_list.count())]
 
     # articulation is value-expanded (D2): an "(any)" row plus one row per
-    # distinct value, each carrying its occurrence count (D13).
-    assert "Attribute: articulation (any), 2 occurrences" in labels
+    # distinct value, each carrying its occurrence count (D13). Stage 10
+    # split the trill out into its own `ornament` key.
+    assert "Attribute: articulation (any), 1 occurrence" in labels
     assert "Attribute: articulation: staccato, 1 occurrence" in labels
-    assert "Attribute: articulation: trill, 1 occurrence" in labels
+    assert "Attribute: ornament (any), 1 occurrence" in labels
+    assert "Attribute: ornament: trill, 1 occurrence" in labels
     assert "Attribute: dynamic (any), 1 occurrence" in labels
     # fingering is NOT value-expanded - one plain row, no "(any)" suffix.
     assert any(label.startswith("Attribute: fingering,") for label in labels)
@@ -151,22 +153,26 @@ def test_alt_right_and_alt_left_cycle_through_occurrences_of_the_armed_target(
     two real WindowShortcut-context key events back to back onto an
     offscreen, possibly-not-yet-torn-down-from-the-previous-test top-level
     window is flaky in this harness (Qt's ambiguous-shortcut resolution),
-    independent of whether the feature itself works."""
+    independent of whether the feature itself works.
+
+    Stage 10 split the trill out of `articulation` into its own `ornament`
+    key, so `fingering` (two positions, beat 1 and beat 4) is what now
+    gives this test a same-target multi-step cycle."""
     load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
     target = next(
         t for t in window._music_data.available_find_targets()
-        if t.category == "attribute" and t.key == "articulation"
+        if t.category == "attribute" and t.key == "fingering"
     )
     window.navigation.arm_find_target(target)
 
     window.find_next()
-    assert window._music_data.get_current_slice().beat_position == 2.0  # staccato
+    assert window._music_data.get_current_slice().beat_position == 4.0  # G5, fingering 1
 
     window.find_next()
-    assert window._music_data.get_current_slice().beat_position == 3.0  # trill
+    assert window._music_data.get_current_slice().beat_position == 1.0  # wraps to beat 1
 
     window.find_previous()
-    assert window._music_data.get_current_slice().beat_position == 2.0  # back to staccato
+    assert window._music_data.get_current_slice().beat_position == 4.0  # back to beat 4
 
 
 def test_region_4_keeps_attribute_key_focus_across_a_find_jump(
@@ -177,22 +183,26 @@ def test_region_4_keeps_attribute_key_focus_across_a_find_jump(
     The re-anchoring algorithm itself is covered directly by
     tests/widgets/test_region4_list_widget.py; this proves RegionPresenter
     really routes MusicData.get_region_4_rows_for_indices into
-    Region4ListWidget.refresh_list end to end, with no mocks."""
+    Region4ListWidget.refresh_list end to end, with no mocks.
+
+    Stage 10 split the trill out of `articulation` into its own `ornament`
+    key, so `fingering` (present at beat 1 and beat 4) is what now gives
+    this test the same key at two different positions."""
     load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
     target = next(
         t for t in window._music_data.available_find_targets()
-        if t.category == "attribute" and t.key == "articulation"
+        if t.category == "attribute" and t.key == "fingering"
     )
     window.navigation.arm_find_target(target)
-    window.find_next()  # beat 2: D5 alone, articulation=staccato
-    articulation_row = window.region_4.count() - 1
-    assert window.region_4.item(articulation_row).text() == "articulation: staccato"
-    window.region_4.setCurrentRow(articulation_row)
+    window.find_next()  # beat 4: G5 alone, fingering=1
+    fingering_row = window.region_4.count() - 1
+    assert window.region_4.item(fingering_row).text() == "fingering: 1"
+    window.region_4.setCurrentRow(fingering_row)
 
-    window.find_next()  # beat 3: F5 (articulation=trill) + G4 (nothing extra)
+    window.find_next()  # wraps to beat 1: a 3-note chord, C3 among them at fingering=5
 
-    assert window.region_4.item(window.region_4.currentRow()).text() == "note 1 articulation: trill"
-    assert window.region_4.item(window.region_4.currentRow()).data(Qt.ItemDataRole.UserRole) == "articulation"
+    assert window.region_4.item(window.region_4.currentRow()).text() == "note 3 fingering: 5"
+    assert window.region_4.item(window.region_4.currentRow()).data(Qt.ItemDataRole.UserRole) == "fingering"
 
 
 def test_find_next_before_find_has_been_used_plays_the_boundary_cue_and_does_not_move(
@@ -261,7 +271,7 @@ def test_find_previous_plays_the_boundary_cue_when_it_wraps_back_to_the_last_occ
     load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
     target = next(
         t for t in window._music_data.available_find_targets()
-        if t.category == "attribute" and t.key == "articulation"
+        if t.category == "attribute" and t.key == "ornament"
     )
     window.navigation.arm_find_target(target)
     null_synth.played.clear()

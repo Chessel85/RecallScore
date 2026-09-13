@@ -41,6 +41,12 @@ class NoteData:
     string: Optional[int] = None
     dynamic: Optional[str] = None
     articulation: Optional[str] = None
+    # Stage 10 (PerformanceMarkingsStrategy.md section 14): notations/
+    # ornaments/* children (trill, turn, mordent, tremolo, ...), split out
+    # of articulation into their own findable/toggleable/orderable
+    # attribute. Label-only, like articulation - never audibly realized
+    # (see CLAUDE.md's "Known gaps").
+    ornament: Optional[str] = None
     fingering: Optional[str] = None
     pluck: Optional[str] = None
     duration_name_us: Optional[str] = None

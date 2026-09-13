@@ -38,7 +38,7 @@ class FindTarget:
 # phases; listing them now is harmless - a key absent from the score simply
 # never expands.
 VALUE_EXPANDED_KEYS = frozenset({
-    "articulation", "technique", "dynamic", "accidental",
+    "articulation", "ornament", "technique", "dynamic", "accidental",
     "slur", "glissando", "tuplet",
     "chord symbol", "other notation",
 })

@@ -794,7 +794,7 @@ class MusicData:
     DISPLAY_ATTRIBUTE_ORDER = [
         "step", "octave", "text", "duration", "measure", "beat position",
         "part", "stave", "voice", "midi", "string", "fret",
-        "dynamic", "articulation", "fingering", "pluck", "strum",
+        "dynamic", "articulation", "ornament", "fingering", "pluck", "strum",
         # P1 (D9): note-attached notations, grouped
         # after the existing optional tail. "other notation" is the D6
         # catch-all and stays last (a pinned move_attribute_order test

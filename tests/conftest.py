@@ -386,6 +386,16 @@ def clef_change_score() -> str:
 
 
 @pytest.fixture
+def breath_mark_caesura_score() -> str:
+    """Stage 10 (PerformanceMarkingsStrategy.md section 14): one part, two
+    bars. breath-mark and caesura each appear once nested inside
+    <articulations> (the conventional location) and once written directly
+    under <notations> (the location some exporters use instead) - both
+    must read identically."""
+    return _require(FIXTURES_DIR / "breath_mark_caesura.musicxml")
+
+
+@pytest.fixture
 def double_barline_score() -> str:
     """P4 (M6/D16): three 4/4 bars - a <bar-style>light-light</bar-style>
     ending bar 2 (one "double_barline" mark) and a light-heavy ending the

@@ -96,6 +96,7 @@ class NoteRenderer:
             ("fret", note.fret),
             ("dynamic", note.dynamic),
             ("articulation", note.articulation),
+            ("ornament", note.ornament),
             ("fingering", note.fingering),
             ("pluck", note.pluck),
             ("strum", note.strum),

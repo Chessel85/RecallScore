@@ -561,6 +561,11 @@ _RECOGNISED_NOTATION_TAGS = frozenset({
     "tied", "slur", "tuplet", "glissando", "slide", "ornaments",
     "technical", "articulations", "dynamics", "fermata",
     "arpeggiate", "non-arpeggiate", "accidental-mark", "footnote", "level",
+    # Stage 10: a bare notations/breath-mark|caesura (some exporters' choice,
+    # instead of nesting under <articulations>) is read into `articulation`
+    # by _read_notations - recognised here too so it isn't ALSO swept into
+    # the other_notation catch-all below.
+    "breath-mark", "caesura",
 })
 
 
@@ -588,6 +593,8 @@ class _NoteMarks:
     fingering: Optional[str] = None
     pluck: Optional[str] = None
     articulation: Optional[str] = None
+    # Stage 10: notations/ornaments/* children, split out of articulation.
+    ornament: Optional[str] = None
     dynamic: Optional[str] = None
     strum: Optional[str] = None
     lyric_text: Optional[str] = None
@@ -1676,6 +1683,7 @@ class TimelineBuilder:
             string=marks.string_num,
             dynamic=marks.dynamic,
             articulation=marks.articulation,
+            ornament=marks.ornament,
             fingering=marks.fingering,
             pluck=marks.pluck,
             duration_name_us=duration_name_us,
@@ -1862,14 +1870,20 @@ class TimelineBuilder:
             marks.fingering = ", ".join(fing_texts) or None
             marks.pluck = ", ".join(pluck_texts) or None
 
-        # Articulations and ornaments get the same spoken-word treatment, so
-        # both are merged into one comma-joined field.
-        artic_tags = [
-            child.tag
-            for parent_tag in ("articulations", "ornaments")
-            for child in elem.findall(f"notations/{parent_tag}/*")
-        ]
+        # Stage 10 (PerformanceMarkingsStrategy.md section 14): ornaments
+        # split out into their own findable `ornament` attribute, separately
+        # toggleable/orderable from `articulation`. breath-mark/caesura are
+        # read from BOTH the conventional notations/articulations/* location
+        # and a bare notations/breath-mark|caesura some exporters use
+        # instead, so the value no longer depends on where the file put it.
+        artic_tags = [child.tag for child in elem.findall("notations/articulations/*")]
+        for tag in ("breath-mark", "caesura"):
+            if tag not in artic_tags and elem.find(f"notations/{tag}") is not None:
+                artic_tags.append(tag)
         marks.articulation = ", ".join(articulation_name(t) for t in artic_tags) or None
+
+        ornament_tags = [child.tag for child in elem.findall("notations/ornaments/*")]
+        marks.ornament = ", ".join(articulation_name(t) for t in ornament_tags) or None
 
         # A direct notations/dynamics is the rarer exporter form; being
         # note-specific, it beats an offset-matched <direction>.
