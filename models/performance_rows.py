@@ -285,56 +285,64 @@ class PerformanceRows:
             lambda m: "Da capo" if m.kind == "dacapo" else "Dal segno",
         )
 
-        # S7: a one-shot alert - unlike the three span kinds above, this has
-        # no start/end pair, it just fires once at the transition itself.
-        # "Previous" is the immediately preceding entry in whichever list
-        # slice_ came from (data.timeline_slices), so this works whether or
-        # not the metronome's synthetic beat markers are currently spliced
-        # in - a marker slice carries the same real key/time_sig/tempo as
-        # its own position, same as a real one. Never fires at index 0 (the
-        # score's OPENING key/time signature/tempo - already shown in
-        # Region 1 and the status bar, alerting on it here on every load
-        # would just be noise). A score whose key never changes - the
-        # common case - therefore never gets a key-signature row at all;
-        # that silence is this same "no alert on the opening value, no
-        # alert on no-op repetition" rule, not a separate suppression.
-        previous = data.timeline_slices[resolved_index - 1] if resolved_index > 0 else None
-        if previous is not None:
-            # A key-signature override (S6) forces one constant display key
-            # score-wide, so the file's own per-slice key_fifths can no
-            # longer disagree with itself in effect - suppress the alert
-            # while one is active rather than comparing raw, overridden-away
-            # values.
-            if data.key_signature_override_fifths is None and previous.key_fifths != slice_.key_fifths:
-                key_name = key_signature_display_name(slice_.key_fifths, None)
-                rows.append(
-                    PerformanceRegionRow(
-                        label=f"Key signature change: {key_name}",
-                        jump_target_measure=slice_.measure,
-                        jump_target_quarters=slice_.quarters_from_start,
-                    )
+        # S7/stage 6: a one-shot alert - unlike the three span kinds above,
+        # this has no start/end pair, it just fires once at the transition
+        # itself. structural_change_labels is the single source for "did a
+        # key/time/tempo change land exactly here" - shared with the note
+        # list's own structural rows (models/marking_rows.py) and the
+        # change cue (RegionPresenter.refresh_region_5), so the three can't
+        # disagree about what counts as a change (invariant 8).
+        for _kind, label in self.structural_change_labels(resolved_index):
+            rows.append(
+                PerformanceRegionRow(
+                    label=label,
+                    jump_target_measure=slice_.measure,
+                    jump_target_quarters=slice_.quarters_from_start,
                 )
-            if previous.time_sig != slice_.time_sig:
-                ts_num, ts_den = slice_.time_sig
-                rows.append(
-                    PerformanceRegionRow(
-                        label=f"Time signature change: {ts_num}/{ts_den}",
-                        jump_target_measure=slice_.measure,
-                        jump_target_quarters=slice_.quarters_from_start,
-                    )
-                )
-            if data._tempo_change_at(resolved_index - 1) != data._tempo_change_at(resolved_index):
-                number = data._format_tempo_number(data.score_tempo_display_bpm(resolved_index))
-                unit = data.tempo_beat_unit_name_at(resolved_index)
-                rows.append(
-                    PerformanceRegionRow(
-                        label=f"Tempo change: {number} {unit} notes per minute",
-                        jump_target_measure=slice_.measure,
-                        jump_target_quarters=slice_.quarters_from_start,
-                    )
-                )
+            )
 
         return rows
+
+    def structural_change_labels(self, index: Optional[int] = None) -> List[Tuple[str, str]]:
+        """(kind, label) pairs - kind in "key"/"time"/"tempo" - for a key
+        signature, time signature, or immediate tempo change landing
+        exactly at `index` (default: the cursor). "Previous" is the
+        immediately preceding entry in whichever list the resolved slice
+        came from (data.timeline_slices), so this works whether or not the
+        metronome's synthetic beat markers are currently spliced in - a
+        marker slice carries the same real key/time_sig/tempo as its own
+        position, same as a real one.
+
+        Never returns anything for index 0 (or an out-of-range index) - the
+        score's OPENING key/time signature/tempo are already shown in
+        Region 1 and the status bar; alerting on them here on every load
+        would just be noise. A score whose key never changes - the common
+        case - therefore never gets a key-signature entry at all; that
+        silence is this same "no alert on the opening value, no alert on
+        no-op repetition" rule, not a separate suppression."""
+        data = self.data
+        resolved_index = data.active_event_index if index is None else index
+        if not (0 < resolved_index < len(data.timeline_slices)):
+            return []
+        slice_ = data.timeline_slices[resolved_index]
+        previous = data.timeline_slices[resolved_index - 1]
+        out: List[Tuple[str, str]] = []
+
+        # A key-signature override (S6) forces one constant display key
+        # score-wide, so the file's own per-slice key_fifths can no longer
+        # disagree with itself in effect - suppress the alert while one is
+        # active rather than comparing raw, overridden-away values.
+        if data.key_signature_override_fifths is None and previous.key_fifths != slice_.key_fifths:
+            key_name = key_signature_display_name(slice_.key_fifths, None)
+            out.append(("key", marking_labels.key_signature_change_label(key_name)))
+        if previous.time_sig != slice_.time_sig:
+            ts_num, ts_den = slice_.time_sig
+            out.append(("time", marking_labels.time_signature_change_label(ts_num, ts_den)))
+        if data._tempo_change_at(resolved_index - 1) != data._tempo_change_at(resolved_index):
+            number = data._format_tempo_number(data.score_tempo_display_bpm(resolved_index))
+            unit = data.tempo_beat_unit_name_at(resolved_index)
+            out.append(("tempo", marking_labels.tempo_change_label(number, unit)))
+        return out
 
     def get_performance_report_lines(self) -> List[str]:
         """Ref 29: the Performance Report's content - a whole-score summary,

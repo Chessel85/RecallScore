@@ -163,7 +163,7 @@ class RegionPresenter(QObject):
         if play_all:
             self.audition_requested.emit()
 
-        self.refresh_region_5()
+        self.refresh_region_5(allow_cue=play_all)
 
     def _announce_measure_change(self) -> None:
         """Speaks just the new bar number - "Measure 6." - via Qt's
@@ -310,18 +310,25 @@ class RegionPresenter(QObject):
         message = f"{label}, {position}." if label else f"{position.capitalize()}."
         accessible_announcer.announce(self.region_3, message)
 
-    def refresh_region_5(self) -> None:
-        """Ref 29: recomputes Region 5's rows for the current position.
+    def refresh_region_5(self, allow_cue: bool = True) -> None:
+        """Ref 29 / PerformanceMarkingsStrategy.md section 7: recomputes
+        Region 5's rows for the current position.
 
-        Skips the rebuild entirely (not just the cue) when the label set is
-        unchanged, so Region 5's focus and selection survive navigation
-        within the same span, and the cue only fires on a real change -
-        EXCEPT landing back on the first note of measure 1 when a repeat
-        sends the piece back there (MusicData.is_at_beginning_repeat_target,
-        user-requested): that always re-fires the cue, with no list rebuild,
-        since arrowing back into an already-displayed repeat span (or
-        starting playback from bar 1 without moving the cursor first) would
-        otherwise stay silent under the ordinary dedup above."""
+        Skips the rebuild entirely when the label set is unchanged, so
+        Region 5's focus and selection survive navigation within the same
+        span. The change cue no longer fires on every list rebuild - that
+        generic "Region 5 changed" trigger was retired (section 7) - it
+        fires whenever the cursor's CURRENT position carries a structural
+        change (a key signature, time signature, or immediate tempo change:
+        MusicData.structural_change_labels, which already suppresses index
+        0), independent of whether the row list itself needed rebuilding -
+        landing back on a structural-change event via a repeat re-fires it,
+        same as any other landing.
+
+        `allow_cue=False` (update_timeline_views passes play_all through
+        here) is for a refresh that isn't a real navigation - a Region 2
+        filter toggle at the SAME cursor position must not replay the cue
+        it never actually re-triggered."""
         if not self.music_data:
             return
         md = self.music_data
@@ -330,19 +337,19 @@ class RegionPresenter(QObject):
         struct_labels = [r.label for r in structural]
         if struct_labels != self.last_performance_row_labels:
             self.region_5.refresh_list(context, structural)
-            self.session.synth.play_performance_cue(*performance_cue_event())
             self.last_performance_row_labels = struct_labels
             self.last_context_labels = [r.label for r in context]
-            return
-        ctx_labels = [r.label for r in context]
-        if ctx_labels != self.last_context_labels:
-            # P2: an intra-section chord/lyric change - relabel in place,
-            # no cue. Fall back to a full rebuild only if the row count
-            # changed (a context row appeared or vanished).
-            if not self.region_5.update_context_rows(context):
-                self.region_5.refresh_list(context, structural)
-            self.last_context_labels = ctx_labels
-        elif md.is_at_beginning_repeat_target():
+        else:
+            ctx_labels = [r.label for r in context]
+            if ctx_labels != self.last_context_labels:
+                # P2: an intra-section chord/lyric change - relabel in
+                # place. Fall back to a full rebuild only if the row count
+                # changed (a context row appeared or vanished).
+                if not self.region_5.update_context_rows(context):
+                    self.region_5.refresh_list(context, structural)
+                self.last_context_labels = ctx_labels
+
+        if allow_cue and md.structural_change_labels():
             self.session.synth.play_performance_cue(*performance_cue_event())
 
     def select_all_region_3(self) -> None:

@@ -87,7 +87,12 @@ def test_measure_navigation_announces_the_new_bar_number_without_changing_row_te
 
     window.navigation.measure_right()  # bar 1 -> bar 2, first note G
 
-    assert window.region_3.item(0).text() == "G"
+    # Stage 6: bar 2 also opens with an immediate tempo change, so a
+    # "Tempo change: ..." row now precedes the note - the note's own row
+    # text is what must stay untouched by the announcement, wherever it
+    # lands.
+    row_texts = [window.region_3.item(i).text() for i in range(window.region_3.count())]
+    assert row_texts[-1] == "G"
     assert announcements == ["Measure 2."]
 
 

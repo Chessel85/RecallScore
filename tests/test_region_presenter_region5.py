@@ -1,9 +1,12 @@
 # tests/test_region_presenter_region5.py
 """P2: Region 5's live Section/Chord/Lyric context rows (UG "Tab" import).
 
-An intra-section chord or lyric change relabels the context rows in place
-and does NOT re-fire the performance-change cue; crossing a section
-boundary is a structural change and rebuilds the list with a cue.
+An intra-section chord or lyric change relabels the context rows in place;
+crossing a section boundary rebuilds the whole list. Neither one fires the
+performance cue any more (PerformanceMarkingsImplementationPlan.md stage 6):
+a section is not one of the three structural changes (key/time/tempo) the
+cue was narrowed to - see tests/models/test_structural_change_cue.py for
+that behaviour.
 """
 from controllers.region_presenter import RegionPresenter
 from models.event_slice import EventSlice
@@ -76,20 +79,21 @@ def test_intra_section_chord_change_relabels_in_place_with_no_cue(qtbot, null_sy
 
     md.active_event_index = 0
     presenter.refresh_region_5()
-    assert len(null_synth.performance_cues) == 1  # first render always cues
+    assert null_synth.performance_cues == []  # no key/time/tempo change here
     assert "Chord: D" in _row_texts(region_5)
 
-    null_synth.performance_cues.clear()
     md.active_event_index = 1  # bar 2 - still Verse 1, chord D -> G
     presenter.refresh_region_5()
 
-    assert null_synth.performance_cues == []  # no cue for an intra-section change
+    assert null_synth.performance_cues == []
     texts = _row_texts(region_5)
     assert "Chord: G" in texts and "Lyric: two" in texts
     assert "Chord: D" not in texts
 
 
-def test_crossing_a_section_boundary_rebuilds_with_a_cue(qtbot, null_synth):
+def test_crossing_a_section_boundary_rebuilds_without_a_cue(qtbot, null_synth):
+    """A section is not one of the three structural changes the cue was
+    narrowed to (stage 6) - the list still rebuilds, but nothing sounds."""
     presenter, md, region_5 = _presenter(qtbot, null_synth)
 
     md.active_event_index = 1
@@ -99,7 +103,7 @@ def test_crossing_a_section_boundary_rebuilds_with_a_cue(qtbot, null_synth):
     md.active_event_index = 2  # bar 3 - Verse 1 -> Chorus
     presenter.refresh_region_5()
 
-    assert len(null_synth.performance_cues) == 1
+    assert null_synth.performance_cues == []
     texts = _row_texts(region_5)
     assert "Section: Chorus" in texts
     assert any(t.startswith("Section Chorus") for t in texts)

@@ -18,29 +18,18 @@ def test_region_5_shows_none_outside_any_span(window, qtbot, repeats_and_endings
     assert _region_5_labels(window) == ["None"]
 
 
-def test_navigating_into_a_repeated_section_updates_region_5_and_plays_the_cue(
+def test_navigating_into_a_repeated_section_updates_region_5_without_the_cue(
     window, qtbot, null_synth, repeats_and_endings_score
 ):
+    """PerformanceMarkingsImplementationPlan.md stage 6: the cue was
+    narrowed to key/time/immediate-tempo changes only - a repeat span is
+    not one of the three, so Region 5 still updates but nothing sounds."""
     load_and_wait(window, qtbot, repeats_and_endings_score)
     null_synth.performance_cues.clear()
 
     qtbot.keyClick(window.region_3, Qt.Key.Key_Right)  # measure 1 -> measure 2 (repeat opens here)
 
     assert _region_5_labels(window) == ["Repeat measures 2 to 3"]
-    assert len(null_synth.performance_cues) == 1
-
-
-def test_performance_cue_does_not_refire_while_the_active_span_set_is_unchanged(
-    window, qtbot, null_synth, repeats_and_endings_score
-):
-    """measure 2 has two notes (two navigable slices), both inside the same
-    repeat span - only the first move into the span should fire the cue."""
-    load_and_wait(window, qtbot, repeats_and_endings_score)
-    qtbot.keyClick(window.region_3, Qt.Key.Key_Right)  # -> measure 2, note 1
-    null_synth.performance_cues.clear()
-
-    qtbot.keyClick(window.region_3, Qt.Key.Key_Right)  # -> measure 2, note 2 (same active spans)
-
     assert null_synth.performance_cues == []
 
 
@@ -84,31 +73,27 @@ def test_ctrl_end_on_region_5_jumps_to_the_last_note_of_the_end_bar(
     assert current.notes[0].step_name == "E"
 
 
-def test_performance_cue_refires_when_arrowing_back_onto_a_beginning_repeat_target(
+def test_arrowing_back_onto_a_beginning_repeat_target_no_longer_cues(
     window, qtbot, null_synth, unmatched_backward_repeat_score
 ):
-    """unmatched_backward_repeat_score's repeat has no forward counterpart,
-    so it defaults its start to measure 1 (user-requested follow-up) -
-    stepping from measure 2 back onto measure 1's first note is "arrowing
-    onto the first note in bar 1" and must re-ding even though Region 5's
-    row set (the same repeat span) hasn't changed."""
+    """Stage 6 retires the old "landing back on a repeat's start re-dings
+    even with an unchanged row set" special case along with the generic
+    cue it was patched onto - a repeat is not a structural change, so
+    arrowing back onto one is silent now, same as any other repeat move."""
     load_and_wait(window, qtbot, unmatched_backward_repeat_score)  # starts on measure 1, span already active
     assert _region_5_labels(window) == ["Repeat measures 1 to 2"]
 
-    qtbot.keyClick(window.region_3, Qt.Key.Key_Right)  # -> measure 2 (same active span, no refire)
+    qtbot.keyClick(window.region_3, Qt.Key.Key_Right)  # -> measure 2
     null_synth.performance_cues.clear()
 
     qtbot.keyClick(window.region_3, Qt.Key.Key_Left)  # back onto measure 1 - the repeat's own target
 
-    assert len(null_synth.performance_cues) == 1
+    assert null_synth.performance_cues == []
 
 
-def test_performance_cue_fires_when_playback_starts_from_a_beginning_repeat_target(
+def test_playback_starting_from_a_beginning_repeat_target_no_longer_cues(
     window, qtbot, null_synth, unmatched_backward_repeat_score
 ):
-    """Starting playback from bar 1 note 1 without first moving the cursor
-    elsewhere must still ding - the user's other explicit trigger, alongside
-    arrowing back onto it."""
     load_and_wait(window, qtbot, unmatched_backward_repeat_score)
     from tests.support.main_window_helpers import no_lead_in
     no_lead_in(window)  # a plain Space play, no count-in in front of the first note
@@ -116,7 +101,7 @@ def test_performance_cue_fires_when_playback_starts_from_a_beginning_repeat_targ
 
     window.toggle_play_stop()  # Space: plays from the cursor, still measure 1 note 1
 
-    assert len(null_synth.performance_cues) == 1
+    assert null_synth.performance_cues == []
     window.toggle_play_stop()  # stop, so no timer keeps running into the next test
 
 

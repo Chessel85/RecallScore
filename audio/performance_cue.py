@@ -1,13 +1,20 @@
 # audio/performance_cue.py
-"""Ref 29: the Performance region's "something changed, check Region 5" cue.
-Same plain-module shape as audio/metronome.py and audio/position_announcer.py.
+"""Ref 29: the structural change cue - "the cursor just landed on a key
+signature, time signature, or immediate tempo change" (PerformanceMarkings
+Strategy.md section 7). Same plain-module shape as audio/metronome.py and
+audio/position_announcer.py.
 
-Unlike those two, this cue isn't tied to a beat position - it fires when
-RegionPresenter.refresh_region_5 sees the active row set change, plus one
-narrow exception (MusicData.is_at_beginning_repeat_target) where it re-fires
-on an unchanged row set - so performance_cue_event() takes no argument and
-always returns the same event.
-"""
+Originally a generic "something in Region 5 changed" cue; stage 6 of the
+performance markings plan retired that broad trigger and narrowed it to
+exactly these three structural changes, since everything else that used to
+fire it now has its own note-list row where the user is already reading.
+Unlike a beat-position cue, this one isn't tied to a beat - it fires
+whenever RegionPresenter.refresh_region_5 finds
+MusicData.structural_change_labels() non-empty at the cursor's current
+position (never at index 0), so performance_cue_event() takes no argument
+and always returns the same event - one sound for all three kinds
+(decided in review: a second dimension of sound would only add something to
+learn)."""
 from typing import Tuple
 
 # One of the six reserved channels, alongside METRONOME_CHANNEL (255) and

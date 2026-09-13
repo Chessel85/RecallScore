@@ -83,6 +83,13 @@ class MarkingRows:
         for span in data.section_spans:
             _add(span, f"Section {span.label}" if span.label else "Section")
 
+        # Stage 6: key/time/immediate-tempo changes, via the same source
+        # Region 5's one-shot rows and the change cue read
+        # (structural_change_labels) - one source keeps the three from
+        # disagreeing (invariant 8). Already suppressed at index 0 there.
+        for kind, label in data.structural_change_labels():
+            rows.append(MarkingRow(text=label, marking=kind))
+
         return rows
 
     # --- part/staff-level rows (stage 5 - hairpins) --------------------

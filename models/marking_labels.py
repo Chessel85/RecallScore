@@ -34,6 +34,21 @@ def end_label(name: str) -> str:
     return f"{name} end"
 
 
+def key_signature_change_label(key_name: str) -> str:
+    """Structural change wording (strategy section 7), shared by Region 5's
+    one-shot row, the note list's row (stage 6), and the change cue's own
+    "is this a structural change" check - one source (invariant 8)."""
+    return f"Key signature change: {key_name}"
+
+
+def time_signature_change_label(numerator: int, denominator: int) -> str:
+    return f"Time signature change: {numerator}/{denominator}"
+
+
+def tempo_change_label(number: str, unit: str) -> str:
+    return f"Tempo change: {number} {unit} notes per minute"
+
+
 def range_label(
     word: str,
     start_measure: int,

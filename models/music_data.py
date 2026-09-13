@@ -1070,6 +1070,12 @@ class MusicData:
         cursor). Delegator - see PerformanceRows.get_performance_region_rows."""
         return self.performance_rows.get_performance_region_rows(index)
 
+    def structural_change_labels(self, index: Optional[int] = None) -> List[Tuple[str, str]]:
+        """See PerformanceRows.structural_change_labels - the single source
+        shared by Region 5's one-shot rows, the note list's structural rows
+        (models/marking_rows.py) and the change cue."""
+        return self.performance_rows.structural_change_labels(index)
+
     def _ensure_context_arrays(self) -> None:
         """Builds the forward-filled chord/lyric context once. Each entry is
         (display_text, onset_measure) of the last CHORDS_PART_ID / real
