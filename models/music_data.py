@@ -773,7 +773,9 @@ class MusicData:
         # after the existing optional tail. "other notation" is the D6
         # catch-all and stays last (a pinned move_attribute_order test
         # relies on that).
-        "tie", "slur", "tuplet", "grace", "arpeggio", "fermata",
+        # Stage 8: "tie" is removed here (strategy section 12) - a tied
+        # chain's duration IS the tie now, not a separate attribute.
+        "slur", "tuplet", "grace", "arpeggio", "fermata",
         "accidental", "glissando", "technique", "other notation",
         # P2 (D9): chord symbol/diagram, grouped last.
         # "chord diagram" is now the final key - the pinned

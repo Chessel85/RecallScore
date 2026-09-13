@@ -414,6 +414,26 @@ def stage7_directive_score() -> str:
 
 
 @pytest.fixture
+def stage8_tied_chain_of_three_score() -> str:
+    """Stage 8 (section 12): three tied C4 quarters, no marking on the
+    continuations - one merged attack, quarter_length 3.0."""
+    return _require(FIXTURES_DIR / "stage8_tied_chain_of_three.musicxml")
+
+
+@pytest.fixture
+def stage8_tied_chain_with_fermata_middle_score() -> str:
+    """Stage 8 (section 12): a tied chain of three C4 whose middle note
+    carries a fermata - kept as its own moment event."""
+    return _require(FIXTURES_DIR / "stage8_tied_chain_with_fermata_middle.musicxml")
+
+
+@pytest.fixture
+def stage8_chord_partial_tie_score() -> str:
+    """Stage 8 (section 12): a C4+E4 chord where only C4 ties forward."""
+    return _require(FIXTURES_DIR / "stage8_chord_partial_tie.musicxml")
+
+
+@pytest.fixture
 def measure_style_score() -> str:
     """P4 (M8): two 4/4 bars - an <attributes>/<measure-style> with a
     <multiple-rest> (bar 1) and a <measure-repeat> (bar 2)."""

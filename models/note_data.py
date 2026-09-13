@@ -120,6 +120,16 @@ class NoteData:
     # it is already the "Rehearsal mark" marking target. Same "put the label
     # in a CORE key to dodge Find" reasoning as chord_symbol above.
     is_rehearsal_text: bool = False
+    # Stage 8 (PerformanceMarkingsStrategy.md section 12): set on a tied
+    # continuation note that carries its own marking and so keeps its own
+    # timeline event instead of being merged into its chain's head (see
+    # parsers/timeline_builder.py TimelineBuilder._merge_tied_chains). Its
+    # ts_duration/quarter_length hold the REMAINING length of the chain
+    # from this point, not this note's own written length - the whole
+    # chain's length is already stated at the head. Never re-attacked in
+    # playback (PlaybackEventBuilder suppresses it there); arrowing onto it
+    # still auditions the pitch, a separate, unaffected path.
+    is_tie_continuation: bool = False
     tie: Optional[str] = None
     slur: Optional[str] = None
     tuplet: Optional[str] = None

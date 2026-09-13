@@ -61,6 +61,12 @@ class NoteRenderer:
             # Region 3 and Region 4 since both read this same "step" pair.
             grace_str = ", ".join(g.step_name for g in note.grace_notes)
             step_str = f"{step_str} grace {grace_str}"
+        if note.is_tie_continuation:
+            # Stage 8: "F sharp, tied" - the pitch plus a word placing it
+            # inside the tie; whatever marking made this its own event
+            # (fermata, dynamic, ...) still renders through the ordinary
+            # attribute pipeline below, exactly as it would on any note.
+            step_str = f"{step_str}, tied"
 
         # A fabricated rehearsal mark rides the Stave Text voice but keeps its
         # label under "step" (a CORE_ATTRIBUTE_KEYS key Find never offers),
@@ -97,8 +103,11 @@ class NoteRenderer:
             # attribute key is the spoken word; "other notation" carries a
             # space, like "beat position". `grace` is the spoken summary
             # NoteData.grace holds - the grace_notes list still drives the
-            # separate "A grace B" step rendering above.
-            ("tie", note.tie),
+            # separate "A grace B" step rendering above. `tie` itself is
+            # deliberately NOT rendered here (stage 8, strategy section 12)
+            # - a tied chain's duration IS the tie now; note.tie stays a
+            # real field only for TimelineBuilder._merge_tied_chains'
+            # internal chain detection.
             ("slur", note.slur),
             ("tuplet", note.tuplet),
             ("grace", note.grace),

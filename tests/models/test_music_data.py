@@ -2316,25 +2316,28 @@ def test_find_occurrence_for_key_signature_change_suppressed_by_an_override(
 
 def test_p1_notation_keys_are_offered_with_shared_labels(timeline, tie_and_slur_score):
     """A2/A3/D3: the new keys surface as attribute Find targets, labelled
-    from vocabulary.attribute_label - "tie"/"slur" pass straight through."""
+    from vocabulary.attribute_label - "slur" passes straight through.
+    Stage 8 (strategy section 12): "tie" is no longer offered at all - a
+    tied chain's duration IS the tie now, not a separate findable fact."""
     md = timeline(tie_and_slur_score)
     any_targets = {
         t.key: t.label
         for t in md.available_find_targets()
         if t.category == "attribute" and t.value is None
     }
-    assert any_targets == {"tie": "tie (any)", "slur": "slur (any)"}
+    assert any_targets == {"slur": "slur (any)"}
+    assert "tie" not in {t.key for t in md.available_find_targets()}
 
 
 def test_p1_value_expanded_keys_split_into_per_value_targets(timeline, tie_and_slur_score):
-    """D1/D2: tie and slur are in VALUE_EXPANDED_KEYS, so each distinct
-    type gets its own target alongside the "any" one."""
+    """D1/D2: slur is in VALUE_EXPANDED_KEYS, so each distinct type gets its
+    own target alongside the "any" one."""
     md = timeline(tie_and_slur_score)
-    tie_values = sorted(
+    slur_values = sorted(
         t.value for t in md.available_find_targets()
-        if t.key == "tie" and t.value is not None
+        if t.key == "slur" and t.value is not None
     )
-    assert tie_values == ["start", "stop"]
+    assert slur_values == ["start", "stop"]
 
 
 def test_p1_grace_is_offered_as_a_single_any_target(timeline, grace_note_score):
@@ -2384,7 +2387,7 @@ def test_p1_keys_absent_from_a_plain_score_are_not_offered(
     md = timeline(dynamics_articulation_fingering_score)
     keys = {t.key for t in md.available_find_targets() if t.category == "attribute"}
     assert not (keys & {
-        "tie", "slur", "tuplet", "fermata", "arpeggio",
+        "slur", "tuplet", "fermata", "arpeggio",
         "accidental", "technique", "glissando", "grace", "other notation",
     })
 

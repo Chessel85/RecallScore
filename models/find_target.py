@@ -39,7 +39,7 @@ class FindTarget:
 # never expands.
 VALUE_EXPANDED_KEYS = frozenset({
     "articulation", "technique", "dynamic", "accidental",
-    "tie", "slur", "glissando", "tuplet",
+    "slur", "glissando", "tuplet",
     "chord symbol", "other notation",
 })
 

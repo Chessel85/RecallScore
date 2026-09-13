@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Stage 8 (PerformanceMarkingsStrategy.md section 12): a two-note chord
+     (C4+E4) where C4 ties into the next chord's C4 but E4 does not tie at
+     all (the next chord's note is G4, unrelated). Chains are keyed by
+     pitch (part_id, staff, voice, midi_pitch), so only the C4 pair merges;
+     E4 and G4 are untouched, ordinary independent notes. -->
+<score-partwise version="4.0">
+  <part-list>
+    <score-part id="P1"><part-name>Test Part</part-name>
+      <midi-instrument id="P1-I1"><midi-channel>1</midi-channel><midi-program>1</midi-program></midi-instrument>
+    </score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>1</divisions>
+        <key><fifths>0</fifths></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef number="1"><sign>G</sign><line>2</line></clef>
+      </attributes>
+      <note><pitch><step>C</step><octave>4</octave></pitch>
+        <duration>2</duration><voice>1</voice><type>half</type><staff>1</staff>
+        <notations><tied type="start"/></notations>
+      </note>
+      <note><chord/><pitch><step>E</step><octave>4</octave></pitch>
+        <duration>2</duration><voice>1</voice><type>half</type><staff>1</staff></note>
+      <note><pitch><step>C</step><octave>4</octave></pitch>
+        <duration>2</duration><voice>1</voice><type>half</type><staff>1</staff>
+        <notations><tied type="stop"/></notations>
+      </note>
+      <note><chord/><pitch><step>G</step><octave>4</octave></pitch>
+        <duration>2</duration><voice>1</voice><type>half</type><staff>1</staff></note>
+    </measure>
+  </part>
+</score-partwise>

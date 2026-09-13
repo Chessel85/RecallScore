@@ -1235,6 +1235,92 @@ def test_tie_and_slur_types_land_on_the_right_notes(timeline, tie_and_slur_score
     assert (f.tie, f.slur) == (None, None), "the plain note carries neither"
 
 
+# --- Stage 8: ties become duration (strategy section 12) --------------
+
+
+def test_tied_chain_of_three_merges_into_one_attack(
+    timeline, stage8_tied_chain_of_three_score
+):
+    md = timeline(stage8_tied_chain_of_three_score)
+    notes = _notes(md, "P1")
+    # The two continuation C4s carry nothing beyond the tie, so they vanish
+    # entirely - only the head C4 (now 3 quarters long) and the plain D4
+    # remain, one navigable stop each.
+    assert [n.step_name for n in notes] == ["C", "D"]
+    head = notes[0]
+    assert head.quarter_length == 3.0
+    assert head.ts_duration == 3.0
+    assert head.duration_name_us == "dotted half"
+    assert head.is_tie_continuation is False
+
+    # One EventSlice per surviving note - the two merged-away continuations
+    # took their slices with them.
+    assert len(md.timeline_slices) == 2
+
+
+def test_tied_continuation_with_a_marking_keeps_its_own_event(
+    timeline, stage8_tied_chain_with_fermata_middle_score
+):
+    md = timeline(stage8_tied_chain_with_fermata_middle_score)
+    notes = _notes(md, "P1")
+    # Head (merged, 3 quarters total) + the fermata-carrying middle (kept,
+    # remaining length from there = 2.0) - the marking-free third note
+    # vanished into the chain.
+    assert len(notes) == 2
+    head, continuation = notes
+
+    assert head.quarter_length == 3.0
+    assert head.is_tie_continuation is False
+
+    assert continuation.is_tie_continuation is True
+    assert continuation.fermata is not None
+    assert continuation.quarter_length == 2.0, "remaining chain length from this point"
+    assert continuation.ts_duration == 2.0
+
+    # Both are real, separately navigable timeline events.
+    assert len(md.timeline_slices) == 2
+
+
+def test_tied_continuation_step_text_reads_pitch_then_tied(
+    timeline, stage8_tied_chain_with_fermata_middle_score
+):
+    md = timeline(stage8_tied_chain_with_fermata_middle_score)
+    continuation = _notes(md, "P1")[1]
+    assert md._format_note_for_region_3(continuation) == "C, tied"
+
+
+def test_tied_continuation_is_not_reattacked_in_real_playback(
+    timeline, stage8_tied_chain_with_fermata_middle_score
+):
+    """The Sequencer's own path (get_playback_events_at_index) must not
+    sound the continuation a second time; navigation audition
+    (get_playback_events_for_indices) still does - a separate path."""
+    md = timeline(stage8_tied_chain_with_fermata_middle_score)
+    continuation_index = 1
+
+    assert md.get_playback_events_at_index(continuation_index) == []
+    assert md.get_playback_events_for_indices([0]) != []
+
+
+def test_chord_with_one_tied_note_only_merges_that_pitch(
+    timeline, stage8_chord_partial_tie_score
+):
+    """A tie chain is keyed by pitch, not by chord membership - C4 merges
+    into the first chord's attack while E4/G4 (never tied to each other,
+    or to C4) stay exactly where they were. The second chord's own slice
+    survives (G4 is real, untouched content) even though its tied C4 was
+    dropped out of it."""
+    md = timeline(stage8_chord_partial_tie_score)
+    assert len(md.timeline_slices) == 2
+    by_step = {n.step_name: n for s in md.timeline_slices for n in s.notes}
+    assert set(by_step) == {"C", "E", "G"}
+    assert by_step["C"].quarter_length == 4.0, "the two tied C4 halves summed"
+    assert by_step["E"].quarter_length == 2.0, "untouched - never tied"
+    assert by_step["G"].quarter_length == 2.0, "untouched - the chord's other half"
+    assert {n.step_name for n in md.timeline_slices[0].notes} == {"C", "E"}
+    assert [n.step_name for n in md.timeline_slices[1].notes] == ["G"]
+
+
 def test_tuplet_reads_the_time_modification_word(timeline, triplet_bar_score):
     """A4: a tuplet is folded into the duration name already; `tuplet` is
     the separate findable fact, spoken via duration_units.tuplet_word."""

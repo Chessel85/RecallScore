@@ -990,9 +990,117 @@ class TimelineBuilder:
         # scan.tempo_changes.sort(...) in _scan_first_part.
         self.hairpin_spans.sort(key=lambda s: s.start_quarters_from_start)
 
-        return self._assemble_slices(
+        slices = self._assemble_slices(
             root, sink, measure_start_quarters, measure_ts_fifths, pickup_filled_quarters
         )
+        return self._merge_tied_chains(slices)
+
+    # --- Stage 8 (PerformanceMarkingsStrategy.md section 12): ties -----
+
+    # A continuation note "carries a marking" (and so gets its own moment
+    # event rather than vanishing into the head) when any of these fields
+    # is set - everything note_attribute_pairs would otherwise render.
+    # Deliberately excludes `tie` itself (that's the mechanism, not a
+    # marking) and fields that never appear on a continuation note anyway
+    # (chord/percussion/GP-only fields).
+    _TIE_CONTINUATION_MARKING_FIELDS = (
+        "slur", "tuplet", "fermata", "arpeggio", "accidental", "technique",
+        "glissando", "grace", "other_notation", "dynamic", "articulation",
+        "fingering", "pluck", "string", "fret", "chord_symbol", "chord_diagram",
+    )
+
+    @classmethod
+    def _carries_marking(cls, note: NoteData) -> bool:
+        return any(getattr(note, f) is not None for f in cls._TIE_CONTINUATION_MARKING_FIELDS)
+
+    def _merge_tied_chains(self, slices: List[EventSlice]) -> List[EventSlice]:
+        """A tied chain (notations/tied "start" ... "start, stop" ...
+        "stop") becomes one attack: the head note's duration is the sum of
+        every member's, so it sounds once and is held for the whole chain
+        (invariant 15 - navigation lands only on attacks). A continuation
+        note that carries nothing beyond the tie is dropped from the
+        timeline entirely - not a new attack, and (with nothing to say)
+        not worth a stop either. A continuation that DOES carry a marking
+        (a fermata, a dynamic, an articulation, ...) keeps its own event so
+        Left/Right still lands on it and the marking is never silently
+        dropped (invariant 14) - its stated duration is the REMAINING
+        length of the chain from that point, since the whole chain's length
+        is already stated at the head (invariant 8 - one fact, not two).
+
+        Chains are tracked by (part_id, staff, voice, midi_pitch) - a tie
+        always connects identical pitches (MusicXML spec), so this also
+        correctly keeps independent chains on different notes of a chord
+        apart. A "stop" with nothing open, or a "start" left dangling
+        forever, is simply not merged - the same "don't raise on malformed
+        input" convention as _step_barline's unmatched backward repeat.
+        """
+        open_chains: Dict[Tuple[str, int, int, Optional[int]], Tuple[NoteData, List[NoteData]]] = {}
+        finished: List[Tuple[NoteData, List[NoteData]]] = []
+
+        def _key(n: NoteData):
+            return (n.part_id, n.staff, n.voice, n.midi_pitch)
+
+        for event_slice in slices:
+            for note in event_slice.notes:
+                tie = note.tie
+                if not tie:
+                    continue
+                key = _key(note)
+                if "stop" in tie:
+                    entry = open_chains.get(key)
+                    if entry is not None:
+                        head, members = entry
+                        members.append(note)
+                        if "start" not in tie:
+                            del open_chains[key]
+                            finished.append((head, members))
+                        continue
+                if "start" in tie:
+                    open_chains[key] = (note, [])
+
+        if not finished:
+            return slices
+
+        to_drop: Set[int] = set()
+        for head, members in finished:
+            if not members:
+                continue
+            remaining_q = [0.0] * len(members)
+            remaining_ts = [0.0] * len(members)
+            running_q = 0.0
+            running_ts = 0.0
+            for i in range(len(members) - 1, -1, -1):
+                running_q += members[i].quarter_length
+                running_ts += members[i].ts_duration
+                remaining_q[i] = running_q
+                remaining_ts[i] = running_ts
+
+            head.quarter_length += running_q
+            head.ts_duration = round(head.ts_duration + running_ts, 2)
+            head.duration_name_us = quarter_length_to_display_name(head.quarter_length)
+
+            for i, member in enumerate(members):
+                if self._carries_marking(member):
+                    member.quarter_length = remaining_q[i]
+                    member.ts_duration = round(remaining_ts[i], 2)
+                    member.duration_name_us = quarter_length_to_display_name(member.quarter_length)
+                    member.is_tie_continuation = True
+                else:
+                    to_drop.add(id(member))
+
+        if not to_drop:
+            return slices
+
+        result: List[EventSlice] = []
+        for event_slice in slices:
+            if any(id(n) in to_drop for n in event_slice.notes):
+                event_slice.notes = [n for n in event_slice.notes if id(n) not in to_drop]
+                if not event_slice.notes:
+                    continue
+                event_slice.beat_position = event_slice.notes[0].beat_position
+                event_slice.quarter_length = min(n.quarter_length for n in event_slice.notes)
+            result.append(event_slice)
+        return result
 
     # --- per-element handlers -------------------------------------------
 

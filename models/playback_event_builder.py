@@ -37,7 +37,8 @@ class PlaybackEventBuilder:
     # --- note groups ---------------------------------------------------
 
     def events_for_indices(
-        self, selected_indices: List[int], index: Optional[int] = None
+        self, selected_indices: List[int], index: Optional[int] = None,
+        suppress_tie_continuations: bool = False,
     ) -> List[Tuple[int, Optional[int], List[int], int]]:
         """Group selected notes by part for simultaneous multi-part playback.
 
@@ -58,10 +59,19 @@ class PlaybackEventBuilder:
         play_chord's bank read is new.
 
         index: read an explicit slice instead of the cursor (Sequencer).
+
+        suppress_tie_continuations (stage 8, strategy section 12): True
+        only on the real Sequencer path (events_at_index) - a tied
+        continuation note is already sounding, held by its chain's head
+        attack, and must not be re-attacked. The navigation-audition path
+        (audition_selection -> get_playback_events_for_indices, this
+        method's direct callers) leaves it False, since arrowing onto such
+        a note must still sound its pitch - a separate, unaffected path.
         """
         data = self.data
         pitches_by_part, part_order, quarter_length_by_part = self._group_by_part(
-            selected_indices, index, self._sounding_pitches, track_quarter_length=True
+            selected_indices, index, self._sounding_pitches, track_quarter_length=True,
+            suppress_tie_continuations=suppress_tie_continuations,
         )
 
         events = []
@@ -122,7 +132,8 @@ class PlaybackEventBuilder:
         return [g.midi_pitch for g in note.grace_notes if g.midi_pitch is not None]
 
     def _group_by_part(
-        self, selected_indices, index, pitches_of, track_quarter_length: bool = False
+        self, selected_indices, index, pitches_of, track_quarter_length: bool = False,
+        suppress_tie_continuations: bool = False,
     ) -> Tuple[Dict[str, List[int]], List[str], Dict[str, float]]:
         """The walk both event builders above share: visible notes at this
         slice, restricted to the selected rows, bucketed by part in
@@ -139,6 +150,8 @@ class PlaybackEventBuilder:
             if not (0 <= i < len(notes)):
                 continue
             note = notes[i]
+            if suppress_tie_continuations and note.is_tie_continuation:
+                continue
             pitches = pitches_of(note)
             if not pitches:
                 continue
@@ -157,21 +170,27 @@ class PlaybackEventBuilder:
         """All visible notes at timeline index `index`, grouped by part
         (Ref 8) - the Sequencer (E4) equivalent of events_for_indices for
         Region 3's selection, playing a slice by absolute index independent
-        of active_event_index."""
-        return self._all_visible(index, self.events_for_indices)
+        of active_event_index. This IS the real playback path, so tied
+        continuations are suppressed here (stage 8) - see events_for_
+        indices' own docstring."""
+        return self._all_visible(
+            index, self.events_for_indices, suppress_tie_continuations=True
+        )
 
     def grace_events_at_index(self, index: int) -> List[Tuple[int, Optional[int], List[int]]]:
         """The Sequencer's (index-based) equivalent of
         grace_events_for_indices, mirroring events_at_index."""
         return self._all_visible(index, self.grace_events_for_indices)
 
-    def _all_visible(self, index: int, builder):
+    def _all_visible(self, index: int, builder, **kwargs):
         """"Everything visible at this slice" - the index-based callers'
-        shared "select every row" step."""
+        shared "select every row" step. **kwargs passes through to
+        `builder` only where the caller supplies one (events_at_index's
+        suppress_tie_continuations) - grace_events_for_indices takes none."""
         notes = self.data._visible_notes(index)
         if not notes:
             return []
-        return builder(list(range(len(notes))), index=index)
+        return builder(list(range(len(notes))), index=index, **kwargs)
 
     # --- durations and elapsed time -------------------------------------
 

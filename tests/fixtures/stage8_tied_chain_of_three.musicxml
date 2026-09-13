@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Stage 8 (PerformanceMarkingsStrategy.md section 12): three tied
+     quarter notes at the same pitch (C4), all in one 4/4 bar, followed by a
+     plain untied quarter (D4). The chain must merge into ONE attack (the
+     first C4) with quarter_length 3.0 (a dotted half) and the two
+     continuation C4 notes must vanish from the timeline entirely - neither
+     carries any marking beyond the tie. -->
+<score-partwise version="4.0">
+  <part-list>
+    <score-part id="P1"><part-name>Test Part</part-name>
+      <midi-instrument id="P1-I1"><midi-channel>1</midi-channel><midi-program>1</midi-program></midi-instrument>
+    </score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>1</divisions>
+        <key><fifths>0</fifths></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef number="1"><sign>G</sign><line>2</line></clef>
+      </attributes>
+      <note><pitch><step>C</step><octave>4</octave></pitch>
+        <duration>1</duration><voice>1</voice><type>quarter</type><staff>1</staff>
+        <notations><tied type="start"/></notations>
+      </note>
+      <note><pitch><step>C</step><octave>4</octave></pitch>
+        <duration>1</duration><voice>1</voice><type>quarter</type><staff>1</staff>
+        <notations><tied type="stop"/><tied type="start"/></notations>
+      </note>
+      <note><pitch><step>C</step><octave>4</octave></pitch>
+        <duration>1</duration><voice>1</voice><type>quarter</type><staff>1</staff>
+        <notations><tied type="stop"/></notations>
+      </note>
+      <note><pitch><step>D</step><octave>4</octave></pitch>
+        <duration>1</duration><voice>1</voice><type>quarter</type><staff>1</staff></note>
+    </measure>
+  </part>
+</score-partwise>
