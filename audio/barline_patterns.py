@@ -4,109 +4,93 @@ the plain single beep, plus the declarations widgets/sound_icon_dictionary_
 dialog.py reads to describe them.
 
 Same plain-module shape as audio/boundary_cue.py and audio/performance_cue.py.
-A one-shot-sample technique already loaded into the project soundfont via
-audio/metronome.py's [preset:click_default] preset is reused rather than
-adding a new sample: a "long" step is the beat-1 accent sample, a "short"
-step the offbeat sample, and "heavy" is the same accent sample pitched an
-octave down - FluidSynth pitches a sample by MIDI note number, so a "lower
-beep" needs no new asset.
+Each bar-style/repeat variant - including the plain barline case - is its own
+recorded one-shot sample in [preset:barline_patterns] (tools/config.ini),
+rather than being synthesized from the metronome's click samples. A repeat
+barline's short-short-long rhythm is baked into its own recording, so playing
+one is a single note-on rather than a scheduled multi-step sequence.
 
-Reserved on its own channel (BARLINE_PATTERN_CHANNEL) so a multi-step
-pattern's own successive noteons - which DO cut each other off on purpose,
-one beep's release giving way to the next exactly like every other one-shot
-in this app - never collide with an UNRELATED one-shot (the metronome click,
-the boundary cue, ...) that happens to share a channel. It sits below
+Reserved on its own channel (BARLINE_PATTERN_CHANNEL) so these one-shots -
+which DO cut each other off on purpose, the same as every other one-shot in
+this app - never collide with an UNRELATED one-shot (the metronome click, the
+boundary cue, ...) that happens to share a channel. It sits below
 BOUNDARY_CUE_CHANNEL (250) in the reserved 244-255 block.
 """
-from typing import Dict, List, NamedTuple, Optional, Tuple
-
-from audio.metronome import (
-    METRONOME_ACCENT_NOTE,
-    METRONOME_BANK,
-    METRONOME_OFFBEAT_NOTE,
-    METRONOME_PROGRAM,
-)
+from typing import Dict, List, Tuple
 
 BARLINE_PATTERN_CHANNEL = 249
-BARLINE_PATTERN_BANK = METRONOME_BANK
-BARLINE_PATTERN_PROGRAM = METRONOME_PROGRAM
+BARLINE_PATTERN_BANK = 0
+BARLINE_PATTERN_PROGRAM = 7  # [preset:barline_patterns] in tools/config.ini
 
-_LONG_NOTE = METRONOME_ACCENT_NOTE
-_SHORT_NOTE = METRONOME_OFFBEAT_NOTE
-_HEAVY_NOTE = METRONOME_ACCENT_NOTE - 12  # same sample, an octave down
-_VELOCITY = 100
-_SOFT_VELOCITY = 70
+_VELOCITY = 127
 
-# Gap between successive steps of a multi-step pattern. The longest pattern
-# (repeat_end_and_start, 5 steps) is comfortably inside a fast Left/Right
-# repeat at this spacing (strategy section 10).
+# Gap between successive steps of a multi-step play_event_sequence call.
+# Barline patterns are single-sample one-shots now, but PlaybackController.
+# play_event_sequence is shared with other multi-step sequences (e.g. the
+# lead-in click) that still need a step spacing.
 STEP_MS = 90
 
+# The plain barline beep (today's unchanged behaviour, suppressed under the
+# metronome) - PlaybackController.play_barline_indicator's own fallback, kept
+# separate from BARLINE_PATTERNS below since it isn't selected by
+# pattern_for_crossing.
+PLAIN_BARLINE_NOTE = 60
 
-class BarlineStep(NamedTuple):
-    pitch: int
-    velocity: int
-
-
-def _step(pitch: int, velocity: int = _VELOCITY) -> BarlineStep:
-    return BarlineStep(pitch, velocity)
-
-
-# One entry per strategy section 10 sound row beyond the plain beep, which
-# keeps its own pre-existing code path (PlaybackController.
-# play_barline_indicator's click_event_for_beat call) unchanged by this
-# stage - it is the one row the strategy calls "today's behaviour".
-#
-# The repeat mnemonic: the short beeps are the repeat dots, and they sit on
-# the side of the long beep that the repeated music is on, exactly as the
-# notation prints them - so a repeat START (forward - the repeated music
-# comes AFTER it) is long-then-short-short, and a repeat END (backward - the
-# repeated music came BEFORE it) is short-short-then-long.
+# One entry per strategy section 10 sound row beyond the plain beep. `note`
+# is this pattern's own key in [preset:barline_patterns] - each already a
+# complete recorded pattern (e.g. repeat_end_and_start's short-short-long-
+# short-short), so no scheduling is needed to reproduce it.
 BARLINE_PATTERNS: Dict[str, Dict] = {
     "double": {
-        "steps": [_step(_SHORT_NOTE), _step(_SHORT_NOTE)],
+        "note": 62,
         "meaning": "Double barline - a section division",
     },
     "heavy": {
-        "steps": [_step(_HEAVY_NOTE)],
+        "note": 63,
         "meaning": "Heavy barline - an emphatic division, or the opening of a section",
     },
     "tick_or_short": {
-        "steps": [_step(_SHORT_NOTE, _SOFT_VELOCITY)],
+        "note": 61,
         "meaning": "Tick or short (mensurstrich) barline",
     },
     "repeat_start": {
-        "steps": [_step(_LONG_NOTE), _step(_SHORT_NOTE), _step(_SHORT_NOTE)],
+        "note": 64,
         "meaning": "Repeat start (forward repeat barline)",
     },
     "repeat_end": {
-        "steps": [_step(_SHORT_NOTE), _step(_SHORT_NOTE), _step(_LONG_NOTE)],
+        "note": 65,
         "meaning": "Repeat end (backward repeat barline)",
     },
     "repeat_end_and_start": {
-        "steps": [
-            _step(_SHORT_NOTE), _step(_SHORT_NOTE), _step(_LONG_NOTE),
-            _step(_SHORT_NOTE), _step(_SHORT_NOTE),
-        ],
+        "note": 66,
         "meaning": "Combined repeat end and start at one barline",
     },
 }
 
 
+def _event(note: int) -> Tuple[int, int, int, int, int]:
+    return (BARLINE_PATTERN_CHANNEL, BARLINE_PATTERN_BANK, BARLINE_PATTERN_PROGRAM, note, _VELOCITY)
+
+
+def plain_barline_event() -> Tuple[int, int, int, int, int]:
+    """(channel, bank, program, pitch, velocity) for an ordinary barline -
+    PlaybackController.play_barline_indicator's fallback when
+    pattern_for_crossing finds no repeat/double/heavy/tick mark."""
+    return _event(PLAIN_BARLINE_NOTE)
+
+
 def events_for_pattern(kind: str) -> List[Tuple[int, int, int, int, int]]:
-    """(channel, bank, program, pitch, velocity) per step of `kind`, in
-    playback order - what PlaybackController schedules STEP_MS apart
-    through SynthEngine.play_click."""
-    steps = BARLINE_PATTERNS[kind]["steps"]
-    return [
-        (BARLINE_PATTERN_CHANNEL, BARLINE_PATTERN_BANK, BARLINE_PATTERN_PROGRAM, s.pitch, s.velocity)
-        for s in steps
-    ]
+    """(channel, bank, program, pitch, velocity) for `kind`, as a
+    single-element list - what PlaybackController.play_event_sequence and
+    Help > Sound Icon Dictionary's Play button both sound. A list, not a bare
+    tuple, so both callers can treat every catalog entry the same way
+    regardless of how many steps it takes to play."""
+    return [_event(BARLINE_PATTERNS[kind]["note"])]
 
 
 def pattern_for_crossing(
     before_measure: int, after_measure: int, repeat_spans, ending_spans, barline_marks
-) -> Optional[str]:
+) -> "str | None":
     """Which BARLINE_PATTERNS key (if any) sounds for crossing from
     before_measure to after_measure, per strategy section 10. None means the
     plain single beep (today's unchanged behaviour, suppressed under the

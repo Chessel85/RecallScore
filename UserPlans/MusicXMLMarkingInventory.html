@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>MusicXML marking inventory</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">MusicXML marking inventory</h1>
+</header>
+<h1 id="musicxml-marking-inventory">MusicXML marking inventory</h1>
+<p>Revision 3, 2026-09-13. Companion to
+<code>UserPlans/PerformanceMarkingsStrategy.md</code>. Every MusicXML
+element that can carry performance information, what it means, what
+Recall Score does with it today, and the class it lands in. Revision 2
+folded in the first round of review: ties fold into duration, a
+zero-length wedge is a point, directives go to region 1, ornaments split
+out of articulations, breath marks are read properly, and the barline
+fermata is parsed. Revision 3 folds in the second round: the barline
+fermata and a marking on a tied continuation note each become their own
+timeline event, a one-event wedge drops the word “hairpin”, and a
+directive reaches the note list only when Ctrl+N asks for it.</p>
+<p>Covers MusicXML 4.0 partwise. The classes are the ones from section 4
+of the strategy:</p>
+<ul>
+<li>attribute - hangs off a <code>&lt;note&gt;</code>, lives in regions
+3 and 4 as a note attribute.</li>
+<li>point - one note list row with no start or end word, plus a region 5
+row.</li>
+<li>span - a “start” and an “end” note list row, plus a one-line range
+row in region 5 while the cursor is inside it.</li>
+<li>structural - key, time, tempo. A point row at the position where it
+changes, and the trigger for the change cue.</li>
+<li>region 1 - listed in the score information region.</li>
+<li>moment event - its own timeline event, landed on by Left/Right,
+attached to no note (strategy section 5.1). Exactly two elements
+qualify.</li>
+<li>region 5 only - reported and findable, no note list row.</li>
+<li>ignored - deliberately not surfaced (layout, editorial, engraving
+detail).</li>
+</ul>
+<p>“Catch-all” in the Today column means it is not handled by name but
+still shows up as the <code>other notation</code> attribute or the
+“Direction” marking, so it is findable rather than lost.</p>
+<h2 id="directiondirection-type-children">1.
+<code>&lt;direction&gt;/&lt;direction-type&gt;</code> children</h2>
+<p>The container for almost every printed instruction that is not
+attached to a single note. A <code>&lt;direction&gt;</code> may carry
+<code>&lt;staff&gt;</code>, <code>placement</code>,
+<code>directive="yes"</code> and an <code>&lt;offset&gt;</code>; Recall
+Score already reads <code>&lt;staff&gt;</code> and the offset.</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Element</th>
+<th>Meaning</th>
+<th>Today</th>
+<th>Class</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>words</code></td>
+<td>free text: tempo words, technique words, position marks,
+“cresc.”</td>
+<td>Stave Text event in region 3, plus a <code>dynamics_word</code> /
+<code>tempo_word</code> point mark when the whole text matches the
+vocabulary allow-list</td>
+<td>point (stave text row, per part and staff); region 1 as well when
+<code>directive="yes"</code></td>
+</tr>
+<tr>
+<td><code>dynamics</code></td>
+<td>printed dynamic (p, f, sfz, …) as a direction</td>
+<td>becomes the <code>dynamic</code> attribute of the notes at that
+offset, plus a point mark</td>
+<td>attribute, unchanged</td>
+</tr>
+<tr>
+<td><code>wedge</code></td>
+<td>crescendo or diminuendo hairpin</td>
+<td><code>HairpinSpan</code>, region 5, Find, report</td>
+<td>span; point reading “Crescendo” or “Diminuendo”, never the bare word
+“hairpin”, when start and stop resolve to the same position (strategy
+section 11)</td>
+</tr>
+<tr>
+<td><code>dashes</code></td>
+<td>dashed continuation line under an instruction</td>
+<td><code>DirectionSpan</code>, region 5</td>
+<td>span</td>
+</tr>
+<tr>
+<td><code>bracket</code></td>
+<td>bracketed continuation line</td>
+<td><code>DirectionSpan</code>, region 5</td>
+<td>span</td>
+</tr>
+<tr>
+<td><code>pedal</code></td>
+<td>sustain pedal: start, stop, change, sostenuto, resume</td>
+<td><code>DirectionSpan</code> plus a <code>pedal_change</code> point;
+Find and report only, no region 5 row today</td>
+<td>span, plus point for <code>change</code>; gains region 5 and note
+list rows</td>
+</tr>
+<tr>
+<td><code>octave-shift</code></td>
+<td>8va, 8vb, 15ma, 15mb</td>
+<td><code>DirectionSpan</code>, label carried</td>
+<td>span</td>
+</tr>
+<tr>
+<td><code>metronome</code></td>
+<td>printed metronome mark</td>
+<td>feeds tempo</td>
+<td>structural</td>
+</tr>
+<tr>
+<td><code>segno</code></td>
+<td>segno sign</td>
+<td><code>SegnoMark</code></td>
+<td>point</td>
+</tr>
+<tr>
+<td><code>coda</code></td>
+<td>coda sign</td>
+<td><code>CodaMark</code></td>
+<td>point</td>
+</tr>
+<tr>
+<td><code>rehearsal</code></td>
+<td>rehearsal mark A, 12</td>
+<td><code>DirectionMark</code> plus a Stave Text event in region 3</td>
+<td>point (score level)</td>
+</tr>
+<tr>
+<td><code>symbol</code> (4.0)</td>
+<td>an arbitrary SMuFL symbol as a direction</td>
+<td>catch-all</td>
+<td>point</td>
+</tr>
+<tr>
+<td><code>harp-pedals</code></td>
+<td>harp pedal diagram</td>
+<td>catch-all</td>
+<td>point</td>
+</tr>
+<tr>
+<td><code>damp</code>, <code>damp-all</code></td>
+<td>harp or piano damping</td>
+<td>catch-all</td>
+<td>point</td>
+</tr>
+<tr>
+<td><code>eyeglasses</code></td>
+<td>“watch the conductor”</td>
+<td>catch-all</td>
+<td>point</td>
+</tr>
+<tr>
+<td><code>string-mute</code></td>
+<td>mute on or off</td>
+<td>catch-all</td>
+<td>point</td>
+</tr>
+<tr>
+<td><code>scordatura</code></td>
+<td>retuning instruction</td>
+<td>catch-all</td>
+<td>point (guitar relevance)</td>
+</tr>
+<tr>
+<td><code>accordion-registration</code></td>
+<td>accordion stop registration</td>
+<td>catch-all</td>
+<td>point</td>
+</tr>
+<tr>
+<td><code>principal-voice</code></td>
+<td>Hauptstimme / Nebenstimme bracket</td>
+<td>catch-all</td>
+<td>span, low priority</td>
+</tr>
+<tr>
+<td><code>staff-divide</code></td>
+<td>divisi and unison marks</td>
+<td>catch-all</td>
+<td>point</td>
+</tr>
+<tr>
+<td><code>percussion</code></td>
+<td>a percussion pictogram as a direction</td>
+<td>catch-all</td>
+<td>point</td>
+</tr>
+<tr>
+<td><code>image</code></td>
+<td>an embedded graphic</td>
+<td>catch-all</td>
+<td>ignored</td>
+</tr>
+<tr>
+<td><code>other-direction</code></td>
+<td>explicit escape hatch</td>
+<td>catch-all</td>
+<td>point</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>directive="yes"</code> attribute of the parent
+<code>&lt;direction&gt;</code> is what marks text as a score-wide
+instruction. Those go to region 1 as “Directive: Jauntily (bar 12)”, and
+reach the note list only when Ctrl+N on the region 1 entry asks for it
+(strategy section 9).</p>
+<h2 id="barline-and-its-children">2. <code>&lt;barline&gt;</code> and
+its children</h2>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Element or value</th>
+<th>Meaning</th>
+<th>Today</th>
+<th>Class and sound</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bar-style</code> regular</td>
+<td>ordinary barline</td>
+<td>nothing (correct)</td>
+<td>no row; one short beep</td>
+</tr>
+<tr>
+<td><code>bar-style</code> light-light</td>
+<td>double barline - a section division, written before a key or metre
+change and at the end of a section</td>
+<td><code>BarlineMark</code> kind <code>double_barline</code>, region 5
+and Find</td>
+<td>point; two short beeps</td>
+</tr>
+<tr>
+<td><code>bar-style</code> light-heavy</td>
+<td>final barline</td>
+<td>dropped on the last bar, kept as <code>other_barline</code>
+elsewhere</td>
+<td>no row on the last bar; no sound (the timeline end has its own
+cue)</td>
+</tr>
+<tr>
+<td><code>bar-style</code> heavy-light</td>
+<td>opening of a section</td>
+<td><code>other_barline</code></td>
+<td>point; one long lower beep</td>
+</tr>
+<tr>
+<td><code>bar-style</code> heavy, heavy-heavy</td>
+<td>emphatic division</td>
+<td><code>other_barline</code></td>
+<td>point; one long lower beep</td>
+</tr>
+<tr>
+<td><code>bar-style</code> dotted, dashed</td>
+<td>a subdividing barline inside a bar, clarifying a compound or
+irregular metre</td>
+<td><code>other_barline</code></td>
+<td>point; one short beep</td>
+</tr>
+<tr>
+<td><code>bar-style</code> tick, short</td>
+<td>mensurstrich-style barline in modern notation</td>
+<td><code>other_barline</code></td>
+<td>point; one softer short beep</td>
+</tr>
+<tr>
+<td><code>bar-style</code> none</td>
+<td>invisible barline</td>
+<td><code>other_barline</code></td>
+<td>ignored</td>
+</tr>
+<tr>
+<td><code>repeat direction="forward"</code></td>
+<td>start repeat</td>
+<td><code>RepeatSpan</code> start</td>
+<td>span start; one long then two short</td>
+</tr>
+<tr>
+<td><code>repeat direction="backward"</code></td>
+<td>end repeat</td>
+<td><code>RepeatSpan</code> end</td>
+<td>span end; two short then one long</td>
+</tr>
+<tr>
+<td>forward and backward at one barline</td>
+<td>combined end and start</td>
+<td>two spans</td>
+<td>both rows, end first; two short, one long, two short</td>
+</tr>
+<tr>
+<td><code>repeat times="N"</code></td>
+<td>play N times</td>
+<td>parsed for looping</td>
+<td>include in the row text: “Repeat bars 1 to 8, play 3 times”</td>
+</tr>
+<tr>
+<td><code>repeat winged</code></td>
+<td>engraving detail of the repeat sign</td>
+<td>not read</td>
+<td>ignored</td>
+</tr>
+<tr>
+<td><code>repeat after-jump</code></td>
+<td>the repeat applies only after a da capo or dal segno</td>
+<td>not read</td>
+<td>worth reading - it changes playback</td>
+</tr>
+<tr>
+<td><code>ending number type="start"/"stop"/"discontinue"</code></td>
+<td>first and second time bars</td>
+<td><code>EndingSpan</code></td>
+<td>span</td>
+</tr>
+<tr>
+<td><code>fermata</code></td>
+<td>a pause on the barline itself</td>
+<td>not read</td>
+<td>moment event at the barline position, attached to no note, reading
+“Fermata on barline” and sounding nothing (strategy section 13)</td>
+</tr>
+<tr>
+<td><code>segno</code>, <code>coda</code></td>
+<td>the sign printed at the barline rather than as a direction</td>
+<td>not read from here</td>
+<td>point, same handling as the direction form</td>
+</tr>
+<tr>
+<td><code>wavy-line</code></td>
+<td>trill or vibrato line crossing the barline</td>
+<td>not read</td>
+<td>span, low priority</td>
+</tr>
+</tbody>
+</table>
+<h2 id="sound-attributes">3. <code>&lt;sound&gt;</code> attributes</h2>
+<p><code>&lt;sound&gt;</code> is the playback-intent element, either
+standalone or inside a <code>&lt;direction&gt;</code>. Its attributes
+are the only machine-readable form of the jump instructions.</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Meaning</th>
+<th>Today</th>
+<th>Class</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tempo</code></td>
+<td>beats per minute from here</td>
+<td>every occurrence feeds <code>tempo_changes</code></td>
+<td>structural</td>
+</tr>
+<tr>
+<td><code>dacapo</code></td>
+<td>go back to the start</td>
+<td>drives the jump marks and playback</td>
+<td>point</td>
+</tr>
+<tr>
+<td><code>dalsegno</code></td>
+<td>go back to the segno</td>
+<td>as above</td>
+<td>point</td>
+</tr>
+<tr>
+<td><code>segno</code></td>
+<td>this is the segno</td>
+<td><code>SegnoMark</code></td>
+<td>point</td>
+</tr>
+<tr>
+<td><code>coda</code></td>
+<td>this is the coda</td>
+<td><code>CodaMark</code></td>
+<td>point</td>
+</tr>
+<tr>
+<td><code>tocoda</code></td>
+<td>jump to the coda from here</td>
+<td><code>ToCodaMark</code></td>
+<td>point</td>
+</tr>
+<tr>
+<td><code>fine</code></td>
+<td>end here</td>
+<td><code>FineMark</code></td>
+<td>point</td>
+</tr>
+<tr>
+<td><code>forward-repeat</code></td>
+<td>repeat start for playback</td>
+<td>covered by the barline form</td>
+<td>none</td>
+</tr>
+<tr>
+<td><code>dynamics</code></td>
+<td>playback velocity percentage</td>
+<td>not read</td>
+<td>ignored - the printed dynamic is what the reader needs</td>
+</tr>
+<tr>
+<td><code>pizzicato</code></td>
+<td>pizz. on or off for playback</td>
+<td>not read</td>
+<td>point, if a real file needs it</td>
+</tr>
+<tr>
+<td><code>damper-pedal</code>, <code>soft-pedal</code>,
+<code>sostenuto-pedal</code></td>
+<td>pedal as playback state</td>
+<td>not read</td>
+<td>covered by the printed <code>&lt;pedal&gt;</code> span</td>
+</tr>
+<tr>
+<td><code>pan</code>, <code>elevation</code></td>
+<td>stereo placement</td>
+<td>not read</td>
+<td>ignored - the Mixer owns pan</td>
+</tr>
+<tr>
+<td><code>divisions</code>, <code>time-only</code></td>
+<td>technical</td>
+<td>not read</td>
+<td>ignored</td>
+</tr>
+</tbody>
+</table>
+<p>The printed words (“D.C. al Fine”, “To Coda”) are also matched by
+regex when the exporter writes no <code>&lt;sound&gt;</code> attributes,
+and such a <code>&lt;words&gt;</code> is then deliberately not repeated
+as a Stave Text event.</p>
+<h2 id="notations-children-note-attached">4.
+<code>&lt;notations&gt;</code> children (note-attached)</h2>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Element</th>
+<th>Meaning</th>
+<th>Today</th>
+<th>Class</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tied</code></td>
+<td>tie start and stop</td>
+<td><code>tie</code> attribute</td>
+<td>not surfaced. The tied chain’s total length becomes the head note’s
+duration instead, and a continuation note is an event only when it
+carries a marking of its own, in which case it is a moment event
+(strategy section 12)</td>
+</tr>
+<tr>
+<td><code>slur</code></td>
+<td>slur start and stop</td>
+<td><code>slur</code> attribute</td>
+<td>attribute</td>
+</tr>
+<tr>
+<td><code>tuplet</code></td>
+<td>tuplet bracket (the ratio comes from
+<code>time-modification</code>)</td>
+<td><code>tuplet</code> attribute, from
+<code>time-modification</code></td>
+<td>attribute</td>
+</tr>
+<tr>
+<td><code>glissando</code>, <code>slide</code></td>
+<td>glissando or slide start and stop</td>
+<td><code>glissando</code> attribute</td>
+<td>attribute</td>
+</tr>
+<tr>
+<td><code>ornaments</code></td>
+<td>see section 6</td>
+<td>merged into the <code>articulation</code> attribute</td>
+<td>new <code>ornament</code> attribute of its own</td>
+</tr>
+<tr>
+<td><code>articulations</code></td>
+<td>see section 5</td>
+<td><code>articulation</code> attribute</td>
+<td>attribute</td>
+</tr>
+<tr>
+<td><code>technical</code></td>
+<td>see section 7</td>
+<td>fret, string, fingering and pluck as their own attributes, the rest
+merged into <code>technique</code></td>
+<td>attribute</td>
+</tr>
+<tr>
+<td><code>dynamics</code></td>
+<td>a dynamic attached directly to the note</td>
+<td><code>dynamic</code> attribute, and it beats an offset-matched
+direction</td>
+<td>attribute</td>
+</tr>
+<tr>
+<td><code>fermata</code></td>
+<td>pause, with a shape</td>
+<td><code>fermata</code> attribute</td>
+<td>attribute (the barline form is a point - section 2)</td>
+</tr>
+<tr>
+<td><code>arpeggiate</code>, <code>non-arpeggiate</code></td>
+<td>roll the chord, or explicitly do not</td>
+<td><code>arpeggio</code> attribute on chord notes; on a lone note
+re-read as a strum direction</td>
+<td>attribute</td>
+</tr>
+<tr>
+<td><code>breath-mark</code></td>
+<td>a breath or lift between notes</td>
+<td>only read when the exporter put it inside
+<code>&lt;articulations&gt;</code>; dropped when written directly under
+<code>&lt;notations&gt;</code></td>
+<td>attribute, read from both places</td>
+</tr>
+<tr>
+<td><code>accidental-mark</code></td>
+<td>an accidental printed above an ornament, giving the ornament’s
+auxiliary note</td>
+<td>recognised but not surfaced</td>
+<td>attribute, low priority - it is the missing piece for ever realising
+ornaments audibly</td>
+</tr>
+<tr>
+<td><code>footnote</code>, <code>level</code></td>
+<td>editorial metadata</td>
+<td>recognised and ignored</td>
+<td>ignored</td>
+</tr>
+<tr>
+<td><code>other-notation</code></td>
+<td>escape hatch</td>
+<td><code>other notation</code> attribute</td>
+<td>attribute</td>
+</tr>
+</tbody>
+</table>
+<h2 id="articulations-children">5. <code>&lt;articulations&gt;</code>
+children</h2>
+<p>accent, strong-accent, staccato, tenuto, detached-legato,
+staccatissimo, spiccato, scoop, plop, doit, falloff, breath-mark,
+caesura, stress, unstress, soft-accent, other-articulation.</p>
+<p>Today all of these, plus the ornaments of section 6, are merged into
+one comma-joined <code>articulation</code> attribute.</p>
+<p>Change: ornaments move out into their own attribute (section 6),
+leaving this list as the <code>articulation</code> attribute.
+<code>breath-mark</code> and <code>caesura</code> are timing
+instructions rather than articulations, and are read from both of the
+places an exporter can put them rather than only from inside
+<code>&lt;articulations&gt;</code>.</p>
+<h2 id="ornaments-children">6. <code>&lt;ornaments&gt;</code>
+children</h2>
+<p>trill-mark, turn, delayed-turn, inverted-turn, delayed-inverted-turn,
+vertical-turn, inverted-vertical-turn, shake, wavy-line, mordent,
+inverted-mordent, schleifer, tremolo, haydn, other-ornament, plus
+<code>accidental-mark</code>.</p>
+<p>Change: split out of <code>articulation</code> into their own
+<code>ornament</code> attribute, separately toggleable, orderable and
+findable. All stay label-only - no ornament is audibly realised, which
+is a standing decision (see CLAUDE.md), not an oversight.
+<code>wavy-line</code> here is the trill’s extension line and would
+become a span if ever surfaced.</p>
+<h2 id="technical-children">7. <code>&lt;technical&gt;</code>
+children</h2>
+<p>up-bow, down-bow, harmonic, open-string, thumb-position, fingering,
+pluck, double-tongue, triple-tongue, stopped, snap-pizzicato, fret,
+string, hammer-on, pull-off, bend, tap, heel, toe, fingernails, hole,
+arrow, handbell, brass-bend, flip, smear, open, half-muted, harmon-mute,
+golpe, other-technical.</p>
+<p>Today <code>fret</code>, <code>string</code>, <code>fingering</code>
+and <code>pluck</code> each become their own attribute; all the rest are
+comma-joined into <code>technique</code>. Unchanged.
+<code>hammer-on</code>, <code>pull-off</code> and <code>bend</code>
+carry start and stop types and could be spans, but they are guitar
+techniques read note by note, and the note attribute is the right
+place.</p>
+<h2 id="dynamics-values">8. <code>&lt;dynamics&gt;</code> values</h2>
+<p>p, pp, ppp, pppp, ppppp, pppppp, f, ff, fff, ffff, fffff, ffffff, mp,
+mf, sf, sfp, sfpp, fp, rf, rfz, sfz, sffz, fz, n, pf, sfzp,
+other-dynamics.</p>
+<p>Spoken through <code>dynamic_name</code> into the
+<code>dynamic</code> attribute, whether the source is a direction or a
+note-attached <code>&lt;dynamics&gt;</code>. Unchanged. A hairpin is a
+different thing from a dynamic mark and is reported separately, even
+when both sit on one note.</p>
+<h2 id="attributes-and-measure-style">9. <code>&lt;attributes&gt;</code>
+and <code>&lt;measure-style&gt;</code></h2>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Element</th>
+<th>Meaning</th>
+<th>Today</th>
+<th>Class</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>divisions</code></td>
+<td>ticks per quarter</td>
+<td>used throughout</td>
+<td>not a marking</td>
+</tr>
+<tr>
+<td><code>key</code></td>
+<td>key signature</td>
+<td>per-slice <code>key_fifths</code>, region 5 one-shot row on
+change</td>
+<td>structural: note list row and the change cue</td>
+</tr>
+<tr>
+<td><code>time</code></td>
+<td>time signature</td>
+<td>per-slice <code>time_sig</code>, region 5 one-shot row on change;
+drives Ref 18 beat units</td>
+<td>structural: note list row and the change cue</td>
+</tr>
+<tr>
+<td><code>clef</code></td>
+<td>clef, including mid-part changes</td>
+<td><code>ClefChangeMark</code>, region 5 and Find</td>
+<td>point (per part and staff)</td>
+</tr>
+<tr>
+<td><code>staves</code></td>
+<td>how many staves the part has</td>
+<td>used for the part tree</td>
+<td>not a marking</td>
+</tr>
+<tr>
+<td><code>part-symbol</code></td>
+<td>brace or bracket grouping</td>
+<td>not read</td>
+<td>ignored</td>
+</tr>
+<tr>
+<td><code>transpose</code></td>
+<td>transposing instrument</td>
+<td>shifts <code>midi_pitch</code> only (invariant 15)</td>
+<td>not a marking</td>
+</tr>
+<tr>
+<td><code>staff-details</code></td>
+<td>tuning, string count, staff lines</td>
+<td>partially used for tab</td>
+<td>not a marking</td>
+</tr>
+<tr>
+<td><code>measure-style</code> multiple-rest</td>
+<td>N bars rest printed as one</td>
+<td><code>MeasureStyleMark</code>, region 5 and Find</td>
+<td>point</td>
+</tr>
+<tr>
+<td><code>measure-style</code> measure-repeat</td>
+<td>repeat the previous bar</td>
+<td><code>MeasureStyleMark</code></td>
+<td>point</td>
+</tr>
+<tr>
+<td><code>measure-style</code> beat-repeat</td>
+<td>repeat the previous beat</td>
+<td><code>MeasureStyleMark</code></td>
+<td>point</td>
+</tr>
+<tr>
+<td><code>measure-style</code> slash</td>
+<td>slash notation bars</td>
+<td><code>MeasureStyleMark</code></td>
+<td>point</td>
+</tr>
+<tr>
+<td><code>for-part</code> (4.0)</td>
+<td>concert versus written pitch for one part</td>
+<td>not read</td>
+<td>not a marking</td>
+</tr>
+</tbody>
+</table>
+<h2 id="other-score-content">10. Other score content</h2>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Element</th>
+<th>Meaning</th>
+<th>Today</th>
+<th>Class</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>credit</code>, <code>credit-words</code></td>
+<td>page text: title, composer, copyright</td>
+<td>region 1</td>
+<td>region 1, unchanged</td>
+</tr>
+<tr>
+<td><code>work</code>, <code>movement-title</code>,
+<code>identification</code></td>
+<td>score metadata</td>
+<td>region 1</td>
+<td>region 1, unchanged</td>
+</tr>
+<tr>
+<td><code>harmony</code></td>
+<td>chord symbol, with <code>frame</code> for a chord diagram</td>
+<td>synthetic Chords part, <code>chord symbol</code> and
+<code>chord diagram</code> attributes</td>
+<td>attribute</td>
+</tr>
+<tr>
+<td><code>figured-bass</code></td>
+<td>figured bass numerals</td>
+<td>not read</td>
+<td>attribute, if a real file needs it</td>
+</tr>
+<tr>
+<td><code>lyric</code></td>
+<td>sung text</td>
+<td>synthetic Lyrics part</td>
+<td>not a marking</td>
+</tr>
+<tr>
+<td><code>print new-system</code>, <code>new-page</code></td>
+<td>system and page breaks</td>
+<td>not read</td>
+<td>no row - the end of system already has its own cue</td>
+</tr>
+<tr>
+<td><code>grace</code></td>
+<td>grace note</td>
+<td>its own <code>GraceNote</code> list, rendered “A grace B”, plus the
+<code>grace</code> attribute</td>
+<td>attribute, unchanged: the grace note’s pitch is still spoken in the
+step</td>
+</tr>
+<tr>
+<td><code>cue</code></td>
+<td>cue-size note</td>
+<td>not read</td>
+<td>ignored</td>
+</tr>
+<tr>
+<td><code>listen</code>, <code>listening</code> (4.0)</td>
+<td>performance-following data</td>
+<td>not read</td>
+<td>ignored</td>
+</tr>
+<tr>
+<td><code>part-group</code></td>
+<td>instrument grouping brackets</td>
+<td>not read</td>
+<td>ignored</td>
+</tr>
+</tbody>
+</table>
+<h2 id="parser-gaps-to-close-in-priority-order">11. Parser gaps to
+close, in priority order</h2>
+<ol type="1">
+<li>Ties summed into duration, and continuation notes removed from the
+timeline (strategy section 12). The one behaviour change in this
+work.</li>
+<li><code>&lt;barline&gt;/&lt;fermata&gt;</code> - a pause on the
+barline, currently invisible.</li>
+<li>Ornaments split out of the merged articulation attribute.</li>
+<li><code>breath-mark</code> and <code>caesura</code> read from both
+<code>&lt;notations&gt;</code> and
+<code>&lt;articulations&gt;</code>.</li>
+<li>A zero-length <code>&lt;wedge&gt;</code> classified as a point
+rather than a span, with the vocabulary of strategy section 11.</li>
+<li><code>directive="yes"</code> read, for the region 1 directive
+list.</li>
+<li><code>repeat times="N"</code> surfaced in the repeat row text, and
+<code>after-jump</code> read.</li>
+<li><code>&lt;barline&gt;/&lt;segno&gt;</code> and
+<code>&lt;barline&gt;/&lt;coda&gt;</code> as an alternative source for
+jump marks.</li>
+<li><code>accidental-mark</code> - the only element that would make an
+ornament’s auxiliary pitch knowable without inference, if audible
+ornaments are ever revisited.</li>
+</ol>
+</body>
+</html>

@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import List, Tuple
 
 from audio import barline_patterns
+from audio.barline_patterns import plain_barline_event
 from audio.boundary_cue import boundary_cue_event
 from audio.metronome import click_event_for_beat
 from audio.performance_cue import performance_cue_event
@@ -43,7 +44,7 @@ def build_catalog() -> List[SoundCatalogEntry]:
             "Bar line indicator - plain barline",
             "An ordinary bar line",
             "Bar Line Indicator on, crossing an ordinary bar line with a plain Left/Right step",
-            [click_event_for_beat(1.0)],
+            [plain_barline_event()],
         ),
     ]
     for kind, spec in barline_patterns.BARLINE_PATTERNS.items():

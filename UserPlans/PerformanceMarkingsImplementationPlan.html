@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Performance markings - implementation plan</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Performance markings - implementation plan</h1>
+</header>
+<h1 id="performance-markings---implementation-plan">Performance markings
+- implementation plan</h1>
+<p>Revision 1, 2026-09-13. The build sequence for
+<code>UserPlans/PerformanceMarkingsStrategy.md</code> revision 3, whose
+decisions this plan assumes and does not re-argue.
+<code>UserPlans/MusicXMLMarkingInventory.md</code> revision 3 is the
+element-by-element reference.</p>
+<p>Nothing here is implemented yet. The plan is written so each stage
+ships on its own, is testable on its own, and leaves the app usable if
+the next stage never happens.</p>
+<h2 id="how-the-work-divides">How the work divides</h2>
+<p>Three kinds of change, deliberately kept apart because they have
+different risk:</p>
+<ul>
+<li>Presentation only. New rows, new wording, new toggles. No parser
+change, no timeline change, so the fingerprint harnesses stay green
+throughout and a mistake is visible immediately in the region it
+affects. Stages 1 to 6 and 9.</li>
+<li>Parser additions. New data read out of the file that was previously
+ignored. The harnesses report new fields, never changed ones. Stages 7
+and 10.</li>
+<li>Timeline changes. The event list itself changes, so navigation,
+playback, the Performance Report and every harness baseline move
+together. Stage 8 alone, and it is the only stage that changes behaviour
+the user already relies on.</li>
+</ul>
+<p>Stage 8 is last among the risky work for that reason, and it gets its
+own live test before anything is built on top of it.</p>
+<h2 id="the-acceptance-gate-stated-once">The acceptance gate, stated
+once</h2>
+<p>Every stage that touches <code>parsers/</code> or
+<code>models/</code> runs the fingerprint harnesses of
+<code>tests/manual/</code> against a baseline captured from the commit
+before the stage started, per <code>tests/manual/README.md</code>. “The
+pytest suite passes” is not evidence for a change meant to preserve
+behaviour.</p>
+<ul>
+<li>Stages 1 to 7, 9, 10: the harness diff must be empty, except for
+fields that are purely additive and named in the stage’s own notes.</li>
+<li>Stage 8: the diff is expected and is the deliverable. It is read
+line by line, then the baseline is recaptured.</li>
+</ul>
+<h2 id="stage-1---region-5-becomes-one-row-per-span">Stage 1 - Region 5
+becomes one row per span</h2>
+<p>Strategy section 6. Self-contained, no dependencies, and it shrinks
+what every later stage has to diff.</p>
+<ul>
+<li><code>models/performance_region_row.py</code>:
+<code>PerformanceRegionRow</code> grows a second jump target. Today one
+row carries one target and the start and end rows each carry their own;
+after this a row carries both. Keep the existing field as the start
+target so no call site changes meaning, and add the end target beside
+it.</li>
+<li><code>models/performance_rows.py</code>:
+<code>get_performance_region_rows</code> emits one row per span instead
+of two. The row-order contract in its docstring stays - repeats,
+endings, hairpins, then the one-shot rows - and the diff
+<code>RegionPresenter.refresh_region_5</code> performs still works, on a
+shorter list.</li>
+<li>New <code>models/marking_labels.py</code>: the single source of
+label text. It owns the range rendering (“Repeat bars 1 to 8”), the
+singular single-bar rendering (“Ending 1 bar 12”), the start/end
+rendering the note list will need in stage 3, and the bar word from
+<code>vocabulary.bar_word</code>. <code>performance_rows.py</code>, Find
+and the Performance Report all call it rather than formatting text
+themselves. Writing this module now, before there is a second consumer,
+is what stops the two renderings drifting later (invariant 8 - two
+copies of the same fact will diverge).</li>
+<li><code>controllers/navigation_controller.py</code>: the Ctrl+Home /
+Ctrl+End handler at line 175 branches on which target it wants rather
+than on which row it was given.</li>
+<li><code>widgets/region5_list_widget.py</code>: unchanged in behaviour;
+its key handling at line 94 already passes the focused row through.</li>
+</ul>
+<p>Tests: the singular/plural boundary (a span inside one bar, a span
+across two bars, a hairpin inside one bar at two beats), an unmatched
+wedge keeping its honest wording, both jump targets resolving from one
+row, and <code>bar_word</code> respected in both renderings.</p>
+<h2 id="stage-2---region-3-rows-become-typed">Stage 2 - Region 3 rows
+become typed</h2>
+<p>Strategy section 15. Pure refactor. Behaviour identical at the end of
+it, which is what makes it safe to build five stages on.</p>
+<ul>
+<li><code>models/note_renderer.py</code>: <code>region_3_data()</code>
+returns typed rows rather than bare strings - a note row carrying its
+note index, or a marking row carrying its marking.
+<code>MusicData.get_region_3_data</code> keeps its current string-list
+signature as a thin wrapper so nothing outside breaks in this stage, and
+a new accessor returns the typed rows for the callers that need
+them.</li>
+<li>Move the existing fabricated rows onto the new type: the Stave Text
+entries and the Rehearsal mark entries, which today are synthetic voice
+events. They become marking rows and stop being fake notes. This is the
+part of the stage that proves the type works, and it removes a
+long-standing oddity in region 2’s voice tree.</li>
+<li><code>controllers/region_presenter.py</code>:
+<code>update_timeline_views</code> and
+<code>refresh_region_3_labels</code> render from the typed rows. The
+<code>selectAll</code> plus explicit
+<code>setCurrentRow(0, NoUpdate)</code> sequence at line 152 is
+untouched and stays commented as it is (invariant 10).</li>
+<li>The three index consumers learn to skip marking rows: region 4’s row
+build, <code>get_playback_events_for_indices</code>, and the select-all
+audition. Selecting a marking row sounds nothing.</li>
+</ul>
+<p>Tests: a score with stave text renders the same strings as before; a
+marking row in the selection contributes no playback event; the chord
+audition still sounds every note of a chord when row 0 is a marking
+row.</p>
+<h2 id="stage-3---repeats-endings-and-sections-in-the-note-list">Stage 3
+- Repeats, endings and sections in the note list</h2>
+<p>Strategy sections 5 and 5.1 (rows only; no moment events yet).</p>
+<ul>
+<li>New <code>models/marking_rows.py</code>, a <code>MusicData</code>
+collaborator in the style of <code>performance_rows.py</code>: it owns
+no state, reads spans and marks live, and answers “which marking rows
+belong at this event”. It builds its index once per load, keyed by
+measure and by quarters, because region 3 is rebuilt on every cursor
+move inside Ref 9’s 25 ms budget - a linear scan over every span per
+keystroke is the one implementation that cannot be made to fit.</li>
+<li><code>MusicData</code> gains a one-line delegator for it (invariant
+4).</li>
+<li>Row placement follows the axis B rule: score-level rows at the top,
+part and staff rows immediately above that staff’s notes.</li>
+<li>Labels come from <code>models/marking_labels.py</code>, in its
+start/end rendering.</li>
+</ul>
+<p>Tests: a repeat start row on the first event of the bar it opens; a
+repeat end row on the last event before the barline; a combined
+end-and-start barline producing both, end first; an ending row under
+region 2 filtering; row order with two parts visible.</p>
+<h2 id="stage-4---barline-sounds-and-the-sound-icon-dictionary">Stage 4
+- Barline sounds and the Sound Icon Dictionary</h2>
+<p>Strategy section 10. Independent of stages 1 to 3, so it can slot in
+wherever it suits.</p>
+<ul>
+<li>New <code>audio/barline_patterns.py</code>, beside
+<code>boundary_cue.py</code> and <code>performance_cue.py</code> and in
+the same bare-module shape: the patterns declared as data (pitch,
+length, velocity steps), one reserved channel of its own. A multi-step
+pattern must not share a channel with another one-shot - FluidSynth
+releases a ringing note by channel plus key, so two patterns on one
+channel cut each other off.</li>
+<li>The repeat mnemonic goes in the code comment: the short beeps are
+the repeat dots and they sit on the side of the long beep that the
+repeated music is on.</li>
+<li>Suppression rule: the plain barline beep stays suppressed while the
+metronome runs; the repeat, double, heavy and mensurstrich patterns
+sound anyway. All of it stays gated by the Ctrl+B toggle, and every
+pattern fires after the destination note’s audition.</li>
+<li>New <code>widgets/sound_icon_dictionary_dialog.py</code>, Help menu,
+always enabled with or without a score. A list plus buttons, so
+<code>docs/dialog_widget_patterns.md</code> applies, including focusing
+the literal first widget in tab order.</li>
+<li>The dictionary is generated from the same declarations the audio
+modules use. A hand-written second list would drift from the sounds
+themselves - the R5 bug class again.</li>
+</ul>
+<p>Tests: pattern selection per bar style with a null synth recording
+what would have sounded; metronome suppression applying to the plain
+beep only; the dictionary listing one entry per declared sound with no
+score loaded.</p>
+<h2 id="stage-5---hairpins">Stage 5 - Hairpins</h2>
+<p>Strategy section 11, and the first stage to need per-part and
+per-staff placement.</p>
+<ul>
+<li>A <code>&lt;wedge&gt;</code> whose start and stop resolve to one
+position becomes a point, reading “Crescendo” or “Diminuendo” - never
+“hairpin”.</li>
+<li>A <code>&lt;words&gt;</code> direction keeps reading its own literal
+text, which is what keeps a written “cresc.” distinct from a wedge.</li>
+<li>A swell (crescendo then diminuendo on one note) produces two rows in
+file order, and nothing merges them.</li>
+<li>An unmatched stop keeps “Hairpin ending bar 12, no start marked in
+the file”.</li>
+</ul>
+<p>Tests: zero-length wedge as a point; swell as two rows in file order;
+a hairpin on the piano left hand appearing above the left hand’s notes
+only, and not repeated per voice of that staff.</p>
+<h2 id="stage-6---structural-changes-and-the-cue">Stage 6 - Structural
+changes and the cue</h2>
+<p>Strategy section 7.</p>
+<ul>
+<li>Key, time and tempo changes become note list rows: “Key signature
+change: D major”, “Time signature change: 3/4”, “Tempo change: 96”.</li>
+<li><code>controllers/region_presenter.py</code> line 332 and line 345:
+the cue stops firing on a region 5 row-set diff and fires when the
+cursor lands on an event carrying a structural change row. One sound for
+all three.</li>
+<li>Never at index 0 - the opening key, time and tempo are already in
+region 1 and the status bar on load.</li>
+<li>Only an immediate tempo change fires it. A rallentando written as
+words gets its row and its region 5 line and no clap.</li>
+<li>Ordering is unchanged and load-bearing: audition first, then the
+cue, because the audition’s retrigger releases everything on its
+channel.</li>
+</ul>
+<p>Tests: cue fires on a mid-score key change and not at index 0; a
+words-only rall. produces a row and no cue; the audition-then-cue order
+holds.</p>
+<h2 id="stage-7---points-directives-and-the-region-1-list">Stage 7 -
+Points, directives and the region 1 list</h2>
+<p>Strategy sections 5 and 9. The first stage with real parser
+additions, all of them additive.</p>
+<ul>
+<li>Parser gaps closed here, from the inventory’s priority list:
+<code>directive="yes"</code>; <code>repeat times="N"</code> surfaced in
+the row text and <code>after-jump</code> read;
+<code>&lt;barline&gt;/&lt;segno&gt;</code> and
+<code>&lt;barline&gt;/&lt;coda&gt;</code> as an alternative source for
+jump marks.</li>
+<li>Point rows: segno, coda, to coda, fine, da capo, dal segno,
+rehearsal marks, double and other barlines, clef changes, pedal
+change.</li>
+<li>Region 1 gains the Directives list, in bar order.</li>
+<li>Ctrl+N on a region 1 directive entry adds it to the note list and
+removes it again, with the same context menu item region 5 will get in
+stage 9. Directives are not in the note list by default.</li>
+</ul>
+<p>Harness note: new fields appear for directives, repeat times and
+after-jump. Nothing existing changes.</p>
+<p>Tests: a directive listed in region 1 and absent from the note list
+until toggled; the toggle surviving a save and reload; “Repeat bars 1 to
+8, play 3 times”.</p>
+<h2 id="stage-8---ties-and-the-two-moment-events">Stage 8 - Ties, and
+the two moment events</h2>
+<p>Strategy sections 12, 13 and 5.1. The one stage that changes existing
+behaviour. It ships alone, with its own live test, and nothing else goes
+in the same commit.</p>
+<p>Three changes that have to land together because each is wrong
+without the others:</p>
+<ul>
+<li>A tied chain becomes one attack with the summed duration, named
+where a name exists and stated in ts-relative beats where it is not.
+Playback holds it once.</li>
+<li>A continuation note carrying a marking becomes its own timeline
+event at its own bar and beat, reading “F sharp, tied, fermata” with the
+remaining length of the chain. Arrowing onto it auditions the pitch;
+playback does not re-attack it. A continuation note carrying nothing is
+not an event.</li>
+<li>A <code>&lt;fermata&gt;</code> inside a <code>&lt;barline&gt;</code>
+becomes its own timeline event at the barline position, attached to no
+note, reading “Fermata on barline”, sounding nothing, score level. A
+fermata on the final barline needs no special case - it is simply the
+last event.</li>
+<li>The <code>tie</code> attribute leaves region 3, region 4 and the
+Find target list.</li>
+</ul>
+<p>Where the code changes:</p>
+<ul>
+<li><code>parsers/timeline_builder.py</code> and the MusicXML path:
+chain detection, duration summing, and the two new event kinds. The
+other three formats inherit whatever the shared builder does and are
+checked rather than changed.</li>
+<li><code>models/event_slice.py</code> and
+<code>models/note_data.py</code>: an event kind that carries no attack,
+and enough on it for the renderer to speak it.</li>
+<li><code>models/playback_event_builder.py</code>: one attack per chain,
+held for the summed length. This is the bug the current two-attack
+rendering has, so playback gets better as a side effect.</li>
+<li>The navigator: a moment event is a stop, and a marking-free
+continuation is not.</li>
+</ul>
+<p>Ties across a repeat or into a first-time bar sum the written length
+as printed. No attempt is made to work out the duration on a particular
+pass through the repeat structure.</p>
+<p>Harness: every score containing a tie reports a difference. That is
+the deliverable. Read the diff, confirm each difference is a tie or a
+barline fermata and nothing else, then recapture both baselines.</p>
+<p>Live test before anything is built on top: a tied chain of three, a
+tied chain with a fermata in the middle, a tie across a barline with a
+fermata on that barline, and a chord where one note is tied and the
+others are not.</p>
+<h2 id="stage-9---ctrln-the-asterisk-and-persistence">Stage 9 - Ctrl+N,
+the asterisk, and persistence</h2>
+<p>Strategy section 8. Until this ships, every category from the stages
+above is simply on, which is why it can come this late.</p>
+<ul>
+<li>Ctrl+N with focus on a region 5 row toggles that row’s category in
+and out of the note list and speaks the new state. Same item on region
+5’s context menu (Menu key and Shift+F10), and in the Keyboard Shortcuts
+reference.</li>
+<li>Ctrl+N is declared where its action is built and snapshotted by
+<code>ShortcutController</code>, never copied into a table (invariant
+16).</li>
+<li>A surfaced category is prefixed with an asterisk and a space in
+region 5.</li>
+<li>Per score in the <code>.rsc</code> through <code>ScoreConfig</code>,
+with a global default in <code>AppSettings</code>, matching display
+attributes and the region 2 toggles.</li>
+</ul>
+<p>The asterisk check, five minutes with NVDA and the only thing in this
+plan that is a question rather than a decision: at punctuation level
+“none” an asterisk may be spoken as nothing at all, which makes the
+prefix invisible rather than subtle. If it fails, the fallback is the
+row’s accessible description, not a more verbose visible prefix. Do this
+check at the start of the stage, not the end.</p>
+<h2 id="stage-10---articulations-ornaments-and-breath-marks">Stage 10 -
+Articulations, ornaments and breath marks</h2>
+<p>Strategy section 14. Independent of everything else; it is here
+because it is the least urgent, not because it is blocked.</p>
+<ul>
+<li>Ornaments split out of the merged <code>articulation</code>
+attribute into their own <code>ornament</code> attribute - separately
+toggleable, orderable and findable.</li>
+<li><code>breath-mark</code> and <code>caesura</code> read from both
+<code>&lt;notations&gt;</code> and <code>&lt;articulations&gt;</code>,
+so they no longer depend on where the exporter put them.</li>
+<li>Both stay label-only. No ornament is audibly realised - a standing
+decision, not an oversight.</li>
+</ul>
+<p>Harness: a new <code>ornament</code> field appears and
+<code>articulation</code> loses the ornament values. Both are expected
+and are read as a pair.</p>
+<h2 id="what-this-plan-does-not-touch">What this plan does not
+touch</h2>
+<ul>
+<li>The Performance Report. It reads the same spans and marks and picks
+up the new labelling module for free in stage 1. Its own redesign is the
+next piece of work after this one.</li>
+<li><code>docs/user_guide.md</code> and its HTML. Not touched unless
+asked for separately.</li>
+<li>Playback of ornaments, trills and octave shifts. Still
+label-only.</li>
+</ul>
+<h2 id="order-in-one-line">Order in one line</h2>
+<p>Stage 1 and stage 4 can start immediately and in either order. Stage
+2 gates 3, 5, 6 and 7. Stage 8 waits for a quiet moment and ships alone.
+Stage 9 comes after whatever categories exist. Stage 10 whenever.</p>
+</body>
+</html>

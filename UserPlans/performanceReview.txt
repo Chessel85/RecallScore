@@ -1,0 +1,42 @@
+I need to revamp how performance information is surfaced to the user as it isn't working in practice currently.
+This is information generally put in region 5 currently but I may touch on attributes as well.
+The new general idea is to allow performance  info to be surfaced as text in the notes region.
+In fact, the default will be for it to be on rather than off.
+It probably needs a context menu like region 4 has.
+Let's look at specifics. Start with bar lines.
+A normal bar line currently has nothing and this will continue.  There is the existing option to make a sound when barlines are crossed.  No change.
+I do want to add extra sounds though.  A single beep for an ordinary bar line.  Then a double short and single long for an end repeat, a single long and a double short for a start repeat, and a double short, single long and double short for a combined end and start repeat.
+The end of system barline doesn't need anything as we already have the d'oh sound for this.
+I remember you can also get a double ordinary barline.  Can't remember what this means.
+In terms of surfacing to the note list, when the user is on the first event after a repeat start, "Repeat start" is an entry in the note list.
+For the last event before a repeat end, the note list includes "Repeat end".
+These can be triggered also by the combined end and start repeat barline.
+Are there any other kinds of barlines I've missed?
+
+Crescendos and i,diminuendos.
+I'm talking specifically here about hairpins.
+When the user is on an event where a crescendo hairpin ends, the note list includes an entry for "Crescendo end".
+When the user is on an event where a crescendo hairpin starts, the note list includes an entry for "Crescendo start".
+And similarly for diminuendo.  "Diminuendo start" and "Diminuendo end".
+Now I believe it is possible for different instruments to have different hairpin indicators.  One instrument can be getting louder whilst another gets quieter.
+Therefore, the hairpin indicators in the note list have to go immediately above the notes for that instrument.
+Does music XML support hairpins specific to a stave? e.g. can a piano left hand have hairpins not meant for the right hand?
+
+Some questions.
+Does music XML distinguish between score level text and stave level text.
+I would say score level text applies to all parts.  Score text then would come at the top of the note list (as well as being in region 5).
+Stave text goes above the notes shown for that stave.
+
+Codas and such.
+All instructions like a coda, fine, de capo and all such variations now should be displayed as text in the note list by default.  Can be turned off from the performance region 5.
+
+Pedals, barres, octave changes and anything else which can last for more than one event.
+If there is a performance indicator that lasts for more than one time event, it is shown in region 5.  And by default is surfaced as a "Blah start" and "Blah end" in the note list.
+Blah means pedal, barree, octave whatever.
+If there is no duration for a performance indicator  I am slightly unclear what to do.  Should it stay in region 5 and be put into the note list with "Blah", no start or end text?
+
+Planning.
+I am after a review of the above by yourself to write a strategy document for managing performance indicators, and maybe articulations as well.
+Produce an MD file in userPlans based on the above plus what we currently already do.
+I'm after a consistent and logical approach to manage short and long performance indicators.
+If possible, I'd like either an appendix or separate md that lists all music xml supported tags so I can review and decide where they fit in the strategy. 

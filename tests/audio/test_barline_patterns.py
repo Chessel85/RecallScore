@@ -62,15 +62,14 @@ def test_ending_boundary_is_not_a_pattern_of_its_own():
     assert pattern_for_crossing(4, 5, [], spans, []) is None
 
 
-def test_events_for_pattern_share_the_reserved_channel_and_match_declared_steps():
+def test_events_for_pattern_share_the_reserved_channel_and_match_declared_note():
     for kind, spec in BARLINE_PATTERNS.items():
         events = events_for_pattern(kind)
-        assert len(events) == len(spec["steps"])
-        for event, step in zip(events, spec["steps"]):
-            assert event[0] == BARLINE_PATTERN_CHANNEL
-            assert event[3] == step.pitch
-            assert event[4] == step.velocity
+        assert len(events) == 1
+        assert events[0][0] == BARLINE_PATTERN_CHANNEL
+        assert events[0][3] == spec["note"]
 
 
-def test_longest_pattern_is_the_combined_repeat_barline():
-    assert max(BARLINE_PATTERNS, key=lambda k: len(BARLINE_PATTERNS[k]["steps"])) == "repeat_end_and_start"
+def test_every_pattern_has_its_own_note():
+    notes = [spec["note"] for spec in BARLINE_PATTERNS.values()]
+    assert len(notes) == len(set(notes))

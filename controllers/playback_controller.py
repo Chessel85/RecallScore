@@ -4,7 +4,12 @@ from typing import Any, List, Optional, Tuple
 
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
 
-from audio.barline_patterns import STEP_MS, events_for_pattern, pattern_for_crossing
+from audio.barline_patterns import (
+    STEP_MS,
+    events_for_pattern,
+    pattern_for_crossing,
+    plain_barline_event,
+)
 from audio.lead_in import build_lead_in_schedule
 from audio.metronome import METRONOME_CHANNEL, click_event_for_beat
 from audio.performance_cue import PERFORMANCE_CUE_CHANNEL
@@ -1299,14 +1304,14 @@ class PlaybackController(QObject):
         beats and nothing about barline meaning. Independent of the position
         announcer, which stays audible alongside either.
 
-        Sounds AFTER the destination note's own audition, never before: the
-        plain beep is on METRONOME_CHANNEL and a pattern is on its own
-        BARLINE_PATTERN_CHANNEL, both of which stop_all_notes() releases,
-        and the note audition's retrigger=True calls stop_all_notes() -
-        firing either first would have it cut off almost immediately (the
-        same ordering constraint as the Region 5 change cue and the Find
-        wrap boundary cue). barline_crossed is emitted after position_changed
-        for exactly this reason, so nothing extra is needed here."""
+        Sounds AFTER the destination note's own audition, never before: both
+        the plain beep and a pattern are on BARLINE_PATTERN_CHANNEL, which
+        stop_all_notes() releases, and the note audition's retrigger=True
+        calls stop_all_notes() - firing either first would have it cut off
+        almost immediately (the same ordering constraint as the Region 5
+        change cue and the Find wrap boundary cue). barline_crossed is
+        emitted after position_changed for exactly this reason, so nothing
+        extra is needed here."""
         if not self.music_data or not self.music_data.bar_line_indicator_enabled:
             return
         if self._muted:
@@ -1325,9 +1330,7 @@ class PlaybackController(QObject):
 
         if self.music_data.metronome_enabled:
             return
-        click = click_event_for_beat(1.0)
-        if click is not None:
-            self.synth.play_click(*click)
+        self.synth.play_click(*plain_barline_event())
 
     def _play_barline_pattern(self, kind: str) -> None:
         """Sounds a multi-step barline pattern. The first step fires right
