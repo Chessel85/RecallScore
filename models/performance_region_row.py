@@ -18,10 +18,18 @@ class PerformanceRegionRow:
     mid-measure, so needs the finer-grained quarters_from_start lookup).
     For a point/structural row, which has only one position, end_target_*
     stays None and NavigationController.jump_to_span falls back to the
-    start target for both Ctrl+Home and Ctrl+End."""
+    start target for both Ctrl+Home and Ctrl+End.
+
+    Stage 9 (strategy section 8): `category` is one of
+    models.marking_categories.ALL_CATEGORIES, or None for a row with no
+    note-list toggle (see that module's docstring for what is excluded and
+    why). Region5ListWidget's Ctrl+N reads this off the focused row;
+    PerformanceRows prefixes the label with "* " when the category is
+    currently surfaced in the note list."""
 
     label: str
     jump_target_measure: int
     jump_target_quarters: Optional[float] = None
     end_target_measure: Optional[int] = None
     end_target_quarters: Optional[float] = None
+    category: Optional[str] = None

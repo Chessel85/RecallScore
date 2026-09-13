@@ -529,11 +529,11 @@ def test_get_performance_region_rows_include_jump_marks(
 
     m6_index = next(i for i, s in enumerate(md.timeline_slices) if s.measure == 6)
     labels = [r.label for r in md.get_performance_region_rows(m6_index)]
-    assert "Da capo" in labels
+    assert "* Da capo" in labels
 
     m7_index = next(i for i, s in enumerate(md.timeline_slices) if s.measure == 7)
     labels = [r.label for r in md.get_performance_region_rows(m7_index)]
-    assert "Coda" in labels
+    assert "* Coda" in labels
 
 
 def test_performance_region_rows_follow_the_cursor_into_and_out_of_a_span(
@@ -551,8 +551,8 @@ def test_performance_region_rows_follow_the_cursor_into_and_out_of_a_span(
     rows = md.get_performance_region_rows(m3_index)
     labels = [r.label for r in rows]
     assert labels == [
-        "Repeat measures 2 to 3",
-        "Ending 1 measure 3",
+        "* Repeat measures 2 to 3",
+        "* Ending 1 measure 3",
     ]
 
 
@@ -569,7 +569,7 @@ def test_performance_region_rows_hairpin_wording_omits_beat_on_the_downbeat(
 
     crescendo_start_index = md.slice_index_at_or_after_quarters(2.0)  # m1 beat 3
     labels = [r.label for r in md.get_performance_region_rows(crescendo_start_index)]
-    assert labels == ["Crescendo measure 1 beat 3 to measure 2 beat 2"]
+    assert labels == ["* Crescendo measure 1 beat 3 to measure 2 beat 2"]
 
     diminuendo_start_index = next(
         i
@@ -577,7 +577,7 @@ def test_performance_region_rows_hairpin_wording_omits_beat_on_the_downbeat(
         if s.measure == 3 and s.notes[0].step_name == "D"
     )
     labels = [r.label for r in md.get_performance_region_rows(diminuendo_start_index)]
-    assert labels == ["Diminuendo measure 3 beat 1 to beat 3"]
+    assert labels == ["* Diminuendo measure 3 beat 1 to beat 3"]
 
 
 # --- S7: one-shot key/time-signature/tempo change alerts --------------------
@@ -593,7 +593,7 @@ def test_key_signature_change_fires_a_one_shot_row_at_the_transition(
 
     bar_2_index = md.first_event_index_of_measure(2)
     assert [r.label for r in md.get_performance_region_rows(bar_2_index)] == [
-        "Key signature change: D major / B minor"
+        "* Key signature change: D major / B minor"
     ]
     # One-shot: the row is gone again one slice later, still inside bar 2.
     assert md.get_performance_region_rows(bar_2_index + 1) == []
@@ -623,14 +623,14 @@ def test_time_signature_change_fires_a_one_shot_row_at_the_transition(
 
     bar_2_index = md.first_event_index_of_measure(2)
     assert [r.label for r in md.get_performance_region_rows(bar_2_index)] == [
-        "Time signature change: 6/8"
+        "* Time signature change: 6/8"
     ]
     # One-shot: the row is gone again one slice later, still inside bar 2.
     assert md.get_performance_region_rows(bar_2_index + 1) == []
 
     bar_3_index = md.first_event_index_of_measure(3)
     assert [r.label for r in md.get_performance_region_rows(bar_3_index)] == [
-        "Time signature change: 4/4"
+        "* Time signature change: 4/4"
     ]
 
 
@@ -642,7 +642,7 @@ def test_tempo_change_fires_a_one_shot_row_at_the_transition(timeline, tempo_cha
 
     bar_2_index = md.first_event_index_of_measure(2)
     assert [r.label for r in md.get_performance_region_rows(bar_2_index)] == [
-        "Tempo change: 200 quarter notes per minute"
+        "* Tempo change: 200 quarter notes per minute"
     ]
     assert md.get_performance_region_rows(bar_2_index + 1) == []
 
@@ -655,8 +655,8 @@ def test_time_signature_and_tempo_change_rows_both_fire_when_they_land_on_the_sa
 
     bar_9_index = md.first_event_index_of_measure(9)
     assert [r.label for r in md.get_performance_region_rows(bar_9_index)] == [
-        "Time signature change: 3/4",
-        "Tempo change: 80 quarter notes per minute",
+        "* Time signature change: 3/4",
+        "* Tempo change: 80 quarter notes per minute",
     ]
 
 
@@ -671,7 +671,7 @@ def test_tempo_change_row_reports_the_scores_own_number_not_the_absolute_overrid
 
     bar_2_index = md.first_event_index_of_measure(2)
     assert [r.label for r in md.get_performance_region_rows(bar_2_index)] == [
-        "Tempo change: 200 quarter notes per minute"
+        "* Tempo change: 200 quarter notes per minute"
     ]
 
 

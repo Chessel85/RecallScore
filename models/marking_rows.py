@@ -75,22 +75,26 @@ class MarkingRows:
         # Stage 8 (strategy section 13): the barline fermata moment event
         # renders as one bare point row - it carries no note, so this is
         # the ONLY row region_3_data() has for it (the `if not notes:`
-        # branch returns score_level_rows verbatim when non-empty).
+        # branch returns score_level_rows verbatim when non-empty). Filtering
+        # this row out when "barlines" is off is safe even though it is the
+        # only row at this event: region_3_data()'s `if not notes:` branch
+        # falls through to the metronome-click/"None" placeholder, same as
+        # any other event with nothing to show.
         if event_slice.barline_fermata:
-            rows.append(MarkingRow(text="Fermata on barline", marking=event_slice))
+            rows.append(MarkingRow(text="Fermata on barline", marking=event_slice, category="barlines"))
 
-        def _add(span, name: str) -> None:
+        def _add(span, name: str, category: str) -> None:
             if span.end_measure == event_slice.measure and self._is_last_of_measure(event_slice):
-                rows.append(MarkingRow(text=marking_labels.end_label(name), marking=span))
+                rows.append(MarkingRow(text=marking_labels.end_label(name), marking=span, category=category))
             if span.start_measure == event_slice.measure and self._is_first_of_measure(event_slice):
-                rows.append(MarkingRow(text=marking_labels.start_label(name), marking=span))
+                rows.append(MarkingRow(text=marking_labels.start_label(name), marking=span, category=category))
 
         for span in data.repeat_spans:
-            _add(span, "Repeat")
+            _add(span, "Repeat", "repeats_endings")
         for span in data.ending_spans:
-            _add(span, f"Ending {span.number}")
+            _add(span, f"Ending {span.number}", "repeats_endings")
         for span in data.section_spans:
-            _add(span, f"Section {span.label}" if span.label else "Section")
+            _add(span, f"Section {span.label}" if span.label else "Section", "sections")
 
         def _at_first(m_num: int) -> bool:
             return event_slice.measure == m_num and self._is_first_of_measure(event_slice)
@@ -109,25 +113,28 @@ class MarkingRows:
         for mark in data.segno_marks:
             if _at_first(mark.measure):
                 rows.append(MarkingRow(
-                    text=f"Segno{marking_labels.label_suffix(mark.label)}", marking=mark
+                    text=f"Segno{marking_labels.label_suffix(mark.label)}", marking=mark,
+                    category="jump_instructions",
                 ))
         for mark in data.coda_marks:
             if _at_first(mark.measure):
                 rows.append(MarkingRow(
-                    text=f"Coda{marking_labels.label_suffix(mark.label)}", marking=mark
+                    text=f"Coda{marking_labels.label_suffix(mark.label)}", marking=mark,
+                    category="jump_instructions",
                 ))
         for mark in data.to_coda_marks:
             if _at_last(mark.measure):
                 rows.append(MarkingRow(
-                    text=f"To coda{marking_labels.label_suffix(mark.label)}", marking=mark
+                    text=f"To coda{marking_labels.label_suffix(mark.label)}", marking=mark,
+                    category="jump_instructions",
                 ))
         for mark in data.fine_marks:
             if _at_last(mark.measure):
-                rows.append(MarkingRow(text="Fine", marking=mark))
+                rows.append(MarkingRow(text="Fine", marking=mark, category="jump_instructions"))
         for jump in data.navigation_jumps:
             if _at_last(jump.measure):
                 name = "Da capo" if jump.kind == "dacapo" else "Dal segno"
-                rows.append(MarkingRow(text=name, marking=jump))
+                rows.append(MarkingRow(text=name, marking=jump, category="jump_instructions"))
 
         # Double/other barlines: a `location="left"` barline opens the
         # measure it's recorded against (first event of that bar); the
@@ -144,7 +151,7 @@ class MarkingRows:
                 "Double barline" if mark.kind == "double_barline"
                 else f"{mark.style.capitalize()} barline"
             )
-            rows.append(MarkingRow(text=label, marking=mark))
+            rows.append(MarkingRow(text=label, marking=mark, category="barlines"))
 
         # Directives (strategy section 9): score-level point rows, but only
         # for the ones Ctrl+N has surfaced (off by default) - anchored like
@@ -165,9 +172,13 @@ class MarkingRows:
         # (structural_change_labels) - one source keeps the three from
         # disagreeing (invariant 8). Already suppressed at index 0 there.
         for kind, label in data.structural_change_labels():
-            rows.append(MarkingRow(text=label, marking=kind))
+            rows.append(MarkingRow(text=label, marking=kind, category="structural_changes"))
 
-        return rows
+        # Stage 9 (strategy section 8): drop any row whose category the
+        # user has switched off. A row with category=None (the directive
+        # rows above, and every category models.marking_categories
+        # deliberately excludes) is never filtered.
+        return [r for r in rows if r.category is None or r.category not in data.marking_categories_off]
 
     # --- score-level quarters index (stage 7 - directives) --------------
 
@@ -236,26 +247,33 @@ class MarkingRows:
             ):
                 anchor = self._first_at_or_after(key, span.start_quarters_from_start)
                 if anchor == event_slice.quarters_from_start:
-                    _add(key, MarkingRow(text=name, marking=span))
+                    _add(key, MarkingRow(text=name, marking=span, category="hairpins"))
                 continue
 
             if span.end_known:
                 anchor = self._last_at_or_before(key, span.end_quarters_from_start)
                 if anchor == event_slice.quarters_from_start:
-                    _add(key, MarkingRow(text=marking_labels.end_label(name), marking=span))
+                    _add(key, MarkingRow(
+                        text=marking_labels.end_label(name), marking=span, category="hairpins"
+                    ))
             if span.start_known:
                 anchor = self._first_at_or_after(key, span.start_quarters_from_start)
                 if anchor == event_slice.quarters_from_start:
-                    _add(key, MarkingRow(text=marking_labels.start_label(name), marking=span))
+                    _add(key, MarkingRow(
+                        text=marking_labels.start_label(name), marking=span, category="hairpins"
+                    ))
 
         # Stage 7: clef changes and pedal changes - part/staff-level points
         # (strategy axis B), anchored at the first visible event of that
-        # staff at or after the mark's own position.
+        # staff at or after the mark's own position. "pedal" is not in
+        # models.marking_categories.ALL_CATEGORIES (that module's docstring
+        # explains why), so tagging it here documents the category without
+        # making it filterable.
         for mark in self.data.clef_change_marks:
             key = (mark.part_id, mark.staff)
             anchor = self._first_at_or_after(key, mark.quarters_from_start)
             if anchor == event_slice.quarters_from_start:
-                _add(key, MarkingRow(text=f"Clef change: {mark.label}", marking=mark))
+                _add(key, MarkingRow(text=f"Clef change: {mark.label}", marking=mark, category="clef_changes"))
 
         for mark in self.data.direction_marks:
             if mark.kind != "pedal_change":
@@ -263,6 +281,10 @@ class MarkingRows:
             key = (mark.part_id, mark.staff)
             anchor = self._first_at_or_after(key, mark.quarters_from_start)
             if anchor == event_slice.quarters_from_start:
-                _add(key, MarkingRow(text="Pedal change", marking=mark))
+                _add(key, MarkingRow(text="Pedal change", marking=mark, category="pedal"))
 
-        return result
+        off = self.data.marking_categories_off
+        return {
+            key: [r for r in rows if r.category is None or r.category not in off]
+            for key, rows in result.items()
+        }

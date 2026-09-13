@@ -31,6 +31,11 @@ class Region5ListWidget(RegionFocusCycleMixin, QListWidget):
     # is_start: True for Ctrl+Home (jump to the focused span's start),
     # False for Ctrl+End.
     span_jump_requested = Signal(bool)
+    # Stage 9 (PerformanceMarkingsStrategy.md section 8): the focused row's
+    # marking_categories id, emitted by Ctrl+N or the Menu key/Shift+F10 -
+    # the same discoverable-equivalent pattern Region1ListWidget's
+    # directive_toggle_requested already established.
+    category_toggle_requested = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -90,6 +95,9 @@ class Region5ListWidget(RegionFocusCycleMixin, QListWidget):
     def keyPressEvent(self, event):
         key = event.key()
         ctrl = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
+        shift_f10 = key == Qt.Key.Key_F10 and bool(
+            event.modifiers() & Qt.KeyboardModifier.ShiftModifier
+        )
 
         if key == Qt.Key.Key_Home and ctrl:
             self.span_jump_requested.emit(True)
@@ -97,5 +105,10 @@ class Region5ListWidget(RegionFocusCycleMixin, QListWidget):
         elif key == Qt.Key.Key_End and ctrl:
             self.span_jump_requested.emit(False)
             return
+        elif (key == Qt.Key.Key_N and ctrl) or key == Qt.Key.Key_Menu or shift_f10:
+            row = self.current_row_data()
+            if row is not None and row.category is not None:
+                self.category_toggle_requested.emit(row.category)
+                return
 
         super().keyPressEvent(event)

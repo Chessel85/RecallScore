@@ -33,10 +33,18 @@ class MarkingRow:
     own attributes (stage 2's guarantee). A span-based marking row (stage 3
     on) carries no note at all, so this stays None - selecting one shows
     "No note selected" in Region 4 (section 4.1's fuller "the marking's own
-    detail" is not yet built) and sounds nothing in the audition."""
+    detail" is not yet built) and sounds nothing in the audition.
+
+    Stage 9: `category` is one of models.marking_categories.ALL_CATEGORIES
+    - MarkingRows filters a row out of the note list entirely when its
+    category is in MusicData.marking_categories_off. None (the default)
+    means "always on", either because the row has no toggle (a directive,
+    a barline fermata's category choice aside) or because it comes from a
+    category marking_categories.ALL_CATEGORIES deliberately excludes."""
     text: str
     marking: Any
     note_index: Optional[int] = None
+    category: Optional[str] = None
 
 
 Region3Row = Union[NoteRow, MarkingRow]

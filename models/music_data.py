@@ -20,6 +20,7 @@ from models.find_target import FindTarget
 from models.hairpin_span import HairpinSpan
 from models.key_signatures import key_signature_display_name
 from models import marking_labels
+from models import marking_categories
 from models.mixer_settings import MixerSettings
 from models.navigation_jump import NavigationJump
 from models.note_data import NoteData
@@ -239,6 +240,14 @@ class MusicData:
     # that reorders the list doesn't silently surface the wrong directive).
     directive_marks: List[DirectiveMark] = field(default_factory=list)
     directives_in_note_list: Set[int] = field(default_factory=set)
+    # Stage 9 (PerformanceMarkingsStrategy.md section 8): the note-list
+    # categories (models.marking_categories.ALL_CATEGORIES) Ctrl+N has
+    # switched OFF - default empty, since every category starts on. A
+    # plain field like uk_terms, not read from AppSettings in here (models/
+    # stays Qt-free) - main_window.py seeds this from the global default
+    # before applying a per-score ScoreConfig, the same two-step set_uk_terms
+    # already follows for the dialect.
+    marking_categories_off: Set[str] = field(default_factory=set)
     # P2: named song sections (Intro/Verse/Chorus/...). Populated by
     # UgTimelineBuilder today; other builders stub it empty. Drives a
     # Region 5 row, a Find target, and Ctrl+Alt+Left/Right section stepping.
@@ -700,6 +709,17 @@ class MusicData:
         self.directives_in_note_list.add(index)
         return True
 
+    def toggle_marking_category(self, category: str) -> bool:
+        """Ctrl+N on a Region 5 row (strategy section 8): flips whether
+        `category`'s rows (marking_rows.MarkingRows) and the "* " prefix
+        (performance_rows.PerformanceRows) are surfaced in the note list.
+        Returns the new state - True means "in note list"."""
+        if category in self.marking_categories_off:
+            self.marking_categories_off.discard(category)
+            return True
+        self.marking_categories_off.add(category)
+        return False
+
     def get_score_structure(self) -> List[Dict[str, Any]]:
         """The parts/staves/voices shape Region2HierarchyModel expects
         (Ref 7). A pure transform of parts_info, no XML access."""
@@ -1026,6 +1046,7 @@ class MusicData:
                 for i in self.directives_in_note_list
                 if 0 <= i < len(self.directive_marks)
             },
+            marking_categories_off=set(self.marking_categories_off),
         )
 
     def apply_config(self, config: ScoreConfig) -> None:
@@ -1075,6 +1096,13 @@ class MusicData:
             i for i, mark in enumerate(self.directive_marks)
             if (mark.measure, mark.label) in wanted
         }
+
+        # Stage 9: best-effort like every override above - an unrecognised
+        # category id (an older .rsc, or a category renamed since) is
+        # dropped rather than rejecting the whole config.
+        self.marking_categories_off = set(config.marking_categories_off) & set(
+            marking_categories.ALL_CATEGORIES
+        )
 
         # Ref 12: absolute per-score playback tempo. Best-effort - accept
         # None or a finite positive number, clamp defensively into a sane

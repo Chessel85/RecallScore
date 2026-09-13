@@ -59,18 +59,20 @@ class PerformanceRows:
             return (span.start_quarters_from_start <= slice_.quarters_from_start
                     <= span.end_quarters_from_start)
 
-        def _span_row(spans, contained, label, *, jump_quarters=False):
+        def _span_row(spans, contained, label, *, jump_quarters=False, category=None):
             """One row per span `contained` at the cursor (section 6): the
             whole range in one line, with both ends as jump targets.
             jump_target_measure/end_target_measure are the span's own
             start/end measure; the *_quarters fields are added only when the
             span can begin or end mid-bar (a hairpin-style line, not a
-            repeat/ending barline)."""
+            repeat/ending barline). `category` (stage 9) is the note-list
+            toggle this row's Ctrl+N reaches - see models/marking_categories.py."""
             for span in spans:
                 if not contained(span):
                     continue
                 rows.append(PerformanceRegionRow(
                     label=label(span),
+                    category=category,
                     jump_target_measure=span.start_measure,
                     jump_target_quarters=(
                         span.start_quarters_from_start if jump_quarters else None
@@ -81,12 +83,13 @@ class PerformanceRows:
                     ),
                 ))
 
-        def _point(marks, label, *, kind=None, jump="slice"):
+        def _point(marks, label, *, kind=None, jump="slice", category=None):
             """One row per mark sitting at the resolved slice's own measure.
             `jump` picks the Ctrl+Home/Ctrl+End target: "slice" -> the
             cursor's own position (a harmless no-op, where jumping to what the
             mark points at is out of scope), "measure" -> the mark's bar with
-            no beat, "mark" -> the mark's own bar and offset."""
+            no beat, "mark" -> the mark's own bar and offset. `category`
+            (stage 9) is the note-list toggle this row's Ctrl+N reaches."""
             for mark in marks:
                 if kind is not None and mark.kind != kind:
                     continue
@@ -100,6 +103,7 @@ class PerformanceRows:
                     jump_m, jump_q = slice_.measure, slice_.quarters_from_start
                 rows.append(PerformanceRegionRow(
                     label=label(mark),
+                    category=category,
                     jump_target_measure=jump_m,
                     jump_target_quarters=jump_q,
                 ))
@@ -113,6 +117,7 @@ class PerformanceRows:
             data.section_spans, _in_measure,
             lambda s: f"Section {s.label}, "
                       f"{marking_labels.range_label(bar_word, s.start_measure, 1.0, s.end_measure, 1.0)}",
+            category="sections",
         )
 
         # Repeat / ending spans: a measure-number range check (barlines fall
@@ -124,11 +129,13 @@ class PerformanceRows:
                 f"Repeat {marking_labels.range_label(bar_word, s.start_measure, 1.0, s.end_measure, 1.0)}"
                 f"{marking_labels.repeat_times_suffix(s.times)}"
             ),
+            category="repeats_endings",
         )
         _span_row(
             data.ending_spans, _in_measure,
             lambda s: f"Ending {s.number} "
                       f"{marking_labels.range_label(bar_word, s.start_measure, 1.0, s.end_measure, 1.0)}",
+            category="repeats_endings",
         )
 
         # Hairpins carry a part_id (collected per part, not first-part-only)
@@ -163,6 +170,7 @@ class PerformanceRows:
                 end_m, end_q = span.end_measure, span.end_quarters_from_start
             rows.append(PerformanceRegionRow(
                 label=label,
+                category="hairpins",
                 jump_target_measure=jump_m,
                 jump_target_quarters=jump_q,
                 end_target_measure=end_m,
@@ -198,6 +206,7 @@ class PerformanceRows:
                 f"{marking_labels.range_label(bar_word, s.start_measure, s.start_beat_position, s.end_measure, s.end_beat_position)}"
             ),
             jump_quarters=True,
+            category="lines",
         )
 
         _point(
@@ -252,7 +261,7 @@ class PerformanceRows:
             )
             return f"{base}: {bar_word} {m.measure}"
 
-        _point(data.barline_marks, _barline_label, jump="measure")
+        _point(data.barline_marks, _barline_label, jump="measure", category="barlines")
 
         _clef_pids = {m.part_id for m in data.clef_change_marks}
 
@@ -263,7 +272,7 @@ class PerformanceRows:
                 prefix = f"{name}: " if name else ""
             return f"{prefix}Clef change: {m.label}, staff {m.staff}"
 
-        _point(data.clef_change_marks, _clef_label, jump="mark")
+        _point(data.clef_change_marks, _clef_label, jump="mark", category="clef_changes")
 
         _point(
             data.measure_style_marks,
@@ -276,13 +285,23 @@ class PerformanceRows:
         # this row's OWN position (a harmless Ctrl+Home/Ctrl+End no-op) -
         # jumping to where a mark actually points is out of scope;
         # NavigationController.jump_to_span has no concept of that.
-        _point(data.segno_marks, lambda m: f"Segno{marking_labels.label_suffix(m.label)}")
-        _point(data.coda_marks, lambda m: f"Coda{marking_labels.label_suffix(m.label)}")
-        _point(data.to_coda_marks, lambda m: f"To coda{marking_labels.label_suffix(m.label)}")
-        _point(data.fine_marks, lambda m: "Fine")
+        _point(
+            data.segno_marks, lambda m: f"Segno{marking_labels.label_suffix(m.label)}",
+            category="jump_instructions",
+        )
+        _point(
+            data.coda_marks, lambda m: f"Coda{marking_labels.label_suffix(m.label)}",
+            category="jump_instructions",
+        )
+        _point(
+            data.to_coda_marks, lambda m: f"To coda{marking_labels.label_suffix(m.label)}",
+            category="jump_instructions",
+        )
+        _point(data.fine_marks, lambda m: "Fine", category="jump_instructions")
         _point(
             data.navigation_jumps,
             lambda m: "Da capo" if m.kind == "dacapo" else "Dal segno",
+            category="jump_instructions",
         )
 
         # S7/stage 6: a one-shot alert - unlike the three span kinds above,
@@ -296,10 +315,20 @@ class PerformanceRows:
             rows.append(
                 PerformanceRegionRow(
                     label=label,
+                    category="structural_changes",
                     jump_target_measure=slice_.measure,
                     jump_target_quarters=slice_.quarters_from_start,
                 )
             )
+
+        # Stage 9 (strategy section 8): "* " on a row whose category is
+        # currently surfaced in the note list - i.e. NOT in
+        # marking_categories_off. A row with no category (None, or one of
+        # the three models.marking_categories excludes) never gets the
+        # prefix - there is nothing Ctrl+N here could turn off.
+        for row in rows:
+            if row.category is not None and row.category not in data.marking_categories_off:
+                row.label = f"* {row.label}"
 
         return rows
 

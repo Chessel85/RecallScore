@@ -106,4 +106,4 @@ def test_crossing_a_section_boundary_rebuilds_without_a_cue(qtbot, null_synth):
     assert null_synth.performance_cues == []
     texts = _row_texts(region_5)
     assert "Section: Chorus" in texts
-    assert any(t.startswith("Section Chorus") for t in texts)
+    assert any(t.startswith("* Section Chorus") for t in texts)

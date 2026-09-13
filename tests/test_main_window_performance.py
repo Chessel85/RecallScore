@@ -29,7 +29,7 @@ def test_navigating_into_a_repeated_section_updates_region_5_without_the_cue(
 
     qtbot.keyClick(window.region_3, Qt.Key.Key_Right)  # measure 1 -> measure 2 (repeat opens here)
 
-    assert _region_5_labels(window) == ["Repeat measures 2 to 3"]
+    assert _region_5_labels(window) == ["* Repeat measures 2 to 3"]
     assert null_synth.performance_cues == []
 
 
@@ -41,7 +41,7 @@ def test_performance_cue_fires_again_when_leaving_a_repeated_section(
         qtbot.keyClick(window.region_3, Qt.Key.Key_Right)
     null_synth.performance_cues.clear()
 
-    assert _region_5_labels(window) == ["Ending 2 measure 4"]
+    assert _region_5_labels(window) == ["* Ending 2 measure 4"]
 
 
 def test_ctrl_home_on_region_5_jumps_to_the_span_start(
@@ -81,7 +81,7 @@ def test_arrowing_back_onto_a_beginning_repeat_target_no_longer_cues(
     cue it was patched onto - a repeat is not a structural change, so
     arrowing back onto one is silent now, same as any other repeat move."""
     load_and_wait(window, qtbot, unmatched_backward_repeat_score)  # starts on measure 1, span already active
-    assert _region_5_labels(window) == ["Repeat measures 1 to 2"]
+    assert _region_5_labels(window) == ["* Repeat measures 1 to 2"]
 
     qtbot.keyClick(window.region_3, Qt.Key.Key_Right)  # -> measure 2
     null_synth.performance_cues.clear()
@@ -116,7 +116,7 @@ def test_navigating_into_a_time_signature_change_updates_region_5_and_plays_the_
     for _ in range(4):
         qtbot.keyClick(window.region_3, Qt.Key.Key_Right)
 
-    assert _region_5_labels(window) == ["Time signature change: 6/8"]
+    assert _region_5_labels(window) == ["* Time signature change: 6/8"]
     assert len(null_synth.performance_cues) == 1
 
     # One-shot: moving on within the same new signature clears the row

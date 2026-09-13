@@ -123,6 +123,7 @@ def load_for(file_path: str) -> Optional[ScoreConfig]:
             directive_labels_in_note_list={
                 _decode_directive_key(k) for k in data.get("directive_labels_in_note_list", [])
             },
+            marking_categories_off=set(data.get("marking_categories_off", [])),
         )
     except FileNotFoundError:
         return None
@@ -167,6 +168,7 @@ def save(file_path: str, config: ScoreConfig) -> None:
         "directive_labels_in_note_list": [
             _encode_directive_key(k) for k in sorted(config.directive_labels_in_note_list)
         ],
+        "marking_categories_off": sorted(config.marking_categories_off),
     }
     try:
         os.makedirs(path.parent, exist_ok=True)

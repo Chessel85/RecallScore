@@ -36,6 +36,7 @@ from controllers.score_session import ScoreSession
 from controllers.shortcut_controller import ShortcutController, ShortcutTarget
 from controllers.tuner_controller import TunerController
 from controllers.voice_control_controller import VoiceControlController
+from models import marking_categories
 from models.metronome_pattern import default_pattern, snap_time_signature
 from models.music_data import MusicData
 from models.score_formats import SCORE_FORMATS
@@ -590,6 +591,9 @@ class MainWindow(QMainWindow):
         self.region_1.directive_toggle_requested.connect(
             self.presenter.toggle_directive_in_note_list
         )
+        self.region_5.category_toggle_requested.connect(
+            self.presenter.toggle_marking_category_in_note_list
+        )
 
     # --- state exposed for the widgets and tests ----------------------
 
@@ -833,6 +837,14 @@ class MainWindow(QMainWindow):
             app_settings.add_recent_file(music_data.file_path)
             app_settings.set_last_open_dir(os.path.dirname(music_data.file_path))
             self._refresh_recent_files_menu()
+
+        # Stage 9: seed the global default BEFORE a per-score .rsc can
+        # override it - a score with no saved config yet still starts with
+        # whatever categories the user last toggled elsewhere, rather than
+        # always reverting to "every category on".
+        music_data.marking_categories_off = set(
+            app_settings.load().marking_categories_off
+        ) & set(marking_categories.ALL_CATEGORIES)
 
         saved_config = self.persistence.load_for_current()
         if saved_config is not None:

@@ -5,7 +5,9 @@ from PySide6.QtCore import QItemSelectionModel, QObject, Signal
 from PySide6.QtWidgets import QListWidgetItem
 
 from audio.performance_cue import performance_cue_event
+from models import marking_categories
 from models.vocabulary import bar_word
+from persistence import app_settings
 from widgets import accessible_announcer
 
 
@@ -426,4 +428,30 @@ class RegionPresenter(QObject):
         accessible_announcer.announce(
             self.region_1,
             f"Directive {'in note list' if surfaced else 'not in note list'}",
+        )
+
+    def toggle_marking_category_in_note_list(self, category: str) -> None:
+        """Ctrl+N (or the Menu key/Shift+F10) on a Region 5 row - strategy
+        section 8. Region5ListWidget.refresh_list always lands on row 0, so
+        the focused row is captured and restored around the rebuild -
+        toggling a category never moves the OTHER rows in Region 5, only
+        their "* " prefix, so restoring by position keeps focus on the same
+        row the user just pressed Ctrl+N on. update_timeline_views also
+        refreshes Region 5 itself (asterisks) as well as rebuilding Region 3,
+        whose row count can change when the category's rows appear/disappear
+        - the same reasoning toggle_directive_in_note_list follows above.
+        The choice also writes through to AppSettings, so a newly opened
+        score inherits the same categories (see that field's docstring)."""
+        if not self.music_data:
+            return
+        current_row = self.region_5.currentRow()
+        surfaced = self.music_data.toggle_marking_category(category)
+        app_settings.set_marking_categories_off(self.music_data.marking_categories_off)
+        self.update_timeline_views(play_all=False)
+        if 0 <= current_row < self.region_5.count():
+            self.region_5.setCurrentRow(current_row)
+        name = marking_categories.CATEGORY_NAMES.get(category, category)
+        accessible_announcer.announce(
+            self.region_5,
+            f"{name}, {'in note list' if surfaced else 'not in note list'}",
         )

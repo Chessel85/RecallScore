@@ -148,9 +148,9 @@ def _build_reserved() -> Dict[str, str]:
         _seq(Key.Key_F10, Mod.ShiftModifier),
         _seq(Key.Key_Menu),
     )
-    # widgets/region1_list_widget.py
+    # widgets/region1_list_widget.py, widgets/region5_list_widget.py
     add(
-        "toggle a Region 1 directive in the note list",
+        "toggle a Region 1 directive, or a Region 5 marking category, in the note list",
         _seq(Key.Key_N, Mod.ControlModifier),
     )
     # OS (Windows)

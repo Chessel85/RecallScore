@@ -2603,8 +2603,8 @@ def test_p3_dashes_and_bracket_get_region_5_rows(timeline, direction_lines_score
             "bracket_line_start", "bracket_line_end"} <= _marking_keys(md)
 
     labels = [r.label for r in md.get_performance_region_rows(0)]
-    assert any(l.startswith("Dashed line measure 1") for l in labels)
-    assert any(l.startswith("Bracket line measure") for l in labels)
+    assert any(l.startswith("* Dashed line measure 1") for l in labels)
+    assert any(l.startswith("* Bracket line measure") for l in labels)
 
 
 def test_p3_dashes_and_bracket_labels_from_sibling_words(
@@ -2628,8 +2628,11 @@ def test_p3_dashes_and_bracket_labels_from_sibling_words(
     assert "Bracket line (8vb sim.): Measure 1 to Measure 1 beat 4" in lines
 
     labels = [r.label for r in md.get_performance_region_rows(0)]
-    assert any(l.startswith("Dashed line (cresc.) measure 1") for l in labels)
-    assert any(l.startswith("Bracket line (8vb sim.) measure") for l in labels)
+    assert any(l.startswith("* Dashed line (cresc.) measure 1") for l in labels)
+    assert any(l.startswith("* Bracket line (8vb sim.) measure") for l in labels)
+    # dynamics_word marks are not one of the toggleable note-list
+    # categories (models.marking_categories.ALL_CATEGORIES), so this row
+    # never gets the "* " prefix.
     assert 'Crescendo (marked "cresc.")' in labels
 
 
@@ -2657,17 +2660,17 @@ def test_nested_hairpin_region_5_and_report_state_full_ranges(
     labels = [r.label for r in md.get_performance_region_rows(
         md.slice_index_at_or_after_quarters(3.0))]
     assert labels == [
-        "Crescendo measure 1 to measure 3 beat 3",
-        "Crescendo measure 1 beat 3 to measure 2",
+        "* Crescendo measure 1 to measure 3 beat 3",
+        "* Crescendo measure 1 beat 3 to measure 2",
     ]
 
     unmatched = [r.label for r in md.get_performance_region_rows(
         md.slice_index_at_or_after_quarters(13.0))]
-    assert unmatched == ["Hairpin ending measure 4 beat 3, no start marked in the file"]
+    assert unmatched == ["* Hairpin ending measure 4 beat 3, no start marked in the file"]
 
     unclosed = [r.label for r in md.get_performance_region_rows(
         md.slice_index_at_or_after_quarters(15.0))]
-    assert unclosed == ["Crescendo from measure 4 beat 4, no end marked in the file"]
+    assert unclosed == ["* Crescendo from measure 4 beat 4, no end marked in the file"]
 
 
 def test_hairpin_rows_part_prefixed_only_when_several_parts_contribute(
@@ -2688,14 +2691,14 @@ def test_hairpin_rows_part_prefixed_only_when_several_parts_contribute(
 
     r5 = [r.label for r in md.get_performance_region_rows(
         md.slice_index_at_or_after_quarters(3.0))]
-    assert "Cello: Crescendo measure 1 beat 3 to measure 2 beat 2" in r5
+    assert "* Cello: Crescendo measure 1 beat 3 to measure 2 beat 2" in r5
 
     solo = timeline(hairpin_score)
     solo_lines = solo.get_performance_report_lines()
     assert "Crescendo: Measure 1 beat 3 to Measure 2 beat 2" in solo_lines
     solo_r5 = [r.label for r in solo.get_performance_region_rows(
         solo.slice_index_at_or_after_quarters(2.0))]
-    assert solo_r5[0] == "Crescendo measure 1 beat 3 to measure 2 beat 2"
+    assert solo_r5[0] == "* Crescendo measure 1 beat 3 to measure 2 beat 2"
 
 
 def test_instruction_words_become_point_marks_findable_and_reported(
@@ -2807,7 +2810,7 @@ def test_p4_clef_change_findable_reported_and_shown_in_region_5(
 
     labels = {r.label for i in range(len(md.timeline_slices))
               for r in md.get_performance_region_rows(i)}
-    assert "Clef change: bass, staff 1" in labels
+    assert "* Clef change: bass, staff 1" in labels
     assert not any(": Clef change" in l for l in labels)  # no part prefix
 
 
@@ -2819,10 +2822,10 @@ def test_p4_clef_change_region_5_label_matches_find_report_wording(
     md = timeline(clef_change_score)
     r5 = [r.label for i in range(len(md.timeline_slices))
           for r in md.get_performance_region_rows(i)
-          if r.label.startswith("Clef change")]
+          if "Clef change" in r.label]
     report = [l for l in md.get_performance_report_lines()
               if l.startswith("Clef change")]
-    assert "Clef change: bass, staff 1" in r5
+    assert "* Clef change: bass, staff 1" in r5
     assert any("Clef change: bass, staff 1" in l for l in report)
 
 
@@ -2843,7 +2846,7 @@ def test_p4_double_barline_findable_and_no_final_barline_target(
     assert count == 1
     labels = {r.label for i in range(len(md.timeline_slices))
               for r in md.get_performance_region_rows(i)}
-    assert "Double barline: measure 2" in labels
+    assert "* Double barline: measure 2" in labels
 
 
 def test_p4_measure_style_marks_findable_and_reported(
@@ -2877,7 +2880,7 @@ def test_stage7_repeat_times_and_after_jump_parsed_and_reported(
 
     labels = {r.label for i in range(len(md.timeline_slices))
               for r in md.get_performance_region_rows(i)}
-    assert "Repeat measures 1 to 2, play 3 times" in labels
+    assert "* Repeat measures 1 to 2, play 3 times" in labels
 
 
 def test_stage7_repeat_without_times_gets_no_suffix(timeline, repeats_and_endings_score):
@@ -2885,7 +2888,7 @@ def test_stage7_repeat_without_times_gets_no_suffix(timeline, repeats_and_ending
     assert md.repeat_spans[0].times is None
     labels = {r.label for i in range(len(md.timeline_slices))
               for r in md.get_performance_region_rows(i)}
-    assert any(l.startswith("Repeat ") and "play" not in l for l in labels)
+    assert any(l.startswith("* Repeat ") and "play" not in l for l in labels)
 
 
 def test_stage7_barline_segno_and_coda_parsed(
@@ -2979,6 +2982,56 @@ def test_stage7_directive_toggle_survives_save_and_reload(
     reloaded = timeline(stage7_directive_score)
     reloaded.apply_config(config)
     assert reloaded.get_directive_rows()[0][2] is True
+
+
+# --- Stage 9: Ctrl+N marking categories --------------------------------
+
+
+def test_toggle_marking_category_flips_asterisk_and_note_list_membership(
+    timeline, repeats_and_endings_score
+):
+    md = timeline(repeats_and_endings_score)
+    m3_index = next(i for i, s in enumerate(md.timeline_slices) if s.measure == 3)
+
+    labels = [r.label for r in md.get_performance_region_rows(m3_index)]
+    assert labels == ["* Repeat measures 2 to 3", "* Ending 1 measure 3"]
+    md.active_event_index = m3_index
+    assert any(t == "Repeat end" for t in _marking_row_texts(md))
+
+    assert md.toggle_marking_category("repeats_endings") is False
+    labels = [r.label for r in md.get_performance_region_rows(m3_index)]
+    # "repeats_endings" is one category (strategy section 8) - endings lose
+    # their asterisk right along with repeats.
+    assert labels == ["Repeat measures 2 to 3", "Ending 1 measure 3"]
+    assert not any(t in ("Repeat end", "Ending 1 start") for t in _marking_row_texts(md))
+
+    assert md.toggle_marking_category("repeats_endings") is True
+    labels = [r.label for r in md.get_performance_region_rows(m3_index)]
+    assert labels == ["* Repeat measures 2 to 3", "* Ending 1 measure 3"]
+
+
+def test_marking_category_toggle_survives_save_and_reload(
+    timeline, repeats_and_endings_score
+):
+    md = timeline(repeats_and_endings_score)
+    md.toggle_marking_category("repeats_endings")
+
+    config = md.export_config()
+    assert config.marking_categories_off == {"repeats_endings"}
+
+    reloaded = timeline(repeats_and_endings_score)
+    reloaded.apply_config(config)
+    assert reloaded.marking_categories_off == {"repeats_endings"}
+
+
+def test_apply_config_drops_an_unknown_marking_category(
+    timeline, repeats_and_endings_score
+):
+    from models.score_config_data import ScoreConfig
+
+    md = timeline(repeats_and_endings_score)
+    md.apply_config(ScoreConfig(marking_categories_off={"repeats_endings", "no_such_category"}))
+    assert md.marking_categories_off == {"repeats_endings"}
 
 
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]

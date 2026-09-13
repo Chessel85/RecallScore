@@ -112,3 +112,10 @@ class ScoreConfig:
     # silently surface the wrong one - matched best-effort in
     # MusicData.apply_config, like every other override here.
     directive_labels_in_note_list: Set[Tuple[int, str]] = field(default_factory=set)
+    # Stage 9 (PerformanceMarkingsStrategy.md section 8): which note-list
+    # marking categories (models.marking_categories.ALL_CATEGORIES) Ctrl+N
+    # has switched off for THIS score - empty means every category is on.
+    # persistence/app_settings.py's AppSettings.marking_categories_off is
+    # the global default seeded into a score that has never been toggled
+    # (no saved .rsc at all); once a score is saved its own value here wins.
+    marking_categories_off: Set[str] = field(default_factory=set)

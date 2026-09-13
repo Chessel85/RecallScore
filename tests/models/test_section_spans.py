@@ -37,8 +37,8 @@ def test_region_5_shows_a_section_row_for_the_cursor_position():
     md.active_event_index = 3  # bar 4, inside "Verse 1"
     rows = md.get_performance_region_rows()
     labels = [r.label for r in rows]
-    assert "Section Verse 1, measures 3 to 4" in labels
-    row = next(r for r in rows if r.label == "Section Verse 1, measures 3 to 4")
+    assert "* Section Verse 1, measures 3 to 4" in labels
+    row = next(r for r in rows if r.label == "* Section Verse 1, measures 3 to 4")
     assert row.jump_target_measure == 3
     assert row.end_target_measure == 4
 
