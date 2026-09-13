@@ -7,7 +7,7 @@ rows are the fabricated Stave Text / Rehearsal mark events; later stages add
 markings with no NoteData behind them at all, which is why `marking` is left
 untyped here rather than pinned to NoteData."""
 from dataclasses import dataclass
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 
 @dataclass
@@ -22,10 +22,21 @@ class NoteRow:
 @dataclass
 class MarkingRow:
     """A Region 3 row that is not a note. `marking` is whatever object the
-    row describes - today the fabricated Stave Text/Rehearsal NoteData, and
-    the placeholder "None"/"Click" rows carry None."""
+    row describes - a fabricated Stave Text/Rehearsal NoteData, a span
+    object (RepeatSpan/EndingSpan/SectionSpan/...) from stage 3 on, or None
+    for the placeholder "None"/"Click" rows.
+
+    note_index is set ONLY when `marking` is itself a real NoteData drawn
+    from MusicData._visible_notes() (the Stave Text/Rehearsal case) - it is
+    that note's position there, which is what lets
+    MusicData.note_indices_from_selection keep resolving such a row to its
+    own attributes (stage 2's guarantee). A span-based marking row (stage 3
+    on) carries no note at all, so this stays None - selecting one shows
+    "No note selected" in Region 4 (section 4.1's fuller "the marking's own
+    detail" is not yet built) and sounds nothing in the audition."""
     text: str
     marking: Any
+    note_index: Optional[int] = None
 
 
 Region3Row = Union[NoteRow, MarkingRow]

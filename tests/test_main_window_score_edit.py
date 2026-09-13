@@ -476,8 +476,9 @@ def test_reordering_parts_updates_region_2_and_region_3_order_without_resetting_
     row_texts = [window.region_3.item(i).text() for i in range(window.region_3.count())]
     # Lyrics is muted, so only the Chords row shows - but it's now the ONLY
     # part, proving reorder_parts touched the underlying note order too
-    # (with Lyrics unmuted, its row would come first).
-    assert row_texts == ["C"]
+    # (with Lyrics unmuted, its row would come first). Bar 1 opens "Verse 1",
+    # so a score-level "Section Verse 1 start" row precedes it.
+    assert row_texts == ["Section Verse 1 start", "C"]
 
 
 def test_part_order_dialog_does_nothing_on_cancel(window, qtbot, monkeypatch):

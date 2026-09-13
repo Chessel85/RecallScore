@@ -11,6 +11,7 @@ from models.direction_mark import DirectionMark
 from models.direction_span import DirectionSpan
 from models.ending_span import EndingSpan
 from models.measure_style_mark import MeasureStyleMark
+from models.marking_rows import MarkingRows
 from models.event_slice import EventSlice
 from models.fine_mark import FineMark
 from models.find_index import FindIndex
@@ -29,7 +30,7 @@ from models.performance_rows import PerformanceRows
 from models.playback_event_builder import PlaybackEventBuilder
 from models.playback_jump_state import PlaybackJumpState
 from models.refresh_settings import RefreshSettings
-from models.region3_row import NoteRow, Region3Row
+from models.region3_row import MarkingRow, NoteRow, Region3Row
 from models.repeat_span import RepeatSpan
 from models.score_config_data import ScoreConfig
 from models.score_formats import family_for_path
@@ -320,6 +321,7 @@ class MusicData:
         self.playback_events = PlaybackEventBuilder(self)
         self.navigator = TimelineNavigator(self)
         self.performance_rows = PerformanceRows(self)
+        self.marking_rows = MarkingRows(self)
         # DISPLAY_ATTRIBUTE_ORDER is the fixed default; attribute_order is
         # the live copy the reorder dialog mutates. A caller-supplied order
         # is honoured as-is.
@@ -800,6 +802,10 @@ class MusicData:
         stage's own callers needs to change."""
         return [row.text for row in self.renderer.region_3_data()]
 
+    def _score_level_marking_rows(self, event_slice) -> List[MarkingRow]:
+        """See MarkingRows.score_level_rows (invariant 4 delegator)."""
+        return self.marking_rows.score_level_rows(event_slice)
+
     def get_region_3_rows(self) -> List[Region3Row]:
         """See NoteRenderer.region_3_data - the typed rows behind
         get_region_3_data(), for callers that need to tell a note row from
@@ -807,24 +813,36 @@ class MusicData:
         return self.renderer.region_3_data()
 
     def note_indices_from_selection(self, selected_indices: List[int]) -> List[int]:
-        """Region 4's build (RegionPresenter.on_region_3_selection_changed/
-        announce_attribute_by_number) reads Region 3's selection by index.
-        A marking row's index carries no note, so it is dropped here before
-        those consumers pool attributes across a selection - a marking
-        should never inject its own fields ("text", "measure"...) into a
-        chord's merged attribute list. The one exception is a selection made
-        up ENTIRELY of marking rows (including a lone one): there the
-        original indices pass through unfiltered, so selecting just a Stave
-        Text/Rehearsal row still shows its own attributes exactly as before
-        this row typing existed - a bare accessor call
-        (get_region_4_rows_for_indices) is unaffected either way, since it
-        never routes through this filter."""
+        """Translates Region 3 SELECTION indices (positions in
+        get_region_3_rows(), the list the widget actually displays) into
+        `_visible_notes()` indices - the only kind every note-keyed accessor
+        (Region 4's build, get_playback_events_for_indices,
+        get_grace_note_events_for_indices) understands. The two spaces
+        diverge as soon as a marking row with no note behind it (stage 3 on:
+        a repeat/ending/section row) is prepended ahead of the notes, so
+        nothing downstream may treat a row position as a note position
+        without going through this first (Ref 9 / PerformanceMarkingsStrategy.md
+        section 15 - "the three index consumers... must skip marking rows").
+
+        A NoteRow resolves to its note_index. A marking row's own fields
+        ("text", "measure"...) must never contaminate a MIXED selection's
+        pooled attributes, so a marking row (note-backed or not) is dropped
+        whenever at least one NoteRow is also selected. The one exception is
+        a selection made up ENTIRELY of marking rows: a note-backed one
+        (Stave Text/Rehearsal - note_index set) then resolves to its own
+        note, exactly as before Region 3's rows were typed (stage 2's
+        guarantee); a marking row with no note behind it (note_index is
+        None - a span marking, stage 3 on) still drops out, since there is
+        no note to show or sound - selecting only those resolves to []."""
         rows = self.get_region_3_rows()
-        note_only = [
-            i for i in selected_indices
-            if 0 <= i < len(rows) and isinstance(rows[i], NoteRow)
+        selected_rows = [rows[i] for i in selected_indices if 0 <= i < len(rows)]
+        note_only = [row.note_index for row in selected_rows if isinstance(row, NoteRow)]
+        if note_only:
+            return note_only
+        return [
+            row.note_index for row in selected_rows
+            if getattr(row, "note_index", None) is not None
         ]
-        return note_only if note_only else selected_indices
 
     def get_region_4_data_for_indices(self, selected_indices: List[int]) -> Dict[str, str]:
         return self.renderer.region_4_data_for_indices(selected_indices)

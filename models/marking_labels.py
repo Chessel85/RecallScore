@@ -22,6 +22,18 @@ def bar_beat_label(word: str, measure: int, beat_position: float) -> str:
     return f"{word} {measure} beat {_beat_str(beat_position)}"
 
 
+def start_label(name: str) -> str:
+    """Note list span-start wording (strategy section 5): "Repeat start",
+    "Crescendo start". Region 5's own range_label is the other rendering of
+    the same span."""
+    return f"{name} start"
+
+
+def end_label(name: str) -> str:
+    """Note list span-end wording (strategy section 5): "Repeat end"."""
+    return f"{name} end"
+
+
 def range_label(
     word: str,
     start_measure: int,

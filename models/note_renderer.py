@@ -181,9 +181,12 @@ class NoteRenderer:
         is unchanged. MusicData.get_region_3_data() is the thin
         string-list wrapper every existing caller still uses."""
         data = self.data
+        current = data.get_current_slice()
+        score_level_rows = data.marking_rows.score_level_rows(current)
         notes = data._visible_notes()
         if not notes:
-            current = data.get_current_slice()
+            if score_level_rows:
+                return score_level_rows
             if (
                 data.metronome_enabled
                 and current is not None
@@ -191,11 +194,11 @@ class NoteRenderer:
             ):
                 return [MarkingRow(text="Click", marking=None)]
             return [MarkingRow(text="None", marking=None)]
-        rows: List[Region3Row] = []
+        rows: List[Region3Row] = list(score_level_rows)
         for i, note in enumerate(notes):
             text = self.format_note_for_region_3(note)
             if note.voice == STAVE_TEXT_VOICE_ID:
-                rows.append(MarkingRow(text=text, marking=note))
+                rows.append(MarkingRow(text=text, marking=note, note_index=i))
             else:
                 rows.append(NoteRow(text=text, note_index=i))
         return rows

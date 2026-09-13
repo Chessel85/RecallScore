@@ -1270,7 +1270,7 @@ class MainWindow(QMainWindow):
 
         channel, program, pitches = 0, 24, [48, 52, 55, 60]
         events = data.get_playback_events_for_indices(
-            self.presenter.selected_region_3_indices()
+            data.note_indices_from_selection(self.presenter.selected_region_3_indices())
         )
         for event in events:
             if event[2]:

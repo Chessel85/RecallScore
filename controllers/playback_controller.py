@@ -1374,8 +1374,9 @@ class PlaybackController(QObject):
         if not self.music_data or self._muted:
             return
 
-        events = self.music_data.get_playback_events_for_indices(selected_indices)
-        grace_events = self.music_data.get_grace_note_events_for_indices(selected_indices)
+        note_indices = self.music_data.note_indices_from_selection(selected_indices)
+        events = self.music_data.get_playback_events_for_indices(note_indices)
+        grace_events = self.music_data.get_grace_note_events_for_indices(note_indices)
 
         # sound_events (audio/strum_schedule.py) routes a selection with a
         # MusicXML grace note through play_chord_with_grace, else falls
