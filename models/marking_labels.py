@@ -34,6 +34,22 @@ def end_label(name: str) -> str:
     return f"{name} end"
 
 
+def label_suffix(label: str) -> str:
+    """A point mark's own printed label, appended when it says something
+    beyond the default - " A" for a rehearsal mark, " 2" for a second segno,
+    nothing for the ordinary unlabelled "1" case. Shared by Region 5 and the
+    note list (stage 7) so a numbered point mark reads identically in both
+    (invariant 8)."""
+    return f" {label}" if label and label != "1" else ""
+
+
+def repeat_times_suffix(times) -> str:
+    """", play N times" when the file's own <repeat>/times="N" attribute is
+    present (MusicXMLMarkingInventory.md #7) - reported whatever it says,
+    never inferred or suppressed for the ordinary case (invariant 14)."""
+    return f", play {times} times" if times is not None else ""
+
+
 def key_signature_change_label(key_name: str) -> str:
     """Structural change wording (strategy section 7), shared by Region 5's
     one-shot row, the note list's row (stage 6), and the change cue's own

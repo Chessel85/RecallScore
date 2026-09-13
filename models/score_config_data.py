@@ -106,3 +106,9 @@ class ScoreConfig:
     # out-of-range value (the score changed since) is dropped in
     # MusicData.apply_config, leaving the default of 0.
     last_position_index: int = 0
+    # Stage 7 (PerformanceMarkingsStrategy.md section 9): which directives
+    # Ctrl+N has surfaced in the note list, keyed by (measure, label) rather
+    # than list position so a re-parse that reorders directive_marks doesn't
+    # silently surface the wrong one - matched best-effort in
+    # MusicData.apply_config, like every other override here.
+    directive_labels_in_note_list: Set[Tuple[int, str]] = field(default_factory=set)

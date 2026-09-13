@@ -54,6 +54,16 @@ def _decode_percussion_item_key(encoded: str) -> PercussionItemKey:
     return (part_id, int(source_key))
 
 
+def _encode_directive_key(key) -> str:
+    measure, label = key
+    return f"{measure}|{label}"
+
+
+def _decode_directive_key(encoded: str):
+    measure, label = encoded.split("|", 1)
+    return (int(measure), label)
+
+
 def config_dir() -> Path:
     app_data_dir = QStandardPaths.writableLocation(
         QStandardPaths.StandardLocation.AppLocalDataLocation
@@ -110,6 +120,9 @@ def load_for(file_path: str) -> Optional[ScoreConfig]:
             },
             percussion_auto_correct_enabled=data.get("percussion_auto_correct_enabled", False),
             last_position_index=int(data.get("last_position_index", 0)),
+            directive_labels_in_note_list={
+                _decode_directive_key(k) for k in data.get("directive_labels_in_note_list", [])
+            },
         )
     except FileNotFoundError:
         return None
@@ -151,6 +164,9 @@ def save(file_path: str, config: ScoreConfig) -> None:
         },
         "percussion_auto_correct_enabled": config.percussion_auto_correct_enabled,
         "last_position_index": config.last_position_index,
+        "directive_labels_in_note_list": [
+            _encode_directive_key(k) for k in sorted(config.directive_labels_in_note_list)
+        ],
     }
     try:
         os.makedirs(path.parent, exist_ok=True)

@@ -148,6 +148,11 @@ def _build_reserved() -> Dict[str, str]:
         _seq(Key.Key_F10, Mod.ShiftModifier),
         _seq(Key.Key_Menu),
     )
+    # widgets/region1_list_widget.py
+    add(
+        "toggle a Region 1 directive in the note list",
+        _seq(Key.Key_N, Mod.ControlModifier),
+    )
     # OS (Windows)
     add(
         "close the window or open the window menu",

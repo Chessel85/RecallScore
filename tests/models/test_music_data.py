@@ -14,6 +14,7 @@ from models.music_data import MusicData
 from models.note_data import NoteData
 from models.parts_structure import PartStructureInfo
 from models.refresh_settings import RefreshSettings
+from models.region3_row import MarkingRow
 from models.vocabulary import attribute_label
 from persistence.score_config import ScoreConfig
 
@@ -2854,6 +2855,127 @@ def test_p4_measure_style_marks_findable_and_reported(
     lines = md.get_performance_report_lines()
     assert "Measure style markers: 2" in lines
     assert "2-bar rest: Measure 1" in lines
+
+
+# --- Stage 7: parser additions and note-list point rows ---------------
+
+
+def _marking_row_texts(md):
+    return [r.text for r in md.get_region_3_rows() if isinstance(r, MarkingRow)]
+
+
+def test_stage7_repeat_times_and_after_jump_parsed_and_reported(
+    timeline, stage7_repeat_times_score
+):
+    md = timeline(stage7_repeat_times_score)
+    span = md.repeat_spans[0]
+    assert span.times == 3
+    assert span.after_jump is True
+
+    labels = {r.label for i in range(len(md.timeline_slices))
+              for r in md.get_performance_region_rows(i)}
+    assert "Repeat measures 1 to 2, play 3 times" in labels
+
+
+def test_stage7_repeat_without_times_gets_no_suffix(timeline, repeats_and_endings_score):
+    md = timeline(repeats_and_endings_score)
+    assert md.repeat_spans[0].times is None
+    labels = {r.label for i in range(len(md.timeline_slices))
+              for r in md.get_performance_region_rows(i)}
+    assert any(l.startswith("Repeat ") and "play" not in l for l in labels)
+
+
+def test_stage7_barline_segno_and_coda_parsed(
+    timeline, stage7_barline_jump_marks_score
+):
+    md = timeline(stage7_barline_jump_marks_score)
+    assert [m.measure for m in md.segno_marks] == [1]
+    assert md.segno_marks[0].label == "1"
+    assert [m.measure for m in md.coda_marks] == [2]
+    assert md.coda_marks[0].label == ""
+
+
+def test_stage7_segno_and_dal_segno_are_note_list_point_rows(timeline, ds_plain_score):
+    """Segno anchors at the START of its measure (bar 2); Dal segno at the
+    END of its own (bar 3) - both bare point wording, no start/end word."""
+    md = timeline(ds_plain_score)
+    md.active_event_index = 1  # bar 2
+    assert _marking_row_texts(md) == ["Segno"]
+    md.active_event_index = 2  # bar 3
+    assert _marking_row_texts(md) == ["Dal segno"]
+    md.active_event_index = 0  # bar 1: neither
+    assert _marking_row_texts(md) == []
+
+
+def test_stage7_double_barline_is_a_note_list_point_row(timeline, double_barline_score):
+    md = timeline(double_barline_score)
+    md.active_event_index = 1  # bar 2, whose right barline is light-light
+    assert "Double barline" in _marking_row_texts(md)
+
+
+def test_stage7_clef_change_is_a_staff_level_note_list_point_row(
+    timeline, clef_change_score
+):
+    md = timeline(clef_change_score)
+    md.active_event_index = 1  # bar 2: P1 changes to bass
+    assert "Clef change: bass" in _marking_row_texts(md)
+    md.active_event_index = 0  # bar 1: the first clef is never a change
+    assert "Clef change" not in " ".join(_marking_row_texts(md))
+
+
+def test_stage7_pedal_change_is_a_staff_level_note_list_point_row(timeline, pedal_score):
+    md = timeline(pedal_score)
+    md.active_event_index = 2  # the E at beat 3, where the pedal change sits
+    assert "Pedal change" in _marking_row_texts(md)
+
+
+def test_stage7_rehearsal_mark_not_duplicated_as_a_score_level_row(
+    timeline, rehearsal_mark_score
+):
+    """Rehearsal marks already appear via the existing fabricated Stave
+    Text event (strategy section 2) - marking_rows.score_level_rows must
+    not add a second row for them."""
+    md = timeline(rehearsal_mark_score)
+    for i in range(len(md.timeline_slices)):
+        md.active_event_index = i
+        texts = _marking_row_texts(md)
+        assert texts.count("Rehearsal mark A") + texts.count("Rehearsal mark B") <= 1
+
+
+def test_stage7_directive_listed_in_region_1_in_bar_order(timeline, stage7_directive_score):
+    md = timeline(stage7_directive_score)
+    rows = md.get_directive_rows()
+    assert [text for _, text, _ in rows] == ["Directive: Jauntily (measure 2)"]
+    assert [surfaced for _, _, surfaced in rows] == [False]
+
+
+def test_stage7_directive_not_in_note_list_until_toggled(timeline, stage7_directive_score):
+    md = timeline(stage7_directive_score)
+    md.active_event_index = 1  # bar 2, where the directive sits
+    assert not any(t.startswith("Directive:") for t in _marking_row_texts(md))
+
+    index = md.get_directive_rows()[0][0]
+    assert md.toggle_directive_in_note_list(index) is True
+    assert "Directive: Jauntily" in _marking_row_texts(md)
+    assert md.get_directive_rows()[0][2] is True
+
+    assert md.toggle_directive_in_note_list(index) is False
+    assert not any(t.startswith("Directive:") for t in _marking_row_texts(md))
+
+
+def test_stage7_directive_toggle_survives_save_and_reload(
+    timeline, stage7_directive_score
+):
+    md = timeline(stage7_directive_score)
+    index = md.get_directive_rows()[0][0]
+    md.toggle_directive_in_note_list(index)
+
+    config = md.export_config()
+    assert config.directive_labels_in_note_list == {(2, "Jauntily")}
+
+    reloaded = timeline(stage7_directive_score)
+    reloaded.apply_config(config)
+    assert reloaded.get_directive_rows()[0][2] is True
 
 
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]

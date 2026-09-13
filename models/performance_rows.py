@@ -59,9 +59,6 @@ class PerformanceRows:
             return (span.start_quarters_from_start <= slice_.quarters_from_start
                     <= span.end_quarters_from_start)
 
-        def _label_suffix(label: str) -> str:
-            return f" {label}" if label and label != "1" else ""
-
         def _span_row(spans, contained, label, *, jump_quarters=False):
             """One row per span `contained` at the cursor (section 6): the
             whole range in one line, with both ends as jump targets.
@@ -123,7 +120,10 @@ class PerformanceRows:
         # set jump_target_quarters/end_target_quarters.
         _span_row(
             data.repeat_spans, _in_measure,
-            lambda s: f"Repeat {marking_labels.range_label(bar_word, s.start_measure, 1.0, s.end_measure, 1.0)}",
+            lambda s: (
+                f"Repeat {marking_labels.range_label(bar_word, s.start_measure, 1.0, s.end_measure, 1.0)}"
+                f"{marking_labels.repeat_times_suffix(s.times)}"
+            ),
         )
         _span_row(
             data.ending_spans, _in_measure,
@@ -276,9 +276,9 @@ class PerformanceRows:
         # this row's OWN position (a harmless Ctrl+Home/Ctrl+End no-op) -
         # jumping to where a mark actually points is out of scope;
         # NavigationController.jump_to_span has no concept of that.
-        _point(data.segno_marks, lambda m: f"Segno{_label_suffix(m.label)}")
-        _point(data.coda_marks, lambda m: f"Coda{_label_suffix(m.label)}")
-        _point(data.to_coda_marks, lambda m: f"To coda{_label_suffix(m.label)}")
+        _point(data.segno_marks, lambda m: f"Segno{marking_labels.label_suffix(m.label)}")
+        _point(data.coda_marks, lambda m: f"Coda{marking_labels.label_suffix(m.label)}")
+        _point(data.to_coda_marks, lambda m: f"To coda{marking_labels.label_suffix(m.label)}")
         _point(data.fine_marks, lambda m: "Fine")
         _point(
             data.navigation_jumps,
@@ -534,15 +534,12 @@ class PerformanceRows:
         _tally("Measure style markers", data.measure_style_marks,
                lambda m: f"{m.label.capitalize()}: {bar_word} {m.measure}")
 
-        def _label_suffix(label: str) -> str:
-            return f" {label}" if label and label != "1" else ""
-
         _tally("Segno marks", data.segno_marks,
-               lambda m: f"Segno{_label_suffix(m.label)}: {bar_word} {m.measure}")
+               lambda m: f"Segno{marking_labels.label_suffix(m.label)}: {bar_word} {m.measure}")
         _tally("Coda marks", data.coda_marks,
-               lambda m: f"Coda{_label_suffix(m.label)}: {bar_word} {m.measure}")
+               lambda m: f"Coda{marking_labels.label_suffix(m.label)}: {bar_word} {m.measure}")
         _tally("To coda marks", data.to_coda_marks,
-               lambda m: f"To coda{_label_suffix(m.label)}: {bar_word} {m.measure}")
+               lambda m: f"To coda{marking_labels.label_suffix(m.label)}: {bar_word} {m.measure}")
         _tally("Fine marks", data.fine_marks,
                lambda m: f"Fine: {bar_word} {m.measure}")
         _tally("Navigation jumps", data.navigation_jumps,

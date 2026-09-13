@@ -17,6 +17,7 @@ from models.clef_change_mark import ClefChangeMark
 from models.coda_mark import CodaMark
 from models.direction_mark import DirectionMark
 from models.direction_span import DirectionSpan
+from models.directive_mark import DirectiveMark
 from models.ending_span import EndingSpan
 from models.measure_style_mark import MeasureStyleMark
 from models.event_slice import EventSlice
@@ -827,6 +828,10 @@ class TimelineBuilder:
         # facts, not score-wide ones (D5).
         self.direction_spans: List[DirectionSpan] = []
         self.direction_marks: List[DirectionMark] = []
+        # Stage 7: <direction directive="yes"> score-wide instructions,
+        # collected wherever they appear (not first-part-only - see
+        # DirectiveMark) in the same per-part walk as direction_marks.
+        self.directive_marks: List[DirectiveMark] = []
         # P4: <barline>/<bar-style> points (M6, score-wide - populated in
         # _scan_first_part), mid-part <clef> changes (M7) and
         # <measure-style> points (M8) - the last two per-part/per-staff (D5),
@@ -1065,6 +1070,37 @@ class TimelineBuilder:
         self._step_wedge(elem, part_state, measure_state, measure_start_quarters)
         self._step_direction_marks(
             elem, part_state, measure_state, sink, measure_start_quarters
+        )
+        self._step_directive(elem, part_state, measure_state, measure_start_quarters)
+
+    def _step_directive(
+        self, elem, part_state, measure_state, measure_start_quarters
+    ) -> None:
+        """Stage 7 (MusicXMLMarkingInventory.md #6): <direction
+        directive="yes"> - a score-wide instruction. Reads the same
+        <direction-type>/<words> text the Stave Text/dynamics-word branches
+        above already found, independently of whatever else this direction
+        also does - a directive can also be a qualifying Stave Text event or
+        a plain-text dynamics/tempo word, and none of that changes. A
+        (measure, label) pair already recorded (a second part repeating the
+        same score-wide instruction) is not duplicated."""
+        if elem.attrib.get("directive") != "yes":
+            return
+        words_el = elem.find("direction-type/words")
+        if words_el is None or not words_el.text or not words_el.text.strip():
+            return
+        label = words_el.text.strip()
+        m_num = measure_state.m_num
+        if any(d.measure == m_num and d.label == label for d in self.directive_marks):
+            return
+        walker = measure_state.walker
+        offset_q = _displaced_offset_divs(elem, walker) / walker.divisions
+        self.directive_marks.append(
+            DirectiveMark(
+                measure=m_num,
+                label=label,
+                quarters_from_start=measure_start_quarters.get(m_num, 0.0) + offset_q,
+            )
         )
 
     # --- P3: <direction-type> spans and points ------------------------
@@ -2064,7 +2100,20 @@ class TimelineBuilder:
                 open_repeat_measure = m_num
             elif direction == "backward":
                 start = open_repeat_measure if open_repeat_measure is not None else 1
-                scan.repeat_spans.append(RepeatSpan(start_measure=start, end_measure=m_num))
+                # Stage 7 (inventory #7): times="N" ("play N times", surfaced
+                # in the Region 5 row - marking_labels.repeat_times_suffix)
+                # and after-jump="yes" (parsed and stored; not yet consumed
+                # by playback - see RepeatSpan).
+                times_attr = repeat_el.attrib.get("times")
+                try:
+                    times = int(times_attr) if times_attr is not None else None
+                except ValueError:
+                    times = None
+                after_jump = repeat_el.attrib.get("after-jump") == "yes"
+                scan.repeat_spans.append(RepeatSpan(
+                    start_measure=start, end_measure=m_num,
+                    times=times, after_jump=after_jump,
+                ))
                 open_repeat_measure = None
 
         ending_el = barline_parent.find("ending")
@@ -2083,6 +2132,16 @@ class TimelineBuilder:
                 scan.ending_spans.append(
                     EndingSpan(number=number, start_measure=start, end_measure=m_num)
                 )
+
+        # Stage 7 (inventory #8): <barline>/<segno> and <barline>/<coda> as
+        # an alternative source for jump marks, alongside the <direction>
+        # form _step_direction_jump_marks already reads. Neither carries a
+        # sibling <sound> label here, so the same "1"/"" defaults as that
+        # form's own no-<sound> fallback apply.
+        if barline_parent.find("segno") is not None:
+            scan.segno_marks.append(SegnoMark(measure=m_num, label="1"))
+        if barline_parent.find("coda") is not None:
+            scan.coda_marks.append(CodaMark(measure=m_num, label=""))
 
         # P4/M6: a <bar-style> that isn't a repeat barline (those are
         # repeat_spans already) and isn't a plain one. Buffered raw - the

@@ -408,4 +408,22 @@ class RegionPresenter(QObject):
             self.region_1_section_tabs.set_sections(
                 [section.label for section in md.sections], md.active_section_index
             )
-        self.region_1.refresh_list(md.get_region_1_data())
+        self.region_1.refresh_list(md.get_region_1_data(), md.get_directive_rows())
+
+    def toggle_directive_in_note_list(self, index: int) -> None:
+        """Ctrl+N (or the Menu key/Shift+F10) on a Region 1 directive row -
+        strategy section 9. Rebuilds Region 1 (so the toggle sticks even
+        though the row text itself carries no visible marker yet - stage 9's
+        asterisk) and Region 3, whose row COUNT changes when a directive's
+        point row appears/disappears, so refresh_region_3_labels (an
+        in-place text update) would not be enough - the same reasoning
+        on_region_2_filter_changed already follows."""
+        if not self.music_data:
+            return
+        surfaced = self.music_data.toggle_directive_in_note_list(index)
+        self.refresh_region_1()
+        self.update_timeline_views(play_all=False)
+        accessible_announcer.announce(
+            self.region_1,
+            f"Directive {'in note list' if surfaced else 'not in note list'}",
+        )

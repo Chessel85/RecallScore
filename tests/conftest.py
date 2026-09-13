@@ -394,6 +394,26 @@ def double_barline_score() -> str:
 
 
 @pytest.fixture
+def stage7_repeat_times_score() -> str:
+    """Stage 7 (inventory #7): a two-bar repeat whose backward barline
+    carries times="3" after-jump="yes"."""
+    return _require(FIXTURES_DIR / "stage7_repeat_times.musicxml")
+
+
+@pytest.fixture
+def stage7_barline_jump_marks_score() -> str:
+    """Stage 7 (inventory #8): <barline>/<segno> (bar 1) and
+    <barline>/<coda> (bar 2), no sibling <sound>."""
+    return _require(FIXTURES_DIR / "stage7_barline_jump_marks.musicxml")
+
+
+@pytest.fixture
+def stage7_directive_score() -> str:
+    """Stage 7 (inventory #6): a <direction directive="yes"> at bar 2."""
+    return _require(FIXTURES_DIR / "stage7_directive.musicxml")
+
+
+@pytest.fixture
 def measure_style_score() -> str:
     """P4 (M8): two 4/4 bars - an <attributes>/<measure-style> with a
     <multiple-rest> (bar 1) and a <measure-repeat> (bar 2)."""

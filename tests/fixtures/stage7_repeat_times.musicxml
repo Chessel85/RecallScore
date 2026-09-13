@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Stage 7 (MusicXMLMarkingInventory.md #7): a plain forward/backward
+     repeat over two 4/4 bars whose backward repeat carries times="3" and
+     after-jump="yes". RepeatSpan(start_measure=1, end_measure=2, times=3,
+     after_jump=True). -->
+<score-partwise version="4.0">
+  <part-list>
+    <score-part id="P1"><part-name>Test Part</part-name>
+      <midi-instrument id="P1-I1"><midi-channel>1</midi-channel><midi-program>1</midi-program></midi-instrument>
+    </score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>1</divisions>
+        <key><fifths>0</fifths></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef number="1"><sign>G</sign><line>2</line></clef>
+      </attributes>
+      <barline location="left"><repeat direction="forward"/></barline>
+      <note><pitch><step>C</step><octave>4</octave></pitch>
+        <duration>4</duration><voice>1</voice><type>whole</type><staff>1</staff></note>
+    </measure>
+    <measure number="2">
+      <note><pitch><step>D</step><octave>4</octave></pitch>
+        <duration>4</duration><voice>1</voice><type>whole</type><staff>1</staff></note>
+      <barline location="right">
+        <bar-style>light-heavy</bar-style>
+        <repeat direction="backward" times="3" after-jump="yes"/>
+      </barline>
+    </measure>
+  </part>
+</score-partwise>

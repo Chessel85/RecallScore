@@ -36,6 +36,8 @@ class MarkingRows:
         self._last_quarters_of_measure: Dict[int, float] = {}
         self._staff_built = False
         self._staff_quarters: Dict[Tuple[str, int], List[float]] = {}
+        self._score_built = False
+        self._score_quarters: List[float] = []
 
     def _ensure_index(self) -> None:
         if self._built:
@@ -83,6 +85,74 @@ class MarkingRows:
         for span in data.section_spans:
             _add(span, f"Section {span.label}" if span.label else "Section")
 
+        def _at_first(m_num: int) -> bool:
+            return event_slice.measure == m_num and self._is_first_of_measure(event_slice)
+
+        def _at_last(m_num: int) -> bool:
+            return event_slice.measure == m_num and self._is_last_of_measure(event_slice)
+
+        # Stage 7 (MusicXMLMarkingInventory.md section 11 priority list):
+        # score-level point rows. SegnoMark/CodaMark are written at the
+        # START of their measure (their own docstrings); NavigationJump/
+        # ToCodaMark/FineMark at the END. Rehearsal marks are deliberately
+        # NOT added here - they already appear in the note list via the
+        # existing fabricated Stave Text event (strategy section 2's
+        # "what exists today"), and adding a second score-level row would
+        # duplicate them.
+        for mark in data.segno_marks:
+            if _at_first(mark.measure):
+                rows.append(MarkingRow(
+                    text=f"Segno{marking_labels.label_suffix(mark.label)}", marking=mark
+                ))
+        for mark in data.coda_marks:
+            if _at_first(mark.measure):
+                rows.append(MarkingRow(
+                    text=f"Coda{marking_labels.label_suffix(mark.label)}", marking=mark
+                ))
+        for mark in data.to_coda_marks:
+            if _at_last(mark.measure):
+                rows.append(MarkingRow(
+                    text=f"To coda{marking_labels.label_suffix(mark.label)}", marking=mark
+                ))
+        for mark in data.fine_marks:
+            if _at_last(mark.measure):
+                rows.append(MarkingRow(text="Fine", marking=mark))
+        for jump in data.navigation_jumps:
+            if _at_last(jump.measure):
+                name = "Da capo" if jump.kind == "dacapo" else "Dal segno"
+                rows.append(MarkingRow(text=name, marking=jump))
+
+        # Double/other barlines: a `location="left"` barline opens the
+        # measure it's recorded against (first event of that bar); the
+        # default `"right"` (and `"middle"`) closes it (last event) - the
+        # same anchoring rule PerformanceMarkingsStrategy.md section 5 gives
+        # every barline-anchored point.
+        for mark in data.barline_marks:
+            opens = mark.location == "left"
+            if opens and not _at_first(mark.measure):
+                continue
+            if not opens and not _at_last(mark.measure):
+                continue
+            label = (
+                "Double barline" if mark.kind == "double_barline"
+                else f"{mark.style.capitalize()} barline"
+            )
+            rows.append(MarkingRow(text=label, marking=mark))
+
+        # Directives (strategy section 9): score-level point rows, but only
+        # for the ones Ctrl+N has surfaced (off by default) - anchored like
+        # any other quarters-positioned point mark, at the first visible
+        # event at or after its own position.
+        if data.directives_in_note_list:
+            self._ensure_score_index()
+            for index in data.directives_in_note_list:
+                if not (0 <= index < len(data.directive_marks)):
+                    continue
+                mark = data.directive_marks[index]
+                anchor = self._first_at_or_after_score(mark.quarters_from_start)
+                if anchor == event_slice.quarters_from_start:
+                    rows.append(MarkingRow(text=f"Directive: {mark.label}", marking=mark))
+
         # Stage 6: key/time/immediate-tempo changes, via the same source
         # Region 5's one-shot rows and the change cue read
         # (structural_change_labels) - one source keeps the three from
@@ -91,6 +161,20 @@ class MarkingRows:
             rows.append(MarkingRow(text=label, marking=kind))
 
         return rows
+
+    # --- score-level quarters index (stage 7 - directives) --------------
+
+    def _ensure_score_index(self) -> None:
+        if self._score_built:
+            return
+        self._score_built = True
+        quarters = {event_slice.quarters_from_start for event_slice in self.data._real_timeline_slices}
+        self._score_quarters = sorted(quarters)
+
+    def _first_at_or_after_score(self, quarters: float) -> Optional[float]:
+        arr = self._score_quarters
+        i = bisect.bisect_left(arr, quarters)
+        return arr[i] if i < len(arr) else None
 
     # --- part/staff-level rows (stage 5 - hairpins) --------------------
 
@@ -156,5 +240,22 @@ class MarkingRows:
                 anchor = self._first_at_or_after(key, span.start_quarters_from_start)
                 if anchor == event_slice.quarters_from_start:
                     _add(key, MarkingRow(text=marking_labels.start_label(name), marking=span))
+
+        # Stage 7: clef changes and pedal changes - part/staff-level points
+        # (strategy axis B), anchored at the first visible event of that
+        # staff at or after the mark's own position.
+        for mark in self.data.clef_change_marks:
+            key = (mark.part_id, mark.staff)
+            anchor = self._first_at_or_after(key, mark.quarters_from_start)
+            if anchor == event_slice.quarters_from_start:
+                _add(key, MarkingRow(text=f"Clef change: {mark.label}", marking=mark))
+
+        for mark in self.data.direction_marks:
+            if mark.kind != "pedal_change":
+                continue
+            key = (mark.part_id, mark.staff)
+            anchor = self._first_at_or_after(key, mark.quarters_from_start)
+            if anchor == event_slice.quarters_from_start:
+                _add(key, MarkingRow(text="Pedal change", marking=mark))
 
         return result
