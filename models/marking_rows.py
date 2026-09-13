@@ -8,13 +8,21 @@ per load (keyed by measure number) so a lookup on every cursor move stays
 O(1)-ish rather than a linear scan of every span on every keystroke (Ref 9's
 25 ms budget - see the strategy's section 15 "things to hold on to").
 
-Stage 3 covers only the three SCORE-LEVEL span kinds (repeats, endings,
-sections - strategy section 4 axis B): one row at the first visible event of
-the bar a span opens, one at the last visible event of the bar it closes.
-Part/staff-level placement (hairpins, stage 5) is a different collaborator
-method, added when that stage lands.
+Stage 3 covers the three SCORE-LEVEL span kinds (repeats, endings, sections
+- strategy section 4 axis B): one row at the first visible event of the bar
+a span opens, one at the last visible event of the bar it closes.
+
+Stage 5 adds hairpins - the first PART/STAFF-level kind (axis B: applies to
+one part, possibly one staff of it) - via staff_level_rows, keyed the same
+way but by (part_id, staff) and by quarters_from_start rather than by
+measure, since a wedge can start or stop mid-measure. NoteRenderer.
+region_3_data groups notes must call this once per (part_id, staff) run and
+insert its rows immediately above that group - never per note - or a
+multi-voice staff would repeat the marking once per voice (strategy section
+4.1's "a property of the staff, not of a voice").
 """
-from typing import Dict, List, Optional
+import bisect
+from typing import Dict, List, Optional, Tuple
 
 from models import marking_labels
 from models.region3_row import MarkingRow
@@ -26,6 +34,8 @@ class MarkingRows:
         self._built = False
         self._first_quarters_of_measure: Dict[int, float] = {}
         self._last_quarters_of_measure: Dict[int, float] = {}
+        self._staff_built = False
+        self._staff_quarters: Dict[Tuple[str, int], List[float]] = {}
 
     def _ensure_index(self) -> None:
         if self._built:
@@ -74,3 +84,70 @@ class MarkingRows:
             _add(span, f"Section {span.label}" if span.label else "Section")
 
         return rows
+
+    # --- part/staff-level rows (stage 5 - hairpins) --------------------
+
+    def _ensure_staff_index(self) -> None:
+        if self._staff_built:
+            return
+        self._staff_built = True
+        by_staff: Dict[Tuple[str, int], set] = {}
+        for event_slice in self.data._real_timeline_slices:
+            for note in event_slice.notes:
+                key = (note.part_id, note.staff)
+                by_staff.setdefault(key, set()).add(event_slice.quarters_from_start)
+        self._staff_quarters = {key: sorted(qs) for key, qs in by_staff.items()}
+
+    def _first_at_or_after(self, key: Tuple[str, int], quarters: float) -> Optional[float]:
+        arr = self._staff_quarters.get(key, [])
+        i = bisect.bisect_left(arr, quarters)
+        return arr[i] if i < len(arr) else None
+
+    def _last_at_or_before(self, key: Tuple[str, int], quarters: float) -> Optional[float]:
+        arr = self._staff_quarters.get(key, [])
+        i = bisect.bisect_right(arr, quarters) - 1
+        return arr[i] if i >= 0 else None
+
+    def staff_level_rows(self, event_slice) -> Dict[Tuple[str, int], List[MarkingRow]]:
+        """Hairpin rows for `event_slice`, grouped by (part_id, staff) -
+        NoteRenderer inserts each group immediately above that staff's note
+        rows (strategy section 4.1), never repeated per voice.
+
+        A hairpin whose start and stop resolve to the SAME position is a
+        point (section 11): "Crescendo"/"Diminuendo", no "hairpin", no
+        start/end word. An incomplete span (only one end known - a bare
+        <wedge type="stop"> with nothing to match, or a start that never
+        closes) gets only the row for its known end; the "no start/end
+        marked in the file" wording stays Region 5's alone (unchanged from
+        stage 1)."""
+        if event_slice is None:
+            return {}
+        self._ensure_staff_index()
+        result: Dict[Tuple[str, int], List[MarkingRow]] = {}
+
+        def _add(key: Tuple[str, int], row: MarkingRow) -> None:
+            result.setdefault(key, []).append(row)
+
+        for span in self.data.hairpin_spans:
+            key = (span.part_id, span.staff)
+            name = span.kind.capitalize() if span.kind else "Hairpin"
+
+            if (
+                span.start_known and span.end_known
+                and span.start_quarters_from_start == span.end_quarters_from_start
+            ):
+                anchor = self._first_at_or_after(key, span.start_quarters_from_start)
+                if anchor == event_slice.quarters_from_start:
+                    _add(key, MarkingRow(text=name, marking=span))
+                continue
+
+            if span.end_known:
+                anchor = self._last_at_or_before(key, span.end_quarters_from_start)
+                if anchor == event_slice.quarters_from_start:
+                    _add(key, MarkingRow(text=marking_labels.end_label(name), marking=span))
+            if span.start_known:
+                anchor = self._first_at_or_after(key, span.start_quarters_from_start)
+                if anchor == event_slice.quarters_from_start:
+                    _add(key, MarkingRow(text=marking_labels.start_label(name), marking=span))
+
+        return result

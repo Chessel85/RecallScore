@@ -194,8 +194,14 @@ class NoteRenderer:
             ):
                 return [MarkingRow(text="Click", marking=None)]
             return [MarkingRow(text="None", marking=None)]
+        staff_rows = data.marking_rows.staff_level_rows(current)
         rows: List[Region3Row] = list(score_level_rows)
+        seen_staff_keys = set()
         for i, note in enumerate(notes):
+            staff_key = (note.part_id, note.staff)
+            if staff_key not in seen_staff_keys:
+                seen_staff_keys.add(staff_key)
+                rows.extend(staff_rows.get(staff_key, []))
             text = self.format_note_for_region_3(note)
             if note.voice == STAVE_TEXT_VOICE_ID:
                 rows.append(MarkingRow(text=text, marking=note, note_index=i))
