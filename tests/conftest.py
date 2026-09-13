@@ -434,6 +434,27 @@ def stage8_chord_partial_tie_score() -> str:
 
 
 @pytest.fixture
+def stage8_barline_fermata_interior_score() -> str:
+    """Stage 8 (section 13): a fermata on the barline between two ordinary
+    bars - its own moment event, between the two real notes."""
+    return _require(FIXTURES_DIR / "stage8_barline_fermata_interior.musicxml")
+
+
+@pytest.fixture
+def stage8_barline_fermata_final_score() -> str:
+    """Stage 8 (section 13): a fermata on the score's own final barline -
+    needs no special case, simply the last timeline event."""
+    return _require(FIXTURES_DIR / "stage8_barline_fermata_final.musicxml")
+
+
+@pytest.fixture
+def stage8_tie_across_barline_with_fermata_score() -> str:
+    """Stage 8: a tied note across a barline that also carries a
+    fermata - the two mechanisms are independent."""
+    return _require(FIXTURES_DIR / "stage8_tie_across_barline_with_fermata.musicxml")
+
+
+@pytest.fixture
 def measure_style_score() -> str:
     """P4 (M8): two 4/4 bars - an <attributes>/<measure-style> with a
     <multiple-rest> (bar 1) and a <measure-repeat> (bar 2)."""

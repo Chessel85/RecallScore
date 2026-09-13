@@ -24,3 +24,11 @@ class EventSlice:
     # playback between two events, since beat_position resets every measure
     # and can't express a duration on its own.
     quarters_from_start: float = 0.0
+
+    # Stage 8 (PerformanceMarkingsStrategy.md section 13): True for a
+    # synthetic moment event representing a <barline>/<fermata> - a pause
+    # on the barline itself, attached to no note. notes is always [] on
+    # such a slice. Score level (MarkingRows.score_level_rows reads it),
+    # sounds nothing, and is navigable regardless of Region 2 filtering -
+    # see MusicData._slice_has_visible_notes.
+    barline_fermata: bool = False

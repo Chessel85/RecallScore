@@ -1317,8 +1317,78 @@ def test_chord_with_one_tied_note_only_merges_that_pitch(
     assert by_step["C"].quarter_length == 4.0, "the two tied C4 halves summed"
     assert by_step["E"].quarter_length == 2.0, "untouched - never tied"
     assert by_step["G"].quarter_length == 2.0, "untouched - the chord's other half"
-    assert {n.step_name for n in md.timeline_slices[0].notes} == {"C", "E"}
-    assert [n.step_name for n in md.timeline_slices[1].notes] == ["G"]
+
+
+# --- Stage 8: a fermata on a barline (strategy section 13) -------------
+
+
+def test_barline_fermata_is_its_own_moment_event(
+    timeline, stage8_barline_fermata_interior_score
+):
+    md = timeline(stage8_barline_fermata_interior_score)
+    assert len(md.timeline_slices) == 3
+
+    fermata_slice = md.timeline_slices[1]
+    assert fermata_slice.barline_fermata is True
+    assert fermata_slice.notes == []
+    assert fermata_slice.measure == 1, "attached to the bar it closes"
+
+    # Between bar 1's C4 and bar 2's D4 - here bar 2 starts immediately
+    # (no gap), so the fermata's quarters_from_start exactly TIES with
+    # D4's; the sort tie-break is what keeps it ordered first.
+    assert md.timeline_slices[0].quarters_from_start < fermata_slice.quarters_from_start
+    assert fermata_slice.quarters_from_start <= md.timeline_slices[2].quarters_from_start
+    assert [s.notes[0].step_name for s in (md.timeline_slices[0], md.timeline_slices[2])] == ["C", "D"]
+
+
+def test_barline_fermata_is_navigable_and_silent(
+    timeline, stage8_barline_fermata_interior_score
+):
+    md = timeline(stage8_barline_fermata_interior_score)
+    md.active_event_index = 1
+    assert md._slice_is_navigable(1) is True
+
+    rows = md.get_region_3_rows()
+    assert [r.text for r in rows] == ["Fermata on barline"]
+    assert md.note_indices_from_selection([0]) == []
+    assert md.get_playback_events_for_indices([0]) == []
+
+
+def test_barline_fermata_is_navigable_regardless_of_region_2_filter(
+    timeline, stage8_barline_fermata_interior_score
+):
+    """Score level (strategy axis B) - unaffected by every voice being
+    switched off in Region 2, unlike a part/staff-level marking."""
+    md = timeline(stage8_barline_fermata_interior_score)
+    md.set_active_voice_filter(set())  # every voice hidden
+    assert md._slice_is_navigable(1) is True
+
+
+def test_barline_fermata_on_the_final_barline_needs_no_special_case(
+    timeline, stage8_barline_fermata_final_score
+):
+    md = timeline(stage8_barline_fermata_final_score)
+    assert len(md.timeline_slices) == 2
+    assert md.timeline_slices[0].notes[0].step_name == "C"
+    assert md.timeline_slices[-1].barline_fermata is True
+
+
+def test_tie_across_a_barline_with_a_fermata_on_that_barline(
+    timeline, stage8_tie_across_barline_with_fermata_score
+):
+    """The tie merge and the barline fermata are independent mechanisms:
+    the tied continuation vanishes into its chain's head, and the barline
+    fermata still gets its own moment event at that same boundary."""
+    md = timeline(stage8_tie_across_barline_with_fermata_score)
+    assert len(md.timeline_slices) == 2
+
+    head = md.timeline_slices[0]
+    assert head.notes[0].step_name == "C"
+    assert head.notes[0].quarter_length == 8.0
+
+    fermata_slice = md.timeline_slices[1]
+    assert fermata_slice.barline_fermata is True
+    assert fermata_slice.notes == []
 
 
 def test_tuplet_reads_the_time_modification_word(timeline, triplet_bar_score):

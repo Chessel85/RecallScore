@@ -72,6 +72,13 @@ class MarkingRows:
         data = self.data
         rows: List[MarkingRow] = []
 
+        # Stage 8 (strategy section 13): the barline fermata moment event
+        # renders as one bare point row - it carries no note, so this is
+        # the ONLY row region_3_data() has for it (the `if not notes:`
+        # branch returns score_level_rows verbatim when non-empty).
+        if event_slice.barline_fermata:
+            rows.append(MarkingRow(text="Fermata on barline", marking=event_slice))
+
         def _add(span, name: str) -> None:
             if span.end_measure == event_slice.measure and self._is_last_of_measure(event_slice):
                 rows.append(MarkingRow(text=marking_labels.end_label(name), marking=span))

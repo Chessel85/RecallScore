@@ -440,6 +440,10 @@ class _FirstPartScan:
     to_coda_marks: List[ToCodaMark] = field(default_factory=list)
     fine_marks: List[FineMark] = field(default_factory=list)
     navigation_jumps: List[NavigationJump] = field(default_factory=list)
+    # Stage 8 (section 13): closing-measure numbers for every <barline>/
+    # <fermata> found - see _step_barline. Turned into moment EventSlices
+    # by TimelineBuilder.build() after assembly.
+    barline_fermata_measures: List[int] = field(default_factory=list)
 
 
 def _staff_number(elem, default):
@@ -993,7 +997,10 @@ class TimelineBuilder:
         slices = self._assemble_slices(
             root, sink, measure_start_quarters, measure_ts_fifths, pickup_filled_quarters
         )
-        return self._merge_tied_chains(slices)
+        slices = self._merge_tied_chains(slices)
+        return self._insert_barline_fermata_events(
+            slices, scan.barline_fermata_measures, measure_start_quarters, measure_ts_fifths
+        )
 
     # --- Stage 8 (PerformanceMarkingsStrategy.md section 12): ties -----
 
@@ -1101,6 +1108,57 @@ class TimelineBuilder:
                 event_slice.quarter_length = min(n.quarter_length for n in event_slice.notes)
             result.append(event_slice)
         return result
+
+    def _insert_barline_fermata_events(
+        self,
+        slices: List[EventSlice],
+        closing_measures: List[int],
+        measure_start_quarters: Dict[int, float],
+        measure_ts_fifths: Dict[int, Tuple[int, int, int]],
+    ) -> List[EventSlice]:
+        """Stage 8 (strategy section 13): one no-note moment EventSlice per
+        <barline>/<fermata>, positioned strictly between the last event of
+        the bar it closes and the first of the next - attached to no note,
+        sounding nothing, Left/Right stops on it regardless of Region 2
+        filtering (score level - see MusicData._slice_has_visible_notes).
+
+        Position is (that measure's own start quarters) + (its own full bar
+        length) - a value no real note in that bar ever reaches (every real
+        offset is strictly less than the bar's own length), and exactly
+        equal to the next bar's own start when there is no gap between them
+        - the tie-break sort key below is what keeps the fermata sorting
+        BEFORE that next bar's first event in that exact-tie case. A
+        fermata on the very last bar needs no special case: with no next
+        bar to precede, it simply sorts as the final entry.
+        """
+        if not closing_measures:
+            return slices
+
+        fermata_slices: List[EventSlice] = []
+        for m_num in closing_measures:
+            ts_fifths = measure_ts_fifths.get(m_num)
+            if ts_fifths is None:
+                continue  # defensive: a "left" barline on the piece's first measure
+            ts_num, ts_den, fifths = ts_fifths
+            full_bar_quarters = ts_num * (4.0 / ts_den)
+            fermata_slices.append(EventSlice(
+                measure=m_num,
+                beat_position=1.0 + ts_num,
+                quarter_length=0.0,
+                notes=[],
+                time_sig=(ts_num, ts_den),
+                key_fifths=fifths,
+                quarters_from_start=measure_start_quarters.get(m_num, 0.0) + full_bar_quarters,
+                barline_fermata=True,
+            ))
+
+        if not fermata_slices:
+            return slices
+
+        return sorted(
+            slices + fermata_slices,
+            key=lambda s: (s.quarters_from_start, 0 if s.barline_fermata else 1),
+        )
 
     # --- per-element handlers -------------------------------------------
 
@@ -2201,6 +2259,18 @@ class TimelineBuilder:
         number; start and close are often the same measure, a 1st/2nd-ending
         pair typically living on one bar's two barlines.
         """
+        # Stage 8 (PerformanceMarkingsStrategy.md section 13): a <fermata>
+        # inside a <barline> - a pause on the barline itself, closing the
+        # bar before it (a "left" barline is the SAME physical line as the
+        # previous measure's "right" one, so it closes m_num - 1 instead).
+        # Buffered as a closing-measure number; TimelineBuilder.build()
+        # turns each into its own no-note moment EventSlice after assembly.
+        if barline_parent.find("fermata") is not None:
+            location = barline_parent.attrib.get("location", "right")
+            closing_measure = m_num - 1 if location == "left" else m_num
+            if closing_measure not in scan.barline_fermata_measures:
+                scan.barline_fermata_measures.append(closing_measure)
+
         repeat_el = barline_parent.find("repeat")
         if repeat_el is not None:
             direction = repeat_el.attrib.get("direction")

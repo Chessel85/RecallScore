@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Stage 8 (PerformanceMarkingsStrategy.md section 13): a <fermata>
+     inside the <barline> closing bar 1 (default location="right"), between
+     two ordinary 4/4 bars. Its own moment event sits between bar 1's C4 and
+     bar 2's D4 - Left/Right stops on it, and it sounds nothing. -->
+<score-partwise version="4.0">
+  <part-list>
+    <score-part id="P1"><part-name>Test Part</part-name>
+      <midi-instrument id="P1-I1"><midi-channel>1</midi-channel><midi-program>1</midi-program></midi-instrument>
+    </score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>1</divisions>
+        <key><fifths>0</fifths></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef number="1"><sign>G</sign><line>2</line></clef>
+      </attributes>
+      <note><pitch><step>C</step><octave>4</octave></pitch>
+        <duration>4</duration><voice>1</voice><type>whole</type><staff>1</staff></note>
+      <barline location="right"><fermata/></barline>
+    </measure>
+    <measure number="2">
+      <note><pitch><step>D</step><octave>4</octave></pitch>
+        <duration>4</duration><voice>1</voice><type>whole</type><staff>1</staff></note>
+    </measure>
+  </part>
+</score-partwise>

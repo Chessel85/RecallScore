@@ -475,7 +475,13 @@ class MusicData:
         interrupted by a deactivated flute's crotchet-rate slices."""
         if not (0 <= index < len(self.timeline_slices)):
             return False
-        notes = self.timeline_slices[index].notes
+        slice_ = self.timeline_slices[index]
+        # Stage 8: a barline fermata moment event has no notes at all by
+        # design (section 13, attached to no note) but is score level, so
+        # it stays navigable no matter what Region 2 currently hides.
+        if slice_.barline_fermata:
+            return True
+        notes = slice_.notes
         if not notes:
             return False
         if self.active_voice_filter is None:
