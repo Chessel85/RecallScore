@@ -4,6 +4,7 @@ from typing import Any, List, Optional, Tuple
 
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
 
+from audio.barline_patterns import STEP_MS, events_for_pattern, pattern_for_crossing
 from audio.lead_in import build_lead_in_schedule
 from audio.metronome import METRONOME_CHANNEL, click_event_for_beat
 from audio.performance_cue import PERFORMANCE_CUE_CHANNEL
@@ -1278,30 +1279,76 @@ class PlaybackController(QObject):
         self.music_data.toggle_bar_line_indicator()
         return self.music_data.bar_line_indicator_enabled
 
-    def play_barline_indicator(self) -> None:
-        """Options > Bar Line Indicator: a single high metronome beep, fired
-        when a plain Left/Right step (arrow key or the "forward"/"back" voice
-        command) crosses a bar line, so a screen-reader user hears bar
-        boundaries while arrowing through notes.
+    def play_barline_indicator(
+        self, before_measure: Optional[int] = None, after_measure: Optional[int] = None
+    ) -> None:
+        """Options > Bar Line Indicator: a beep (or, per
+        PerformanceMarkingsStrategy.md section 10, a short pattern of them)
+        fired when a plain Left/Right step (arrow key or the "forward"/
+        "back" voice command) crosses a bar line, so a screen-reader user
+        hears bar boundaries - and what kind of barline they are - while
+        arrowing through notes.
 
-        No effect while the Ctrl+M metronome is on - it already accents beat
-        1 of every bar, so a second beep at the same instant is just noise
-        (the feature can be left on regardless, per the user). Independent of
-        the position announcer, which stays audible alongside it.
+        before_measure/after_measure (NavigationController.barline_crossed)
+        identify WHICH barline was crossed, so a repeat/double/heavy/tick
+        barline sounds its own pattern (_play_barline_pattern) instead of
+        the plain beep below. Only the plain beep is suppressed while the
+        Ctrl+M metronome is on - it already accents beat 1 of every bar, so
+        a second beep at the same instant there is just noise; the section
+        10 patterns sound regardless, since the metronome tells you about
+        beats and nothing about barline meaning. Independent of the position
+        announcer, which stays audible alongside either.
 
         Sounds AFTER the destination note's own audition, never before: the
-        beep is on METRONOME_CHANNEL, which stop_all_notes() releases, and
-        the note audition's retrigger=True calls stop_all_notes() - firing
-        the beep first would have it cut off almost immediately (the same
-        ordering constraint as the Region 5 change cue and the Find wrap
-        boundary cue)."""
+        plain beep is on METRONOME_CHANNEL and a pattern is on its own
+        BARLINE_PATTERN_CHANNEL, both of which stop_all_notes() releases,
+        and the note audition's retrigger=True calls stop_all_notes() -
+        firing either first would have it cut off almost immediately (the
+        same ordering constraint as the Region 5 change cue and the Find
+        wrap boundary cue). barline_crossed is emitted after position_changed
+        for exactly this reason, so nothing extra is needed here."""
         if not self.music_data or not self.music_data.bar_line_indicator_enabled:
             return
-        if self._muted or self.music_data.metronome_enabled:
+        if self._muted:
+            return
+
+        pattern_kind = None
+        if before_measure is not None and after_measure is not None:
+            pattern_kind = pattern_for_crossing(
+                before_measure, after_measure,
+                self.music_data.repeat_spans, self.music_data.ending_spans,
+                self.music_data.barline_marks,
+            )
+        if pattern_kind is not None:
+            self._play_barline_pattern(pattern_kind)
+            return
+
+        if self.music_data.metronome_enabled:
             return
         click = click_event_for_beat(1.0)
         if click is not None:
             self.synth.play_click(*click)
+
+    def _play_barline_pattern(self, kind: str) -> None:
+        """Sounds a multi-step barline pattern. The first step fires right
+        away (preserving the audition-then-cue ordering above); the rest go
+        through play_event_sequence."""
+        self.play_event_sequence(events_for_pattern(kind))
+
+    def play_event_sequence(self, events) -> None:
+        """Sounds one or more (channel, bank, program, pitch, velocity)
+        steps STEP_MS apart via SynthEngine.play_click - shared by the
+        barline patterns above and Help > Sound Icon Dictionary's Play
+        button (widgets/sound_icon_dictionary_dialog.py), so a demo play
+        sounds exactly like the real thing. The first step fires
+        immediately; each later step is scheduled via QTimer.singleShot
+        rather than a persistent QTimer - a sequence is short and
+        self-contained, so there is nothing to cancel between plays."""
+        for i, event in enumerate(events):
+            if i == 0:
+                self.synth.play_click(*event)
+            else:
+                QTimer.singleShot(i * STEP_MS, lambda e=event: self.synth.play_click(*e))
 
     # --- play metronome (Alt+Space) --------------------------------------
 

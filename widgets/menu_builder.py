@@ -82,6 +82,7 @@ class Actions:
     user_guide: Optional[QAction] = None
     quick_start: Optional[QAction] = None
     keystrokes: Optional[QAction] = None
+    sound_icon_dictionary: Optional[QAction] = None
     about: Optional[QAction] = None
 
 
@@ -826,6 +827,12 @@ class MenuBuilder:
             status_tip="Press a key to hear what it does, without doing it. Press F12 again to exit.",
         )
         help_menu.addAction(a.keyboard_echo_mode)
+
+        a.sound_icon_dictionary = self._action(
+            "Sound Icon Dictionary...", self.slots._show_sound_icon_dictionary_dialog,
+            status_tip="List every sound Recall Score makes, with a button to hear each one",
+        )
+        help_menu.addAction(a.sound_icon_dictionary)
 
         a.about = self._action("About Recall Score...", self.slots._show_about_dialog)
         help_menu.addAction(a.about)

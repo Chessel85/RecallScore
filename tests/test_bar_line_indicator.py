@@ -3,7 +3,9 @@
 Left/Right step crosses a bar line, so bar boundaries are audible while
 arrowing through notes.
 """
+from audio.barline_patterns import BARLINE_PATTERN_CHANNEL
 from audio.metronome import METRONOME_ACCENT_NOTE, METRONOME_CHANNEL
+from models.repeat_span import RepeatSpan
 from tests.support.main_window_helpers import load_and_wait
 from widgets import accessible_announcer
 
@@ -146,6 +148,59 @@ def test_saved_per_score_in_the_rsc_and_restored_on_reload(
     load_and_wait(window, qtbot, many_measures_score)
     assert window._music_data.bar_line_indicator_enabled is True
     assert window._actions.bar_line_indicator.isChecked() is True
+
+
+def test_repeat_start_pattern_sounds_on_the_bar_line_pattern_channel(
+    window, qtbot, null_synth, many_measures_score
+):
+    """PerformanceMarkingsImplementationPlan.md stage 4: a repeat start
+    barline gets its own multi-step pattern on its own reserved channel,
+    not the plain METRONOME_CHANNEL beep."""
+    load_and_wait(window, qtbot, many_measures_score)
+    window.toggle_bar_line_indicator()
+    window._music_data.repeat_spans = [RepeatSpan(start_measure=2, end_measure=12)]
+    window._music_data.active_event_index = 0  # bar 1, about to step into bar 2
+    null_synth.clicks.clear()
+
+    window.navigation.timeline_right()
+    qtbot.wait(500)  # let the pattern's later QTimer.singleShot steps fire
+
+    assert len(null_synth.clicks) == 3  # repeat_start: long, short, short
+    assert all(c["channel"] == BARLINE_PATTERN_CHANNEL for c in null_synth.clicks)
+
+
+def test_repeat_pattern_sounds_even_while_the_metronome_is_running(
+    window, qtbot, null_synth, many_measures_score
+):
+    load_and_wait(window, qtbot, many_measures_score)
+    window.toggle_bar_line_indicator()
+    window.toggle_metronome()
+    window._music_data.repeat_spans = [RepeatSpan(start_measure=2, end_measure=12)]
+    window._music_data.active_event_index = 0
+    null_synth.clicks.clear()
+
+    window.navigation.timeline_right()
+    qtbot.wait(500)
+
+    pattern_clicks = [c for c in null_synth.clicks if c["channel"] == BARLINE_PATTERN_CHANNEL]
+    assert len(pattern_clicks) == 3
+
+
+def test_plain_barline_beep_is_unaffected_by_stage_4(
+    window, qtbot, null_synth, many_measures_score
+):
+    """No repeat/double/heavy/tick mark at this boundary: the plain beep
+    still plays exactly as before, on METRONOME_CHANNEL."""
+    load_and_wait(window, qtbot, many_measures_score)
+    window.toggle_bar_line_indicator()
+    null_synth.clicks.clear()
+
+    window.navigation.timeline_right()
+    qtbot.wait(200)
+
+    assert len(null_synth.clicks) == 1
+    assert null_synth.clicks[0]["channel"] == METRONOME_CHANNEL
+    assert null_synth.clicks[0]["pitch"] == METRONOME_ACCENT_NOTE
 
 
 def test_defaults_off_and_is_per_score_not_carried_between_scores(

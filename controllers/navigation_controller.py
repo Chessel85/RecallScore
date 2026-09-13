@@ -28,7 +28,11 @@ class NavigationController(QObject):
     # the destination note's own retrigger=True audition. The by-measure
     # jumps (Ctrl+Left/Right) deliberately don't emit it - they always cross
     # a bar line and already announce the new bar number.
-    barline_crossed = Signal()
+    #
+    # Carries (before_measure, after_measure) - PerformanceMarkingsStrategy.md
+    # section 10's barline sound patterns (repeat/double/heavy/tick...) need
+    # to know WHICH barline was crossed, not just that one was.
+    barline_crossed = Signal(int, int)
     # Ref 6: the digits typed so far towards a bar number, emitted on every
     # change so RegionPresenter can show "Go to measure: 12" in the status
     # bar. Empty string once committed or cancelled.
@@ -122,7 +126,7 @@ class NavigationController(QObject):
         self._moved(moved)
         after = self._current_measure()
         if moved and before is not None and after is not None and before != after:
-            self.barline_crossed.emit()
+            self.barline_crossed.emit(before, after)
 
     def timeline_right(self) -> None:
         self.clear_pending_digits()
@@ -133,7 +137,7 @@ class NavigationController(QObject):
         self._moved(moved)
         after = self._current_measure()
         if moved and before is not None and after is not None and before != after:
-            self.barline_crossed.emit()
+            self.barline_crossed.emit(before, after)
 
     def measure_left(self) -> None:
         self.clear_pending_digits()

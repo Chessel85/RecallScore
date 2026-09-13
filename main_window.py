@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from audio.metronome import click_event_for_beat, click_event_for_symbol
+from audio.sound_catalog import build_catalog
 from audio.synth_engine import SynthEngine
 from controllers.attribute_controller import AttributeController
 from controllers.focus_controller import FocusController
@@ -71,6 +72,7 @@ from widgets.region2_manager import node_breadcrumb
 from widgets.region4_list_widget import Region4ListWidget
 from widgets.region5_list_widget import Region5ListWidget
 from widgets.status_bar_widget import StatusBarWidget
+from widgets.sound_icon_dictionary_dialog import SoundIconDictionaryDialog
 from widgets.strumming_dialog import StrummingDialog
 from widgets.timeline_list_widget import TimelineListWidget
 from widgets.tuner_dialog import TunerDialog
@@ -1781,6 +1783,18 @@ class MainWindow(QMainWindow):
 
     def _show_about_dialog(self):
         AboutDialog(self).exec()
+
+    def _show_sound_icon_dictionary_dialog(self):
+        """Help > Sound Icon Dictionary (PerformanceMarkingsStrategy.md
+        section 10.1): always available, with or without a score loaded."""
+        with self._preserving_focus():
+            dialog = SoundIconDictionaryDialog(self, entries=build_catalog())
+            dialog.play_index_requested.connect(
+                lambda index: self.playback.play_event_sequence(
+                    dialog.entry_at(index).events
+                )
+            )
+            dialog.exec()
 
     def _show_user_guide(self):
         guide_path = user_guide_html_path()
