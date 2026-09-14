@@ -220,8 +220,9 @@ class RegionPresenter(QObject):
         nothing at that position to read."""
         if not self.music_data:
             return
-        indices = self.music_data.note_indices_from_selection(self.selected_region_3_indices())
-        rows = self.music_data.get_region_4_rows_for_indices(indices)
+        rows = self.music_data.get_region_4_rows_for_region_3_selection(
+            self.selected_region_3_indices()
+        )
         if number < 1 or number > len(rows):
             return
         display_key, _attribute_key, value = rows[number - 1]
@@ -361,10 +362,9 @@ class RegionPresenter(QObject):
     def on_region_3_selection_changed(self) -> None:
         if not self.music_data:
             return
-        indices = self.music_data.note_indices_from_selection(
+        region_4_rows = self.music_data.get_region_4_rows_for_region_3_selection(
             self.selected_region_3_indices()
         )
-        region_4_rows = self.music_data.get_region_4_rows_for_indices(indices)
         self.region_4.refresh_list(region_4_rows)
 
     def on_region_2_filter_changed(self, active_voice_tuples: set) -> None:

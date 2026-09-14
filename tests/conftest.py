@@ -431,6 +431,14 @@ def stage7_directive_score() -> str:
 
 
 @pytest.fixture
+def stage7_barline_marker_pickup_score() -> str:
+    """PerformanceMarkingsImplementationPlanV2.md stage 7: a <barline>/
+    <fermata> closing the pickup bar (reindexed to measure 0) - its marker
+    event must read bar 0, "end of bar"."""
+    return _require(FIXTURES_DIR / "stage7_barline_marker_pickup.musicxml")
+
+
+@pytest.fixture
 def stage8_tied_chain_of_three_score() -> str:
     """Stage 8 (section 12): three tied C4 quarters, no marking on the
     continuations - one merged attack, quarter_length 3.0."""

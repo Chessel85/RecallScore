@@ -3012,11 +3012,93 @@ def test_stage7_repeat_without_times_gets_no_suffix(timeline, repeats_and_ending
 def test_stage7_barline_segno_and_coda_parsed(
     timeline, stage7_barline_jump_marks_score
 ):
+    """PerformanceMarkingsImplementationPlanV2.md stage 7: a <barline>/
+    <segno> or <barline>/<coda> is now its own barline marker moment event
+    (generalised from the fermata-only version), not a SegnoMark/CodaMark -
+    those lists stay for the <direction> form only."""
     md = timeline(stage7_barline_jump_marks_score)
-    assert [m.measure for m in md.segno_marks] == [1]
-    assert md.segno_marks[0].label == "1"
-    assert [m.measure for m in md.coda_marks] == [2]
-    assert md.coda_marks[0].label == ""
+    assert md.segno_marks == []
+    assert md.coda_marks == []
+
+    segno_slice = next(s for s in md.timeline_slices if s.barline_items == ("segno",))
+    assert segno_slice.measure == 1
+    coda_slice = next(s for s in md.timeline_slices if s.barline_items == ("coda",))
+    assert coda_slice.measure == 2
+
+
+def test_stage7_barline_marker_pickup_bar_reads_end_of_bar_zero(
+    timeline, stage7_barline_marker_pickup_score
+):
+    """Stage 7: a pickup bar is bar 0 (Ref 17), so its own barline marker
+    event's status-bar position reads "Bar 0, end of bar" - not a beat
+    number past the end of a bar that was never a full bar to begin with."""
+    md = timeline(stage7_barline_marker_pickup_score)
+    marker_index = next(
+        i for i, s in enumerate(md.timeline_slices) if s.barline_items == ("fermata",)
+    )
+    assert md.timeline_slices[marker_index].measure == 0
+
+    md.active_event_index = marker_index
+    assert md.get_status_bar_fields()[0] == "Measure 0, end of measure"
+
+
+def _marking_row_index(md, text=None):
+    """The Region 3 row index of the first MarkingRow (optionally matching
+    `text`) at md's CURRENT active_event_index - callers set that first."""
+    rows = md.get_region_3_rows()
+    return next(
+        i for i, r in enumerate(rows)
+        if isinstance(r, MarkingRow) and (text is None or r.text == text)
+    )
+
+
+def test_region_4_rows_for_a_barline_event(timeline, stage7_barline_jump_marks_score):
+    """Stage 7: Region 4 for a barline marker event reads the bar number,
+    "End of <bar_word>", then one row per item it holds."""
+    md = timeline(stage7_barline_jump_marks_score)
+    md.active_event_index = 1  # the Segno barline marker event
+    row_index = _marking_row_index(md, "Segno")
+
+    region_4_rows = md.get_region_4_rows_for_region_3_selection([row_index])
+
+    assert region_4_rows == [
+        ("Measure", "", "1"),
+        ("Position", "", "End of measure"),
+        ("Marking", "", "Segno"),
+    ]
+
+
+def test_region_4_rows_for_a_marking_row_show_kind_and_range(timeline, repeats_and_endings_score):
+    """Stage 7: Region 4 for a non-barline marking row (here, a repeat span)
+    reads its kind (the same text Region 3 shows) plus the FULL range,
+    regardless of which end of the span the selected row named."""
+    md = timeline(repeats_and_endings_score)
+    md.active_event_index = 1  # bar 2 - "Repeat start"
+    row_index = _marking_row_index(md, "Repeat start")
+
+    region_4_rows = md.get_region_4_rows_for_region_3_selection([row_index])
+
+    assert region_4_rows[0] == ("Kind", "", "Repeat start")
+    assert region_4_rows[1][0] == "Range"
+    assert "2" in region_4_rows[1][2] and "3" in region_4_rows[1][2], (
+        "the full span (bars 2 to 3), not just the selected start row's own bar"
+    )
+
+
+def test_region_4_rows_for_a_marking_row_selection_carries_no_attribute_key(
+    timeline, repeats_and_endings_score
+):
+    """Stage 7: every row Region 4 shows for a marking-row selection carries
+    an empty attribute_key - AttributeController.menu_actions keys its
+    context-menu targets off attribute_key, so there is nothing for it to
+    act on (no attribute context menu), unlike an ordinary note row."""
+    md = timeline(repeats_and_endings_score)
+    md.active_event_index = 1
+    row_index = _marking_row_index(md)
+
+    region_4_rows = md.get_region_4_rows_for_region_3_selection([row_index])
+    assert region_4_rows != []
+    assert all(attribute_key == "" for _display_key, attribute_key, _value in region_4_rows)
 
 
 def test_stage7_segno_and_dal_segno_are_note_list_point_rows(timeline, ds_plain_score):

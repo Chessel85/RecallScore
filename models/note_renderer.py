@@ -17,7 +17,8 @@ mechanism, not a bug - see note_attribute_pairs.
 """
 from typing import Dict, List, Optional, Set, Tuple
 
-from models import vocabulary
+from models import marking_labels, vocabulary
+from models.event_slice import EventSlice
 from models.note_data import NoteData
 from models.region3_row import MarkingRow, NoteRow, Region3Row
 
@@ -263,6 +264,64 @@ class NoteRenderer:
             (attribute_key, note)
             for _, attribute_key, note, _ in self.region_4_rows(selected_notes)
         ]
+
+    def region_4_rows_for_region_3_selection(self, selected_region_3_indices: List[int]) -> List[Tuple[str, str, str]]:
+        """Stage 7 (PerformanceMarkingsImplementationPlanV2.md): Region 4's
+        content for whatever is selected in Region 3, note rows and marking
+        rows both. A selection containing at least one note keeps today's
+        behaviour verbatim (region_4_rows_for_indices, keyed by note index).
+        A selection of ONLY marking row(s) - a repeat/ending/hairpin/segno/
+        barline event/... - gets kind, bar/beat (or a range for a length)
+        and, for a barline event, "Measure N"/"Position End of bar" plus one
+        row per item it holds. No attribute_key is ever set for these rows
+        (empty string), so the Region 4 context menu naturally offers
+        nothing (AttributeController.menu_actions keys off
+        get_region_4_row_targets, which stays note-only) - Ctrl+N (Region
+        5's own shortcut) is unaffected either way."""
+        data = self.data
+        rows = data.get_region_3_rows()
+        selected_rows = [rows[i] for i in selected_region_3_indices if 0 <= i < len(rows)]
+        note_indices = [r.note_index for r in selected_rows if isinstance(r, NoteRow)]
+        if note_indices:
+            return self.region_4_rows_for_indices(note_indices)
+
+        marking_rows = [r for r in selected_rows if isinstance(r, MarkingRow) and r.marking is not None]
+        if not marking_rows:
+            return [("Status", "", "No note selected")]
+
+        bar_word = vocabulary.bar_word(data.uk_terms)
+        multiple = len(marking_rows) > 1
+        out: List[Tuple[str, str, str]] = []
+        for i, row in enumerate(marking_rows, start=1):
+            prefix = f"row {i} " if multiple else ""
+            out.extend(self._region_4_rows_for_one_marking(row, bar_word, prefix))
+        return out
+
+    def _region_4_rows_for_one_marking(self, row: MarkingRow, bar_word: str, prefix: str):
+        data = self.data
+        marking = row.marking
+        if isinstance(marking, EventSlice):
+            out = [
+                (f"{prefix}{bar_word.capitalize()}", "", str(marking.measure)),
+                (f"{prefix}Position", "", f"End of {bar_word}"),
+            ]
+            for item in marking.barline_items:
+                out.append((f"{prefix}Marking", "", marking_labels.barline_item_label(item)))
+            return out
+
+        out = [(f"{prefix}Kind", "", row.text)]
+        if hasattr(marking, "start_measure") and hasattr(marking, "end_measure"):
+            start_beat = getattr(marking, "start_beat_position", 1.0)
+            end_beat = getattr(marking, "end_beat_position", 1.0)
+            rng = data._range_label(bar_word, marking.start_measure, start_beat, marking.end_measure, end_beat)
+            out.append((f"{prefix}Range", "", rng.capitalize()))
+            return out
+        measure = getattr(marking, "measure", None)
+        if measure is not None:
+            beat = getattr(marking, "beat_position", 1.0)
+            pos = data._bar_beat_label(bar_word, measure, beat)
+            out.append((f"{prefix}Position", "", pos.capitalize()))
+        return out
 
     # --- which attributes a voice shows (F1) --------------------------
 

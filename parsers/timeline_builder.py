@@ -403,10 +403,11 @@ class _FirstPartScan:
     to_coda_marks: List[ToCodaMark] = field(default_factory=list)
     fine_marks: List[FineMark] = field(default_factory=list)
     navigation_jumps: List[NavigationJump] = field(default_factory=list)
-    # Stage 8 (section 13): closing-measure numbers for every <barline>/
-    # <fermata> found - see _step_barline. Turned into moment EventSlices
-    # by TimelineBuilder.build() after assembly.
-    barline_fermata_measures: List[int] = field(default_factory=list)
+    # Stage 7 (PerformanceMarkingsImplementationPlanV2.md): closing measure
+    # -> ordered item list ("fermata"/"segno"/"coda") for every <barline>
+    # carrying one or more of those children - see _step_barline. Turned
+    # into moment EventSlices by TimelineBuilder.build() after assembly.
+    barline_marker_measures: Dict[int, List[str]] = field(default_factory=dict)
 
 
 def _staff_number(elem, default):
@@ -983,8 +984,8 @@ class TimelineBuilder:
             root, sink, measure_start_quarters, measure_ts_fifths, pickup_filled_quarters
         )
         slices = self._merge_tied_chains(slices)
-        return self._insert_barline_fermata_events(
-            slices, scan.barline_fermata_measures, measure_start_quarters, measure_ts_fifths
+        return self._insert_barline_marker_events(
+            slices, scan.barline_marker_measures, measure_start_quarters, measure_ts_fifths
         )
 
     # --- Stage 8 (PerformanceMarkingsStrategy.md section 12): ties -----
@@ -1094,39 +1095,41 @@ class TimelineBuilder:
             result.append(event_slice)
         return result
 
-    def _insert_barline_fermata_events(
+    def _insert_barline_marker_events(
         self,
         slices: List[EventSlice],
-        closing_measures: List[int],
+        closing_measures: Dict[int, List[str]],
         measure_start_quarters: Dict[int, float],
         measure_ts_fifths: Dict[int, Tuple[int, int, int]],
     ) -> List[EventSlice]:
-        """Stage 8 (strategy section 13): one no-note moment EventSlice per
-        <barline>/<fermata>, positioned strictly between the last event of
-        the bar it closes and the first of the next - attached to no note,
-        sounding nothing, Left/Right stops on it regardless of Region 2
-        filtering (score level - see MusicData._slice_has_visible_notes).
+        """Stage 7 (PerformanceMarkingsImplementationPlanV2.md): one no-note
+        moment EventSlice per <barline> carrying <fermata>/<segno>/<coda>,
+        positioned strictly between the last event of the bar it closes and
+        the first of the next - attached to no note, sounding nothing,
+        Left/Right stops on it regardless of Region 2 filtering (score
+        level - see MusicData._slice_has_visible_notes). A barline with more
+        than one of those children gets ONE event holding every item found.
 
         Position is (that measure's own start quarters) + (its own full bar
         length) - a value no real note in that bar ever reaches (every real
         offset is strictly less than the bar's own length), and exactly
         equal to the next bar's own start when there is no gap between them
-        - the tie-break sort key below is what keeps the fermata sorting
-        BEFORE that next bar's first event in that exact-tie case. A
-        fermata on the very last bar needs no special case: with no next
-        bar to precede, it simply sorts as the final entry.
+        - the tie-break sort key below is what keeps the marker event
+        sorting BEFORE that next bar's first event in that exact-tie case. A
+        marker on the very last bar needs no special case: with no next bar
+        to precede, it simply sorts as the final entry.
         """
         if not closing_measures:
             return slices
 
-        fermata_slices: List[EventSlice] = []
-        for m_num in closing_measures:
+        marker_slices: List[EventSlice] = []
+        for m_num, items in closing_measures.items():
             ts_fifths = measure_ts_fifths.get(m_num)
             if ts_fifths is None:
                 continue  # defensive: a "left" barline on the piece's first measure
             ts_num, ts_den, fifths = ts_fifths
             full_bar_quarters = ts_num * (4.0 / ts_den)
-            fermata_slices.append(EventSlice(
+            marker_slices.append(EventSlice(
                 measure=m_num,
                 beat_position=1.0 + ts_num,
                 quarter_length=0.0,
@@ -1134,15 +1137,15 @@ class TimelineBuilder:
                 time_sig=(ts_num, ts_den),
                 key_fifths=fifths,
                 quarters_from_start=measure_start_quarters.get(m_num, 0.0) + full_bar_quarters,
-                barline_fermata=True,
+                barline_items=tuple(items),
             ))
 
-        if not fermata_slices:
+        if not marker_slices:
             return slices
 
         return sorted(
-            slices + fermata_slices,
-            key=lambda s: (s.quarters_from_start, 0 if s.barline_fermata else 1),
+            slices + marker_slices,
+            key=lambda s: (s.quarters_from_start, 0 if s.barline_items else 1),
         )
 
     # --- per-element handlers -------------------------------------------
@@ -2231,17 +2234,28 @@ class TimelineBuilder:
         number; start and close are often the same measure, a 1st/2nd-ending
         pair typically living on one bar's two barlines.
         """
-        # Stage 8 (PerformanceMarkingsStrategy.md section 13): a <fermata>
-        # inside a <barline> - a pause on the barline itself, closing the
-        # bar before it (a "left" barline is the SAME physical line as the
-        # previous measure's "right" one, so it closes m_num - 1 instead).
-        # Buffered as a closing-measure number; TimelineBuilder.build()
-        # turns each into its own no-note moment EventSlice after assembly.
+        # Stage 7 (PerformanceMarkingsImplementationPlanV2.md): a <fermata>,
+        # <segno> and/or <coda> inside a <barline> - each a pause/sign on
+        # the barline itself, closing the bar before it (a "left" barline
+        # is the SAME physical line as the previous measure's "right" one,
+        # so it closes m_num - 1 instead). Buffered as an ordered item list
+        # keyed by closing measure; TimelineBuilder.build() turns each
+        # measure's list into its own no-note moment EventSlice after
+        # assembly - one event holding every item found on that barline.
+        location = barline_parent.attrib.get("location", "right")
+        closing_measure = m_num - 1 if location == "left" else m_num
+        barline_items: List[str] = []
         if barline_parent.find("fermata") is not None:
-            location = barline_parent.attrib.get("location", "right")
-            closing_measure = m_num - 1 if location == "left" else m_num
-            if closing_measure not in scan.barline_fermata_measures:
-                scan.barline_fermata_measures.append(closing_measure)
+            barline_items.append("fermata")
+        if barline_parent.find("segno") is not None:
+            barline_items.append("segno")
+        if barline_parent.find("coda") is not None:
+            barline_items.append("coda")
+        if barline_items:
+            existing_items = scan.barline_marker_measures.setdefault(closing_measure, [])
+            for item in barline_items:
+                if item not in existing_items:
+                    existing_items.append(item)
 
         repeat_el = barline_parent.find("repeat")
         if repeat_el is not None:
@@ -2283,16 +2297,6 @@ class TimelineBuilder:
                     EndingSpan(number=number, start_measure=start, end_measure=m_num)
                 )
 
-        # Stage 7 (inventory #8): <barline>/<segno> and <barline>/<coda> as
-        # an alternative source for jump marks, alongside the <direction>
-        # form _step_direction_jump_marks already reads. Neither carries a
-        # sibling <sound> label here, so the same "1"/"" defaults as that
-        # form's own no-<sound> fallback apply.
-        if barline_parent.find("segno") is not None:
-            scan.segno_marks.append(SegnoMark(measure=m_num, label="1"))
-        if barline_parent.find("coda") is not None:
-            scan.coda_marks.append(CodaMark(measure=m_num, label=""))
-
         # P4/M6: a <bar-style> that isn't a repeat barline (those are
         # repeat_spans already) and isn't a plain one. Buffered raw - the
         # final-light-heavy filter (D16) runs after the measure loop.
@@ -2303,7 +2307,6 @@ class TimelineBuilder:
             and style_el.text
             and style_el.text.strip() not in ("regular", "normal", "")
         ):
-            location = barline_parent.attrib.get("location", "right")
             scan.raw_barlines.append((m_num, style_el.text.strip(), location))
 
         return open_repeat_measure

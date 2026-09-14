@@ -480,10 +480,10 @@ class MusicData:
         if not (0 <= index < len(self.timeline_slices)):
             return False
         slice_ = self.timeline_slices[index]
-        # Stage 8: a barline fermata moment event has no notes at all by
-        # design (section 13, attached to no note) but is score level, so
-        # it stays navigable no matter what Region 2 currently hides.
-        if slice_.barline_fermata:
+        # Stage 7: a barline marker moment event has no notes at all by
+        # design (attached to no note) but is score level, so it stays
+        # navigable no matter what Region 2 currently hides.
+        if slice_.barline_items:
             return True
         notes = slice_.notes
         if not notes:
@@ -902,6 +902,14 @@ class MusicData:
         """(attribute_key, note) per Region 4 row - see
         NoteRenderer.region_4_row_targets."""
         return self.renderer.region_4_row_targets(selected_indices)
+
+    def get_region_4_rows_for_region_3_selection(
+        self, selected_region_3_indices: List[int]
+    ) -> List[Tuple[str, str, str]]:
+        """Region 4's rows for whatever is selected in Region 3 (note rows
+        or marking rows) - see NoteRenderer.region_4_rows_for_region_3_
+        selection."""
+        return self.renderer.region_4_rows_for_region_3_selection(selected_region_3_indices)
 
     def note_has_display_attribute(self, note: NoteData, attribute_key: str) -> bool:
         """Whether `note`'s own voice currently shows `attribute_key` in
@@ -1619,13 +1627,27 @@ class MusicData:
         Region 1's one-off summary. The tempo field is the only way a
         screen-reader user can check playback tempo without an
         announcement."""
-        bar_word = vocabulary.bar_word(self.uk_terms).capitalize()
+        bare_bar_word = vocabulary.bar_word(self.uk_terms)
+        bar_word = bare_bar_word.capitalize()
         current = self.get_current_slice()
         if current is None:
             return [f"{bar_word} - beat -", "Key: -", "Time: -", self._tempo_status_field()]
 
+        # Stage 7 (PerformanceMarkingsImplementationPlanV2.md): a barline
+        # marker event's own beat_position is a synthetic "one past the last
+        # beat" value (see parsers/timeline_builder.py's
+        # _insert_barline_marker_events) - reads as "end of bar N" instead
+        # of a beat that does not exist, the same fix _bar_beat_label
+        # already makes for Region 5/the report, but this field always
+        # names a beat on the ordinary downbeat (unlike _bar_beat_label's
+        # bare "bar N"), so it is not simply routed through that helper.
         beat = current.beat_position
-        beat_str = str(int(beat)) if float(beat).is_integer() else str(beat)
+        beats_in_bar = self._ts_num_for_measure(current.measure)
+        if beats_in_bar is not None and float(beat) >= beats_in_bar + 1:
+            position_label = f"{bar_word} {current.measure}, end of {bare_bar_word}"
+        else:
+            beat_str = str(int(beat)) if float(beat).is_integer() else str(beat)
+            position_label = f"{bar_word} {current.measure} beat {beat_str}"
         ts_num, ts_den = current.time_sig
         # S6: the override, when set, wins everywhere - not just where the
         # file's own key is missing/wrong (matches how apply_part_overrides
@@ -1638,7 +1660,7 @@ class MusicData:
             key_name = key_signature_display_name(current.key_fifths, None)
 
         return [
-            f"{bar_word} {current.measure} beat {beat_str}",
+            position_label,
             f"Key: {key_name}",
             f"Time: {ts_num}/{ts_den}",
             self._tempo_status_field(),

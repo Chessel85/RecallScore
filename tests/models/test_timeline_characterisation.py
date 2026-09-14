@@ -1308,7 +1308,7 @@ def test_barline_fermata_is_its_own_moment_event(
     assert len(md.timeline_slices) == 3
 
     fermata_slice = md.timeline_slices[1]
-    assert fermata_slice.barline_fermata is True
+    assert fermata_slice.barline_items == ("fermata",)
     assert fermata_slice.notes == []
     assert fermata_slice.measure == 1, "attached to the bar it closes"
 
@@ -1349,7 +1349,7 @@ def test_barline_fermata_on_the_final_barline_needs_no_special_case(
     md = timeline(stage8_barline_fermata_final_score)
     assert len(md.timeline_slices) == 2
     assert md.timeline_slices[0].notes[0].step_name == "C"
-    assert md.timeline_slices[-1].barline_fermata is True
+    assert md.timeline_slices[-1].barline_items == ("fermata",)
 
 
 def test_tie_across_a_barline_with_a_fermata_on_that_barline(
@@ -1366,7 +1366,7 @@ def test_tie_across_a_barline_with_a_fermata_on_that_barline(
     assert head.notes[0].quarter_length == 8.0
 
     fermata_slice = md.timeline_slices[1]
-    assert fermata_slice.barline_fermata is True
+    assert fermata_slice.barline_items == ("fermata",)
     assert fermata_slice.notes == []
 
 

@@ -184,16 +184,19 @@ class MarkingRows:
         data = self.data
         rows: List[MarkingRow] = []
 
-        # Stage 8 (strategy section 13): the barline fermata moment event
-        # renders as one bare point row - it carries no note, so this is
-        # the ONLY row region_3_data() has for it (the `if not notes:`
-        # branch returns score_level_rows verbatim when non-empty). Filtering
-        # this row out when "barlines" is off is safe even though it is the
-        # only row at this event: region_3_data()'s `if not notes:` branch
+        # Stage 7 (PerformanceMarkingsImplementationPlanV2.md): a barline
+        # marker moment event renders one bare point row per item it holds
+        # (fermata/segno/coda) - it carries no note, so these are the ONLY
+        # rows region_3_data() has for it (the `if not notes:` branch
+        # returns score_level_rows verbatim when non-empty). Filtering these
+        # rows out when "barlines" is off is safe even when they are the
+        # only rows at this event: region_3_data()'s `if not notes:` branch
         # falls through to the metronome-click/"None" placeholder, same as
         # any other event with nothing to show.
-        if event_slice.barline_fermata:
-            rows.append(MarkingRow(text="Fermata on barline", marking=event_slice, category="barlines"))
+        for item in event_slice.barline_items:
+            rows.append(MarkingRow(
+                text=marking_labels.barline_item_label(item), marking=event_slice, category="barlines"
+            ))
 
         def _add(span, name: str, category: str) -> None:
             # A span that opens and closes on the very same event (a one-bar

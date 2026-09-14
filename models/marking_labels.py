@@ -93,6 +93,22 @@ def fermata_name(value: str) -> str:
     return value.capitalize()
 
 
+_BARLINE_ITEM_LABELS = {
+    "fermata": "Fermata on barline",
+    "segno": "Segno",
+    "coda": "Coda",
+}
+
+
+def barline_item_label(kind: str) -> str:
+    """One item's bare wording within a barline marker event's row(s) -
+    "Fermata on barline"/"Segno"/"Coda" (PerformanceMarkingsImplementation
+    PlanV2.md stage 7). Shared by the note list (models/marking_rows.py)
+    and Region 4's barline-event rows (models/note_renderer.py) so the two
+    can't drift onto different wording for the same item (invariant 8)."""
+    return _BARLINE_ITEM_LABELS[kind]
+
+
 def pedal_name() -> str:
     """The bare name for a pedal span - "Pedal", like a hairpin's
     "Crescendo"/"Diminuendo". Shared by the note list (stage 5) and Region 5
