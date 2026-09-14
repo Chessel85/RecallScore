@@ -566,12 +566,12 @@ class MenuBuilder:
 
         playback_menu.addSeparator()
 
-        # Wishlist #4: volume/pan per instrument plus the click, position
+        # Wishlist #4: volume/pan per part plus the click, position
         # announcer and performance-cue channels. Mnemonic on Mi&xer, not
         # &Mixer - &Mixer would collide with &Mute above in this same menu.
         a.mixer = self._action(
             "Mi&xer...", self.slots._show_mixer_dialog, "Ctrl+Shift+X",
-            status_tip="Set volume and pan for each instrument and sound",
+            status_tip="Set volume and pan for each part and sound",
         )
         playback_menu.addAction(a.mixer)
 

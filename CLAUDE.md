@@ -38,6 +38,23 @@ budget** — that constraint is why the audio path is in-process FluidSynth rath
 than an external MIDI port. Preserve these properties when changing UI or data
 formatting.
 
+### Terminology
+
+PART and INSTRUMENT are two distinct concepts — never use one word for the
+other in menus, reports, dialogs or other user-visible text:
+
+* PART — an element of the MusicXML structure: a `<score-part>` / `<part>`,
+  identified by `part_id`, named by `<part-name>`, shown as a Region 2 row.
+  Muting, soloing, reordering, renaming and linking act on parts. A MIDI or
+  Ultimate Guitar import's tracks become parts.
+* INSTRUMENT — the General MIDI sound used to render a part (its GM program,
+  or for a percussion item its GM percussion key). Choosing a sound, and
+  anything that describes what plays back, is about the instrument.
+
+A part HAS an instrument. Everyday English about the physical object ("play
+an instrument", the tuner's "stringed instrument") is not the app concept and
+is left alone.
+
 ## Commands
 
 Windows, Python 3.13, dependencies in the checked-out `.venv` (not tracked):

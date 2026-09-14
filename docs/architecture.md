@@ -9,6 +9,13 @@ Package-per-domain layout; each module holds one class. Data flows one way:
 `main.py` to `MainWindow` to `MusicXMLReader.load()` to `MusicData` to four
 region views plus `SynthEngine`.
 
+**Terminology:** PART and INSTRUMENT are two distinct concepts. A PART is a
+MusicXML structure element (`<score-part>` / `<part>`, `part_id`, a Region 2
+row) — muting, soloing, reordering, renaming and linking act on parts, and a
+MIDI or Ultimate Guitar import's tracks become parts. An INSTRUMENT is the GM
+sound rendering a part. A part HAS an instrument; the two words are never
+interchangeable in user-visible text (see `CLAUDE.md`).
+
 ---
 
 ## `models/`

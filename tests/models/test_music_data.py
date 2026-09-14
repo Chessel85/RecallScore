@@ -2580,6 +2580,47 @@ def test_p3_rehearsal_marks_line_omitted_when_absent(timeline, pedal_score):
     assert not any(l.startswith("Rehearsal marks:") for l in lines)
 
 
+def test_stage12_report_omits_every_zero_count_header(timeline, octave_shift_score):
+    """3b: no header at all for a family the score has none of - not just
+    Rehearsal marks (already covered above), but every `_tally` block,
+    including the two that used to be hand-rolled (Dynamics, Pedal marks)."""
+    md = timeline(octave_shift_score)
+    lines = md.get_performance_report_lines()
+    for header in (
+        "Sections:", "Repeated sections:", "Endings:", "Dynamics:",
+        "Pedal marks:", "Dashed lines:", "Bracket lines:", "Other directions:",
+        "Barline changes:", "Clef changes:", "Measure style markers:",
+        "Segno marks:", "Coda marks:", "To coda marks:", "Fine marks:",
+        "Navigation jumps:",
+    ):
+        assert not any(l.startswith(header) for l in lines), header
+
+
+def test_stage12_report_pedal_marks_header_and_detail_lines(timeline, pedal_score):
+    """With pedal content present, the "Pedal marks: N" header and its N
+    detail lines (span then change, today's order) still appear - the
+    hand-rolled block now goes through the same `_tally` as everything
+    else."""
+    md = timeline(pedal_score)
+    lines = md.get_performance_report_lines()
+    assert "Pedal marks: 2" in lines
+    pedal_idx = lines.index("Pedal marks: 2")
+    assert lines[pedal_idx + 1].startswith("Pedal: ")
+    assert lines[pedal_idx + 2].startswith("Pedal change: ")
+
+
+def test_stage12_report_parts_header(timeline, minimal_score):
+    """3.2: the report's part tally is headed "Parts", not "Instruments" -
+    a part is a MusicXML structure element, not the GM sound it plays."""
+    md = timeline(
+        minimal_score,
+        parts_info=[PartStructureInfo(part_id="P1", name="Test Part", gmidi_program=1)],
+    )
+    lines = md.get_performance_report_lines()
+    assert any(l.startswith("Parts: ") for l in lines)
+    assert not any(l.startswith("Instruments:") for l in lines)
+
+
 def test_p3_rehearsal_mark_gets_a_region_5_one_shot_row(timeline, rehearsal_mark_score):
     """Navigating onto a rehearsal-mark bar shows a
     one-shot Region 5 row (no start/end pair), lowercase "measure" per the

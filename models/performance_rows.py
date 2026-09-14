@@ -395,12 +395,11 @@ class PerformanceRows:
             lines.append(f"Anacrusis starts on beat {beat_str}")
         lines.append(f"Number of {bar_word.lower()}s: {data.total_measures}")
 
-        def _tally(header, items, line_fn, *, omit_if_empty=False):
+        def _tally(header, items, line_fn):
             """A "<header>: <count>" line then one `line_fn(item)` line per
-            item. `omit_if_empty` drops the whole block (header included)
-            when there is nothing to list - matching the sections that were
-            hand-written with an `if items:` guard."""
-            if omit_if_empty and not items:
+            item. The whole block (header included) is omitted when there is
+            nothing to list (stage 12 item 3b: no more "X: 0" headers)."""
+            if not items:
                 return
             lines.append(f"{header}: {len(items)}")
             lines.extend(line_fn(it) for it in items)
@@ -408,7 +407,6 @@ class PerformanceRows:
         _tally(
             "Sections", data.section_spans,
             lambda s: f"{s.label}: {bar_word} {s.start_measure} to {bar_word} {s.end_measure}",
-            omit_if_empty=True,
         )
 
         note_counts: Dict[str, int] = {}
@@ -417,7 +415,7 @@ class PerformanceRows:
                 if n.midi_pitch is not None:
                     note_counts[n.part_name] = note_counts.get(n.part_name, 0) + 1
         _tally(
-            "Instruments", data.parts_info,
+            "Parts", data.parts_info,
             lambda p: f"{p.name}: {note_counts.get(p.name, 0)} notes",
         )
 
@@ -501,21 +499,20 @@ class PerformanceRows:
                 ))
 
         _dynamics_part_ids = {pid for _, _, pid in _dynamics_events if pid}
-        lines.append(f"Dynamics: {len(_dynamics_events)}")
+        _dynamics_lines: List[str] = []
         for _, event_line, part_id in sorted(_dynamics_events, key=lambda e: e[0]):
             prefix = ""
             if part_id and len(_dynamics_part_ids) > 1:
                 name = next((p.name for p in data.parts_info if p.part_id == part_id), None)
                 prefix = f"{name}: " if name else ""
-            lines.append(f"{prefix}{event_line}")
+            _dynamics_lines.append(f"{prefix}{event_line}")
+        _tally("Dynamics", _dynamics_lines, lambda line: line)
 
         _pedal_spans = [s for s in data.direction_spans if s.kind == "pedal"]
         _pedal_changes = [m for m in data.direction_marks if m.kind == "pedal_change"]
-        lines.append(f"Pedal marks: {len(_pedal_spans) + len(_pedal_changes)}")
-        for span in _pedal_spans:
-            lines.append(f"Pedal: {_span_range(span)}")
-        for mark in _pedal_changes:
-            lines.append(f"Pedal change: {bar_word} {mark.measure}")
+        _pedal_lines = [f"Pedal: {_span_range(span)}" for span in _pedal_spans]
+        _pedal_lines.extend(f"Pedal change: {bar_word} {mark.measure}" for mark in _pedal_changes)
+        _tally("Pedal marks", _pedal_lines, lambda line: line)
 
         _octave_spans = [s for s in data.direction_spans if s.kind == "octave_shift"]
         _tally(
@@ -530,7 +527,6 @@ class PerformanceRows:
         _tally(
             "Rehearsal marks", _rehearsals,
             lambda m: f"Rehearsal mark{_sp(m.label)}: {bar_word} {m.measure}",
-            omit_if_empty=True,
         )
         _tempo_words = [m for m in data.direction_marks if m.kind == "tempo_word"]
         _tally(
@@ -539,7 +535,6 @@ class PerformanceRows:
                 f'Tempo instruction (marked "{m.label}"): '
                 f"{data._bar_beat_label(bar_word, m.measure, m.beat_position)}"
             ),
-            omit_if_empty=True,
         )
 
         # Every dashed / bracketed line, as written - a "cresc." word and the

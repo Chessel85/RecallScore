@@ -20,7 +20,7 @@ from widgets.range_spin_box import RangeSpinBox
 
 class MixerDialog(QDialog):
     """Edit > Mixer... (Ctrl+Shift+X, wishlist #4) - volume/pan per
-    instrument plus the click, position announcer and performance-cue
+    part plus the click, position announcer and performance-cue
     channels.
 
     Pure view, like every other dialog in this app: it never touches
