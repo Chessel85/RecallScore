@@ -194,15 +194,11 @@ class PerformanceRows:
 
         _DIR_LINE_LABELS = {"dashes": "Dashed line", "bracket": "Bracket line"}
 
-        def _line_label(s) -> str:
-            base = _DIR_LINE_LABELS[s.kind]
-            return f"{base} ({s.label})" if s.label else base
-
         _span_row(
             [s for s in data.direction_spans if s.kind in _DIR_LINE_LABELS],
             _in_quarters,
             lambda s: (
-                f"{_dir_prefix(s.kind, s.part_id)}{_line_label(s)} "
+                f"{_dir_prefix(s.kind, s.part_id)}{marking_labels.direction_line_name(s)} "
                 f"{data._range_label(bar_word, s.start_measure, s.start_beat_position, s.end_measure, s.end_beat_position)}"
             ),
             jump_quarters=True,
@@ -211,8 +207,12 @@ class PerformanceRows:
 
         _point(
             data.direction_marks,
-            lambda m: f"{_dir_prefix('other_direction', m.part_id)}Direction: {m.label}",
+            lambda m: (
+                f"{_dir_prefix('other_direction', m.part_id)}"
+                f"{marking_labels.other_direction_label(m.label)}"
+            ),
             kind="other_direction",
+            category="other_directions",
         )
 
         # Rehearsal marks - a score-level landmark, one-shot point row (no
@@ -233,10 +233,9 @@ class PerformanceRows:
 
         def _dynword_label(m) -> str:
             prefix = data._marking_part_prefix(m.part_id, _dynword_part_ids)
-            sense = vocabulary.dynamics_instruction_kind(m.label) or "dynamics"
-            return f'{prefix}{sense.capitalize()} (marked "{m.label}")'
+            return f"{prefix}{marking_labels.dynamics_word_label(m.label)}"
 
-        _point(data.direction_marks, _dynword_label, kind="dynamics_word")
+        _point(data.direction_marks, _dynword_label, kind="dynamics_word", category="dynamics_words")
 
         _tempword_part_ids = [
             m.part_id for m in data.direction_marks if m.kind == "tempo_word"
@@ -245,9 +244,10 @@ class PerformanceRows:
             data.direction_marks,
             lambda m: (
                 f"{data._marking_part_prefix(m.part_id, _tempword_part_ids)}"
-                f"Tempo instruction: {m.label}"
+                f"{marking_labels.tempo_word_label(m.label)}"
             ),
             kind="tempo_word",
+            category="tempo_words",
         )
 
         # P4: barline / clef-change / measure-style one-shot rows, gated on
@@ -276,8 +276,9 @@ class PerformanceRows:
 
         _point(
             data.measure_style_marks,
-            lambda m: f"{m.label.capitalize()}: {bar_word} {m.measure}",
+            lambda m: f"{marking_labels.measure_style_label(m)}: {bar_word} {m.measure}",
             jump="measure",
+            category="measure_styles",
         )
 
         # Segno / Coda / To coda / Fine / D.C. / D.S.: one-shot point rows,
@@ -556,7 +557,7 @@ class PerformanceRows:
         _tally("Clef changes", data.clef_change_marks,
                lambda m: f"Clef change: {m.label}, staff {m.staff}, {bar_word} {m.measure}")
         _tally("Measure style markers", data.measure_style_marks,
-               lambda m: f"{m.label.capitalize()}: {bar_word} {m.measure}")
+               lambda m: f"{marking_labels.measure_style_label(m)}: {bar_word} {m.measure}")
 
         _tally("Segno marks", data.segno_marks,
                lambda m: f"Segno{marking_labels.label_suffix(m.label)}: {bar_word} {m.measure}")

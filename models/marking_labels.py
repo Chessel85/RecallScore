@@ -68,6 +68,73 @@ def repeat_times_suffix(times) -> str:
     return f", play {times} times" if times is not None else ""
 
 
+_DIRECTION_LINE_NAMES = {"dashes": "Dashed line", "bracket": "Bracket line"}
+
+
+def direction_line_name(span) -> str:
+    """"Dashed line"/"Bracket line", with the file's own printed text in
+    parentheses when it has one - shared by Region 5 (today's `_line_label`)
+    and the note list (stage 5), so a dashed/bracket span's bare name (the
+    point-row case, start == end) and its start/end wording can't drift
+    apart (invariant 8)."""
+    base = _DIRECTION_LINE_NAMES[span.kind]
+    return f"{base} ({span.label})" if span.label else base
+
+
+def fermata_name(value: str) -> str:
+    """"Fermata"/"Short fermata"/"Long fermata" - a note-attached fermata's
+    own value (NoteData.fermata: "fermata" for a normal shape, "<shape>
+    fermata" otherwise), promoted to a bare part-level marking-row name
+    (PI tweaks follow-up) the same way pedal/octave-shift are - a fermata
+    pauses the whole texture at that moment, not one hand/voice."""
+    return value.capitalize()
+
+
+def pedal_name() -> str:
+    """The note list's bare name for a pedal span (stage 5) - "Pedal", like
+    a hairpin's "Crescendo"/"Diminuendo". Pedal has no Region 5 row (D15),
+    so this exists only for the note list."""
+    return "Pedal"
+
+
+def octave_shift_name(span) -> str:
+    """"Octave shift 8va" - the report's own wording (`_tally("Octave
+    shifts", ...)`), reused for the note list's span rows (stage 5).
+    Octave shift has no Region 5 row (D15)."""
+    return f"Octave shift {span.label}" if span.label else "Octave shift"
+
+
+def dynamics_word_label(label: str) -> str:
+    """'Crescendo (marked "cresc.")' - the sense word (crescendo/diminuendo,
+    via vocabulary.dynamics_instruction_kind, falling back to "dynamics")
+    plus the file's own printed text. Shared by Region 5 (today's
+    `_dynword_label`, which adds its own part prefix on top) and the note
+    list (stage 5)."""
+    sense = vocabulary.dynamics_instruction_kind(label) or "dynamics"
+    return f'{sense.capitalize()} (marked "{label}")'
+
+
+def tempo_word_label(label: str) -> str:
+    """"Tempo instruction: rall." - shared by Region 5 and the note list
+    (stage 5)."""
+    return f"Tempo instruction: {label}"
+
+
+def other_direction_label(label: str) -> str:
+    """"Direction: X" - the D6 catch-all's wording, shared by Region 5 and
+    the note list (stage 5)."""
+    return f"Direction: {label}"
+
+
+def measure_style_label(mark) -> str:
+    """"8-bar rest" - Region 5's own capitalised wording
+    (`m.label.capitalize()`), shared with the note list (stage 5). A
+    multi-bar rest has no events of its own (rests are skipped), so its
+    note-list row lands on the next event - read as "you have arrived after
+    an 8-bar rest", which is correct, not a bug."""
+    return mark.label.capitalize()
+
+
 def key_signature_change_label(key_name: str) -> str:
     """Structural change wording (strategy section 7), shared by Region 5's
     one-shot row, the note list's row (stage 6), and the change cue's own

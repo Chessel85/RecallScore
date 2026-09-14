@@ -205,9 +205,18 @@ class NoteRenderer:
                 return [MarkingRow(text="Click", marking=None)]
             return [MarkingRow(text="None", marking=None)]
         staff_rows = data.marking_rows.staff_level_rows(current)
+        part_rows = data.marking_rows.part_level_rows(current)
         rows: List[Region3Row] = list(score_level_rows)
         seen_staff_keys = set()
+        seen_part_keys = set()
         for i, note in enumerate(notes):
+            # A pedal instruction (PI tweaks follow-up) is part-level, not
+            # staff-level - surfaced once, above the first staff group this
+            # part shows regardless of which hand/staff that happens to be,
+            # so it's heard whichever staff the reader is navigating.
+            if note.part_id not in seen_part_keys:
+                seen_part_keys.add(note.part_id)
+                rows.extend(part_rows.get(note.part_id, []))
             staff_key = (note.part_id, note.staff)
             if staff_key not in seen_staff_keys:
                 seen_staff_keys.add(staff_key)

@@ -1,14 +1,20 @@
 # MusicXML marking inventory
 
-Revision 3, 2026-09-13. Companion to `UserPlans/PerformanceMarkingsStrategy.md`.
+Revision 4, 2026-09-14. Companion to `UserPlans/PerformanceMarkingsStrategy.md`.
 Every MusicXML element that can carry performance information, what it means, what
 Recall Score does with it today, and the class it lands in. Revision 2 folded in the
 first round of review: ties fold into duration, a zero-length wedge is a point,
 directives go to region 1, ornaments split out of articulations, breath marks are read
-properly, and the barline fermata is parsed. Revision 3 folds in the second round: the
+properly, and the barline fermata is parsed. Revision 3 folded in the second round: the
 barline fermata and a marking on a tied continuation note each become their own
 timeline event, a one-event wedge drops the word "hairpin", and a directive reaches the
-note list only when Ctrl+N asks for it.
+note list only when Ctrl+N asks for it. Revision 4 folds in `PITweaksImplementationPlan.md`
+stage 5: every performance family gets a note-list row by default (pedal, octave shift,
+dashed/bracket lines, dynamics/tempo words, the direction catch-all, measure style), a
+directive is shown unless Ctrl+N hides it (the previous default was the other way
+round), and - reported during that stage - pedal and the note-attached fermata are each
+promoted from staff level to PART level, because neither makes sense for just one hand
+of a piano.
 
 Covers MusicXML 4.0 partwise. The classes are the ones from section 4 of the strategy:
 
@@ -36,13 +42,13 @@ note. A `<direction>` may carry `<staff>`, `placement`, `directive="yes"` and an
 
 | Element | Meaning | Today | Class |
 |---|---|---|---|
-| `words` | free text: tempo words, technique words, position marks, "cresc." | Stave Text event in region 3, plus a `dynamics_word` / `tempo_word` point mark when the whole text matches the vocabulary allow-list | point (stave text row, per part and staff); region 1 as well when `directive="yes"` |
+| `words` | free text: tempo words, technique words, position marks, "cresc." | Stave Text event in region 3, plus a `dynamics_word` / `tempo_word` point mark when the whole text matches the vocabulary allow-list; both point marks now also get a staff-level note-list row (stage 5, categories `dynamics_words` / `tempo_words`) | point (stave text row, per part and staff); region 1 as well when `directive="yes"` |
 | `dynamics` | printed dynamic (p, f, sfz, ...) as a direction | becomes the `dynamic` attribute of the notes at that offset, plus a point mark | attribute, unchanged |
 | `wedge` | crescendo or diminuendo hairpin | `HairpinSpan`, region 5, Find, report | span; point reading "Crescendo" or "Diminuendo", never the bare word "hairpin", when start and stop resolve to the same position (strategy section 11) |
-| `dashes` | dashed continuation line under an instruction | `DirectionSpan`, region 5 | span |
-| `bracket` | bracketed continuation line | `DirectionSpan`, region 5 | span |
-| `pedal` | sustain pedal: start, stop, change, sostenuto, resume | `DirectionSpan` plus a `pedal_change` point; Find and report only, no region 5 row today | span, plus point for `change`; gains region 5 and note list rows |
-| `octave-shift` | 8va, 8vb, 15ma, 15mb | `DirectionSpan`, label carried | span |
+| `dashes` | dashed continuation line under an instruction | `DirectionSpan`, region 5, plus a staff-level note-list span row (stage 5, category `lines`) | span |
+| `bracket` | bracketed continuation line | `DirectionSpan`, region 5, plus a staff-level note-list span row (stage 5, category `lines`) | span |
+| `pedal` | sustain pedal: start, stop, change, sostenuto, resume | `DirectionSpan` plus a `pedal_change` point, both giving a note-list row (stage 5) - raised to PART level rather than staff level (PI tweaks follow-up: a right-hand-only reader must still hear a pedal instruction the file recorded against the bass staff); Find and report unchanged, still no region 5 row | span, plus point for `change`; both part-level (not staff-level), no category - D15 means there is still no region 5 row to hang Ctrl+N off |
+| `octave-shift` | 8va, 8vb, 15ma, 15mb | `DirectionSpan`, label carried, plus a staff-level note-list span row (stage 5, no category - D15) | span |
 | `metronome` | printed metronome mark | feeds tempo | structural |
 | `segno` | segno sign | `SegnoMark` | point |
 | `coda` | coda sign | `CodaMark` | point |
@@ -58,11 +64,12 @@ note. A `<direction>` may carry `<staff>`, `placement`, `directive="yes"` and an
 | `staff-divide` | divisi and unison marks | catch-all | point |
 | `percussion` | a percussion pictogram as a direction | catch-all | point |
 | `image` | an embedded graphic | catch-all | ignored |
-| `other-direction` | explicit escape hatch | catch-all | point |
+| `other-direction` | explicit escape hatch | catch-all, plus a staff-level note-list point row (stage 5, category `other_directions`) | point |
 
 The `directive="yes"` attribute of the parent `<direction>` is what marks text as a
 score-wide instruction. Those go to region 1 as "Directive: Jauntily (bar 12)", and
-reach the note list only when Ctrl+N on the region 1 entry asks for it (strategy
+(PI tweaks stage 5 flipped this) reach the note list by default - Ctrl+N on the region
+1 entry now HIDES a directive from the note list rather than surfacing it (strategy
 section 9).
 
 ## 2. `<barline>` and its children
@@ -126,7 +133,7 @@ repeated as a Stave Text event.
 | `articulations` | see section 5 | `articulation` attribute | attribute |
 | `technical` | see section 7 | fret, string, fingering and pluck as their own attributes, the rest merged into `technique` | attribute |
 | `dynamics` | a dynamic attached directly to the note | `dynamic` attribute, and it beats an offset-matched direction | attribute |
-| `fermata` | pause, with a shape | `fermata` attribute | attribute (the barline form is a point - section 2) |
+| `fermata` | pause, with a shape | `fermata` attribute (Region 4/Find; deliberately left out of `DEFAULT_DISPLAY_ATTRIBUTES` - PI tweaks follow-up), plus a deduped PART-level point row in the note list ("Fermata"/"Short fermata"/"Long fermata", ...) - a fermata pauses the whole texture at that moment, not one hand or voice, so it is surfaced once per part even when the file stamps the same fermata on more than one simultaneous note | attribute (Region 4/Find) plus point (part-level, note list only, no category - no Region 5 row exists to hang Ctrl+N off); the barline form is a separate moment event - section 2 |
 | `arpeggiate`, `non-arpeggiate` | roll the chord, or explicitly do not | `arpeggio` attribute on chord notes; on a lone note re-read as a strum direction | attribute |
 | `breath-mark` | a breath or lift between notes | only read when the exporter put it inside `<articulations>`; dropped when written directly under `<notations>` | attribute, read from both places |
 | `accidental-mark` | an accidental printed above an ornament, giving the ornament's auxiliary note | recognised but not surfaced | attribute, low priority - it is the missing piece for ever realising ornaments audibly |
@@ -191,10 +198,10 @@ from a dynamic mark and is reported separately, even when both sit on one note.
 | `part-symbol` | brace or bracket grouping | not read | ignored |
 | `transpose` | transposing instrument | shifts `midi_pitch` only (invariant 15) | not a marking |
 | `staff-details` | tuning, string count, staff lines | partially used for tab | not a marking |
-| `measure-style` multiple-rest | N bars rest printed as one | `MeasureStyleMark`, region 5 and Find | point |
-| `measure-style` measure-repeat | repeat the previous bar | `MeasureStyleMark` | point |
-| `measure-style` beat-repeat | repeat the previous beat | `MeasureStyleMark` | point |
-| `measure-style` slash | slash notation bars | `MeasureStyleMark` | point |
+| `measure-style` multiple-rest | N bars rest printed as one | `MeasureStyleMark`, region 5 and Find, plus a staff-level note-list row anchored on the next event (stage 5, category `measure_styles`) | point |
+| `measure-style` measure-repeat | repeat the previous bar | `MeasureStyleMark`, plus a note-list row (stage 5, category `measure_styles`) | point |
+| `measure-style` beat-repeat | repeat the previous beat | `MeasureStyleMark`, plus a note-list row (stage 5, category `measure_styles`) | point |
+| `measure-style` slash | slash notation bars | `MeasureStyleMark`, plus a note-list row (stage 5, category `measure_styles`) | point |
 | `for-part` (4.0) | concert versus written pitch for one part | not read | not a marking |
 
 ## 10. Other score content

@@ -1310,6 +1310,11 @@ def test_tied_continuation_with_a_marking_keeps_its_own_event(
 def test_tied_continuation_step_text_reads_pitch_then_tied(
     timeline, stage8_tied_chain_with_fermata_middle_score
 ):
+    """"fermata" is deliberately NOT in DEFAULT_DISPLAY_ATTRIBUTES (PI
+    tweaks follow-up) - a note-attached fermata is promoted to its own
+    part-level note-list row instead of being spoken inline per note (see
+    test_fermata_is_a_deduped_part_level_row_not_inline_text below), so
+    this note's own text stays exactly "C, tied"."""
     md = timeline(stage8_tied_chain_with_fermata_middle_score)
     continuation = _notes(md, "P1")[1]
     assert md._format_note_for_region_3(continuation) == "C, tied"

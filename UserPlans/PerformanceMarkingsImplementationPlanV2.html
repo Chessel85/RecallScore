@@ -1,0 +1,350 @@
+<h1
+id="performance-markings---implementation-plan-version-2">Performance
+markings - implementation plan, version 2</h1>
+<p>2026-09-14. Builds
+<code>UserPlans/PerformanceMarkingsStrategy.md</code> revision 4.
+Supersedes <code>PerformanceMarkingsImplementationPlan.md</code>
+(version 1) for all remaining work, and absorbs stages 6 and 7 of
+<code>PITweaksImplementationPlan.md</code>.</p>
+<h2 id="where-things-stand">1. Where things stand</h2>
+<p>Committed:</p>
+<ul>
+<li>Version 1 stages 1 to 10 (commits <code>44e3ca3</code> to
+<code>fae10ed</code>).</li>
+<li>PI tweaks stages 1 to 4 (<code>172cf23</code> to
+<code>605d364</code>).</li>
+</ul>
+<p>In the working tree, uncommitted: PI tweaks stage 5 - every family in
+the note list by default, four new categories, directives shown by
+default, wider default display attributes, plus two follow-ups (pedal
+and note fermata raised to part level).</p>
+<p>Not started: PI tweaks stages 6 (report tree) and 7 (linked
+parts).</p>
+<h2 id="do-the-finished-stages-need-redoing">2. Do the finished stages
+need redoing?</h2>
+<p>None needs to be thrown away. Some need rework under the
+classification model, done in the stages below.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Stage</th>
+<th>Verdict</th>
+<th>Rework, and where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>V1 1 - one region 5 row per span</td>
+<td>Keep</td>
+<td>Unpartnered tag wording: stage 6</td>
+</tr>
+<tr>
+<td>V1 2 - typed region 3 rows</td>
+<td>Keep</td>
+<td>Stave text still fabricated notes: stage 5</td>
+</tr>
+<tr>
+<td>V1 3 - repeats, endings, sections</td>
+<td>Keep</td>
+<td>Level may change: conflict C2, stage 2</td>
+</tr>
+<tr>
+<td>V1 4 - barline sounds, Sound Icon Dictionary</td>
+<td>Keep</td>
+<td>None</td>
+</tr>
+<tr>
+<td>V1 5 - hairpins</td>
+<td>Keep</td>
+<td>Level rule: stage 2. Unmatched wedge: stage 6</td>
+</tr>
+<tr>
+<td>V1 6 - structural changes and cue</td>
+<td>Keep</td>
+<td>Per-part key: conflict C8, stage 10</td>
+</tr>
+<tr>
+<td>V1 7 - points, directives, region 1 list</td>
+<td>Partly superseded</td>
+<td>Directives removed: stage 3. Barline segno/coda: stage 7</td>
+</tr>
+<tr>
+<td>V1 8 - ties, barline fermata event</td>
+<td>Keep</td>
+<td>Generalised to barline level: stage 7</td>
+</tr>
+<tr>
+<td>V1 9 - Ctrl+N, asterisk, persistence</td>
+<td>Keep</td>
+<td>More categories: stage 4. Directive toggle removed: stage 3</td>
+</tr>
+<tr>
+<td>V1 10 - articulations, ornaments, breath</td>
+<td>Keep</td>
+<td>None</td>
+</tr>
+<tr>
+<td>PI 1 to 4</td>
+<td>Keep</td>
+<td>“End barline” wording: conflict C11</td>
+</tr>
+<tr>
+<td>PI 5 (uncommitted)</td>
+<td>Keep and commit</td>
+<td>Directive flip superseded by stage 3; fermata level by stage 2</td>
+</tr>
+</tbody>
+</table>
+<p>Region 4 showing a marking row’s detail (strategy section 14) looks
+never built: selecting only a span row resolves to no notes, so region 4
+reads “No note selected”. Verify first, then build in stage 7.</p>
+<h2 id="conflicts-to-resolve-before-building">3. Conflicts to resolve
+before building</h2>
+<p>Each carries a recommendation. Stages that depend on one say so.</p>
+<ul>
+<li>C1. Which plan reached stage 5. Version 1 is fully committed; PI
+tweaks is the plan at stage 5. This plan assumes that.</li>
+<li>C2. Repeats, endings and bar styles. <code>inventory.csv</code>
+gives them stave or part level, but they are score-wide today, and the
+barline sounds are score-wide. MusicXML writes a barline in every part,
+so part level would repeat “Repeat start” above every part of a quartet.
+Recommendation: score level when every part writes the same barline at
+that bar (in practice always), part level only for a part that
+differs.</li>
+<li>C3. Note-attached fermata. The csv says Score, but it sits inside
+<code>&lt;note&gt;</code>, so by the new model it is Note. It also
+replaces the part-level row just built. A fermata on one soloist’s part
+would read as score-wide. Recommendation: Note in region 4 as now, plus
+a score-level row when every part sounding at that event carries a
+fermata, otherwise a part-level row.</li>
+<li>C4. <code>&lt;direction&gt;&lt;dynamics&gt;</code>. The csv gives
+stave, part or score, but today it becomes the dynamic attribute of the
+notes at that offset, and attributes are on by default. A row as well
+would report each dynamic twice. Recommendation: keep it a note
+attribute, no row. This also decides PI tweaks 7.3’s borrowed “Dynamic
+mf” row.</li>
+<li>C5. Dashes and bracket “extend a direction”. CLAUDE.md invariant 14
+says a dashed line under “cresc.” is two lines. MusicXML writes the
+words and the dashes start in the same <code>&lt;direction&gt;</code>
+element, so one length marking named by its words (“cresc. start” and
+“cresc. end”) reports one element, not a merge. Recommendation: adopt
+it, and update invariant 14’s example in CLAUDE.md.</li>
+<li>C6. Unpartnered tag becomes a point. Today the parser closes any
+span still open at the end of a part
+(<code>_flush_open_direction_spans</code>), and region 5 says “Crescendo
+from bar 23, no end marked in the file”. Both change. Recommendation:
+adopt; the fingerprint diff is expected.</li>
+<li>C7. Words as markings. Stave text is fabricated
+<code>NoteData</code> today. Turning it into marking rows means a
+position holding only text probably stops being a Left/Right stop. The
+new model makes only barline information its own event. Recommendation:
+let the text anchor to the next event; verify the stop behaviour
+first.</li>
+<li>C8. Key and time signatures are listed stave, part or score. A
+transposing instrument writes a different key from the rest, which would
+make a key change part level while the cue is score-wide.
+Recommendation: score when all parts agree, otherwise part; low
+priority.</li>
+<li>C9. Directives. The uncommitted stage 5 has just inverted directive
+defaults and the persistence key. “Parse silently” makes that throwaway.
+Recommendation: treat <code>directive="yes"</code> as
+<code>system="only-top"</code>, then delete the region 1 list, its
+Ctrl+N, and the persistence keys.</li>
+<li>C10. Barline segno and coda as barline level make them navigation
+stops, reversing V1 stage 7’s rows. No real score has one; only fixtures
+do. Recommendation: adopt.</li>
+<li>C11. Two wordings for one place. PI stage 4 labels a span end “end
+of bar 12”; the new model gives a barline event the position “End
+barline”. Recommendation: region 4 position “End barline”, and “end of
+bar 12” wherever a bar number is needed. A <code>location="left"</code>
+barline is the end barline of the previous bar; in bar 1 or after a
+pickup there is none, so it reads “Start barline”.</li>
+<li>C12. Region 5 as home for pedal and octave shift. Decision D15 kept
+them out of region 5 because a pedal-heavy piece would show a pedal row
+almost everywhere. Recommendation: adopt; it is what makes them
+toggleable with Ctrl+N.</li>
+</ul>
+<h2 id="the-acceptance-gate">4. The acceptance gate</h2>
+<p>Every stage touching <code>parsers/</code> or <code>models/</code>
+runs the fingerprint harnesses in <code>tests/manual/</code> against a
+baseline from the commit before the stage
+(<code>tests/manual/README.md</code>). A green pytest run is not
+evidence of preserved behaviour. Each stage names the diff it expects;
+any other diff is a bug. After a reviewed expected diff, recapture the
+baseline.</p>
+<p>Ground rules carry over from PI tweaks section 0: one stage at a
+time, suite green, no commit or push unless asked, no edits to
+<code>wishlist.txt</code> or the user guide, stop and report when spec
+and code disagree.</p>
+<h2 id="stages">5. Stages</h2>
+<h3 id="stage-0---finish-pi-tweaks-stage-5">Stage 0 - finish PI tweaks
+stage 5</h3>
+<p>Commit the working tree as it stands, once the suite and harness are
+green. Do not rework the directive flip or the part-level fermata here;
+stages 2 and 3 replace them.</p>
+<h3 id="stage-1---classification-data-and-the-system-attribute">Stage 1
+- classification data and the <code>system</code> attribute</h3>
+<ul>
+<li>New <code>models/marking_classification.py</code>, Qt-free: for each
+element, the allowed levels and dimension from
+<code>inventory.csv</code> columns B and D. It is data, one table, the
+only place levels are declared.</li>
+<li>Parser: record the direction’s <code>system</code> value on
+<code>DirectionMark</code>, <code>DirectionSpan</code> and
+<code>HairpinSpan</code>, and whether <code>&lt;staff&gt;</code> was
+given. <code>directive="yes"</code> is recorded as
+<code>only-top</code>.</li>
+<li>Tests: table lookups; <code>system</code> read from
+<code>files/etude 1 tablature.mxl</code> (a metronome and a words
+direction) via <code>MusicData(file_path=...)</code>.</li>
+</ul>
+<p>Harness: additive fields only.</p>
+<h3 id="stage-2---one-level-rule-one-placement-path">Stage 2 - one level
+rule, one placement path</h3>
+<p>Depends on C2, C3, C8.</p>
+<ul>
+<li><code>marking_rows.py</code>: one <code>level_of(marking)</code>
+applying strategy 3.3, and one path grouping rows as score, part (by
+<code>part_id</code>) and stave (by part and staff). It replaces the
+hard-coded family lists in <code>score_level_rows</code>,
+<code>part_level_rows</code> and <code>staff_level_rows</code>. Reuse
+<code>_add_span_rows</code> and <code>_add_point_row</code> with a key
+function per level.</li>
+<li>Rehearsal marks become score level; pedal stays part level; fermata
+follows C3.</li>
+<li>Keep the existing row order inside each level.</li>
+<li>Ref 9: time <code>region_3_data</code> for every slice of the
+largest file in <code>files/ManyParts/</code> before and after, and
+report the numbers.</li>
+<li>Tests: a words direction with <code>system="only-top"</code> reads
+at the top; a piano hairpin with <code>&lt;staff&gt;2</code> reads above
+the left hand only; the same hairpin in a one-staff part reads above
+that part; a pedal on staff 2 reads above staff 1.</li>
+</ul>
+<p>Harness: region 3 rows change group only.</p>
+<h3 id="stage-3---retire-directives">Stage 3 - retire directives</h3>
+<p>Depends on C9.</p>
+<ul>
+<li>Remove <code>get_directive_rows</code>,
+<code>toggle_directive_in_note_list</code>,
+<code>directives_hidden_from_note_list</code>, the region 1 Directives
+list and its signal,
+<code>RegionPresenter.toggle_directive_in_note_list</code>, the region 1
+half of Ctrl+N’s shortcut description, and the directive rows in
+<code>marking_rows.py</code>.</li>
+<li>Remove <code>DirectiveMark</code> and <code>directive_marks</code>;
+stage 1’s <code>system</code> recording covers the attribute.</li>
+<li><code>ScoreConfig</code>: drop the key; ignore both
+<code>directive_labels_in_note_list</code> and
+<code>directive_labels_hidden_from_note_list</code> in old
+<code>.rsc</code> files.</li>
+<li>Rewrite the tests on
+<code>tests/fixtures/stage7_directive.musicxml</code> to assert the
+words read as a score-level row.</li>
+</ul>
+<p>Harness: directive fields disappear; region 3 directive rows move to
+the score-level words rows.</p>
+<h3
+id="stage-4---region-5-is-home-for-every-stave-part-and-score-family">Stage
+4 - region 5 is home for every stave, part and score family</h3>
+<p>Depends on C12.</p>
+<ul>
+<li><code>performance_rows.py</code>: region 5 rows for pedal (span and
+change), octave shift, stave text, rehearsal marks (already present) and
+score or part fermatas.</li>
+<li>Order region 5 rows by level: score, part, stave; existing kind
+order inside each.</li>
+<li>New categories in <code>marking_categories.py</code>:
+<code>pedal</code>, <code>octave_shift</code>, <code>stave_text</code>,
+<code>fermatas</code>. Names to confirm with the user. Update the module
+docstring, which explains why these had none.</li>
+<li>Tests: each new region 5 row; Ctrl+N toggles its note list rows;
+asterisk; <code>.rsc</code> round trip.</li>
+</ul>
+<p>Harness: region 5 rows added and reordered; region 3 unchanged.</p>
+<h3
+id="stage-5---stave-text-and-rehearsal-marks-become-marking-rows">Stage
+5 - stave text and rehearsal marks become marking rows</h3>
+<p>Depends on C7. A timeline change; ships alone.</p>
+<ul>
+<li><code>parsers/timeline_builder.py</code>: stop fabricating
+<code>NoteData</code> for <code>&lt;words&gt;</code> and
+<code>&lt;rehearsal&gt;</code>. Record a <code>DirectionMark</code> of
+kind <code>words</code> (rehearsal already has one).</li>
+<li><code>marking_rows.py</code>: words rows through stage 2’s path,
+category <code>stave_text</code>.</li>
+<li>Remove the <code>STAVE_TEXT_VOICE_ID</code> voice from region 2,
+<code>is_rehearsal_text</code> and its region 4 label branch, and the
+note-backed marking row case in
+<code>note_indices_from_selection</code>.</li>
+<li>Check Find’s stave text target and the Performance Report still find
+the words.</li>
+<li>Tests: “Allegro” reads above its part; a text-only position behaves
+per C7; region 2 has no stave text voice.</li>
+</ul>
+<p>Harness: expected diff in timeline events and region 3 rows for every
+score with text. Read it, then recapture.</p>
+<h3 id="stage-6---dimension-rules">Stage 6 - dimension rules</h3>
+<p>Depends on C5, C6. Parser change; harness diff expected.</p>
+<ul>
+<li>Unpartnered start or stop of any paired tag is a point.
+<code>_flush_open_direction_spans</code> no longer invents an end. An
+unmatched wedge is a point.</li>
+<li>Region 5 and the report lose “no end marked in the file”
+wording.</li>
+<li>Dashes and bracket fold into their <code>&lt;words&gt;</code> in the
+same <code>&lt;direction&gt;</code>: one length marking named by the
+words. A dashes line with no words keeps “Dashed line”.</li>
+<li>Update CLAUDE.md invariant 14’s example, with the user’s
+agreement.</li>
+<li>Tests: lone wedge start is “Crescendo”; unclosed pedal is “Pedal”;
+“cresc.” with dashes gives “cresc. start” and “cresc. end” and nothing
+else.</li>
+</ul>
+<h3 id="stage-7---barline-level-and-region-4-for-markings">Stage 7 -
+barline level, and region 4 for markings</h3>
+<p>Depends on C10, C11. A timeline change; ships alone.</p>
+<ul>
+<li>Generalise the barline fermata event to all barline-level
+information: fermata, segno and coda inside
+<code>&lt;barline&gt;</code>. Wavy line is low priority. Several items
+at one barline share one event.</li>
+<li>Region 4 for a barline event: measure, position “End barline”, then
+each item.</li>
+<li>Region 4 for a selected marking row: kind, bar and beat, range for a
+length. No attribute context menu; Ctrl+N still works.</li>
+<li>Tests: interior and final barline fermata fixtures; a barline segno
+is an event and no longer a row; region 4 content for both.</li>
+</ul>
+<p>Harness: expected diff on the barline fixtures only.</p>
+<h3 id="stage-8---the-report-as-a-navigable-tree">Stage 8 - the report
+as a navigable tree</h3>
+<p>PI tweaks stage 6, exactly as written there, with one change: add
+jump targets for words marks (stage 5) and barline events (stage 7).</p>
+<h3 id="stage-9---linked-parts">Stage 9 - linked parts</h3>
+<p>PI tweaks stage 7 as written, with these changes:</p>
+<ul>
+<li>Borrow part- and stave-level rows only; score-level rows belong to
+no part.</li>
+<li>7.3’s stave text borrowing is ordinary marking-row borrowing after
+stage 5; drop the special case.</li>
+<li>7.3’s borrowed “Dynamic mf” row follows C4. Under the recommendation
+it is dropped.</li>
+<li>Borrowed rows keep the source row’s level.</li>
+</ul>
+<h3 id="stage-10---low-priority">Stage 10 - low priority</h3>
+<ul>
+<li>Per-part key and time changes (C8).</li>
+<li><code>principal-voice</code> and <code>wavy-line</code> as
+lengths.</li>
+<li>Update <code>MusicXMLMarkingInventory.md</code> to match
+<code>inventory.csv</code>.</li>
+</ul>
+<h2 id="order">6. Order</h2>
+<p>0, 1, 2, then 3 and 4 in either order, then 5, 6, 7 (each alone),
+then 8 and 9. Stage 10 whenever.</p>

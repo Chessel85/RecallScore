@@ -1,0 +1,18 @@
+New classification model.
+
+Information can have the following associations:
+* Note
+* Barline 
+* Stave
+* Part
+* Score
+
+And a Dimension:
+* Point
+* Length 
+
+Directives are deprecated in favour of directions which can be associated with any element of a score so can be note, stave, part or score.
+Do we have any examples of directives? If not, do not worry about them anymore.  Parse them silently.
+
+
+

@@ -6,9 +6,10 @@ from dataclasses import dataclass
 class DirectionMark:
     """P3 (M1/M3/M5): a point (non-span) <direction>/
     <direction-type> - a rehearsal mark (<rehearsal>), a pedal change
-    (<pedal type="change">), or the D6 catch-all for any <direction-type>
-    child this parser does not handle explicitly (so a rare or future
-    exporter element is still findable rather than vanishing silently).
+    (<pedal type="change">), a plain-text dynamics or tempo instruction
+    ("cresc."/"rall."), or the D6 catch-all for any <direction-type> child
+    this parser does not handle explicitly (so a rare or future exporter
+    element is still findable rather than vanishing silently).
 
     Collected per PART like DirectionSpan (D5); part_id/staff recorded so
     the Region 5 / report label can be part-prefixed only when more than
@@ -16,7 +17,7 @@ class DirectionMark:
     TimelineBuilder._handle_direction as a side effect of build().
     """
 
-    kind: str  # "rehearsal" | "pedal_change" | "other_direction"
+    kind: str  # "rehearsal" | "pedal_change" | "dynamics_word" | "tempo_word" | "other_direction"
     part_id: str
     staff: int
     # rehearsal text; "" for pedal_change; tag with hyphens -> spaces for

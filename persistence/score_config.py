@@ -120,8 +120,13 @@ def load_for(file_path: str) -> Optional[ScoreConfig]:
             },
             percussion_auto_correct_enabled=data.get("percussion_auto_correct_enabled", False),
             last_position_index=int(data.get("last_position_index", 0)),
-            directive_labels_in_note_list={
-                _decode_directive_key(k) for k in data.get("directive_labels_in_note_list", [])
+            # PI tweaks stage 5: the old key ("directive_labels_in_note_list")
+            # is deliberately not read here even as a fallback - the new
+            # default already shows every directive, a superset of what that
+            # key surfaced, so migrating it would only ever hide something.
+            directive_labels_hidden_from_note_list={
+                _decode_directive_key(k)
+                for k in data.get("directive_labels_hidden_from_note_list", [])
             },
             marking_categories_off=set(data.get("marking_categories_off", [])),
         )
@@ -165,8 +170,9 @@ def save(file_path: str, config: ScoreConfig) -> None:
         },
         "percussion_auto_correct_enabled": config.percussion_auto_correct_enabled,
         "last_position_index": config.last_position_index,
-        "directive_labels_in_note_list": [
-            _encode_directive_key(k) for k in sorted(config.directive_labels_in_note_list)
+        "directive_labels_hidden_from_note_list": [
+            _encode_directive_key(k)
+            for k in sorted(config.directive_labels_hidden_from_note_list)
         ],
         "marking_categories_off": sorted(config.marking_categories_off),
     }

@@ -197,10 +197,14 @@ def test_show_attribute_order_dialog_preselects_region_4s_current_attribute(
 def test_order_menu_actions_offers_add_wording_when_not_yet_present(
     window, qtbot, dynamics_articulation_fingering_score
 ):
+    """"fingering", not "dynamic": PI tweaks stage 5 widened
+    DEFAULT_DISPLAY_ATTRIBUTES to include note-attached performance
+    attributes like "dynamic" by default, so it is notation/tab detail like
+    "fingering" that is still absent until switched on."""
     load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
     node = window.region_2.model_manager.node("voice_P1_1_1")
 
-    actions = window.attributes.order_menu_actions(node, "dynamic")
+    actions = window.attributes.order_menu_actions(node, "fingering")
 
     assert [label for label, _ in actions] == [
         "Add to notes for this voice",
@@ -221,7 +225,7 @@ def test_order_menu_actions_omits_voice_scope_for_a_stave_level_dialog(
     load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
     node = window.region_2.model_manager.node("staff_P1_1")
 
-    actions = window.attributes.order_menu_actions(node, "dynamic")
+    actions = window.attributes.order_menu_actions(node, "fingering")
 
     assert [label for label, _ in actions] == [
         "Add to notes in same stave",
@@ -236,7 +240,7 @@ def test_order_menu_actions_omits_voice_and_stave_scope_for_a_part_level_dialog(
     load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
     node = window.region_2.model_manager.node("part_P1")
 
-    actions = window.attributes.order_menu_actions(node, "dynamic")
+    actions = window.attributes.order_menu_actions(node, "fingering")
 
     assert [label for label, _ in actions] == [
         "Add to notes in the same part",
@@ -250,10 +254,10 @@ def test_order_menu_actions_add_actually_applies_and_switches_to_remove_wording(
     load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
     node = window.region_2.model_manager.node("voice_P1_1_1")
 
-    window.attributes.order_menu_actions(node, "dynamic")[0][1]()  # "Add ... for this voice"
+    window.attributes.order_menu_actions(node, "fingering")[0][1]()  # "Add ... for this voice"
 
-    assert window._music_data.display_attribute_present_for_voice("dynamic", "P1", 1, 1) is True
-    actions = window.attributes.order_menu_actions(node, "dynamic")
+    assert window._music_data.display_attribute_present_for_voice("fingering", "P1", 1, 1) is True
+    actions = window.attributes.order_menu_actions(node, "fingering")
     assert [label for label, _ in actions] == [
         "Remove for notes in current voice",
         "Remove for notes in current stave",
@@ -267,12 +271,12 @@ def test_order_menu_actions_remove_actually_applies(
 ):
     load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
     node = window.region_2.model_manager.node("voice_P1_1_1")
-    window.attributes.order_menu_actions(node, "dynamic")[0][1]()  # add
-    assert window._music_data.display_attribute_present_for_voice("dynamic", "P1", 1, 1) is True
+    window.attributes.order_menu_actions(node, "fingering")[0][1]()  # add
+    assert window._music_data.display_attribute_present_for_voice("fingering", "P1", 1, 1) is True
 
-    window.attributes.order_menu_actions(node, "dynamic")[0][1]()  # "Remove ... current voice"
+    window.attributes.order_menu_actions(node, "fingering")[0][1]()  # "Remove ... current voice"
 
-    assert window._music_data.display_attribute_present_for_voice("dynamic", "P1", 1, 1) is False
+    assert window._music_data.display_attribute_present_for_voice("fingering", "P1", 1, 1) is False
 
 
 def test_order_menu_actions_omits_voice_and_stave_scopes_for_a_collapsed_part(

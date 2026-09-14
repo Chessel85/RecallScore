@@ -230,16 +230,18 @@ class MusicData:
     to_coda_marks: List[ToCodaMark] = field(default_factory=list)
     fine_marks: List[FineMark] = field(default_factory=list)
     navigation_jumps: List[NavigationJump] = field(default_factory=list)
-    # Stage 7 (PerformanceMarkingsStrategy.md section 9): <direction
-    # directive="yes"> score-wide instructions, in file order. MusicXML-only,
-    # like segno_marks etc above. directives_in_note_list holds the indices
-    # (into directive_marks) Ctrl+N has surfaced as a note-list row - off by
-    # default (strategy: "not in the note list by default"), per-score via
-    # ScoreConfig.directive_labels_in_note_list (export_config/apply_config
-    # translate between the two, matching by (measure, label) so a re-parse
-    # that reorders the list doesn't silently surface the wrong directive).
+    # Stage 7 (PerformanceMarkingsStrategy.md section 9); PI tweaks stage 5
+    # flipped the default: <direction directive="yes"> score-wide
+    # instructions, in file order. MusicXML-only, like segno_marks etc
+    # above. directives_hidden_from_note_list holds the indices (into
+    # directive_marks) Ctrl+N has HIDDEN from the note list - every
+    # directive is shown by default now, empty means "show them all", per-
+    # score via ScoreConfig.directive_labels_hidden_from_note_list
+    # (export_config/apply_config translate between the two, matching by
+    # (measure, label) so a re-parse that reorders the list doesn't silently
+    # hide/show the wrong directive).
     directive_marks: List[DirectiveMark] = field(default_factory=list)
-    directives_in_note_list: Set[int] = field(default_factory=set)
+    directives_hidden_from_note_list: Set[int] = field(default_factory=set)
     # Stage 9 (PerformanceMarkingsStrategy.md section 8): the note-list
     # categories (models.marking_categories.ALL_CATEGORIES) Ctrl+N has
     # switched OFF - default empty, since every category starts on. A
@@ -695,26 +697,31 @@ class MusicData:
         itself is in file/part-walk order, which needn't be bar order once a
         later part in the file carries an earlier directive. `index` is the
         stable position in directive_marks that Ctrl+N (toggle_directive_
-        in_note_list) and persistence both key off."""
+        in_note_list) and persistence both key off. "surfaced" is `index`
+        NOT in directives_hidden_from_note_list (PI tweaks stage 5: every
+        directive is shown by default)."""
         bar_word_str = vocabulary.bar_word(self.uk_terms)
         rows = [
-            (i, f"Directive: {mark.label} ({bar_word_str} {mark.measure})", i in self.directives_in_note_list)
+            (
+                i, f"Directive: {mark.label} ({bar_word_str} {mark.measure})",
+                i not in self.directives_hidden_from_note_list,
+            )
             for i, mark in enumerate(self.directive_marks)
         ]
         return sorted(rows, key=lambda row: self.directive_marks[row[0]].measure)
 
     def toggle_directive_in_note_list(self, index: int) -> bool:
-        """Ctrl+N on a Region 1 directive row: adds/removes it from the note
+        """Ctrl+N on a Region 1 directive row: shows/hides it in the note
         list (as a score-level point row - see MarkingRows.score_level_rows)
-        and returns the new state. A no-op (returns False) for an
-        out-of-range index."""
+        and returns the new state (True = now shown). A no-op (returns
+        False) for an out-of-range index."""
         if not (0 <= index < len(self.directive_marks)):
             return False
-        if index in self.directives_in_note_list:
-            self.directives_in_note_list.discard(index)
-            return False
-        self.directives_in_note_list.add(index)
-        return True
+        if index in self.directives_hidden_from_note_list:
+            self.directives_hidden_from_note_list.discard(index)
+            return True
+        self.directives_hidden_from_note_list.add(index)
+        return False
 
     def toggle_marking_category(self, category: str) -> bool:
         """Ctrl+N on a Region 5 row (strategy section 8): flips whether
@@ -815,9 +822,33 @@ class MusicData:
         # move_attribute_order boundary test tracks whatever is last.
         "chord symbol", "chord diagram",
     ]
-    # A voice with no entry in voice_display_attributes uses this - today's
-    # plain-note-name behaviour, not an empty display.
-    DEFAULT_DISPLAY_ATTRIBUTES = frozenset({"step"})
+    # A voice with no entry in voice_display_attributes uses this. PI tweaks
+    # stage 5: widened from {"step"} alone to also include every note-
+    # attached PERFORMANCE attribute (user-approved list) - notation/tab
+    # detail (octave, duration, measure, beat position, part, stave, voice,
+    # midi, string, fret, fingering, pluck, strum, tuplet, grace,
+    # accidental, chord symbol/diagram) is deliberately left out, so an
+    # ordinary note's Region 3 text is unchanged; a note carrying a dynamic,
+    # articulation, ornament, fermata, slur, arpeggio, glissando, technique
+    # or other-notation mark now reads it inline without the user having to
+    # switch it on per voice first. A voice the user HAS configured (any
+    # entry in voice_display_attributes, including one saved by an older
+    # .rsc that only ever meant "step") keeps its own saved set untouched.
+    #
+    # "fermata" is deliberately NOT here (PI tweaks follow-up, reported): a
+    # fermata pauses the whole texture at that moment, not one hand/voice,
+    # even when the file stamps a <fermata> on more than one simultaneous
+    # note - so it is promoted to its own part-level note-list row instead
+    # (MarkingRows.part_level_rows, same "elevate, show once" treatment as
+    # the sustain pedal), never spoken inline per note. It stays a normal,
+    # separately toggleable key in DISPLAY_ATTRIBUTE_ORDER (Region 4's
+    # per-note detail table - which is not gated by this set at all - keeps
+    # showing it, and a voice CAN still switch it on inline via the Region 4
+    # context menu; it just is not on by default any more).
+    DEFAULT_DISPLAY_ATTRIBUTES = frozenset({
+        "step", "dynamic", "articulation", "ornament", "slur",
+        "arpeggio", "glissando", "technique", "other notation",
+    })
 
     # The Find dialog (widgets/find_dialog.py): attribute keys on
     # essentially every note. "Next occurrence of step" is meaningless -
@@ -1048,9 +1079,9 @@ class MusicData:
             percussion_item_name_overrides=dict(self.percussion_item_name_overrides),
             percussion_auto_correct_enabled=self.percussion_auto_correct_enabled,
             last_position_index=self.active_event_index,
-            directive_labels_in_note_list={
+            directive_labels_hidden_from_note_list={
                 (self.directive_marks[i].measure, self.directive_marks[i].label)
-                for i in self.directives_in_note_list
+                for i in self.directives_hidden_from_note_list
                 if 0 <= i < len(self.directive_marks)
             },
             marking_categories_off=set(self.marking_categories_off),
@@ -1095,13 +1126,17 @@ class MusicData:
             config.key_signature_override_fifths, config.key_signature_override_mode
         )
 
-        # Stage 7: match saved (measure, label) directive keys against this
-        # score's freshly parsed directive_marks - best-effort, like every
-        # other override above; an entry matching nothing here is dropped.
-        wanted = set(config.directive_labels_in_note_list)
-        self.directives_in_note_list = {
+        # Stage 7; PI tweaks stage 5 inverted the default - match saved
+        # (measure, label) HIDDEN directive keys against this score's
+        # freshly parsed directive_marks - best-effort, like every other
+        # override above; an entry matching nothing here is dropped. An
+        # older .rsc's "directive_labels_in_note_list" (the pre-stage-5 key)
+        # is deliberately ignored, not migrated: under the new default every
+        # directive is already shown, a superset of what that key surfaced.
+        hidden = set(config.directive_labels_hidden_from_note_list)
+        self.directives_hidden_from_note_list = {
             i for i, mark in enumerate(self.directive_marks)
-            if (mark.measure, mark.label) in wanted
+            if (mark.measure, mark.label) in hidden
         }
 
         # Stage 9: best-effort like every override above - an unrecognised

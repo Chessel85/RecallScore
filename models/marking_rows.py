@@ -36,6 +36,8 @@ class MarkingRows:
         self._last_quarters_of_measure: Dict[int, float] = {}
         self._staff_built = False
         self._staff_quarters: Dict[Tuple[str, int], List[float]] = {}
+        self._part_built = False
+        self._part_quarters: Dict[str, List[float]] = {}
         self._score_built = False
         self._score_quarters: List[float] = []
 
@@ -162,16 +164,15 @@ class MarkingRows:
             )
             rows.append(MarkingRow(text=label, marking=mark, category="barlines"))
 
-        # Directives (strategy section 9): score-level point rows, but only
-        # for the ones Ctrl+N has surfaced (off by default) - anchored like
-        # any other quarters-positioned point mark, at the first visible
-        # event at or after its own position.
-        if data.directives_in_note_list:
+        # Directives (strategy section 9; PI tweaks stage 5: on by default
+        # now): score-level point rows for every directive Ctrl+N has NOT
+        # hidden - anchored like any other quarters-positioned point mark,
+        # at the first visible event at or after its own position.
+        if data.directive_marks:
             self._ensure_score_index()
-            for index in data.directives_in_note_list:
-                if not (0 <= index < len(data.directive_marks)):
+            for index, mark in enumerate(data.directive_marks):
+                if index in data.directives_hidden_from_note_list:
                     continue
-                mark = data.directive_marks[index]
                 anchor = self._first_at_or_after_score(mark.quarters_from_start)
                 if anchor == event_slice.quarters_from_start:
                     rows.append(MarkingRow(text=f"Directive: {mark.label}", marking=mark))
@@ -226,6 +227,115 @@ class MarkingRows:
         i = bisect.bisect_right(arr, quarters) - 1
         return arr[i] if i >= 0 else None
 
+    # --- part-level rows (PI tweaks follow-up - pedal) ------------------
+    #
+    # A sustain pedal is a whole-instrument control, not a per-stave one -
+    # even though the file's own <direction> sits against one staff
+    # (conventionally the bass staff, for a piano), the note-list row must
+    # surface once for the PART, above every one of its staff groups, not
+    # buried in whichever staff the XML happened to record it against
+    # (reported: a right-hand-only reader never heard a pedal instruction
+    # anchored to the left-hand staff). _part_quarters is the union of
+    # every staff's quarters in the part, so "first/last event of the
+    # part" means "first/last event of ANY staff of it".
+
+    def _ensure_part_index(self) -> None:
+        if self._part_built:
+            return
+        self._part_built = True
+        self._ensure_staff_index()
+        by_part: Dict[str, set] = {}
+        for (part_id, _staff), quarters in self._staff_quarters.items():
+            by_part.setdefault(part_id, set()).update(quarters)
+        self._part_quarters = {part_id: sorted(qs) for part_id, qs in by_part.items()}
+
+    def _first_at_or_after_part(self, part_id: str, quarters: float) -> Optional[float]:
+        arr = self._part_quarters.get(part_id, [])
+        i = bisect.bisect_left(arr, quarters)
+        return arr[i] if i < len(arr) else None
+
+    def _last_at_or_before_part(self, part_id: str, quarters: float) -> Optional[float]:
+        arr = self._part_quarters.get(part_id, [])
+        i = bisect.bisect_right(arr, quarters) - 1
+        return arr[i] if i >= 0 else None
+
+    def part_level_rows(self, event_slice) -> Dict[str, List[MarkingRow]]:
+        """Pedal span, pedal-change point, and fermata rows for
+        `event_slice`, grouped by part_id only - NoteRenderer inserts each
+        group above the FIRST staff group it encounters for that part
+        (whichever staff that happens to be), so each is heard once
+        regardless of which hand/staff the reader is navigating. Pedal
+        rows use the same start/end/point anchoring rule as
+        `_add_span_rows`/`_add_point_row`, against `_part_quarters` instead
+        of one staff's; the fermata row instead reads directly off this
+        event_slice's own notes (see below - no separate span/mark object
+        or cross-slice anchoring exists for it). No category on any of
+        these (D15: pedal has no Region 5 row; nor does a note-attached
+        fermata) - always on, never filtered by Ctrl+N."""
+        if event_slice is None:
+            return {}
+        self._ensure_part_index()
+        result: Dict[str, List[MarkingRow]] = {}
+        name = marking_labels.pedal_name()
+
+        # Pedal-change points before the span's own row - the same relative
+        # order staff_level_rows gave them before both moved here together.
+        for mark in self.data.direction_marks:
+            if mark.kind != "pedal_change":
+                continue
+            part_id = mark.part_id
+            anchor = self._first_at_or_after_part(part_id, mark.quarters_from_start)
+            if anchor == event_slice.quarters_from_start:
+                result.setdefault(part_id, []).append(
+                    MarkingRow(text="Pedal change", marking=mark, category=None)
+                )
+
+        for span in self.data.direction_spans:
+            if span.kind != "pedal":
+                continue
+            part_id = span.part_id
+            if span.start_quarters_from_start == span.end_quarters_from_start:
+                anchor = self._first_at_or_after_part(part_id, span.start_quarters_from_start)
+                if anchor == event_slice.quarters_from_start:
+                    result.setdefault(part_id, []).append(
+                        MarkingRow(text=name, marking=span, category=None)
+                    )
+                continue
+            end_anchor = self._last_at_or_before_part(part_id, span.end_quarters_from_start)
+            if end_anchor == event_slice.quarters_from_start:
+                result.setdefault(part_id, []).append(
+                    MarkingRow(text=marking_labels.end_label(name), marking=span, category=None)
+                )
+            start_anchor = self._first_at_or_after_part(part_id, span.start_quarters_from_start)
+            if start_anchor == event_slice.quarters_from_start:
+                result.setdefault(part_id, []).append(
+                    MarkingRow(text=marking_labels.start_label(name), marking=span, category=None)
+                )
+
+        # Fermata (PI tweaks follow-up, reported): a note-attached attribute,
+        # but a fermata pauses the WHOLE texture at that moment, not one
+        # hand/voice - even when the file stamps a <fermata> on more than
+        # one simultaneous note (one per staff), it is one instruction, so
+        # it gets ONE part-level row here, deduped across every staff/voice
+        # of the part that carries one at THIS event. No cross-slice
+        # anchoring needed - the note already sits in this event_slice, so
+        # this reads event_slice.notes directly rather than going through
+        # _part_quarters. Scans every note in the slice (not just the
+        # currently visible ones), the same "borrow across the Region 2
+        # filter" reasoning the pedal rows above follow - a fermata on a
+        # muted voice still pauses the part's other, visible voices. No
+        # category (no Region 5 row exists for a note-attached fermata to
+        # hang Ctrl+N off).
+        seen_fermata_parts = set()
+        for note in event_slice.notes:
+            if not note.fermata or note.part_id in seen_fermata_parts:
+                continue
+            seen_fermata_parts.add(note.part_id)
+            result.setdefault(note.part_id, []).append(
+                MarkingRow(text=marking_labels.fermata_name(note.fermata), marking=note, category=None)
+            )
+        return result
+
     def staff_level_rows(self, event_slice) -> Dict[Tuple[str, int], List[MarkingRow]]:
         """Hairpin rows for `event_slice`, grouped by (part_id, staff) -
         NoteRenderer inserts each group immediately above that staff's note
@@ -237,17 +347,28 @@ class MarkingRows:
         <wedge type="stop"> with nothing to match, or a start that never
         closes) gets only the row for its known end; the "no start/end
         marked in the file" wording stays Region 5's alone (unchanged from
-        stage 1)."""
+        stage 1).
+
+        Stage 5 (PI tweaks): the families the note list was missing entirely
+        (pedal/octave-shift/dashed/bracket spans, dynamics/tempo/other-
+        direction points, measure style) go through `_span_rows`/
+        `_point_rows` below, same anchoring rule, added AFTER the three
+        existing families in the fixed order the plan lays out - existing
+        rows never change position."""
         if event_slice is None:
             return {}
+        self._ensure_index()
         self._ensure_staff_index()
         result: Dict[Tuple[str, int], List[MarkingRow]] = {}
 
         def _add(key: Tuple[str, int], row: MarkingRow) -> None:
             result.setdefault(key, []).append(row)
 
+        def _key(mark) -> Tuple[str, int]:
+            return (mark.part_id, mark.staff)
+
         for span in self.data.hairpin_spans:
-            key = (span.part_id, span.staff)
+            key = _key(span)
             name = span.kind.capitalize() if span.kind else "Hairpin"
 
             if (
@@ -272,28 +393,106 @@ class MarkingRows:
                         text=marking_labels.start_label(name), marking=span, category="hairpins"
                     ))
 
-        # Stage 7: clef changes and pedal changes - part/staff-level points
-        # (strategy axis B), anchored at the first visible event of that
-        # staff at or after the mark's own position. "pedal" is not in
-        # models.marking_categories.ALL_CATEGORIES (that module's docstring
-        # explains why), so tagging it here documents the category without
-        # making it filterable.
+        # Stage 7: clef changes - a staff-level point (strategy axis B),
+        # anchored at the first visible event of that staff at or after the
+        # mark's own position. Pedal changes moved to part_level_rows below
+        # (PI tweaks follow-up) - same "whole instrument, not one stave"
+        # reasoning as the pedal span.
         for mark in self.data.clef_change_marks:
-            key = (mark.part_id, mark.staff)
+            key = _key(mark)
             anchor = self._first_at_or_after(key, mark.quarters_from_start)
             if anchor == event_slice.quarters_from_start:
                 _add(key, MarkingRow(text=f"Clef change: {mark.label}", marking=mark, category="clef_changes"))
 
+        # Stage 5: the eight families the note list was missing entirely
+        # (strategy's "not in the note list at all" table), in that table's
+        # order. Pedal/octave-shift have no Region 5 row (D15) so carry no
+        # category (always on, same as pedal change above); the other six
+        # already had one, so they carry the stage 5 category that lets
+        # Ctrl+N reach them (models/marking_categories.py). Pedal moved to
+        # part_level_rows (PI tweaks follow-up) - not handled here.
+        for span in self.data.direction_spans:
+            if span.kind == "octave_shift":
+                self._add_span_rows(
+                    _add, event_slice, [span], marking_labels.octave_shift_name(span), None, _key
+                )
+        for span in self.data.direction_spans:
+            if span.kind == "dashes":
+                self._add_span_rows(
+                    _add, event_slice, [span], marking_labels.direction_line_name(span), "lines", _key
+                )
+        for span in self.data.direction_spans:
+            if span.kind == "bracket":
+                self._add_span_rows(
+                    _add, event_slice, [span], marking_labels.direction_line_name(span), "lines", _key
+                )
+
         for mark in self.data.direction_marks:
-            if mark.kind != "pedal_change":
+            if mark.kind == "dynamics_word":
+                self._add_point_row(
+                    _add, event_slice, mark, marking_labels.dynamics_word_label(mark.label),
+                    "dynamics_words", _key, mark.quarters_from_start,
+                )
+        for mark in self.data.direction_marks:
+            if mark.kind == "tempo_word":
+                self._add_point_row(
+                    _add, event_slice, mark, marking_labels.tempo_word_label(mark.label),
+                    "tempo_words", _key, mark.quarters_from_start,
+                )
+        for mark in self.data.direction_marks:
+            if mark.kind == "other_direction":
+                self._add_point_row(
+                    _add, event_slice, mark, marking_labels.other_direction_label(mark.label),
+                    "other_directions", _key, mark.quarters_from_start,
+                )
+
+        # MeasureStyleMark carries no quarters_from_start of its own - anchor
+        # via the measure's own first quarters (the score-level index built
+        # by _ensure_index), then the staff's first event at or after that.
+        # A multi-bar rest has no events of its own (rests are skipped), so
+        # it lands on the NEXT event of that staff - correct: "8-bar rest"
+        # is read as you arrive after it, not as you enter it.
+        for mark in self.data.measure_style_marks:
+            measure_quarters = self._first_quarters_of_measure.get(mark.measure)
+            if measure_quarters is None:
                 continue
-            key = (mark.part_id, mark.staff)
-            anchor = self._first_at_or_after(key, mark.quarters_from_start)
-            if anchor == event_slice.quarters_from_start:
-                _add(key, MarkingRow(text="Pedal change", marking=mark, category="pedal"))
+            self._add_point_row(
+                _add, event_slice, mark, marking_labels.measure_style_label(mark),
+                "measure_styles", _key, measure_quarters,
+            )
 
         off = self.data.marking_categories_off
         return {
             key: [r for r in rows if r.category is None or r.category not in off]
             for key, rows in result.items()
         }
+
+    def _add_span_rows(self, _add, event_slice, spans, name, category, key_for) -> None:
+        """One span's rows at `event_slice`: a bare point row when the span's
+        start and end resolve to the same staff position, otherwise an end
+        row and/or a start row - the same rule the hairpin loop above
+        follows, generalised so the growing stage 5 family list isn't eleven
+        copies of this anchoring code."""
+        for span in spans:
+            key = key_for(span)
+            if span.start_quarters_from_start == span.end_quarters_from_start:
+                anchor = self._first_at_or_after(key, span.start_quarters_from_start)
+                if anchor == event_slice.quarters_from_start:
+                    _add(key, MarkingRow(text=name, marking=span, category=category))
+                continue
+            end_anchor = self._last_at_or_before(key, span.end_quarters_from_start)
+            if end_anchor == event_slice.quarters_from_start:
+                _add(key, MarkingRow(
+                    text=marking_labels.end_label(name), marking=span, category=category
+                ))
+            start_anchor = self._first_at_or_after(key, span.start_quarters_from_start)
+            if start_anchor == event_slice.quarters_from_start:
+                _add(key, MarkingRow(
+                    text=marking_labels.start_label(name), marking=span, category=category
+                ))
+
+    def _add_point_row(self, _add, event_slice, mark, name, category, key_for, quarters) -> None:
+        key = key_for(mark)
+        anchor = self._first_at_or_after(key, quarters)
+        if anchor == event_slice.quarters_from_start:
+            _add(key, MarkingRow(text=name, marking=mark, category=category))

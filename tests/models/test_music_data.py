@@ -1320,19 +1320,23 @@ def test_set_display_attribute_for_voice_toggles_for_the_voice_scope_only():
 
 
 def test_set_display_attribute_for_voice_fans_out_to_part_scope():
+    """"fingering", not "dynamic": PI tweaks stage 5 widened
+    DEFAULT_DISPLAY_ATTRIBUTES to include "dynamic" by default, which would
+    make P2 read True even without the fan-out - "fingering" (notation/tab
+    detail) stays off by default, so it still proves the scope leak-check."""
     md = MusicData(parts_info=[
         PartStructureInfo(part_id="P1", staves_voices={1: [1], 2: [1, 2]}),
         PartStructureInfo(part_id="P2", staves_voices={1: [1]}),
     ])
 
-    md.set_display_attribute_for_voice("dynamic", "part", "P1", 1, 1, add=True)
+    md.set_display_attribute_for_voice("fingering", "part", "P1", 1, 1, add=True)
 
-    assert md.display_attribute_present_for_voice("dynamic", "P1", 1, 1) is True
-    assert md.display_attribute_present_for_voice("dynamic", "P1", 2, 1) is True, (
+    assert md.display_attribute_present_for_voice("fingering", "P1", 1, 1) is True
+    assert md.display_attribute_present_for_voice("fingering", "P1", 2, 1) is True, (
         "part scope must reach the piano's other staff/voice too"
     )
-    assert md.display_attribute_present_for_voice("dynamic", "P1", 2, 2) is True
-    assert md.display_attribute_present_for_voice("dynamic", "P2", 1, 1) is False, (
+    assert md.display_attribute_present_for_voice("fingering", "P1", 2, 2) is True
+    assert md.display_attribute_present_for_voice("fingering", "P2", 1, 1) is False, (
         "part scope must not leak into the other part"
     )
 
@@ -1357,7 +1361,7 @@ def test_set_display_attribute_voice_scope_only_touches_that_voice():
 
     md.set_display_attribute("octave", "voice", [_note("P1", 1, 1)], add=True)
 
-    assert md.voice_display_attributes[("P1", 1, 1)] == {"step", "octave"}
+    assert md.voice_display_attributes[("P1", 1, 1)] == MusicData.DEFAULT_DISPLAY_ATTRIBUTES | {"octave"}
     assert ("P1", 1, 2) not in md.voice_display_attributes
     assert ("P1", 2, 1) not in md.voice_display_attributes
 
@@ -1367,8 +1371,9 @@ def test_set_display_attribute_stave_scope_fans_out_to_every_voice_on_that_stave
 
     md.set_display_attribute("octave", "stave", [_note("P1", 1, 1)], add=True)
 
-    assert md.voice_display_attributes[("P1", 1, 1)] == {"step", "octave"}
-    assert md.voice_display_attributes[("P1", 1, 2)] == {"step", "octave"}
+    expected = MusicData.DEFAULT_DISPLAY_ATTRIBUTES | {"octave"}
+    assert md.voice_display_attributes[("P1", 1, 1)] == expected
+    assert md.voice_display_attributes[("P1", 1, 2)] == expected
     assert ("P1", 2, 1) not in md.voice_display_attributes
 
 
@@ -1380,9 +1385,10 @@ def test_set_display_attribute_part_scope_fans_out_to_every_stave_in_that_part()
 
     md.set_display_attribute("octave", "part", [_note("P1", 1, 1)], add=True)
 
-    assert md.voice_display_attributes[("P1", 1, 1)] == {"step", "octave"}
-    assert md.voice_display_attributes[("P1", 2, 1)] == {"step", "octave"}
-    assert md.voice_display_attributes[("P1", 2, 2)] == {"step", "octave"}
+    expected = MusicData.DEFAULT_DISPLAY_ATTRIBUTES | {"octave"}
+    assert md.voice_display_attributes[("P1", 1, 1)] == expected
+    assert md.voice_display_attributes[("P1", 2, 1)] == expected
+    assert md.voice_display_attributes[("P1", 2, 2)] == expected
     assert ("P2", 1, 1) not in md.voice_display_attributes
 
 
@@ -1394,9 +1400,10 @@ def test_set_display_attribute_score_scope_fans_out_to_every_part():
 
     md.set_display_attribute("octave", "score", [_note("P1", 1, 1)], add=True)
 
-    assert md.voice_display_attributes[("P1", 1, 1)] == {"step", "octave"}
-    assert md.voice_display_attributes[("P2", 1, 1)] == {"step", "octave"}
-    assert md.voice_display_attributes[("P2", 1, 2)] == {"step", "octave"}
+    expected = MusicData.DEFAULT_DISPLAY_ATTRIBUTES | {"octave"}
+    assert md.voice_display_attributes[("P1", 1, 1)] == expected
+    assert md.voice_display_attributes[("P2", 1, 1)] == expected
+    assert md.voice_display_attributes[("P2", 1, 2)] == expected
 
 
 def test_set_display_attribute_multi_select_unions_scope_across_selected_notes():
@@ -1412,18 +1419,22 @@ def test_set_display_attribute_multi_select_unions_scope_across_selected_notes()
 
     md.set_display_attribute("octave", "stave", notes, add=True)
 
-    assert md.voice_display_attributes[("P1", 1, 1)] == {"step", "octave"}
-    assert md.voice_display_attributes[("P1", 1, 2)] == {"step", "octave"}
-    assert md.voice_display_attributes[("P2", 1, 1)] == {"step", "octave"}
+    expected = MusicData.DEFAULT_DISPLAY_ATTRIBUTES | {"octave"}
+    assert md.voice_display_attributes[("P1", 1, 1)] == expected
+    assert md.voice_display_attributes[("P1", 1, 2)] == expected
+    assert md.voice_display_attributes[("P2", 1, 1)] == expected
 
 
-def test_set_display_attribute_can_remove_step_leaving_a_blank_voice():
+def test_set_display_attribute_can_remove_step():
+    """PI tweaks stage 5 widened DEFAULT_DISPLAY_ATTRIBUTES beyond just
+    "step", so removing "step" no longer leaves a blank voice - it leaves
+    the rest of the default set."""
     md = MusicData(parts_info=[PartStructureInfo(part_id="P1", staves_voices={1: [1]})])
     note = _note()
 
     md.set_display_attribute("step", "voice", [note], add=False)
 
-    assert md.voice_display_attributes[("P1", 1, 1)] == set()
+    assert md.voice_display_attributes[("P1", 1, 1)] == MusicData.DEFAULT_DISPLAY_ATTRIBUTES - {"step"}
     assert md.note_has_display_attribute(note, "step") is False
 
 
@@ -2687,10 +2698,9 @@ def test_p3_dashes_and_bracket_labels_from_sibling_words(
     labels = [r.label for r in md.get_performance_region_rows(0)]
     assert any(l.startswith("* Dashed line (cresc.) measure 1") for l in labels)
     assert any(l.startswith("* Bracket line (8vb sim.) measure") for l in labels)
-    # dynamics_word marks are not one of the toggleable note-list
-    # categories (models.marking_categories.ALL_CATEGORIES), so this row
-    # never gets the "* " prefix.
-    assert 'Crescendo (marked "cresc.")' in labels
+    # Stage 5: dynamics_word marks are their own toggleable note-list
+    # category ("dynamics_words"), so this row gets the "* " prefix too.
+    assert '* Crescendo (marked "cresc.")' in labels
 
 
 # --- accurate hairpins / instruction words --------------------------------
@@ -2784,10 +2794,10 @@ def test_instruction_words_become_point_marks_findable_and_reported(
     assert md.find_occurrence(tempo, from_index=0, direction=1) is not None
 
     m1_rows = [r.label for r in md.get_performance_region_rows(0)]
-    assert 'Crescendo (marked "cresc.")' in m1_rows
+    assert '* Crescendo (marked "cresc.")' in m1_rows
     m2_rows = [r.label for r in md.get_performance_region_rows(
         md.slice_index_at_or_after_quarters(4.0))]
-    assert "Tempo instruction: rall." in m2_rows
+    assert "* Tempo instruction: rall." in m2_rows
 
 
 def test_plain_score_offers_no_instruction_word_targets(
@@ -2814,7 +2824,7 @@ def test_p3_catch_all_direction_is_findable_and_shown(timeline, unknown_directio
     seen = set()
     for idx in (first, second):
         seen.update(r.label for r in md.get_performance_region_rows(idx))
-    assert {"Direction: other direction", "Direction: harp pedals"} <= seen
+    assert {"* Direction: other direction", "* Direction: harp pedals"} <= seen
 
 
 def test_p3_plain_score_offers_no_direction_targets(
@@ -3006,24 +3016,26 @@ def test_stage7_rehearsal_mark_not_duplicated_as_a_score_level_row(
 
 
 def test_stage7_directive_listed_in_region_1_in_bar_order(timeline, stage7_directive_score):
+    """PI tweaks stage 5: every directive is shown in the note list by
+    default now, not hidden until Ctrl+N."""
     md = timeline(stage7_directive_score)
     rows = md.get_directive_rows()
     assert [text for _, text, _ in rows] == ["Directive: Jauntily (measure 2)"]
-    assert [surfaced for _, _, surfaced in rows] == [False]
+    assert [surfaced for _, _, surfaced in rows] == [True]
 
 
-def test_stage7_directive_not_in_note_list_until_toggled(timeline, stage7_directive_score):
+def test_stage7_directive_shown_by_default_hidden_via_toggle(timeline, stage7_directive_score):
     md = timeline(stage7_directive_score)
     md.active_event_index = 1  # bar 2, where the directive sits
-    assert not any(t.startswith("Directive:") for t in _marking_row_texts(md))
+    assert "Directive: Jauntily" in _marking_row_texts(md)
 
     index = md.get_directive_rows()[0][0]
-    assert md.toggle_directive_in_note_list(index) is True
-    assert "Directive: Jauntily" in _marking_row_texts(md)
-    assert md.get_directive_rows()[0][2] is True
-
     assert md.toggle_directive_in_note_list(index) is False
     assert not any(t.startswith("Directive:") for t in _marking_row_texts(md))
+    assert md.get_directive_rows()[0][2] is False
+
+    assert md.toggle_directive_in_note_list(index) is True
+    assert "Directive: Jauntily" in _marking_row_texts(md)
 
 
 def test_stage7_directive_toggle_survives_save_and_reload(
@@ -3031,14 +3043,26 @@ def test_stage7_directive_toggle_survives_save_and_reload(
 ):
     md = timeline(stage7_directive_score)
     index = md.get_directive_rows()[0][0]
-    md.toggle_directive_in_note_list(index)
+    md.toggle_directive_in_note_list(index)  # hides it
 
     config = md.export_config()
-    assert config.directive_labels_in_note_list == {(2, "Jauntily")}
+    assert config.directive_labels_hidden_from_note_list == {(2, "Jauntily")}
 
     reloaded = timeline(stage7_directive_score)
     reloaded.apply_config(config)
-    assert reloaded.get_directive_rows()[0][2] is True
+    assert reloaded.get_directive_rows()[0][2] is False
+
+
+def test_stage7_old_rsc_key_ignored_directive_shown_by_default(timeline, stage7_directive_score):
+    """An old .rsc saved before PI tweaks stage 5 carries only
+    "directive_labels_in_note_list" - that key is dropped on load rather
+    than migrated, so every directive comes up shown, a superset of what it
+    used to surface."""
+    md = timeline(stage7_directive_score)
+    config = md.export_config()
+    assert config.directive_labels_hidden_from_note_list == set()
+    md.apply_config(config)
+    assert md.get_directive_rows()[0][2] is True
 
 
 # --- Stage 9: Ctrl+N marking categories --------------------------------
@@ -3079,6 +3103,28 @@ def test_marking_category_toggle_survives_save_and_reload(
     reloaded = timeline(repeats_and_endings_score)
     reloaded.apply_config(config)
     assert reloaded.marking_categories_off == {"repeats_endings"}
+
+
+def test_stage5_dynamics_words_category_toggle_flips_asterisk_and_note_list(
+    timeline, instruction_words_score
+):
+    """PI tweaks stage 5's new "dynamics_words" category behaves exactly
+    like the pre-existing ones (test_toggle_marking_category_flips_asterisk_
+    and_note_list_membership above)."""
+    md = timeline(instruction_words_score)
+    assert md.toggle_marking_category("dynamics_words") is False
+    labels = [r.label for r in md.get_performance_region_rows(0)]
+    assert 'Crescendo (marked "cresc.")' in labels
+    md.active_event_index = 0
+    assert 'Crescendo (marked "cresc.")' not in _marking_row_texts(md)
+
+    assert md.toggle_marking_category("dynamics_words") is True
+    labels = [r.label for r in md.get_performance_region_rows(0)]
+    assert '* Crescendo (marked "cresc.")' in labels
+    assert 'Crescendo (marked "cresc.")' in _marking_row_texts(md)
+
+    config = md.export_config()
+    assert config.marking_categories_off == set()
 
 
 def test_apply_config_drops_an_unknown_marking_category(

@@ -1,616 +1,347 @@
 # Performance markings strategy
 
-Status: revision 3, 2026-09-13. Revision 1 was the proposal, revision 2 folded in the
-first round of review. This revision folds in the second round, closes every open
-question, and leaves nothing undecided. Nothing here is implemented yet; the ordered
-build sequence is in `UserPlans/PerformanceMarkingsImplementationPlan.md`.
+Revision 4, 2026-09-14.
 
-Companion document: `UserPlans/MusicXMLMarkingInventory.md` - every MusicXML element
-that can carry a performance marking, what it means, what Recall Score does with it
-now, and which class of this strategy it lands in.
+This document states how Recall Score surfaces performance information. It
+describes the target model. Most of it is built. The classification model in
+section 3 is new and not built yet; the build order is in
+`UserPlans/PerformanceMarkingsImplementationPlanV2.md`.
 
-Decisions taken in review, in one place:
+Element-by-element references:
 
-* Region 5 span rows become a single line stating the whole range.
-* Note list rows are toggled with Ctrl+N on the region 5 row, and a surfaced
-  category is prefixed with an asterisk in region 5. The context menu stays as the
-  discoverable equivalent.
-* Toggles are per score.
-* Key, time and tempo changes are surfaced in the note list too, and the
-  change cue (the clap) is retired as a generic "region 5 changed" signal and
-  re-used for exactly those structural changes.
-* Marking rows are not skipped by Up/Down in region 3.
-* Repeat barline patterns sound even while the metronome is running; the plain
-  barline beep stays suppressed.
-* More barline sounds: double beep for a double barline, a lower long beep for a
-  heavy barline, a softer beep for tick and short barlines.
-* A Sound Icon Dictionary page under Help, listing every sound with its meaning and
-  a button to play it.
-* Directives are score level and are listed in region 1.
-* Articulations and ornaments split into two attributes; breath marks read properly.
-* Ties are not surfaced; instead a note's duration is the whole tied length.
-* Architecture option B - marking rows synthesised at render time.
+* `UserPlans/inventory.csv` - the authoritative association (level) for every
+  MusicXML element, columns A to E.
+* `UserPlans/MusicXMLMarkingInventory.md` - meanings and what the code does
+  today. Its class column predates the classification model.
 
-Decisions taken in the second round of review, folded into the sections below:
+## 1. Purpose
 
-* A marking that belongs to a moment rather than to a note becomes its own timeline
-  event, in exactly two cases and no others: a fermata on a barline, and a marking
-  carried by a tied continuation note. Everything else stays a row anchored to an
-  existing event (section 5.1).
-* A span contained in one bar reads singular - "Ending 1 bar 12" (section 6).
-* One cue for all three structural changes, and only an immediate tempo change fires
-  it, never a gradual instruction written as words (section 7).
-* Directives are listed in region 1 and are not in the note list by default; Ctrl+N on
-  the region 1 entry adds one (section 9).
-* The word "hairpin" is not used for a one-event wedge; it reads "Crescendo" or
-  "Diminuendo" (section 11).
-* With a marking row selected, region 4 shows that marking's own detail (section 4.1).
-* The Sound Icon Dictionary is always enabled, with or without a score (section 10.1).
-* The asterisk prefix is kept, subject to the live punctuation-level check (section 8).
+Performance information must be reachable from the note list while reading
+through a score, not only by leaving it for region 5.
 
-## 1. The problem in one sentence
+## 2. Two regions, two questions
 
-Performance information is currently only reachable by leaving the note list and
-reading region 5, so in practice it is not read at all while playing through a score.
+* Region 5 answers "what is in effect here". A pedal that started eight bars ago
+  is shown while the cursor is inside it.
+* Region 3 (the note list) answers "what happens here". A marking appears only at
+  the event where it starts, the event where it ends, or the single event it
+  occupies. It never repeats on the events in between; that is region 5's job, and
+  it keeps a pedal-heavy piece from reading "Pedal" on every event.
 
-## 2. What exists today
+## 3. The classification model
 
-Four surfaces already carry marking information, each built from its own data:
+Every piece of information has a level and a dimension.
 
-* Region 3 (the note list). Notes, plus two kinds of fabricated non-note event: a
-  "Stave Text" voice entry for every qualifying `<words>` direction, and a
-  "Rehearsal mark A" entry on that same voice. Both attach to the real part and staff
-  the direction sits in, and both already fall out of region 2's part/staff/voice
-  tree for free.
-* Region 4 (attributes of the selected notes). Everything hanging off a `<note>`:
-  dynamic, articulation (articulations and ornaments merged into one field), tie,
-  slur, tuplet, fermata, arpeggio, cautionary accidental, technique, glissando,
-  grace, chord symbol, chord diagram, and the `other notation` catch-all. Each is
-  toggleable per voice from region 4's context menu, ordered by
-  Options > Reorder Attributes.
-* Region 5 (performance markings). A start row and an end row for every span
-  containing the cursor, plus one-shot rows for a key, time or tempo change landing
-  exactly on the cursor, plus point marks. Ctrl+Home and Ctrl+End jump to a row's
-  start and end. A change of the row set fires the performance cue.
-* The Performance Report and Find. Both read the same span and mark lists, and Find's
-  labels are copied verbatim from region 5's wording so the two cannot disagree.
+### 3.1 Level
 
-Sound today: Ctrl+B bar line indicator (one high click when a plain Left/Right step
-crosses a bar line, suppressed while the metronome is on), the boundary cue at the
-ends of the timeline, and the region 5 change cue.
+| Level | Where it lives | Can also appear |
+|---|---|---|
+| Note | Region 4 (attributes of the selected notes) | Inline in the note's region 3 row, per voice, via the region 4 attribute toggles |
+| Barline | Its own timeline event, with a measure number and the position "End of bar"; its detail shows in region 4 | - |
+| Stave | Region 5 | A row in region 3, above all notes of that stave |
+| Part | Region 5 | A row in region 3, above all staves of that part |
+| Score | Region 5 | A row in region 3, at the top of the list |
 
-Parser-side the data already exists as `RepeatSpan`, `EndingSpan`, `HairpinSpan`,
-`DirectionSpan` (pedal, octave shift, dashes, bracket), `DirectionMark` (rehearsal,
-pedal change, dynamics word, tempo word, other direction), `BarlineMark`,
-`SectionSpan`, `ClefChangeMark`, `MeasureStyleMark`, `SegnoMark`, `CodaMark`,
-`ToCodaMark`, `FineMark`, plus `tempo_changes` and the per-slice key and time
-signature. Spans carry `part_id` and `staff` already; hairpins and direction spans
-carry both a ts-relative beat position and a monotonic `quarters_from_start` for each
-end.
+Barline information is rare: a fermata, segno or coda written inside `<barline>`,
+and the wavy line crossing a barline. Bar styles, repeats and endings are not
+barline level in this sense; they are score or part level (section 3.3).
 
-So the raw material is essentially all parsed. This strategy is almost entirely about
-presentation rules, plus a short list of parser gaps in the inventory.
+A barline always comes at the end of a bar, so its position is "End of bar". A pickup
+bar is bar 0 and its barline is bar 0 "End of bar". A `location="left"` barline is the
+end of the previous bar.
 
-## 3. The organising idea
+### 3.2 Dimension
 
-Two regions, two different questions:
+* Point - one position.
+* Length - a start and an end.
 
-* Region 5 answers "what is in effect here" - context. A pedal that started eight
-  bars ago is still shown while the cursor is inside it.
-* Region 3 answers "what happens here" - events. A marking appears in the note list
-  only at the event where it starts, at the event where it ends, or at the single
-  event it occupies. It never repeats on the events in between.
+Many tags come in pairs (wedge start and stop, pedal start and stop). A matched pair
+is a length. A tag with no partner is a point and is reported as a point, not as a
+length with an invented or missing end.
 
-Region 1 gains a third question: "what does this score tell the performer overall" -
-the directive list of section 9.
+`<dashes>` and `<bracket>` are not markings of their own; they extend the `<words>`
+written in the same `<direction>` element. The pair is one length named by its words:
+"cresc. start", "cresc. end". A line with no words reads "Dashed line" or "Bracket
+line".
 
-## 4. Classifying a marking
+### 3.3 Deciding the level of one marking
 
-Every marking is classified on two independent axes. The classification decides its
-behaviour everywhere, so there are no per-element special cases.
+`inventory.csv` lists the levels an element may take. Where it lists more than one,
+the level of a particular instance is resolved in this order:
 
-Axis A - what it is attached to:
+1. Score, if the element allows only score, or the `<direction>` carries
+   `system="only-top"`, `system="also-top"` or `directive="yes"`.
+2. Barline styles, repeats, endings, key and time: score when every part writes the
+   same thing at that bar, otherwise part for each part that differs. MusicXML writes a
+   barline in every part; this keeps a quartet from reading "Repeat start" four times.
+3. Stave, if the element allows stave, the part has more than one staff, and the
+   element names its `<staff>`.
+4. Part otherwise.
 
-* Note-attached: it hangs off a `<note>` element (articulations, ornaments, slurs,
-  technical marks, note-level dynamics). It is an attribute. It stays in regions 3
-  and 4 through the existing attribute machinery and never becomes a marking row.
-  The boundary rule is purely structural: inside `<note>` means attribute, inside
-  `<direction>` or `<barline>` means marking.
-* Point marking: a `<direction>` or barline feature that occupies one position and
-  has no written extent (segno, coda, fine, da capo, rehearsal mark, pedal change, a
-  tempo or dynamics word, a clef change, a double barline, and a zero-length wedge -
-  see section 11).
-* Span marking: a `<direction>` with a written start and stop (hairpins, pedal,
-  octave shift, dashes, bracket), a barline pair (repeat, ending), or a derived span
-  (section).
-* Structural state: key signature, time signature, tempo. No end; in effect until
-  countermanded. Treated as points at the position where they change.
+Two elements have fixed rules:
 
-Axis B - who it applies to:
+* A note-attached `<fermata>` is a note attribute, and also gives one score-level row
+  when every part with a note at that event carries a fermata, otherwise one
+  part-level row per part carrying one. A fermata on a soloist's part alone is not
+  score-wide.
+* A `<direction><dynamics>` is a dynamic attribute of the notes at that offset and never
+  a row; a row as well would report it twice.
 
-* Score level: applies to every part (tempo, rehearsal marks, jump instructions,
-  repeats, endings, sections, barlines, time signature, key signature, directives).
-* Part or staff level: applies to one part, and possibly to one staff of it
-  (hairpins, pedal, octave shift, stave text, clef changes, dynamics).
+For a one-staff part, stave and part place a row in the same spot.
 
-Axis B decides exactly one thing: where the row is placed in the note list.
+Evidence for rule 1: `system` is MusicXML 4.0's replacement for the deprecated
+`directive` attribute. 12 of the scores in `files/` and `examples/` use
+`system="only-top"`, always on score-wide things - metronome marks, tempo words and
+rehearsal marks. Multi-part exporters do not otherwise copy directions into every
+part: across the orchestral files, only a handful of dynamics appear identically in
+every part, and those are genuinely per-part dynamics.
 
-### 4.1 Axis B versus attribute scopes - is there a conflict?
 
-No, and the reason is worth stating plainly because the two look similar.
+### 3.4 Level versus attribute scopes
 
-* An attribute scope (voice, stave, part, score) answers "which voices should display
-  this attribute of a note". It is a display filter over note attributes, chosen from
-  region 4's context menu, and it never moves anything - a note's attributes are
-  always rendered on that note's own row.
-* Axis B answers "which row does this marking sit above". It is a placement rule for
-  non-note rows and it has no filtering role at all.
+They look similar and do not collide:
 
-They cannot collide because they act on disjoint sets of rows: attribute scopes act
-on note rows, axis B acts on marking rows. A marking row has no voice, so nothing in
-the voice/stave/part/score scope machinery can reach it, and it needs its own toggle -
-which is what Ctrl+N in section 8 is.
+* An attribute scope (voice, stave, part, score) is a display filter for note
+  attributes. It never moves anything; a note's attributes render on that note's row.
+* A level is a placement rule for marking rows. It filters nothing.
 
-Three consequences worth writing into the implementation notes:
+They act on disjoint rows. A marking row has no voice, so the scope machinery cannot
+reach it, which is why marking rows need their own toggle (Ctrl+N, section 8).
 
-* A marking that belongs to a staff appears once above that staff's notes, however
-  many voices of that staff are visible. It is a property of the staff, not of a
-  voice, so it is not repeated per voice.
-* With a marking row selected in region 3, region 4 shows that marking's own detail
-  (kind, bar and beat, and for a span its full range) rather than note attributes, and
-  the region 4 attribute context menu is not offered - there is no note to scope.
-  Ctrl+N still works, because it acts on the marking.
-* If every voice of a staff is switched off in region 2, that staff contributes no
-  rows at all, marking rows included. The marking is still in region 5, which is the
-  safety net.
+Consequences:
 
-## 5. Note list rows
+* A stave-level marking appears once above that stave's notes, however many of its
+  voices are visible. It is not repeated per voice.
+* If every voice of a stave is switched off in region 2, that stave contributes no
+  rows. The marking is still in region 5.
+* A part-level marking is surfaced above the first visible staff of the part, so a
+  reader navigating only the right hand of a piano still hears a pedal instruction
+  the file recorded against the bass staff.
 
-Row order in region 3 at a given cursor position, top to bottom:
+## 4. Note list rows
 
-1. Score-level marking rows for this event.
-2. Then, for each visible part in region 2 order, and each staff within it: that
-   staff's part-level marking rows, then that staff's notes.
+Row order at a cursor position:
 
-So a hairpin on the piano left hand reads immediately above the left hand's notes,
-and a rallentando that applies to everyone reads once at the top.
+1. Score-level rows.
+2. For each visible part in region 2 order: that part's part-level rows, then for
+   each staff: that staff's stave-level rows, then its notes.
 
-Row wording, one pattern throughout:
+Wording:
 
-* Span start: "Crescendo start", "Pedal start", "Repeat start", "Octave shift 8va
-  start".
-* Span end: "Crescendo end", "Pedal end", "Repeat end".
-* Point: the bare name, no start or end word - "Segno", "Fine", "Da capo",
-  "Rehearsal mark A", "Pedal change", "Double barline", "Crescendo hairpin".
+* Length start and end: "Crescendo start", "Pedal end", "Octave shift 8va start".
+* Point: the bare name - "Segno", "Fine", "Rehearsal mark A", "Pedal change".
+* A length whose start and end land on the same event reads as one bare row
+  ("Ending 2"), not "Ending 2 end" followed by "Ending 2 start". Two different
+  markings on one event still get two rows.
 * Structural change: "Key signature change: D major", "Time signature change: 3/4",
-  "Tempo change: 96". These are new to the note list in this revision - previously
-  they were region 5 only.
-* Part prefixing: a note list row is already positioned under its part, so it is not
-  part-prefixed.
+  "Tempo change: 96".
+* No part prefix; the row already sits under its part.
 
-Anchoring rules, stated once and applied to every kind:
+Anchoring:
 
-* A span start row attaches to the first visible event at or after the span's start
+* A start or point row attaches to the first event of its level at or after its
   position.
-* A span end row attaches to the last visible event at or before the span's end
-  position - "the last event before a repeat end".
-* A point row attaches to the first visible event at or after its position; a
-  barline-anchored point attaches to the first event of the bar it opens or the last
-  event of the bar it closes.
-* Both start and end rows go above that staff's notes. One rule for both is
-  deliberate: the word "end" in the label carries the meaning, and a single placement
-  rule keeps row order stable, which matters because region 3 is rebuilt on every
-  cursor move.
-* A combined end-and-start repeat barline produces both rows, end first.
-* Nothing is merged or inferred. A dashed line under a "cresc." is still two rows, as
-  the file wrote it (CLAUDE.md invariant 14). The one deliberate exception in this
-  revision is ties, section 12, where the merge is of a note with itself.
+* An end row attaches to the last event of its level at or before its end position.
+* A measure-anchored point (segno, coda) attaches to the first event of its bar; an
+  end-of-bar mark (to coda, fine, da capo, dal segno, a right barline) to the last.
+* A combined end-and-start repeat barline gives both rows, end first.
+* A multi-bar rest has no event of its own (rests are skipped), so its row lands on
+  the next event - read as the reader arrives after the rest.
+* Rehearsal marks are snapped to the downbeat of their bar; MuseScore sometimes
+  serialises them a few beats in.
 
-What deliberately does not get a row: a span the cursor is merely inside. That stays
-region 5's job, and it is what keeps the note list from filling with "Pedal" on every
-event of a pedal-heavy piece.
+Report every marking as written (CLAUDE.md invariant 14). Nothing is merged or
+inferred, and one element gives one row. The words of a `<words>` direction read literally ("cresc.", "dim."), and
+the bare word "Crescendo" is reserved for a wedge, which is what keeps the two
+distinguishable.
 
-### 5.1 Markings that get their own event - the narrow rule
+## 5. Events that are not attacks
 
-Two markings belong to a moment rather than to a note, and anchoring them to a
-neighbouring note would misstate where they are. These become real timeline events
-that Left/Right lands on:
+Left/Right lands only on attacks, with exactly two kinds of exception:
 
-* A `<fermata>` inside a `<barline>` (section 13).
-* A marking carried by a tied continuation note (section 12).
+* Barline-level information (section 3.1). It sounds nothing, has no pitch, and sits
+  between the last event of the bar it closes and the first event of the next. A
+  fermata on the final barline is simply the last event. Everything written at one
+  barline shares one event.
+* A tied continuation note carrying a marking of its own (section 12).
 
-Everything else - rehearsal marks, segno, coda, double barlines, repeat and ending
-boundaries, structural changes - stays a row anchored to an existing event under the
-rules above. This was weighed in review against generalising "a moment gets its own
-event" to every score-level point marking, and the narrow rule was chosen: the broad
-version would stop Left/Right on every barline in a repeat-heavy or rehearsal-marked
-score, which makes ordinary traversal slower for no gain in information. The rows are
-read in region 3 either way; the only difference is whether arrowing halts on them.
+Everything else - rehearsal marks, segno and coda written as directions, double
+barlines, repeats, endings, structural changes - is a row on an existing event.
+Making every score-level point its own event was rejected: Left/Right would halt on
+every barline of a repeat-heavy score, slowing ordinary traversal for no extra
+information.
 
-A moment event sounds nothing on arrival, has no pitch and no duration, and is score
-level, so it reads at the top of the note list. The one exception is the tied
-continuation event, which does have a pitch - see section 12.
+## 6. Region 5
 
-## 6. Region 5 rows become one line per span
+One row per length, stating the whole range:
 
-Today a span produces two rows, a start row and an end row. From this revision a span
-produces one row stating the whole range:
+* "Repeat bars 1 to 8", "Crescendo bar 2 beat 3 to bar 4 beat 4", "Pedal bar 4 to
+  bar 6 beat 2", "Section Chorus, bars 17 to 32".
+* Within one bar the bar is named once: "Ending 1 bar 12", "Crescendo bar 2 beat 1
+  to beat 3".
+* A beat is named only when not on the downbeat. Repeats, endings and sections fall
+  on barlines and never name a beat.
+* A position past the last beat reads "end of bar 12", never "bar 12 beat 5". A
+  barline event's own position reads "End of bar". The
+  timeline stores the barline after beat 4 of a 4/4 bar as beat 5 (the parser's
+  `1 + offset / beat_unit` convention, used by span flushing at the end of a part and
+  by the barline fermata); the fix is in the label, not the timeline.
+* "bar" or "measure" comes from `vocabulary.bar_word`, never a literal.
+* "repeat times" is included: "Repeat bars 1 to 8, play 3 times".
+* Ctrl+Home jumps to the start of the row's range, Ctrl+End to the last sounding
+  note of its end bar. `PerformanceRegionRow` carries both targets.
+* Point and structural rows are one line.
 
-* "Repeat bars 1 to 8"
-* "Crescendo bar 2 beat 3 to bar 4 beat 4"
-* "Ending 1 bars 12 to 13"
-* "Pedal bar 4 to bar 6 beat 2"
-* "Section Chorus, bars 17 to 32"
+Region 5 is the home of every stave, part and score marking, so every such family
+has a region 5 row. Rows are ordered by level: score, then part, then stave.
 
-Rules that follow:
+Region 5's range wording and the note list's start/end wording come from one module,
+`models/marking_labels.py`, which Find and the Performance Report also call. Find
+keeps separate "Crescendo start" and "Crescendo end" targets, because those are
+navigation targets rather than descriptions.
 
-* A span contained in a single bar reads singular, and the bar is named once:
-  "Ending 1 bar 12", "Repeat bar 12", "Section Chorus, bar 17", and where beats differ
-  within that bar, "Crescendo bar 2 beat 1 to beat 3". The plural "bars N to M" and
-  the repeated bar number appear only when the two bar numbers actually differ. This
-  is a general rule for every span kind, not a special case for endings.
-* A beat is named only when the position is not on the downbeat, which is the
-  existing `_bar_beat_label` behaviour. Repeats, endings and sections fall on
-  barlines by construction and so never name a beat.
-* "bar" versus "measure" still comes from `vocabulary.bar_word`, never a literal.
-* An unmatched wedge keeps its current honest wording: "Crescendo from bar 23, no end
-  marked in the file".
-* Ctrl+Home and Ctrl+End now act on one row rather than two: Home jumps to the start
-  of the span, End to the last sounding note of its end bar, exactly as the two rows
-  do today. `PerformanceRegionRow` grows a second jump target rather than the list
-  growing a second row.
-* Point and structural rows are unchanged - they were always one line.
-* The note list keeps the "start" and "end" wording of section 5, because there a row
-  marks one event rather than describing a range. Both renderings come from one
-  labelling module so the vocabulary cannot drift; Find keeps its separate "Crescendo
-  start" and "Crescendo end" targets, because those are navigation targets, not
-  descriptions.
-* Halving the row count also halves what the region 5 diff has to compare, and makes
-  the region readable in one pass.
+## 7. The change cue
 
-## 7. The change cue (the clap)
+The cue fires when the cursor lands on an event carrying a key signature, time
+signature or immediate tempo change.
 
-Today the clap fires whenever the region 5 row list changes. Once markings are in the
-note list that signal is largely redundant - the information is already being spoken
-where the user is.
+* Never at index 0; the opening values are already in region 1 and the status bar.
+* The destination note's audition sounds first, then the cue. The audition's
+  retrigger releases everything on its channel, so the reverse order cuts the cue off.
+* One sound for all three; the row says which changed.
+* Only an immediate tempo change fires it - a metronome mark or `<sound tempo>`. A
+  rallentando written as words gets its rows and no cue.
 
-Decision: retire the generic "region 5 changed" trigger and re-use the cue for
-structural changes only - a key signature change, a time signature change, and a
-tempo change. These are the changes that alter how everything afterwards is read, and
-they are otherwise easy to miss.
+## 8. Toggling note list rows (Ctrl+N)
 
-* The cue fires when the cursor lands on an event carrying a structural change row.
-* Never at index 0 - the opening key, time and tempo are already in region 1 and the
-  status bar on load.
-* Same ordering rule as today: the destination note's audition sounds first, then the
-  cue, because the audition's retrigger releases everything on its channel.
-* One cue for all three, not three different sounds (decided in review). The row
-  itself says which of the three changed, so a second dimension of sound would only
-  add something to learn.
-* Only an immediate tempo change fires it - a new metronome mark or a `<sound tempo>`
-  (decided in review). A gradual instruction written as words, a rallentando or an
-  accelerando, does not: it still produces a marking row and a region 5 row, it just
-  does not clap. Beyond being the only reliably detectable case today, this is the
-  right meaning - the cue says "everything after this is read differently", which is
-  true of a new metronome mark and not of a rall. that is already being read as text.
+* Every category is on by default, per score.
+* Categories are per marking family, not per marking.
+* Ctrl+N on a region 5 row toggles that row's category in the note list and speaks
+  the new state ("Crescendo, not in note list"). The same action is on region 5's
+  context menu (Menu key, Shift+F10) and in the Keyboard Shortcuts reference.
+* A category currently in the note list is prefixed "* " in region 5.
+* Persistence: per score in the `.rsc` via `ScoreConfig`, global default in
+  `AppSettings`.
+* Ctrl+N is declared where its action is built and snapshotted by
+  `ShortcutController` (invariant 16).
+* A family can only be toggled if it has a region 5 row. Section 6 gives every stave,
+  part and score family one, so every family gets a category.
 
-## 8. Turning note list rows on and off
-
-* Default on for every category.
-* Granularity: per marking category (repeats and endings, sections, hairpins, jump
-  instructions, pedal, octave shift, lines, barlines, stave text, clef changes,
-  structural changes), not per individual marking.
-* Ctrl+N, with focus on a region 5 row, toggles that row's category in and out of the
-  note list, and speaks the new state ("Crescendo, in note list" / "Crescendo, not in
-  note list"). The same action is on region 5's context menu (Menu key and Shift+F10)
-  so it stays discoverable, and in the Keyboard Shortcuts reference.
-* Feedback while arrowing region 5: a category currently surfaced in the note list is
-  prefixed with an asterisk and a space - "* Crescendo bar 2 beat 3 to bar 4 beat 4".
-* Persistence: per score in the `.rsc` through `ScoreConfig`, with a global default
-  in `AppSettings`, matching display attributes and region 2 toggles.
-
-Caveat to check live before committing to the asterisk: NVDA speaks an asterisk as
-"star" at its default punctuation level, but a user running punctuation level "none"
-will hear nothing at all, and the prefix becomes invisible rather than subtle. The
-fallback, if that turns out to matter, is a spoken word prefix, or leaving region 5's
-text alone and putting the state in the row's accessible description instead. This is
-a five-minute live test, not a design question.
+The asterisk depends on NVDA's punctuation level: at level "none" it is silent. If
+that matters, the fallback is the row's accessible description, not a longer visible
+prefix.
 
 ## 9. Directives
 
-`<direction directive="yes">` is MusicXML's one explicit marker for text that is a
-score-wide instruction rather than a local one ("Play with vigour", "Jauntily"). They
-are score level in scope, but nothing stops an exporter placing them anywhere in the
-piece.
+Directives (`<direction directive="yes">`) are deprecated in MusicXML 4.0 in favour of
+the `system` attribute. No score in `files/` or `examples/` uses one; the only
+instance is the test fixture `tests/fixtures/stage7_directive.musicxml`.
 
-* Region 1 gains a Directives list: "Directive: Jauntily (bar 12)", one entry per
-  directive in bar order. Region 1 is the score overview, which is exactly what a
-  list of the score's standing instructions is.
-* A directive is not in the note list by default (decided in review). Some directives
-  genuinely belong to a moment in the music and some are standing instructions for the
-  whole piece, and the file does not distinguish them - so the choice is the user's.
-  Ctrl+N on a region 1 directive entry, and the same item on region 1's context menu,
-  adds that directive to the note list as a score-level point row at its own bar, and
-  removes it again. The state is per score in the `.rsc`, exactly like the region 5
-  toggles of section 8.
-* This gives region 1 and region 5 one gesture with one meaning - Ctrl+N on a row that
-  describes a marking puts that marking in the note list - rather than two mechanisms
-  to learn. It also settles the revision 2 open question about directives appearing in
-  both places at once: they appear in region 1 always, and in the note list only when
-  asked for.
+A directive is parsed silently: it is treated exactly like `system="only-top"`, so its
+content is an ordinary score-level direction. There is no region 1 directive list and
+no directive-specific toggle.
 
 ## 10. Sounds
 
-Existing sounds keep their meanings: the bar line indicator beep, the boundary cue at
-the ends of the timeline, the metronome, the position announcer, and the change cue
-as redefined in section 7.
+Existing sounds: the bar line indicator (Ctrl+B), the boundary cue at the timeline
+ends, the metronome, the position announcer, and the change cue of section 7.
 
-New and changed barline sounds:
-
-| Event | Pattern |
+| Barline | Pattern |
 |---|---|
-| ordinary barline | one short beep (today's behaviour) |
-| double barline (light-light) | two short beeps |
-| heavy barline (heavy, heavy-light, heavy-heavy) | one long beep, lower pitched |
-| tick or short barline (mensurstrich) | one short beep, softer |
-| repeat end (backward) | two short, then one long |
-| repeat start (forward) | one long, then two short |
-| combined end and start | two short, one long, two short |
-| end of system | nothing new - the existing cue covers it |
-| final barline | nothing - the end of the timeline has its own cue |
+| ordinary | one short beep |
+| double (light-light) | two short beeps |
+| heavy, heavy-light, heavy-heavy | one long lower beep |
+| tick or short | one softer short beep |
+| repeat end | two short, then one long |
+| repeat start | one long, then two short |
+| end and start | two short, one long, two short |
+| final | nothing - the timeline end has its own cue |
 
-The repeat mnemonic is worth putting in the code comment: the shorts are the repeat
-dots, and they sit on the side of the long that the repeated music is on, exactly as
-the notation prints them.
+The short beeps are the repeat dots, on the side of the long beep that the repeated
+music is on, as printed.
 
-Rules:
+* The plain beep is suppressed while the metronome runs; the other patterns sound
+  anyway, because the metronome says nothing about barline meaning.
+* Every pattern fires after the destination note's audition, and all are gated by
+  Ctrl+B.
+* The pattern is the same whichever direction the barline is crossed; the lookup is
+  normalised to (lower bar, higher bar).
+* Patterns are data (pitch, length, velocity steps) in `audio/barline_patterns.py` on
+  a reserved channel. A multi-step pattern must not share a channel with another
+  one-shot: FluidSynth releases a ringing note by channel plus key, so they cut each
+  other off.
 
-* The plain barline beep stays suppressed while the Ctrl+M metronome is running; the
-  repeat, double, heavy and mensurstrich patterns sound anyway, because the metronome
-  tells you about beats and nothing about barline meaning. (Decided in review.)
-* Every pattern fires after the destination note's own audition, never before.
-* All of it is still gated by the Ctrl+B bar line indicator toggle.
+Help > Sound Icon Dictionary lists every sound with its meaning and a Play button,
+always enabled, generated from the same declarations the audio modules use.
 
-Implementation: a single new module beside `audio/boundary_cue.py` and
-`audio/performance_cue.py`, owning one reserved channel, with the patterns declared
-as data (a list of pitch, length and velocity steps) rather than as code per pattern.
-A multi-note pattern must not share a channel with another one-shot, because
-FluidSynth releases a ringing note by channel plus key and the two would cut each
-other off. Total pattern length matters: the longest is five steps, and it has to fit
-comfortably inside a fast Left/Right repeat without queueing up.
+## 11. Hairpins
 
-### 10.1 Sound Icon Dictionary (Help menu)
-
-A new dialog, Help > Sound Icon Dictionary, listing every sound the app makes: name,
-what it means, and when it fires, with a Play button so the user can hear it on
-demand. A list plus buttons, so `docs/dialog_widget_patterns.md` applies - and the
-initial focus rule from the same document: focus the literal first widget in tab
-order.
-
-The dictionary should be generated from the same declarations the audio modules use,
-not a hand-written second list, or it will drift from the sounds themselves. Entries
-to cover: barline beep and each of its patterns above, boundary cue, structural
-change cue, metronome click and accent, position announcer, performance cue, live
-MIDI input cue, voice control cues, lead-in.
-
-## 11. Hairpins that are one event long
-
-You are right that a wedge can start and stop at the same position, and it is not the
-same thing as a point dynamic.
-
-* A `<wedge>` whose start and stop resolve to the same position becomes a point, not
-  a span, and reads "Crescendo" or "Diminuendo" (decided in review: the word "hairpin"
-  is not added to the one-event case). The span case keeps "Crescendo start" and
-  "Crescendo end", so the three readings stay obviously related without a fourth word.
-* The wording therefore has to carry the distinction from a written "cresc.". A
-  `<words>` direction reads its literal written text - "cresc.", "dim.", "cresc. poco
-  a poco" - exactly as the file wrote it, and "Crescendo" as a bare word is reserved
-  for the wedge. Reporting each as written is what keeps them apart, and it is what
-  invariant 14 asks for anyway.
-* The only case that reads "Hairpin" is a stop with no start anywhere in the file,
-  where the direction genuinely is not knowable; the wording there says so: "Hairpin
-  ending bar 12, no start marked in the file".
-* A crescendo and a diminuendo on the same note (the swell, messa di voce) produces
-  two rows, "Crescendo hairpin" then "Diminuendo hairpin", in file order. It is two
-  elements in the file and it gets two rows (invariant 14). Nothing merges them into
-  a single "swell", because that word is an interpretation and the file does not say
-  it.
-* This is not covered by a point dynamic being an attribute. A `<dynamics>` mark says
-  "be this loud"; a wedge says "change loudness", and on a single note that is an
-  instruction about the shape of that one note. They are different elements with
-  different meanings and both are reported.
-* Span rows stay as they are for wedges with real extent.
+* A wedge whose start and stop resolve to one position is a point reading
+  "Crescendo" or "Diminuendo" - never "hairpin".
+* A swell (crescendo then diminuendo on one note) is two rows in file order. Nothing
+  merges them into "swell"; that word is an interpretation.
+* A wedge is not a dynamic. `<dynamics>` says "be this loud", a wedge says "change
+  loudness"; both are reported.
+* A wedge stop or start with no partner is a point (section 3.2).
 
 ## 12. Ties become duration
 
-Decision: ties are not surfaced as a marking or as an attribute. Instead a note's
-duration is the whole sounding length of the tied chain.
+* The `tie` attribute is not surfaced. The head note of a tied chain reports the
+  summed duration, named where a name exists ("dotted half") and otherwise in
+  ts-relative beats ("duration 12 beats").
+* Continuation notes are not events, so a tied chain is one navigation stop and
+  playback sounds it once for the summed length.
+* A continuation note carrying a marking (a fermata on the second half of a tie) is
+  its own event where it is, so the marking neither vanishes nor moves. It reads
+  "F sharp, tied, fermata" with the remaining length of the chain; the whole length is
+  stated only at the head note, so the fact is not written twice (invariant 8).
+  Arrowing onto it auditions the pitch (the audition says where you are); playback does
+  not re-attack.
+* Ties across a repeat or into a first-time bar sum the written length as printed,
+  with no attempt to work out a particular pass.
 
-* The `tie` attribute is removed from region 3, region 4 and the Find target list.
-* The head note of a tie chain reports the summed duration, named where a name
-  exists - "dotted half", "double whole" - and stated in beats where no single note
-  name covers it: "duration 12 beats". Beats are ts-relative, per Ref 18, so a tied
-  chain in 6/8 counts in eighths.
-* The continuation notes of the chain are not separate events. This follows from the
-  timeline convention that navigation lands on attacks only (invariant 15): a tied-to
-  note is not a new attack, and leaving it in the timeline would both double-count the
-  note and contradict the summed duration.
+Grace notes are unaffected: "A grace B", plus the `grace` attribute.
 
-That last point is the only genuinely invasive change in this document, so it is worth
-being explicit about the knock-ons:
+## 13. Articulations, ornaments and breath marks
 
-* Navigation: a tied chain becomes one stop, not several. Bar counts, Go to Measure
-  and Find results are unaffected because they key off bar numbers, not event counts.
-* Playback: the note is sounded once and held for the summed duration, which is what
-  a tie means and what the current two-attack rendering gets wrong.
-* The parser and model fingerprint harnesses will report differences for every score
-  containing a tie. That is the intended behaviour change, and the baselines get
-  recaptured after review.
-* A marking attached to a continuation note (a fermata on the second half of a tie, a
-  dynamic, an articulation, a hairpin end) must not vanish with the attack it was on.
-  It stays exactly where it is and becomes its own timeline event, which Left/Right
-  lands on (decided in review; revision 2 moved it to the head note instead, and this
-  supersedes that). Nothing moves and nothing is restated, which is the better fit
-  with "report every marking as written".
-* A continuation note carrying no marking is not an event at all, so an ordinary tied
-  chain is still a single stop.
-* A tied continuation event has a pitch, unlike the barline fermata of section 13.
-  Arrowing onto it auditions that pitch: navigation audition and sequencer playback
-  are separate paths, and the audition's job is to tell you where you are. Playback
-  does not re-attack - the note is still being held, which is the whole point of the
-  tie.
-* The row reads the pitch, a word placing it inside the tie, and the marking:
-  "F sharp, tied, fermata". Its duration is the remaining length of the chain from
-  that point, because the whole chain's length is already stated at the head note and
-  repeating it there would be the one fact written twice (invariant 8).
-* Ties across a repeat or into a first-time bar: the summed length is the written
-  length, following the ties as printed. No attempt is made to work out what the
-  duration would be on a particular pass through the repeat structure.
+* `articulation` and `ornament` are separate attributes, each toggleable, orderable
+  and findable. Both are label-only; no ornament is audibly realised (CLAUDE.md
+  "Known gaps").
+* `breath-mark` and `caesura` are read both under `<notations>` and inside
+  `<articulations>`, because exporters use both.
+* Default display attributes are step plus the note-attached performance attributes:
+  dynamic, articulation, ornament, slur, arpeggio, glissando, technique, other
+  notation. A voice with a saved attribute set keeps it.
 
-Grace notes are unaffected and keep their current handling: the step still reads "A
-grace B" so the grace note's pitch is spoken, and the `grace` attribute still says
-whether it is an acciaccatura or an appoggiatura.
+## 14. Architecture
 
-## 13. Fermata on a barline
+* Marking rows are synthesised at render time by `models/marking_rows.py`, a
+  `MusicData` collaborator, from the span and mark lists plus the visible timeline.
+* Fabricating marking rows as silent events at parse time was rejected: an end row
+  attaches to "the last visible event before the end", visibility depends on the
+  region 2 filter, which changes long after parsing, and a fabricated row anchored to
+  a note that is later hidden would vanish without trace.
+* The events of section 5 are made at parse time by the timeline builders, because
+  only the timeline decides where Left/Right stops. They are anchored to positions,
+  not notes, so the objection above does not apply.
+* Region 3 rows are typed (note row or marking row). Region 4's build,
+  `get_playback_events_for_indices` and the select-all audition go through
+  `note_indices_from_selection`, which drops marking rows. A marking row sounds
+  nothing. With a marking row selected, region 4 shows that marking's detail (kind,
+  bar and beat, range for a length) rather than note attributes.
+* Region 3 is rebuilt on every cursor move inside Ref 9's 25 ms. Lookups use indexes
+  built once per load (by measure, and by quarters per score, part and staff), never a
+  scan of every span per keystroke.
+* After `selectAll()` the explicit `setCurrentRow(0, NoUpdate)` rule (invariant 10)
+  still applies; the current item may be a marking row, which is correct as long as a
+  chord still sounds every note.
+* Marking rows are ordinary rows for Up/Down.
+* Stave text and rehearsal marks are currently fabricated `NoteData` on a
+  `STAVE_TEXT_VOICE_ID` voice. Hiding only their row while the timeline event remains
+  can leave a slice with visible notes and no rows, which is why they have had no
+  category.
 
-A `<fermata>` inside a `<barline>` is a pause on the barline itself, currently not
-parsed at all.
+## 15. Out of scope
 
-* It becomes its own timeline event at the barline position, associated with no note
-  (decided in review; revision 2 anchored it to the first event of the following bar,
-  and this supersedes that). Left/Right lands on it, it reads "Fermata on barline",
-  and it sounds nothing - there is no pitch to audition.
-* Its position is the end of the bar it closes, so it sits between the last event of
-  that bar and the first event of the next. A fermata on the final barline needs no
-  special case under this rule: it is simply the last event in the timeline.
-* It is score level, so it reads at the top of the note list.
-* It is one of the two moment events of section 5.1, and the reason the narrow rule
-  exists: a pause on a barline is genuinely not a property of the note before or after
-  it, and attaching it to either would say something the file does not say.
-
-## 14. Articulations, ornaments and breath marks
-
-* Articulations and ornaments are split into two attributes, `articulation` and
-  `ornament`, instead of today's single merged comma-joined field. Each is separately
-  toggleable, separately orderable and separately findable. Both stay label-only - no
-  ornament is audibly realised, which remains a standing decision.
-* Breath marks are read properly. What "read properly" means, since the inventory
-  wording was unclear: today a `<breath-mark>` is only picked up when it happens to
-  sit inside `<articulations>`, where it is swept into the merged articulation text
-  along with everything else; when an exporter writes it directly under `<notations>`
-  it is dropped entirely. The change is to look for it in both places and give it its
-  own value in the articulation attribute, so it is reliably present and findable
-  rather than dependent on where the exporter put it. The same applies to `caesura`.
-
-## 15. Architecture: how the rows get into region 3
-
-Decided: option B. Marking rows are synthesised at render time, in a new `MusicData`
-collaborator (`models/marking_rows.py`), from the span and mark lists plus the
-currently visible timeline. The parsers are untouched, so the fingerprint harnesses
-stay clean for everything except the tie change of section 12, which is a deliberate
-behaviour change.
-
-(Option A - fabricating marking rows as silent events at parse time, the way stave
-text already works - was rejected because a span end row has to attach to "the last
-visible event before the end", and what is visible depends on the region 2 filter,
-which changes long after parsing. A fabricated row would be anchored to a note that
-can later be hidden, and the marking would vanish without trace.)
-
-Option B covers every row that hangs off an existing event, which is all of them bar
-the two moment events of section 5.1. Those two are not rows at all - they are
-timeline entries, because Left/Right has to stop on them, and only the timeline
-decides where Left/Right stops. So the work splits cleanly:
-
-* Render time, `models/marking_rows.py`: every marking row in section 5.
-* Parse time, the timeline builders: the barline fermata event, and the tied
-  continuation event. Both are new event kinds carrying no attack, and both are
-  therefore visible to the fingerprint harnesses - expected, and recaptured with the
-  tie change of section 12, which they ship alongside.
-
-The option A objection does not apply to these two. It was that a fabricated row
-anchored to a note can lose its anchor when region 2 hides that note; a moment event
-is anchored to a position, not to a note, so there is nothing to lose. The tied
-continuation event does sit inside a part and is hidden with it, which is correct -
-it is that part's marking.
-
-What option B costs: region 3's rows become typed (note row or marking row) rather
-than bare strings, and the three consumers of the row index - region 4's rows,
-`get_playback_events_for_indices`, and the select-all audition - must skip marking
-rows. Selecting a marking row shows its own detail in region 4 and sounds nothing.
-
-Things to hold on to while implementing:
-
-* Region 3 is rebuilt on every cursor move, and Ref 9 gives 25 ms for the whole move
-  including the audition. The marking lookup must be a prebuilt index (bar number, and
-  quarters, to the markings anchored there) built once per load, not a linear scan over
-  every span on every keystroke.
-* One source for label text. Region 5's one-line range rendering and the note list's
-  start/end rendering are two renderings of one vocabulary, in one module, which Find
-  and the Performance Report also call.
-* The `selectAll` plus explicit `setCurrentRow(0, NoUpdate)` rule (invariant 10)
-  still applies. With a marking row possibly at row 0, the current item after a move
-  may be a marking row, which is correct - it is the first thing to announce at that
-  position - as long as the chord audition still sounds every note row.
-* Marking rows are ordinary rows for Up/Down (decided in review: not skipped).
-* Ctrl+N goes into `ShortcutController`'s snapshot the same way as every other
-  default, declared where its action is built, never copied into a table
-  (invariant 16).
-
-## 16. Suggested phasing
-
-1. Region 5's one-line span rows, plus the two jump targets per row. Self-contained,
-   immediately useful, and it shrinks what everything downstream has to diff.
-2. The typed row model in region 3, moving the existing stave text and rehearsal mark
-   entries onto it. Behaviour unchanged, harnesses green.
-3. Repeats, endings and sections as note list rows, plus the new barline sound
-   patterns and the Sound Icon Dictionary.
-4. Hairpins, including the zero-length point case and the vocabulary of section 11,
-   with the per-part and per-staff placement rule.
-5. Structural changes as note list rows, and the change cue repurposed (section 7).
-6. Points: segno, coda, to coda, fine, da capo, dal segno, rehearsal marks, double
-   and other barlines, clef changes, the barline fermata, directives and the region 1
-   directive list.
-7. Spans: pedal, octave shift, dashes, bracket.
-8. Ctrl+N, the asterisk prefix, the region 5 context menu and per-score persistence.
-   Until this ships, everything above is simply on.
-9. The tie and duration change of section 12, on its own, with fresh fingerprint
-   baselines.
-10. Articulation and ornament split, and breath marks.
-
-Steps 1 to 8 are additive and safe to interleave with other work; step 9 is the one
-that changes existing behaviour and deserves its own pass and its own live test.
-
-The Performance Report is deliberately untouched by all of this and is the next piece
-of work after it.
-
-## 17. Decisions record - nothing left open
-
-Every question revision 2 raised has an answer. They are recorded here so the
-implementation plan can be read without re-deriving them.
-
-1. Ties versus "report every marking as written". Resolved, and better than revision 2
-   proposed: a marking on a continuation note does not move to the head note, it
-   becomes its own event where it is (section 12). The merge is now only of silence
-   with sound - the notes that carry nothing - which is exactly what a tie is. A tied
-   chain with no markings in it is a single navigation stop.
-2. Directives in region 1 and in the note list. Resolved: region 1 always, note list
-   only when Ctrl+N asks for it (section 9).
-3. The asterisk prefix. Kept, and still subject to the five-minute live check with
-   NVDA punctuation level "none" (section 8). If it fails, the fallback is the row's
-   accessible description rather than a more verbose visible prefix.
-4. One structural cue or three. One (section 7).
-5. Gradual tempo changes. They do not fire the cue - only an immediate change does
-   (section 7).
-6. Hairpin vocabulary. A one-event wedge reads "Crescendo" or "Diminuendo" with no
-   "hairpin"; a written "cresc." reads its own literal text (section 11).
-7. Sound Icon Dictionary availability. Always enabled (section 10.1).
-8. Region 4 with a marking row selected. It shows that marking's own detail - kind,
-   bar and beat, and for a span its full range - rather than the attributes of notes
-   the cursor happens to be near (section 4.1). Region 4 describes what is selected,
-   and a marking row is what is selected.
-9. Whether "a moment gets its own event" generalises beyond ties and the barline
-   fermata. It does not - the narrow rule, section 5.1.
-
-The one thing that is still a check rather than a decision is the asterisk. Everything
-else is settled, and the build order is in
-`UserPlans/PerformanceMarkingsImplementationPlan.md`.
+* Audible realisation of ornaments, trills, octave shifts, pedal and fermatas.
+* `docs/user_guide.md` and its HTML, unless asked for separately.

@@ -1,3 +1,4 @@
+Are the commands of typing a bar and pressing enter or control enter in the shortcut list in help menu?
 Make the long beeps in repeat bar sounds longer.
 Need speech feedback on unsolo and unmute all. and possibly on unmuting and unsoloing single entries.
 Want a way to see in attributes list which are surfaced and to what. like the asterisk for performance indicators.
