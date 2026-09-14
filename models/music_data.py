@@ -883,24 +883,12 @@ class MusicData:
         section 15 - "the three index consumers... must skip marking rows").
 
         A NoteRow resolves to its note_index. A marking row's own fields
-        ("text", "measure"...) must never contaminate a MIXED selection's
-        pooled attributes, so a marking row (note-backed or not) is dropped
-        whenever at least one NoteRow is also selected. The one exception is
-        a selection made up ENTIRELY of marking rows: a note-backed one
-        (Stave Text/Rehearsal - note_index set) then resolves to its own
-        note, exactly as before Region 3's rows were typed (stage 2's
-        guarantee); a marking row with no note behind it (note_index is
-        None - a span marking, stage 3 on) still drops out, since there is
-        no note to show or sound - selecting only those resolves to []."""
+        ("text", "measure"...) must never contaminate a selection's pooled
+        attributes, so every marking row is dropped - a selection made up
+        entirely of marking rows resolves to []."""
         rows = self.get_region_3_rows()
         selected_rows = [rows[i] for i in selected_indices if 0 <= i < len(rows)]
-        note_only = [row.note_index for row in selected_rows if isinstance(row, NoteRow)]
-        if note_only:
-            return note_only
-        return [
-            row.note_index for row in selected_rows
-            if getattr(row, "note_index", None) is not None
-        ]
+        return [row.note_index for row in selected_rows if isinstance(row, NoteRow)]
 
     def get_region_4_data_for_indices(self, selected_indices: List[int]) -> Dict[str, str]:
         return self.renderer.region_4_data_for_indices(selected_indices)

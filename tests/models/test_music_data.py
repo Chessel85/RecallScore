@@ -2645,17 +2645,18 @@ def test_stage12_report_parts_header(timeline, minimal_score):
 def test_p3_rehearsal_mark_gets_a_region_5_one_shot_row(timeline, rehearsal_mark_score):
     """Navigating onto a rehearsal-mark bar shows a
     one-shot Region 5 row (no start/end pair), lowercase "measure" per the
-    Region 5 convention, jumping by measure only."""
+    Region 5 convention, jumping by measure only. Category "stave_text"
+    (stage 5) means it's on by default, so the row carries the "* " prefix."""
     md = timeline(rehearsal_mark_score)
 
     bar1 = next(i for i, s in enumerate(md.timeline_slices) if s.measure == 1)
     labels = [r.label for r in md.get_performance_region_rows(bar1)]
-    assert "Rehearsal mark A: measure 1" in labels
+    assert "* Rehearsal mark A: measure 1" in labels
 
     bar2 = next(i for i, s in enumerate(md.timeline_slices) if s.measure == 2)
     row = next(
         r for r in md.get_performance_region_rows(bar2)
-        if r.label == "Rehearsal mark B: measure 2"
+        if r.label == "* Rehearsal mark B: measure 2"
     )
     assert row.jump_target_measure == 2
     assert row.jump_target_quarters is None

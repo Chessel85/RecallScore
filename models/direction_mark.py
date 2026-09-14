@@ -17,7 +17,7 @@ class DirectionMark:
     TimelineBuilder._handle_direction as a side effect of build().
     """
 
-    kind: str  # "rehearsal" | "pedal_change" | "dynamics_word" | "tempo_word" | "other_direction"
+    kind: str  # "rehearsal" | "pedal_change" | "words" | "dynamics_word" | "tempo_word" | "other_direction"
     part_id: str
     staff: int
     # rehearsal text; "" for pedal_change; tag with hyphens -> spaces for

@@ -142,79 +142,63 @@ def test_reader_defaults_the_chords_part_to_show_beat_position_and_strum(chords_
 
 
 @pytest.mark.slow
-def test_reader_adds_a_stave_text_voice_to_the_real_part_that_carries_it(stave_text_score):
-    """Generic stave text (parsers/timeline_builder.py's STAVE_TEXT_VOICE_ID)
-    is a fabricated voice on the SAME real part its <direction><words> was
-    found on - P1 here - never a new top-level part, and never P2 (which has
-    no <direction> of its own, the guitar-duet cross-contamination case)."""
-    from models.synthetic_parts import STAVE_TEXT_VOICE_ID, STAVE_TEXT_VOICE_NAME
-
+def test_reader_adds_no_fabricated_voice_for_stave_text(stave_text_score):
+    """PerformanceMarkingsImplementationPlanV2.md stage 5: a qualifying
+    <direction><words> mark no longer fabricates a Stave Text voice on
+    Region 2 - it becomes a "words" DirectionMark instead, read straight off
+    the real part it was found on (P1 here), never P2 (which has no
+    <direction> of its own, the guitar-duet cross-contamination case)."""
     data = MusicXMLReader(stave_text_score).load()
 
     names = [p.name for p in data.parts_info]
     assert names == ["Classical Guitar", "Second Guitar"], "no new top-level part is added"
 
     p1 = next(p for p in data.parts_info if p.part_id == "P1")
-    assert p1.staves_voices[1][0] == STAVE_TEXT_VOICE_ID, (
-        "user-requested: Stave Text is listed first, above the real voices, "
-        "matching how a position mark sits above the stave on the printed score"
-    )
-    assert p1.voice_names[(1, STAVE_TEXT_VOICE_ID)] == STAVE_TEXT_VOICE_NAME
+    assert 1000 not in p1.staves_voices.get(1, []), "no more fabricated voice on Region 2"
 
     p2 = next(p for p in data.parts_info if p.part_id == "P2")
-    assert STAVE_TEXT_VOICE_ID not in p2.staves_voices.get(1, [])
+    assert 1000 not in p2.staves_voices.get(1, [])
 
-    # Region 3's default is minimal - just the row's own text. Both keys are
-    # enabled so a genuine <words> mark ("text") and a fabricated rehearsal
-    # mark ("step", NoteData.is_rehearsal_text) both render; a note only ever
-    # has one of the two. Region 4 shows the fuller measure/beat position/
-    # part/stave breakdown regardless of this toggle.
-    assert data.voice_display_attributes[("P1", 1, STAVE_TEXT_VOICE_ID)] == {"text", "step"}
-    assert ("P1", 1, 1) not in data.voice_display_attributes, "the real notation voice's default is untouched"
+    p1_words = [m.label for m in data.direction_marks if m.kind == "words" and m.part_id == "P1"]
+    assert p1_words == ["Allegro", "III"]
+    p2_words = [m.label for m in data.direction_marks if m.kind == "words" and m.part_id == "P2"]
+    assert p2_words == []
 
 
 @pytest.mark.slow
-def test_reader_adds_a_stave_text_voice_for_a_rehearsal_only_part(rehearsal_mark_score):
-    """A <direction-type><rehearsal> mark, with no
-    <words> anywhere on the part, still fabricates the Stave Text voice - and
-    the bare part P2 (no <direction>) does not get one."""
-    from models.synthetic_parts import STAVE_TEXT_VOICE_ID, STAVE_TEXT_VOICE_NAME
-
+def test_reader_adds_no_fabricated_voice_for_a_rehearsal_only_part(rehearsal_mark_score):
+    """A <direction-type><rehearsal> mark, with no <words> anywhere on the
+    part, likewise fabricates no voice - and the bare part P2 (no
+    <direction>) never carries a rehearsal DirectionMark either."""
     data = MusicXMLReader(rehearsal_mark_score).load()
 
     p1 = next(p for p in data.parts_info if p.part_id == "P1")
-    assert p1.staves_voices[1][0] == STAVE_TEXT_VOICE_ID
-    assert p1.voice_names[(1, STAVE_TEXT_VOICE_ID)] == STAVE_TEXT_VOICE_NAME
-    assert data.voice_display_attributes[("P1", 1, STAVE_TEXT_VOICE_ID)] == {"text", "step"}
+    assert 1000 not in p1.staves_voices.get(1, [])
 
-    # The rehearsal mark renders in Region 3 as its label, via the "step"
-    # key (so it never becomes a Find "text" attribute target - reported).
-    r3_at_bar1 = next(
-        data._format_note_for_region_3(n)
-        for s in data.timeline_slices for n in s.notes
-        if n.is_rehearsal_text and n.step_name == "Rehearsal mark A"
-    )
-    assert r3_at_bar1 == "Rehearsal mark A"
+    # The rehearsal mark renders in Region 3 as a score-level marking row,
+    # above the real notes of its own event.
+    index = next(i for i, s in enumerate(data.timeline_slices) if s.measure == 1)
+    data.active_event_index = index
+    assert data.get_region_3_data()[0] == "Rehearsal mark A"
 
     p2 = next(p for p in data.parts_info if p.part_id == "P2")
-    assert STAVE_TEXT_VOICE_ID not in p2.staves_voices.get(1, [])
+    assert 1000 not in p2.staves_voices.get(1, [])
+    assert [m for m in data.direction_marks if m.kind == "rehearsal" and m.part_id == "P2"] == []
 
 
 @pytest.mark.slow
 def test_stave_text_region_3_default_shows_only_the_text(stave_text_score):
-    """Reported: the richer default (text+measure+beat position+part+stave)
-    put every one of those fields into Region 3's single row, which read as
-    "all the attributes crammed onto one entry" - Region 3 must show just
-    the words themselves by default, same as any other note's bare step."""
-    from parsers.timeline_builder import STAVE_TEXT_VOICE_ID
-
+    """The note-list row for a generic stave-text word is the bare printed
+    text, above the real note it's anchored to - "III" sits at the same
+    offset as note 2 (D)."""
     data = MusicXMLReader(stave_text_score).load()
 
-    note = next(
-        n for s in data.timeline_slices for n in s.notes
-        if n.part_id == "P1" and n.voice == STAVE_TEXT_VOICE_ID and n.step_name == "III"
+    index = next(
+        i for i, s in enumerate(data.timeline_slices)
+        if any(n.part_id == "P1" and n.step_name == "D" for n in s.notes)
     )
-    assert data._format_note_for_region_3(note) == "III"
+    data.active_event_index = index
+    assert data.get_region_3_data()[0] == "III"
 
 
 @pytest.mark.slow

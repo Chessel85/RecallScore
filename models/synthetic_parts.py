@@ -36,36 +36,17 @@ LYRICS_PART_NAME = "Lyrics"
 TAB_PART_ID = "tablature"
 TAB_PART_NAME = "Tablature"
 
-# Fabricated VOICE ids, as opposed to the fabricated parts above: each
-# attaches to a REAL part/staff and drops into Region 2's existing
-# part->staff->voice tree for free, needing no changes to mute/solo,
-# active-voice-tuple or ScoreConfig machinery - all of which key off
-# (part_id, staff, voice) and don't care what a voice number means. The
-# same trick percussion items use (NoteData.voice = the item's own declared
-# key, see CLAUDE.md).
+# Fabricated VOICE id, as opposed to the fabricated parts above: attaches to
+# a REAL part/staff and drops into Region 2's existing part->staff->voice
+# tree for free, needing no changes to mute/solo, active-voice-tuple or
+# ScoreConfig machinery - all of which key off (part_id, staff, voice) and
+# don't care what a voice number means. The same trick percussion items use
+# (NoteData.voice = the item's own declared key, see CLAUDE.md).
 #
-# Both are 1000: clearly out of range of any real notated voice number
-# (MusicXML's are small integers, GP has only slots 1-4), and they can
-# never collide with each other because no single score is both a Guitar
-# Pro file and a MusicXML one.
+# 1000: clearly out of range of any real notated voice number (GP has only
+# slots 1-4).
 
 # Guitar Pro's synthetic Chords voice - one entry per chord-shaped beat on a
 # track that carries chord names or Brush directions anywhere in the piece.
 GP_CHORD_VOICE_ID = 1000
 GP_CHORD_VOICE_NAME = "Chords"
-
-# Generic "stave text": any free-text <direction><direction-type><words> a
-# real part carries (guitar left-hand position roman numerals, tempo/
-# technique words an exporter wrote as plain text instead of semantic
-# markup - "Allegro", "Staccato", "Pizz.", all confirmed in real fixtures)
-# becomes its own event, distinct from the notes around it - deliberately
-# NOT sticky/carried forward to later notes (the user's own call: inferring
-# how long a marking "lasts" would invent information the score doesn't
-# state). Unlike Chords/Lyrics above this is NOT a new top-level part; each
-# occurrence attaches to whichever REAL part/staff its <direction> element
-# is physically inside. That is what makes a guitar duet's two independent
-# fret-position tracks (or a flute+guitar duet's guitar-only fret text) fall
-# out for free with zero cross-part guessing: a part's own <direction>
-# elements can only ever produce a voice on that same part.
-STAVE_TEXT_VOICE_ID = 1000
-STAVE_TEXT_VOICE_NAME = "Stave Text"

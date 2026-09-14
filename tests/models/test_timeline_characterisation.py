@@ -1002,74 +1002,57 @@ def test_simultaneous_percussion_hits_share_one_event_slice(timeline, score_hit_
     assert all(n.octave is None for n in multi_hit_slice.notes)
 
 
-# Generic stave text (parsers/timeline_builder.py's STAVE_TEXT_VOICE_ID): a
-# fabricated voice on whichever real part/staff a <direction><words> mark is
-# physically found in - not sticky, not merged across parts. See
+# Generic stave text (PerformanceMarkingsImplementationPlanV2.md stage 5): a
+# qualifying <direction><words> mark becomes a "words" DirectionMark on
+# whichever real part/staff it is physically found in - not sticky, not
+# merged across parts, and no longer a fabricated NoteData/voice. See
 # tests/fixtures/stave_text.musicxml and CLAUDE.md.
 
-def _stave_text_notes(md, part_id):
-    from parsers.timeline_builder import STAVE_TEXT_VOICE_ID
-
-    return [
-        n for s in md.timeline_slices for n in s.notes
-        if n.part_id == part_id and n.voice == STAVE_TEXT_VOICE_ID
-    ]
-
-
-def test_stave_text_sorts_before_the_real_notes_it_shares_a_slice_with(timeline, score_etude_1_tablature):
-    """User-requested: reads first in Region 3 - "III" landing at the same
-    (measure, offset) as the note it marks (bar 29) must not fall into the
-    ordinary midi_pitch-is-None tiebreak a silent rest gets (which sorts
-    last); it should read above the real voices, matching how it's already
-    listed above them in Region 2."""
-    from parsers.timeline_builder import STAVE_TEXT_VOICE_ID
-
-    md = timeline(score_etude_1_tablature)
-
-    slice_with_iii = next(
-        s for s in md.timeline_slices
-        if any(n.step_name == "III" and n.voice == STAVE_TEXT_VOICE_ID for n in s.notes)
-    )
-    assert slice_with_iii.notes[0].voice == STAVE_TEXT_VOICE_ID
-    assert slice_with_iii.notes[0].step_name == "III"
-    assert any(n.midi_pitch is not None for n in slice_with_iii.notes[1:]), (
-        "sanity check: this slice really does share real sounding notes, not just other stave text"
-    )
+def _words_marks(md, part_id):
+    return [m for m in md.direction_marks if m.kind == "words" and m.part_id == part_id]
 
 
 # --- S2 (PerformanceMarkingsImplementationPlan.md stage 2): Region 3's rows
-# are typed - a fabricated Stave Text/Rehearsal event becomes a MarkingRow,
-# never a NoteRow, so it renders identically but is skipped by the index
-# consumers that only make sense for real notes.
+# are typed, so a marking (stage 5: including stave text/rehearsal) renders
+# as a MarkingRow, never a NoteRow, and is skipped by the index consumers
+# that only make sense for real notes.
 
 def test_region_3_rows_classify_stave_text_as_a_marking_row(timeline, score_etude_1_tablature):
+    from models.direction_mark import DirectionMark
     from models.region3_row import MarkingRow, NoteRow
 
     md = timeline(score_etude_1_tablature)
-    index = next(
-        i for i, s in enumerate(md.timeline_slices)
-        if any(n.step_name == "III" and n.voice == 1000 for n in s.notes)
-    )
-    md.active_event_index = index
+    md.active_event_index = _first_iii_marking_row_index(md)
 
     rows = md.get_region_3_rows()
     strings = md.get_region_3_data()
     assert [r.text for r in rows] == strings, "the string rendering is unchanged by the row typing"
     assert isinstance(rows[0], MarkingRow)
-    assert rows[0].marking.step_name == "III"
+    assert rows[0].text == "III"
+    assert isinstance(rows[0].marking, DirectionMark)
+    assert rows[0].note_index is None
     assert all(isinstance(r, NoteRow) for r in rows[1:])
-    assert [r.note_index for r in rows[1:]] == list(range(1, len(rows)))
+    assert [r.note_index for r in rows[1:]] == list(range(0, len(rows) - 1))
+
+
+def _first_iii_marking_row_index(md) -> int:
+    from models.region3_row import MarkingRow
+
+    for i in range(len(md.timeline_slices)):
+        md.active_event_index = i
+        rows = md.get_region_3_rows()
+        if rows and isinstance(rows[0], MarkingRow) and rows[0].text == "III":
+            return i
+    raise AssertionError("no 'III' marking row found")
 
 
 def test_marking_row_contributes_no_playback_event(timeline, score_etude_1_tablature):
     md = timeline(score_etude_1_tablature)
-    index = next(
-        i for i, s in enumerate(md.timeline_slices)
-        if any(n.step_name == "III" and n.voice == 1000 for n in s.notes)
-    )
-    md.active_event_index = index
+    md.active_event_index = _first_iii_marking_row_index(md)
 
-    assert md.get_playback_events_for_indices([0]) == []
+    note_indices = md.note_indices_from_selection([0])
+    assert note_indices == []
+    assert md.get_playback_events_for_indices(note_indices) == []
 
 
 def test_chord_audition_still_sounds_every_note_when_row_0_is_a_marking_row(
@@ -1079,10 +1062,7 @@ def test_chord_audition_still_sounds_every_note_when_row_0_is_a_marking_row(
     timeline_views) must still sound every real note of the slice even
     though row 0 is now a MarkingRow, not a NoteRow."""
     md = timeline(score_etude_1_tablature)
-    index = next(
-        i for i, s in enumerate(md.timeline_slices)
-        if any(n.step_name == "III" and n.voice == 1000 for n in s.notes)
-    )
+    index = _first_iii_marking_row_index(md)
     md.active_event_index = index
     slice_ = md.timeline_slices[index]
     expected_pitches = {n.midi_pitch for n in slice_.notes if n.midi_pitch is not None}
@@ -1096,133 +1076,101 @@ def test_note_indices_from_selection_drops_marking_rows_only_when_mixed(
     timeline, score_etude_1_tablature
 ):
     """Region 4's build must not let a marking row's own attributes
-    ("text", "measure"...) contaminate a mixed selection's pooled view, but
-    a selection made up entirely of marking rows (including a lone one)
-    passes through unfiltered - selecting just a Stave Text row still shows
-    its own attributes, exactly as before Region 3's rows were typed."""
+    ("text", "measure"...) contaminate a mixed selection's pooled view - a
+    marking row is dropped whenever at least one NoteRow is also selected.
+    A selection made up entirely of marking rows (stage 5: no note behind
+    stave text/rehearsal any more) resolves to no note indices at all."""
     md = timeline(score_etude_1_tablature)
-    index = next(
-        i for i, s in enumerate(md.timeline_slices)
-        if any(n.step_name == "III" and n.voice == 1000 for n in s.notes)
-    )
-    md.active_event_index = index
-    slice_ = md.timeline_slices[index]
-    all_indices = list(range(len(slice_.notes)))
+    md.active_event_index = _first_iii_marking_row_index(md)
+    rows = md.get_region_3_rows()
+    all_indices = list(range(len(rows)))
 
-    assert md.note_indices_from_selection(all_indices) == all_indices[1:]
-    assert md.note_indices_from_selection([0]) == [0]
+    assert md.note_indices_from_selection(all_indices) == list(range(len(rows) - 1))
+    assert md.note_indices_from_selection([0]) == []
 
 
-def test_stave_text_word_becomes_its_own_event_on_the_originating_part(timeline, stave_text_score):
+def test_stave_text_word_becomes_a_words_direction_mark_on_the_originating_part(timeline, stave_text_score):
     md = timeline(stave_text_score)
 
-    notes = _stave_text_notes(md, "P1")
-    assert [n.step_name for n in notes] == ["Allegro", "III"], (
+    marks = _words_marks(md, "P1")
+    assert [m.label for m in marks] == ["Allegro", "III"], (
         "verbatim - a generic tempo word and a position mark are captured "
         "the same way, and roman numerals are never converted to digits"
     )
-    assert [n.beat_position for n in notes] == [1.0, 2.0]
-    assert all(n.midi_pitch is None for n in notes), "stave text is silent, like the Lyrics part"
+    assert [m.beat_position for m in marks] == [1.0, 2.0]
 
 
 def test_stave_text_does_not_repeat_on_later_notes(timeline, stave_text_score):
     """Not sticky: "III" is printed once, before note 2, and must appear
     exactly once - never inferred forward onto notes 3 or 4."""
-    notes = _stave_text_notes(timeline(stave_text_score), "P1")
-    assert [n.step_name for n in notes].count("III") == 1
+    marks = _words_marks(timeline(stave_text_score), "P1")
+    assert [m.label for m in marks].count("III") == 1
 
 
 def test_stave_text_never_leaks_onto_a_part_with_no_words_of_its_own(timeline, stave_text_score):
     """The guitar-duet/flute+guitar-duet stress case: P2 has real notes but
-    no <direction> at all, so it must get zero Stave Text entries even
+    no <direction> at all, so it must get zero stave text marks even
     though P1 (the score's other part) has several."""
-    assert _stave_text_notes(timeline(stave_text_score), "P2") == []
+    assert _words_marks(timeline(stave_text_score), "P2") == []
 
 
-def test_smufl_glyph_only_words_produce_no_stave_text_entry(timeline, stave_text_score):
-    notes = _stave_text_notes(timeline(stave_text_score), "P1")
-    assert [n.step_name for n in notes] == ["Allegro", "III"], (
+def test_smufl_glyph_only_words_produce_no_direction_mark(timeline, stave_text_score):
+    marks = _words_marks(timeline(stave_text_score), "P1")
+    assert [m.label for m in marks] == ["Allegro", "III"], (
         "the SMuFL Private-Use-Area-only <words> before note 3 must not appear"
     )
 
 
-def test_stave_text_attribute_pairs_use_text_not_step_and_omit_duration_and_voice(timeline, stave_text_score):
-    """User feedback after trying the feature live: "step" is the wrong
-    label for free text (it isn't a pitch step); "duration" can't be
-    claimed for a mark whose real extent depends on unwritten later
-    instructions countermanding it; "voice" is a meaningless fabricated
-    number (STAVE_TEXT_VOICE_ID) since there's only ever one Stave Text
-    voice per staff."""
+def test_stave_text_row_is_not_its_own_navigable_stop(timeline, stave_text_score):
+    """PerformanceMarkingsImplementationPlanV2.md stage 5: a position
+    holding only stave text (no real note of its own) is no longer its own
+    timeline event/stop - the note-list row anchors to the next real event
+    of its level instead. This fixture has 4 real notes, so there must be
+    exactly 4 timeline slices, none of them contributed by "Allegro"/"III"
+    alone."""
     md = timeline(stave_text_score)
-    note = _stave_text_notes(md, "P1")[1]  # "III"
-
-    pairs = md._note_attribute_pairs(note)
-    assert pairs == {
-        "text": "III",
-        "measure": "1",
-        "beat position": "2.0",
-        "part": "Classical Guitar",
-        "stave": "Standard stave",
-    }
-
-    # Region 3's inline text leads with the words themselves, unprefixed,
-    # exactly like a real note leads with its step name. The "audible
-    # immediately" default itself is only wired up in MusicXMLReader.load()
-    # (see test_reader_adds_a_stave_text_voice_to_the_real_part_that_carries_it
-    # in tests/parsers/test_musicxml_reader.py) - the fast timeline() path
-    # used here has no parts_info/reader pass at all, so it's set explicitly.
-    md.voice_display_attributes[("P1", 1, note.voice)] = {
-        "text", "measure", "beat position", "part", "stave",
-    }
-    assert md._format_note_for_region_3(note) == (
-        "III, measure 1, beat position 2.0, part Classical Guitar, stave Standard stave"
-    )
+    assert len(md.timeline_slices) == 4
+    assert [n.step_name for s in md.timeline_slices for n in s.notes if n.part_id == "P1"] == [
+        "C", "D", "E", "F",
+    ]
 
 
-def test_rehearsal_mark_region_4_is_labelled_text_not_step(timeline, rehearsal_mark_score):
-    """User feedback: a rehearsal mark stores its label under the "step" key
-    only so Find never lists it as an attribute target - but to the reader it
-    is stave text, so Region 4 must label the row "text", like a <words>
-    mark, not "step" as if it were a pitch. It also omits duration/voice, the
-    same as generic stave text."""
-    md = timeline(rehearsal_mark_score)
-    mark = next(
-        n for s in md.timeline_slices for n in s.notes if n.is_rehearsal_text
-    )
+def test_stave_text_row_reads_the_bare_text_above_its_part_group(timeline, stave_text_score):
+    """inventory.csv: "reading the text as written" - the note-list row is
+    the bare printed text, above the real note it's anchored to (D's own
+    event, since "III" sits at the same offset as D)."""
+    md = timeline(stave_text_score)
+    md.active_event_index = 1
+    rows = md.get_region_3_rows()
+    assert [r.text for r in rows] == ["III", "D"]
 
-    pairs = md._note_attribute_pairs(mark)
-    assert pairs == {
-        "step": "Rehearsal mark A",
-        "measure": "1",
-        "beat position": "1.0",
-        "part": "Test Part",
-        "stave": "Standard stave",
-    }
 
-    md.active_event_index = next(
-        i for i, s in enumerate(md.timeline_slices)
-        if any(n.is_rehearsal_text for n in s.notes)
-    )
-    label, _, value = md.get_region_4_rows_for_indices([0])[0]
-    assert (label, value) == ("text", "Rehearsal mark A")
+def test_marking_row_selection_shows_no_note_selected_in_region_4(timeline, stave_text_score):
+    """Stage 5: a stave text/rehearsal marking row carries no note of its
+    own any more - selecting only it resolves to no note index."""
+    md = timeline(stave_text_score)
+    md.active_event_index = 1
+    note_indices = md.note_indices_from_selection([0])
+    assert note_indices == []
+    assert md.get_region_4_data_for_indices(note_indices) == {"Status": "No note selected"}
 
 
 def test_jump_mark_words_are_excluded_from_stave_text_but_still_register_as_a_jump(timeline, stave_text_score):
     md = timeline(stave_text_score)
 
-    notes = _stave_text_notes(md, "P1")
-    assert "D.S." not in [n.step_name for n in notes]
+    marks = _words_marks(md, "P1")
+    assert "D.S." not in [m.label for m in marks]
     assert len(md.navigation_jumps) == 1
     assert md.navigation_jumps[0].kind == "dalsegno"
 
 
 def test_no_stave_text_on_an_ordinary_score(timeline, minimal_score):
-    """Negative case: a score with no <direction><words> at all must add no
-    Stave Text voice/entries anywhere - no regression to ordinary scores."""
+    """Negative case: a score with no <direction><words> at all must produce
+    no stave text marks anywhere - no regression to ordinary scores."""
     md = timeline(minimal_score)
     notes = [n for s in md.timeline_slices for n in s.notes]
     assert notes
-    assert _stave_text_notes(md, "P1") == []
+    assert _words_marks(md, "P1") == []
 
 
 def test_stave_text_against_the_real_etude_file(timeline, score_etude_1_tablature):
@@ -1233,13 +1181,13 @@ def test_stave_text_against_the_real_etude_file(timeline, score_etude_1_tablatur
     has none of its own."""
     md = timeline(score_etude_1_tablature)
 
-    p1_notes = _stave_text_notes(md, "P1")
-    assert len(p1_notes) == 12, "10 position marks + Allegro + Staccato - the 12 glyph-only <words> must not appear"
-    step_names = [n.step_name for n in p1_notes]
-    assert step_names[:2] == ["Allegro", "Staccato"]
-    assert set(step_names[2:]) == {"III", "IV", "V", "VIII"}, "verbatim roman numerals, never converted to digits"
+    p1_marks = _words_marks(md, "P1")
+    assert len(p1_marks) == 12, "10 position marks + Allegro + Staccato - the 12 glyph-only <words> must not appear"
+    labels = [m.label for m in p1_marks]
+    assert labels[:2] == ["Allegro", "Staccato"]
+    assert set(labels[2:]) == {"III", "IV", "V", "VIII"}, "verbatim roman numerals, never converted to digits"
 
-    assert _stave_text_notes(md, "P2") == []
+    assert _words_marks(md, "P2") == []
 
 
 # --- P1: note-attached notations made findable ------
@@ -1555,7 +1503,10 @@ def test_p3_octave_shift_span_carries_a_size_label(timeline, octave_shift_score)
 
 
 def test_p3_rehearsal_marks_keep_their_printed_label(timeline, rehearsal_mark_score):
-    """M3: a <rehearsal> point mark per bar, label from the element text."""
+    """M3: a <rehearsal> point mark per bar, label from the element text.
+    Stage 5 (PerformanceMarkingsImplementationPlanV2.md): no more fabricated
+    stave-text NoteData - the mark shows up as a score-level MarkingRow
+    ("Rehearsal mark A") above the real notes of its own event."""
     md = timeline(rehearsal_mark_score)
 
     assert [(m.kind, m.label, m.measure) for m in md.direction_marks] == [
@@ -1563,44 +1514,38 @@ def test_p3_rehearsal_marks_keep_their_printed_label(timeline, rehearsal_mark_sc
         ("rehearsal", "B", 2),
     ]
     assert md.direction_spans == []
-    assert [n.step_name for n in _stave_text_notes(md, "P1")] == [
-        "Rehearsal mark A",
-        "Rehearsal mark B",
-    ]
-    assert _stave_text_notes(md, "P2") == [], "the bare part gets no rehearsal stave text"
+
+    md.active_event_index = 0
+    assert [r.text for r in md.get_region_3_rows()][0] == "Rehearsal mark A"
+    md.active_event_index = 1
+    assert [r.text for r in md.get_region_3_rows()][0] == "Rehearsal mark B"
 
 
-def test_rehearsal_mark_fabricates_a_stave_text_event(timeline, rehearsal_mark_score):
-    """The mark is silent, is flagged
-    is_rehearsal_text, sorts first in its slice, and renders in Region 3 as
-    its label - even with no voice_display_attributes set (the no-reader /
-    stale-.rsc path, where the fallback wanted set is {"step"})."""
+def test_rehearsal_mark_row_carries_no_note_and_sounds_nothing(timeline, rehearsal_mark_score):
+    """The mark is silent and carries no note - selecting only its row
+    resolves to no note index (region_4 shows "No note selected"), unlike
+    before stage 5 when it was a fabricated, selectable NoteData."""
     md = timeline(rehearsal_mark_score)
+    md.active_event_index = 0
 
-    slice_a = next(
-        s for s in md.timeline_slices
-        if any(n.step_name == "Rehearsal mark A" for n in s.notes)
-    )
-    mark = slice_a.notes[0]
-    assert (mark.step_name, mark.midi_pitch, mark.is_rehearsal_text) == (
-        "Rehearsal mark A", None, True,
-    )
-    assert any(n.midi_pitch is not None for n in slice_a.notes[1:]), (
-        "sanity check: the real whole note shares this slice"
-    )
-    assert md._format_note_for_region_3(mark) == "Rehearsal mark A"
+    rows = md.get_region_3_rows()
+    assert rows[0].text == "Rehearsal mark A"
+    note_indices = md.note_indices_from_selection([0])
+    assert note_indices == []
+    assert md.get_region_4_data_for_indices(note_indices) == {"Status": "No note selected"}
 
 
 def test_empty_rehearsal_mark_is_skipped(timeline, rehearsal_mark_empty_score):
     """A stray empty <rehearsal></rehearsal> sibling
     (the files/Long tune.mxl bar-24 shape) produces neither a DirectionMark
-    nor a stave-text event - only the real "C" counts."""
+    nor a note-list row - only the real "C" counts."""
     md = timeline(rehearsal_mark_empty_score)
 
     assert [(m.kind, m.label, m.measure) for m in md.direction_marks] == [
         ("rehearsal", "C", 1),
     ]
-    assert [n.step_name for n in _stave_text_notes(md, "P1")] == ["Rehearsal mark C"]
+    md.active_event_index = 0
+    assert [r.text for r in md.get_region_3_rows()][0] == "Rehearsal mark C"
 
 
 def test_p3_dashes_and_bracket_lines_become_spans(timeline, direction_lines_score):

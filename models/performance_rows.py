@@ -18,7 +18,6 @@ from typing import Dict, List, Optional, Tuple
 from models import marking_labels, vocabulary
 from models.key_signatures import key_signature_display_name
 from models.performance_region_row import PerformanceRegionRow
-from models.synthetic_parts import STAVE_TEXT_VOICE_ID
 
 # Section 3's level order for a Region 5 row: score first, then part, then
 # stave. PerformanceMarkingsImplementationPlanV2.md stage 4.
@@ -248,13 +247,15 @@ class PerformanceRows:
             level_fn=level_of,
         )
 
-        # Rehearsal marks - a score-level landmark, one-shot point row (no
-        # start/end pair, no part-name prefix). jump by measure only, so
-        # Ctrl+Home/Ctrl+End resolve via first/last_visible_event_index_of_measure.
+        # Rehearsal marks - a landmark, one-shot point row (no start/end
+        # pair, no part-name prefix). jump by measure only, so Ctrl+Home/
+        # Ctrl+End resolve via first/last_visible_event_index_of_measure.
+        # Category "stave_text" (inventory.csv) - stage 5 lets Ctrl+N toggle
+        # it alongside generic stave text.
         _point(
             data.direction_marks,
             lambda m: f"Rehearsal mark {m.label}: {bar_word} {m.measure}",
-            kind="rehearsal", jump="measure",
+            kind="rehearsal", jump="measure", category="stave_text", level_fn=level_of,
         )
 
         # Plain-text dynamics / tempo instructions ("cresc.", "rall.") -
@@ -309,39 +310,22 @@ class PerformanceRows:
             level_fn=level_of,
         )
 
-        # Stage 4: stave text - a generic <words> direction that failed the
-        # dynamics/tempo allow-list. Still read off the fabricated Stave Text
-        # NoteData (parsers/timeline_builder.py's STAVE_TEXT_VOICE_ID voice,
-        # stage 5 replaces this with a real DirectionMark), gated on the
-        # slice's own measure like the other point families above. Rehearsal
-        # text rides the same voice but is excluded here - it already has its
-        # own row above. D5: part-prefixed only when >1 part carries stave
-        # text anywhere in the score.
-        _stave_text_part_ids = [
-            n.part_id
-            for s in data._real_timeline_slices
-            for n in s.notes
-            if n.voice == STAVE_TEXT_VOICE_ID and not n.is_rehearsal_text
+        # Stage 5: stave text - a generic <words> direction that failed the
+        # dynamics/tempo allow-list, now a real "words" DirectionMark (no
+        # more fabricated NoteData/voice). D5: part-prefixed only when >1
+        # part carries stave text anywhere in the score.
+        _wordtext_part_ids = [
+            m.part_id for m in data.direction_marks if m.kind == "words"
         ]
 
-        def _stave_text_level(part_id: str, staff: int) -> Tuple:
-            if len(data.marking_rows._staves_for_part(part_id)) > 1:
-                return ("stave", part_id, staff)
-            return ("part", part_id)
+        def _words_label(m) -> str:
+            prefix = data._marking_part_prefix(m.part_id, _wordtext_part_ids)
+            return f"{prefix}{marking_labels.stave_text_label(m.label)}"
 
-        for event_slice in data._real_timeline_slices:
-            if event_slice.measure != slice_.measure:
-                continue
-            for note in event_slice.notes:
-                if note.voice != STAVE_TEXT_VOICE_ID or note.is_rehearsal_text:
-                    continue
-                prefix = data._marking_part_prefix(note.part_id, _stave_text_part_ids)
-                entries.append((_stave_text_level(note.part_id, note.staff), PerformanceRegionRow(
-                    label=f"{prefix}{marking_labels.stave_text_label(note.step_name)}",
-                    category="stave_text",
-                    jump_target_measure=slice_.measure,
-                    jump_target_quarters=slice_.quarters_from_start,
-                )))
+        _point(
+            data.direction_marks, _words_label, kind="words",
+            category="stave_text", level_fn=level_of,
+        )
 
         # P4: barline / clef-change / measure-style one-shot rows, gated on
         # the mark's own measure (a point mark, like segno below).

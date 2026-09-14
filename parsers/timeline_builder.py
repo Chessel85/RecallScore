@@ -29,7 +29,6 @@ from models.synthetic_parts import (
     CHORDS_PART_NAME,
     LYRICS_PART_ID,
     LYRICS_PART_NAME,
-    STAVE_TEXT_VOICE_ID,
 )
 from models.parts_structure import PartStructureInfo
 from models.repeat_span import RepeatSpan
@@ -69,19 +68,12 @@ SECTION_CARRIED_MARKER = "recall-score-carried"
 # <words> a real part carries (guitar left-hand position roman numerals,
 # tempo/technique words an exporter wrote as plain text instead of semantic
 # markup - "Allegro", "Staccato", "Pizz.", all confirmed in real fixtures)
-# becomes its own event, distinct from the notes around it - deliberately
-# NOT sticky/carried forward to later notes (the user's own call: inferring
-# how long a marking "lasts" would invent information the score doesn't
-# state). Unlike Chords/Lyrics above, this is NOT a new top-level part -
-# each occurrence attaches to whichever REAL part/staff its <direction>
-# element is physically inside, via a fabricated voice id on that part -
-# the same "fabricate a voice_id, reuse the existing tree" trick
-# parsers/gp_timeline_builder.py's GP_CHORD_VOICE_ID already established for
-# GP's synthetic Chords voice. This is what makes a guitar-duet's two
-# independent fret-position tracks (or a flute+guitar duet's guitar-only
-# fret text) fall out for free with zero cross-part guessing: each part's
-# own <direction> elements can only ever produce a voice on that same part.
-# S2: re-exported from models/synthetic_parts.py (one definition, see there).
+# becomes a "words" DirectionMark on whichever real part/staff its
+# <direction> element is physically inside - deliberately NOT sticky/carried
+# forward to later notes (the user's own call: inferring how long a marking
+# "lasts" would invent information the score doesn't state).
+# PerformanceMarkingsImplementationPlanV2.md stage 5: no longer a fabricated
+# NoteData/voice (see models/marking_rows.py, category "stave_text").
 
 # SMuFL Private Use Area (U+E000-U+F8FF): a <words> element can hold music-
 # font glyph codepoints instead of readable text - confirmed in a real file
@@ -99,7 +91,7 @@ def _is_pure_smufl_glyph_text(text: str) -> bool:
 
 
 def _is_qualifying_stave_text(text: Optional[str]) -> bool:
-    """Whether a <words> element's text should become a Stave Text event.
+    """Whether a <words> element's text should become a "words" DirectionMark.
 
     Excludes only two things, both grounded in real fixture content: bare
     SMuFL glyph "text" (see _is_pure_smufl_glyph_text) and text that already
@@ -125,42 +117,14 @@ def _is_qualifying_stave_text(text: Optional[str]) -> bool:
 
 
 def _rehearsal_stave_text_label(rehearsal_el) -> Optional[str]:
-    """The printed rehearsal text ("A", "12") when it should become a Stave
-    Text event, else None (empty after strip, or a pure SMuFL glyph) - the
-    same bar _is_qualifying_stave_text applies to <words>. Both
-    _stave_text_staves_for_part (the reader's voice-creation scan) and
-    TimelineBuilder call this one detector, so the two can't disagree on
-    which marks count (the same shared-detector convention documented on
-    _stave_text_staves_for_part)."""
+    """The printed rehearsal text ("A", "12") when it should become a
+    "rehearsal" DirectionMark, else None (empty after strip, or a pure
+    SMuFL glyph) - the same bar _is_qualifying_stave_text applies to
+    <words>."""
     text = (rehearsal_el.text or "").strip()
     if not text or _is_pure_smufl_glyph_text(rehearsal_el.text):
         return None
     return text
-
-
-def _stave_text_staves_for_part(part_elem: ET.Element) -> Set[int]:
-    """Which staff numbers within this one real <part> carry at least one
-    qualifying stave-text <words> mark or non-empty <rehearsal> mark. Used by
-    MusicXMLReader to decide which (part, staff) pairs need a fabricated Stave
-    Text voice added to PartStructureInfo; TimelineBuilder.build()
-    independently re-applies the identical _is_qualifying_stave_text /
-    _rehearsal_stave_text_label filters while walking notes, so the two can't
-    disagree on which text counts (the same shared-detector convention
-    has_harmony_elements/has_lyric_elements already use).
-    """
-    def _staff_of(direction_elem: ET.Element) -> int:
-        staff_el = direction_elem.find("staff")
-        return int(staff_el.text.strip()) if (staff_el is not None and staff_el.text) else 1
-
-    staves: Set[int] = set()
-    for direction_elem in part_elem.findall(".//direction"):
-        for words_el in direction_elem.findall("direction-type/words"):
-            if _is_qualifying_stave_text(words_el.text):
-                staves.add(_staff_of(direction_elem))
-        for rehearsal_el in direction_elem.findall("direction-type/rehearsal"):
-            if _rehearsal_stave_text_label(rehearsal_el) is not None:
-                staves.add(_staff_of(direction_elem))
-    return staves
 
 
 def has_harmony_elements(root: Optional[ET.Element]) -> bool:
@@ -745,9 +709,9 @@ class _PartState:
     def beat_position(self, m_num: int, offset_q: float) -> float:
         """Ts-relative beat position (Ref 18) for an offset within a
         measure. A pickup bar's notes sit at the END of a notional full bar
-        (Ref 17), which is what _start_beat computes. Shared by notes,
-        stave text and harmony entries - all three had their own copy of
-        this two-branch calculation before S3."""
+        (Ref 17), which is what _start_beat computes. Shared by notes and
+        harmony entries - both had their own copy of this two-branch
+        calculation before S3."""
         if m_num == 0:
             start_beat = TimelineBuilder._start_beat(
                 self.full_bar_quarters, self.pickup_filled_quarters, self.beat_unit_quarter_len
@@ -1193,7 +1157,7 @@ class TimelineBuilder:
     ) -> None:
         """A <direction> carries several independent things this parser
         reads: a dynamics mark (deferred - a later note at the same offset
-        picks it up), generic stave text (bucketed immediately), and (P3)
+        picks it up), generic stave text (a "words" DirectionMark), and (P3)
         the pedal / octave-shift / rehearsal / dashed / bracketed
         <direction-type> spans and points, plus the D6 catch-all for any
         other <direction-type> child; a crescendo/diminuendo wedge; and a
@@ -1217,49 +1181,39 @@ class TimelineBuilder:
             if not _is_qualifying_stave_text(words_el.text):
                 continue
             offset_q = _displaced_offset_divs(elem, walker) / walker.divisions
-            sink.add(
-                measure_state.key_for(offset_q),
-                NoteData(
-                    step_name=words_el.text.strip(),
-                    octave=None,
-                    midi_pitch=None,
-                    measure=measure_state.m_num,
-                    beat_position=part_state.beat_position(measure_state.m_num, offset_q),
-                    ts_duration=float(walker.ts_num),
-                    quarter_length=part_state.full_bar_quarters,
-                    part_id=part_state.part_id,
-                    part_name=part_state.part_name,
-                    staff=_staff_number(elem, default=1),
-                    voice=STAVE_TEXT_VOICE_ID,
-                ),
-                walker,
-                overwrite_state=False,
-            )
 
-            # The same word ALSO stays a Stave Text event (above) - that is
-            # per-note reading in Region 3; this point mark is the score-level
-            # overview, a different region, not a duplicate row. Classified on
-            # the whole stripped text against a narrow allow-list (see
-            # models/vocabulary.py) - never a substring sweep.
+            # Stage 5 (PerformanceMarkingsImplementationPlanV2.md): a
+            # qualifying <words> is ALWAYS one DirectionMark now - never a
+            # fabricated NoteData/voice. Classified on the whole stripped
+            # text against a narrow allow-list (models/vocabulary.py, never
+            # a substring sweep); a text that matches becomes the more
+            # specific dynamics_word/tempo_word kind, everything else the
+            # generic "words" kind (marking_rows.py routes it to the
+            # stave_text category).
             text = words_el.text.strip()
             dyn_kind = dynamics_instruction_kind(text)
             tempo_label = tempo_instruction_label(text)
-            if dyn_kind is not None or tempo_label is not None:
-                self.direction_marks.append(
-                    DirectionMark(
-                        kind="dynamics_word" if dyn_kind is not None else "tempo_word",
-                        part_id=part_state.part_id,
-                        staff=_staff_number(elem, default=1),
-                        label=text,
-                        measure=measure_state.m_num,
-                        beat_position=part_state.beat_position(measure_state.m_num, offset_q),
-                        quarters_from_start=(
-                            measure_start_quarters.get(measure_state.m_num, 0.0) + offset_q
-                        ),
-                        system=_direction_system(elem),
-                        staff_given=_staff_given(elem),
-                    )
+            if dyn_kind is not None:
+                kind = "dynamics_word"
+            elif tempo_label is not None:
+                kind = "tempo_word"
+            else:
+                kind = "words"
+            self.direction_marks.append(
+                DirectionMark(
+                    kind=kind,
+                    part_id=part_state.part_id,
+                    staff=_staff_number(elem, default=1),
+                    label=text,
+                    measure=measure_state.m_num,
+                    beat_position=part_state.beat_position(measure_state.m_num, offset_q),
+                    quarters_from_start=(
+                        measure_start_quarters.get(measure_state.m_num, 0.0) + offset_q
+                    ),
+                    system=_direction_system(elem),
+                    staff_given=_staff_given(elem),
                 )
+            )
 
         self._step_wedge(elem, part_state, measure_state, measure_start_quarters)
         self._step_direction_marks(
@@ -1322,6 +1276,9 @@ class TimelineBuilder:
                 # serialise the <direction> at (some exports place it after a
                 # few beats of notes). Snap it to the downbeat so navigating
                 # to the bar lands on it, rather than leaving it mid-measure.
+                # Stage 5: a DirectionMark only now - marking_rows.py routes
+                # it to a score-level "Rehearsal mark A" note-list row (no
+                # more fabricated NoteData/voice).
                 reh_beat = part_state.beat_position(m_num, 0.0)
                 reh_quarters = measure_start_quarters.get(m_num, 0.0)
                 self.direction_marks.append(
@@ -1336,28 +1293,6 @@ class TimelineBuilder:
                         system=system,
                         staff_given=staff_given,
                     )
-                )
-                # Also surface it in Region 3 as a Stave Text event, so
-                # navigating onto the bar reads "Rehearsal mark A" (the same
-                # STAVE_TEXT_VOICE_ID voice <words> directions feed).
-                sink.add(
-                    measure_state.key_for(0.0),
-                    NoteData(
-                        step_name=f"Rehearsal mark {label}",
-                        octave=None,
-                        midi_pitch=None,
-                        measure=m_num,
-                        beat_position=reh_beat,
-                        ts_duration=float(walker.ts_num),
-                        quarter_length=part_state.full_bar_quarters,
-                        part_id=part_state.part_id,
-                        part_name=part_state.part_name,
-                        staff=staff,
-                        voice=STAVE_TEXT_VOICE_ID,
-                        is_rehearsal_text=True,
-                    ),
-                    walker,
-                    overwrite_state=False,
                 )
             elif tag not in _RECOGNISED_DIRECTION_TYPE_TAGS:
                 self.direction_marks.append(
@@ -2117,18 +2052,7 @@ class TimelineBuilder:
         part_order[LYRICS_PART_ID] = len(part_order)
 
         def key(note: NoteData) -> Tuple[int, float]:
-            # Stave text shares its real part's own part_id (not a separate
-            # part - see STAVE_TEXT_VOICE_ID), so it would otherwise fall
-            # into the ordinary midi_pitch-is-None tiebreak below and sort
-            # AFTER every real note, same as a silent rest. User-requested:
-            # it should read first instead, matching how it's already listed
-            # above the real voices in Region 2 (mirroring a position mark's
-            # own placement above the stave on the printed score) -
-            # float("-inf") beats every real pitch_component.
-            if note.voice == STAVE_TEXT_VOICE_ID:
-                pitch_component = float("-inf")
-            else:
-                pitch_component = -note.midi_pitch if note.midi_pitch is not None else float("inf")
+            pitch_component = -note.midi_pitch if note.midi_pitch is not None else float("inf")
             return (part_order.get(note.part_id, 0), pitch_component)
 
         return key

@@ -225,11 +225,10 @@ class MarkingRows:
         # Stage 7 (MusicXMLMarkingInventory.md section 11 priority list):
         # score-level point rows. SegnoMark/CodaMark are written at the
         # START of their measure (their own docstrings); NavigationJump/
-        # ToCodaMark/FineMark at the END. Rehearsal marks are deliberately
-        # NOT added here - they already appear in the note list via the
-        # existing fabricated Stave Text event (strategy section 2's
-        # "what exists today"), and adding a second score-level row would
-        # duplicate them.
+        # ToCodaMark/FineMark at the END. Rehearsal marks are NOT added here
+        # - they are classification-routed (level "score") and come through
+        # _family_rows/level_of below instead, like words/dynamics_word/
+        # tempo_word/other_direction.
         for mark in data.segno_marks:
             if _at_first(mark.measure):
                 rows.append(MarkingRow(
@@ -431,11 +430,11 @@ class MarkingRows:
         buckets the resulting rows into (score list, part dict, stave
         dict). Family order is fixed - hairpins, clef changes, octave
         shift, dashed/bracket lines, dynamics/tempo/other-direction words,
-        measure style, then the two part-only families (pedal change, pedal
-        span) and the fermata aggregate - the same order stage 5 already
-        established, so a row's position inside whichever bucket it lands
-        in never moves. Unfiltered by category - callers each apply their
-        own filter, matching the pre-stage-2 shape of part_level_rows/
+        generic stave text, rehearsal marks, measure style, then the two
+        part-only families (pedal change, pedal span) and the fermata
+        aggregate - so a row's position inside whichever bucket it lands in
+        never moves. Unfiltered by category - callers each apply their own
+        filter, matching the pre-stage-2 shape of part_level_rows/
         staff_level_rows."""
         self._ensure_index()
         data = self.data
@@ -519,6 +518,28 @@ class MarkingRows:
                 self._add_point_row_by_level(
                     _add, event_slice, mark, marking_labels.other_direction_label(mark.label),
                     "other_directions", mark.quarters_from_start,
+                )
+
+        # Stage 5 (PerformanceMarkingsImplementationPlanV2.md): generic
+        # stave text - a <words> direction that matched neither the
+        # dynamics nor tempo allow-list. inventory.csv: "reading the text
+        # as written" - unlike Region 5's "Stave text: X" wording, the
+        # note-list row is the bare printed text, same as before stage 5
+        # replaced the fabricated NoteData with this DirectionMark.
+        for mark in data.direction_marks:
+            if mark.kind == "words":
+                self._add_point_row_by_level(
+                    _add, event_slice, mark, mark.label,
+                    "stave_text", mark.quarters_from_start,
+                )
+
+        # Rehearsal marks - always score level (classification pins
+        # levels=("score",)). Category "stave_text" (inventory.csv).
+        for mark in data.direction_marks:
+            if mark.kind == "rehearsal":
+                self._add_point_row_by_level(
+                    _add, event_slice, mark, f"Rehearsal mark {mark.label}",
+                    "stave_text", mark.quarters_from_start,
                 )
 
         # MeasureStyleMark carries no quarters_from_start of its own - anchor

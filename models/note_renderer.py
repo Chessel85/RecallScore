@@ -20,7 +20,6 @@ from typing import Dict, List, Optional, Set, Tuple
 from models import vocabulary
 from models.note_data import NoteData
 from models.region3_row import MarkingRow, NoteRow, Region3Row
-from models.synthetic_parts import STAVE_TEXT_VOICE_ID
 
 
 class NoteRenderer:
@@ -35,22 +34,8 @@ class NoteRenderer:
 
         Only keys the note actually has a value for are included (a rest has
         no octave or midi). That absence is the mechanism that stops either
-        region rendering a row for data that doesn't exist.
-
-        A generic stave text event (voice == STAVE_TEXT_VOICE_ID) is not an
-        ordinary note and gets three deliberate deviations, all user-
-        requested after trying the feature live: its text goes under "text"
-        rather than "step" (it isn't a pitch step, and Region 4 needs its
-        own distinct label for it); it never gets a "duration" ("Allegro"
-        covering the rest of the piece is a real reading, but nothing short
-        of tracking every later instruction that could countermand it would
-        tell an assumed duration from a wrong one, so none is claimed at
-        all); and it never gets a "voice" (the fabricated STAVE_TEXT_VOICE_ID
-        number is an implementation detail, not information - there is only
-        ever one Stave Text voice per staff, so unlike a real voice number it
-        never disambiguates anything a user could act on)."""
+        region rendering a row for data that doesn't exist."""
         data = self.data
-        is_stave_text = note.voice == STAVE_TEXT_VOICE_ID
 
         step_str = note.step_name
         if note.grace_notes:
@@ -68,24 +53,17 @@ class NoteRenderer:
             # attribute pipeline below, exactly as it would on any note.
             step_str = f"{step_str}, tied"
 
-        # A fabricated rehearsal mark rides the Stave Text voice but keeps its
-        # label under "step" (a CORE_ATTRIBUTE_KEYS key Find never offers),
-        # not "text" - it is already findable as the "Rehearsal mark" marking
-        # target, so a duplicate "text" attribute row is just noise (reported).
-        label_key = "text" if (is_stave_text and not note.is_rehearsal_text) else "step"
-        pairs = {label_key: step_str}
+        pairs = {"step": step_str}
         if note.octave is not None:
             pairs["octave"] = str(note.octave)
         if note.midi_pitch is not None:
             pairs["midi"] = str(note.midi_pitch)
         pairs["measure"] = str(note.measure)
         pairs["beat position"] = str(note.beat_position)
-        if not is_stave_text:
-            pairs["duration"] = self._duration_text(note)
+        pairs["duration"] = self._duration_text(note)
         pairs["part"] = note.part_name
         pairs["stave"] = data.get_stave_name_for_part(note.part_id, note.staff)
-        if not is_stave_text:
-            pairs["voice"] = str(note.voice)
+        pairs["voice"] = str(note.voice)
 
         # The optional per-note tail: each renders only where the parser
         # actually found one. Adding a new one here plus in
@@ -185,10 +163,10 @@ class NoteRenderer:
     def region_3_data(self) -> List[Region3Row]:
         """PerformanceMarkingsStrategy.md section 15 (stage 2): one typed row
         per visible note, in the same order/indexing _visible_notes() has
-        always used - a fabricated Stave Text/Rehearsal event (voice ==
-        STAVE_TEXT_VOICE_ID) becomes a MarkingRow carrying that NoteData
-        rather than a NoteRow, since it isn't a real note; everything else
-        is unchanged. MusicData.get_region_3_data() is the thin
+        always used, with the score/part/stave marking rows
+        (score_level_rows/part_level_rows/staff_level_rows - stave text and
+        rehearsal marks among them since stage 5) interleaved ahead of the
+        groups they belong to. MusicData.get_region_3_data() is the thin
         string-list wrapper every existing caller still uses."""
         data = self.data
         current = data.get_current_slice()
@@ -222,10 +200,7 @@ class NoteRenderer:
                 seen_staff_keys.add(staff_key)
                 rows.extend(staff_rows.get(staff_key, []))
             text = self.format_note_for_region_3(note)
-            if note.voice == STAVE_TEXT_VOICE_ID:
-                rows.append(MarkingRow(text=text, marking=note, note_index=i))
-            else:
-                rows.append(NoteRow(text=text, note_index=i))
+            rows.append(NoteRow(text=text, note_index=i))
         return rows
 
     # --- Region 4 -----------------------------------------------------
@@ -247,15 +222,7 @@ class NoteRenderer:
             for attribute_key in data.attribute_order:
                 if attribute_key not in pairs:
                     continue
-                # A rehearsal mark stores its label under "step" only so Find
-                # never lists it as an attribute target - to the reader it is
-                # stave text, so Region 4 labels the row "text", like a
-                # <words> mark, not "step" as if it were a pitch.
-                display_attr = (
-                    "text" if (attribute_key == "step" and n.is_rehearsal_text)
-                    else attribute_key
-                )
-                label = vocabulary.attribute_label(display_attr, data.uk_terms)
+                label = vocabulary.attribute_label(attribute_key, data.uk_terms)
                 rows.append((f"{prefix}{label}", attribute_key, n, pairs[attribute_key]))
         return rows
 

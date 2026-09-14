@@ -16,13 +16,6 @@ elsewhere. Only MarkingRows' note-list rows (score_level_rows/
 part_level_rows/staff_level_rows) actually drop a row when its category is
 off.
 
-`stave_text`'s Region 5 row reads the fabricated Stave Text NoteData directly
-(parsers/timeline_builder.py's STAVE_TEXT_VOICE_ID voice), so Ctrl+N toggles
-its asterisk, but the matching note-list text is rendered by
-models/note_renderer.py's main note loop, not MarkingRows, and is not yet
-filterable by this category - that wiring is stage 5 work, when stave text
-becomes a real DirectionMark/MarkingRow family.
-
 A category not in this tuple is simply never off - its rows always render
 regardless of marking_categories_off (see MarkingRows filtering and
 PerformanceRows' asterisk logic, both of which treat category=None the

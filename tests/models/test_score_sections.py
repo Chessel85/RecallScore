@@ -163,17 +163,19 @@ def test_performance_report_is_scoped_to_the_active_section(timeline, two_sectio
 def test_find_targets_and_occurrences_are_scoped_to_the_active_section(
     timeline, two_sections_score
 ):
-    """The "Exercise 1"/"Exercise 2" <words> each surface as a text Find
-    target. A section sees only its own - count 1, not 2 - and Find lands
-    inside the section."""
+    """The "Exercise 1"/"Exercise 2" <words> each surface as a stave_text
+    Find target (PerformanceMarkingsImplementationPlanV2.md stage 5 - a
+    "words" DirectionMark, no longer a "text" note attribute). A section
+    sees only its own - count 1, not 2 - and Find lands inside the
+    section."""
     md = timeline(two_sections_score)
     counts = {t.key: c for t, c in md.available_find_targets_with_counts()}
-    assert counts.get("text") == 1
+    assert counts.get("stave_text") == 1
 
     assert md.set_active_section(1) is True
     targets = md.available_find_targets_with_counts()
-    assert {t.key: c for t, c in targets}.get("text") == 1
-    text_target = next(t for t, _ in targets if t.key == "text")
+    assert {t.key: c for t, c in targets}.get("stave_text") == 1
+    text_target = next(t for t, _ in targets if t.key == "stave_text")
     idx = md.find_occurrence(text_target, -1, 1)
     assert md.timeline_slices[idx].measure in (1, 2)
 

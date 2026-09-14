@@ -127,11 +127,12 @@ def other_direction_label(label: str) -> str:
 
 
 def stave_text_label(text: str) -> str:
-    """"Stave text: Allegro" - Region 5's stage 4 wording for a generic
-    <words> direction that doesn't match the dynamics/tempo allow-list
-    (models/vocabulary.py). Region 3 shows the bare text on its own fabricated
-    row (STAVE_TEXT_VOICE_ID); Region 5 names the kind so a one-line summary
-    away from the note list still reads as text, not a mystery string."""
+    """"Stave text: Allegro" - Region 5's wording for a generic <words>
+    direction that doesn't match the dynamics/tempo allow-list
+    (models/vocabulary.py). The note-list row (models/marking_rows.py)
+    shows the bare text instead - inventory.csv's "reading the text as
+    written"; Region 5 names the kind so a one-line summary away from the
+    note list still reads as text, not a mystery string."""
     return f"Stave text: {text}"
 
 

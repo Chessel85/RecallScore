@@ -31,8 +31,8 @@ class FindTarget:
 # threshold: the question is whether the value carries musical identity a
 # performer would navigate by ("find the next trill", "find the next fff"),
 # not how many distinct values there happen to be. Everything not listed
-# here - fret, string, fingering, pluck, text (stave text), strum, fermata,
-# grace, arpeggio - is offered as a single "any" target only.
+# here - fret, string, fingering, pluck, strum, fermata, grace, arpeggio -
+# is offered as a single "any" target only.
 #
 # Some keys here (chord symbol, other notation) are produced by later
 # phases; listing them now is harmless - a key absent from the score simply
@@ -96,6 +96,11 @@ MARKING_KINDS: List[Tuple[str, str]] = [
     # Plain-text <words> instructions surfaced as point marks.
     ("dynamics_instruction", "Dynamics instruction"),
     ("tempo_instruction", "Tempo instruction"),
+    # Stage 5 (PerformanceMarkingsImplementationPlanV2.md): a generic
+    # <words> direction that matched neither allow-list - the "text" note
+    # attribute target it used to be a fabricated NoteData for is gone; it
+    # is a DirectionMark like the two above now.
+    ("stave_text", "Stave text"),
     # P4: barlines (M6), mid-part clef changes (M7), measure styles (M8).
     # Like other_direction the dialog label is generic - the specific
     # style/clef shows in Region 5 and the Performance Report. D16: there is
