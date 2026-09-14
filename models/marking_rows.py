@@ -84,9 +84,18 @@ class MarkingRows:
             rows.append(MarkingRow(text="Fermata on barline", marking=event_slice, category="barlines"))
 
         def _add(span, name: str, category: str) -> None:
-            if span.end_measure == event_slice.measure and self._is_last_of_measure(event_slice):
+            # A span that opens and closes on the very same event (a one-bar
+            # repeat/ending/section whose bar holds a single event) gets one
+            # bare row, not "X end" immediately followed by "X start" -
+            # mirroring the hairpin point rule in staff_level_rows.
+            is_end = span.end_measure == event_slice.measure and self._is_last_of_measure(event_slice)
+            is_start = span.start_measure == event_slice.measure and self._is_first_of_measure(event_slice)
+            if is_start and is_end:
+                rows.append(MarkingRow(text=name, marking=span, category=category))
+                return
+            if is_end:
                 rows.append(MarkingRow(text=marking_labels.end_label(name), marking=span, category=category))
-            if span.start_measure == event_slice.measure and self._is_first_of_measure(event_slice):
+            if is_start:
                 rows.append(MarkingRow(text=marking_labels.start_label(name), marking=span, category=category))
 
         for span in data.repeat_spans:

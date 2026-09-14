@@ -1304,6 +1304,11 @@ class PlaybackController(QObject):
         beats and nothing about barline meaning. Independent of the position
         announcer, which stays audible alongside either.
 
+        before_measure/after_measure are normalised to (min, max) before
+        pattern_for_crossing looks them up - a barline is the same barline
+        whichever direction it is crossed from, so Left across a repeat end
+        must sound the same pattern as Right did.
+
         Sounds AFTER the destination note's own audition, never before: both
         the plain beep and a pattern are on BARLINE_PATTERN_CHANNEL, which
         stop_all_notes() releases, and the note audition's retrigger=True
@@ -1320,7 +1325,7 @@ class PlaybackController(QObject):
         pattern_kind = None
         if before_measure is not None and after_measure is not None:
             pattern_kind = pattern_for_crossing(
-                before_measure, after_measure,
+                min(before_measure, after_measure), max(before_measure, after_measure),
                 self.music_data.repeat_spans, self.music_data.ending_spans,
                 self.music_data.barline_marks,
             )

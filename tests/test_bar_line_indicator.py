@@ -3,7 +3,10 @@
 Left/Right step crosses a bar line, so bar boundaries are audible while
 arrowing through notes.
 """
-from audio.barline_patterns import BARLINE_PATTERN_CHANNEL, PLAIN_BARLINE_NOTE
+import pytest
+
+from audio.barline_patterns import BARLINE_PATTERN_CHANNEL, BARLINE_PATTERNS, PLAIN_BARLINE_NOTE
+from models.barline_mark import BarlineMark
 from models.repeat_span import RepeatSpan
 from tests.support.main_window_helpers import load_and_wait
 from widgets import accessible_announcer
@@ -200,6 +203,82 @@ def test_plain_barline_beep_is_unaffected_by_stage_4(
     assert len(null_synth.clicks) == 1
     assert null_synth.clicks[0]["channel"] == BARLINE_PATTERN_CHANNEL
     assert null_synth.clicks[0]["pitch"] == PLAIN_BARLINE_NOTE
+
+
+@pytest.mark.parametrize(
+    "setup, expected_note",
+    [
+        (
+            lambda md: setattr(md, "repeat_spans", [RepeatSpan(start_measure=5, end_measure=8)])
+            or setattr(md, "barline_marks", []),
+            BARLINE_PATTERNS["repeat_start"]["note"],
+        ),
+        (
+            lambda md: setattr(md, "repeat_spans", [RepeatSpan(start_measure=1, end_measure=4)])
+            or setattr(md, "barline_marks", []),
+            BARLINE_PATTERNS["repeat_end"]["note"],
+        ),
+        (
+            lambda md: setattr(
+                md, "repeat_spans",
+                [RepeatSpan(start_measure=1, end_measure=4), RepeatSpan(start_measure=5, end_measure=8)],
+            ) or setattr(md, "barline_marks", []),
+            BARLINE_PATTERNS["repeat_end_and_start"]["note"],
+        ),
+        (
+            lambda md: setattr(md, "repeat_spans", []) or setattr(
+                md, "barline_marks",
+                [BarlineMark(kind="double_barline", style="double", measure=4, location="right")],
+            ),
+            BARLINE_PATTERNS["double"]["note"],
+        ),
+        (
+            lambda md: setattr(md, "repeat_spans", []) or setattr(
+                md, "barline_marks",
+                [BarlineMark(kind="other_barline", style="heavy", measure=4, location="right")],
+            ),
+            BARLINE_PATTERNS["heavy"]["note"],
+        ),
+        (
+            lambda md: setattr(md, "repeat_spans", []) or setattr(
+                md, "barline_marks",
+                [BarlineMark(kind="other_barline", style="tick", measure=4, location="right")],
+            ),
+            BARLINE_PATTERNS["tick_or_short"]["note"],
+        ),
+    ],
+    ids=["repeat_start", "repeat_end", "repeat_end_and_start", "double", "heavy", "tick"],
+)
+def test_pattern_sounds_the_same_note_whichever_direction_the_barline_is_crossed(
+    window, qtbot, null_synth, many_measures_score, setup, expected_note
+):
+    load_and_wait(window, qtbot, many_measures_score)
+    window.toggle_bar_line_indicator()
+    setup(window._music_data)
+
+    null_synth.clicks.clear()
+    window.playback.play_barline_indicator(4, 5)
+    rightward_note = null_synth.clicks[-1]["pitch"]
+
+    null_synth.clicks.clear()
+    window.playback.play_barline_indicator(5, 4)
+    leftward_note = null_synth.clicks[-1]["pitch"]
+
+    assert rightward_note == leftward_note == expected_note
+
+
+def test_leftward_crossing_of_a_plain_barline_still_plays_the_plain_beep(
+    window, qtbot, null_synth, many_measures_score
+):
+    load_and_wait(window, qtbot, many_measures_score)
+    window.toggle_bar_line_indicator()
+    null_synth.clicks.clear()
+
+    window.playback.play_barline_indicator(5, 4)
+
+    assert len(null_synth.clicks) == 1
+    assert null_synth.clicks[0]["pitch"] == PLAIN_BARLINE_NOTE
+    assert null_synth.clicks[0]["channel"] == BARLINE_PATTERN_CHANNEL
 
 
 def test_defaults_off_and_is_per_score_not_carried_between_scores(
