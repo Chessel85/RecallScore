@@ -26,3 +26,14 @@ class DirectionMark:
     measure: int
     beat_position: float
     quarters_from_start: float
+    # Stage 1 (PerformanceMarkingsImplementationPlanV2.md): the owning
+    # <direction>'s `system` attribute ("only-top"/"also-top"/"none"/absent),
+    # with `directive="yes"` folded in as "only-top" (a directive is a
+    # score-wide instruction by definition - ground rule 1). "" when neither
+    # attribute was written. Feeds stage 2's level_of() ground rule 1.
+    system: str = ""
+    # Whether the source <direction> actually wrote a <staff> child - `staff`
+    # above is already defaulted to 1 when absent, so this is the only way
+    # to tell "really on staff 1" from "no staff given, defaulted to 1"
+    # (ground rule 3 needs the real answer).
+    staff_given: bool = True

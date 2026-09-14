@@ -457,6 +457,26 @@ def _staff_number(elem, default):
     return default
 
 
+def _direction_system(elem) -> str:
+    """Stage 1 (PerformanceMarkingsImplementationPlanV2.md): a <direction>'s
+    `system` value for classification's ground rule 1 - "score if ... the
+    <direction> has system="only-top", system="also-top" or directive="yes"".
+    `directive="yes"` is folded into "only-top" here rather than tracked
+    separately, since both mean exactly the same thing to that rule. ""
+    when the element wrote neither attribute."""
+    if elem.attrib.get("directive") == "yes":
+        return "only-top"
+    return elem.attrib.get("system", "")
+
+
+def _staff_given(elem) -> bool:
+    """Whether `elem` (a <direction>) actually wrote a <staff> child -
+    `_staff_number`'s `default` already masks that away, so ground rule 3
+    ("the element gives <staff>") needs this instead."""
+    staff_el = elem.find("staff")
+    return staff_el is not None and bool(staff_el.text and staff_el.text.strip())
+
+
 def _transpose_semitones(transpose_el) -> int:
     """Sounding-pitch offset in semitones for an <attributes>/<transpose>
     (a transposing instrument: B flat cornet, F horn, double bass at
@@ -653,8 +673,10 @@ class _PartState:
     # start, mirroring _step_barline's single forward-repeat slot - nested
     # same-kind direction spans on one staff aren't a real notation concept.
     # Each value is (start_measure, start_beat_position,
-    # start_quarters_from_start, staff, label).
-    open_direction_spans: Dict[str, Tuple[int, float, float, int, str]] = field(
+    # start_quarters_from_start, staff, label, system, staff_given) - the
+    # last two are stage 1's DirectionSpan.system/staff_given, read off the
+    # OPENING <direction>.
+    open_direction_spans: Dict[str, Tuple[int, float, float, int, str, str, bool]] = field(
         default_factory=dict
     )
 
@@ -664,8 +686,10 @@ class _PartState:
     # it is a real notation concept (files/etude 2.mxl), so a <wedge
     # type="stop"> closes the innermost (most recently opened) wedge first.
     # Each entry is (kind, start_measure, start_beat_position,
-    # start_quarters_from_start).
-    open_wedges: Dict[Tuple[int, int], List[Tuple[str, int, float, float]]] = field(
+    # start_quarters_from_start, system, staff_given) - the last two are
+    # stage 1's HairpinSpan.system/staff_given, read off the OPENING
+    # <direction>.
+    open_wedges: Dict[Tuple[int, int], List[Tuple[str, int, float, float, str, bool]]] = field(
         default_factory=dict
     )
 
@@ -1237,6 +1261,8 @@ class TimelineBuilder:
                         quarters_from_start=(
                             measure_start_quarters.get(measure_state.m_num, 0.0) + offset_q
                         ),
+                        system=_direction_system(elem),
+                        staff_given=_staff_given(elem),
                     )
                 )
 
@@ -1292,6 +1318,8 @@ class TimelineBuilder:
         beat_pos = part_state.beat_position(m_num, offset_q)
         quarters = measure_start_quarters.get(m_num, 0.0) + offset_q
         staff = _staff_number(elem, default=1)
+        system = _direction_system(elem)
+        staff_given = _staff_given(elem)
         # A <dashes>/<bracket type="start"> extends whatever instruction is
         # printed alongside it - MusicXML puts that <words> text as a sibling
         # direction-type inside this SAME <direction> element (e.g. "cresc."
@@ -1304,16 +1332,18 @@ class TimelineBuilder:
                 continue  # handled elsewhere
             if tag == "pedal":
                 self._step_pedal(
-                    dt_child, part_state, m_num, beat_pos, quarters, staff
+                    dt_child, part_state, m_num, beat_pos, quarters, staff,
+                    system, staff_given,
                 )
             elif tag == "octave-shift":
                 self._step_octave_shift(
-                    dt_child, part_state, m_num, beat_pos, quarters, staff
+                    dt_child, part_state, m_num, beat_pos, quarters, staff,
+                    system, staff_given,
                 )
             elif tag in ("dashes", "bracket"):
                 self._step_direction_line(
                     dt_child, tag, part_state, m_num, beat_pos, quarters, staff,
-                    words_text,
+                    words_text, system, staff_given,
                 )
             elif tag == "rehearsal":
                 # A MuseScore export can leave a stray empty <rehearsal></rehearsal>
@@ -1339,6 +1369,8 @@ class TimelineBuilder:
                         measure=m_num,
                         beat_position=reh_beat,
                         quarters_from_start=reh_quarters,
+                        system=system,
+                        staff_given=staff_given,
                     )
                 )
                 # Also surface it in Region 3 as a Stave Text event, so
@@ -1373,13 +1405,18 @@ class TimelineBuilder:
                         measure=m_num,
                         beat_position=beat_pos,
                         quarters_from_start=quarters,
+                        system=system,
+                        staff_given=staff_given,
                     )
                 )
 
     def _open_direction_span(
-        self, part_state, kind: str, m_num, beat_pos, quarters, staff, label: str
+        self, part_state, kind: str, m_num, beat_pos, quarters, staff, label: str,
+        system: str = "", staff_given: bool = True,
     ) -> None:
-        part_state.open_direction_spans[kind] = (m_num, beat_pos, quarters, staff, label)
+        part_state.open_direction_spans[kind] = (
+            m_num, beat_pos, quarters, staff, label, system, staff_given
+        )
 
     def _close_direction_span(
         self, part_state, kind: str, m_num, beat_pos, quarters
@@ -1387,7 +1424,7 @@ class TimelineBuilder:
         open_slot = part_state.open_direction_spans.pop(kind, None)
         if open_slot is None:
             return
-        start_m, start_beat, start_quarters, start_staff, label = open_slot
+        start_m, start_beat, start_quarters, start_staff, label, system, staff_given = open_slot
         self.direction_spans.append(
             DirectionSpan(
                 kind=kind,
@@ -1400,18 +1437,24 @@ class TimelineBuilder:
                 end_measure=m_num,
                 end_beat_position=beat_pos,
                 end_quarters_from_start=quarters,
+                system=system,
+                staff_given=staff_given,
             )
         )
 
     def _step_pedal(
-        self, pedal_el, part_state, m_num, beat_pos, quarters, staff
+        self, pedal_el, part_state, m_num, beat_pos, quarters, staff,
+        system: str = "", staff_given: bool = True,
     ) -> None:
         """<pedal type="start"|"sostenuto"|"stop"|"change">. A `change`
         (pedal lift-and-retake) is a point, not a span; start/sostenuto open
         one span kind, stop closes it."""
         ptype = pedal_el.attrib.get("type", "")
         if ptype in ("start", "sostenuto", "resume"):
-            self._open_direction_span(part_state, "pedal", m_num, beat_pos, quarters, staff, "")
+            self._open_direction_span(
+                part_state, "pedal", m_num, beat_pos, quarters, staff, "",
+                system, staff_given,
+            )
         elif ptype == "stop":
             self._close_direction_span(part_state, "pedal", m_num, beat_pos, quarters)
         elif ptype == "change":
@@ -1424,11 +1467,14 @@ class TimelineBuilder:
                     measure=m_num,
                     beat_position=beat_pos,
                     quarters_from_start=quarters,
+                    system=system,
+                    staff_given=staff_given,
                 )
             )
 
     def _step_octave_shift(
-        self, shift_el, part_state, m_num, beat_pos, quarters, staff
+        self, shift_el, part_state, m_num, beat_pos, quarters, staff,
+        system: str = "", staff_given: bool = True,
     ) -> None:
         """<octave-shift type="up"|"down"|"stop" size="8"|"15">. The label
         ("8va" above / "8vb" below; "15ma"/"15mb" for two octaves) is set at
@@ -1441,14 +1487,15 @@ class TimelineBuilder:
             else:
                 label = "8va" if stype == "up" else "8vb"
             self._open_direction_span(
-                part_state, "octave_shift", m_num, beat_pos, quarters, staff, label
+                part_state, "octave_shift", m_num, beat_pos, quarters, staff, label,
+                system, staff_given,
             )
         elif stype == "stop":
             self._close_direction_span(part_state, "octave_shift", m_num, beat_pos, quarters)
 
     def _step_direction_line(
         self, line_el, kind: str, part_state, m_num, beat_pos, quarters, staff,
-        words_text: str = "",
+        words_text: str = "", system: str = "", staff_given: bool = True,
     ) -> None:
         """<dashes>/<bracket> type="start"|"stop" - a plain span, the same
         open/close shape as pedal. `words_text` is whatever sibling <words>
@@ -1458,7 +1505,8 @@ class TimelineBuilder:
         ltype = line_el.attrib.get("type", "")
         if ltype == "start":
             self._open_direction_span(
-                part_state, kind, m_num, beat_pos, quarters, staff, words_text
+                part_state, kind, m_num, beat_pos, quarters, staff, words_text,
+                system, staff_given,
             )
         elif ltype in ("stop", "end"):
             self._close_direction_span(part_state, kind, m_num, beat_pos, quarters)
@@ -2378,6 +2426,8 @@ class TimelineBuilder:
         beat_pos = part_state.beat_position(m_num, offset_q)
         quarters = measure_start_quarters.get(m_num, 0.0) + offset_q
         staff = _staff_number(elem, default=1)
+        system = _direction_system(elem)
+        staff_given = _staff_given(elem)
         try:
             number = int(wedge_el.attrib.get("number", "1"))
         except ValueError:
@@ -2386,7 +2436,7 @@ class TimelineBuilder:
 
         if wedge_type in ("crescendo", "diminuendo"):
             part_state.open_wedges.setdefault(key, []).append(
-                (wedge_type, m_num, beat_pos, quarters)
+                (wedge_type, m_num, beat_pos, quarters, system, staff_given)
             )
             return
 
@@ -2395,7 +2445,7 @@ class TimelineBuilder:
 
         stack = part_state.open_wedges.get(key)
         if stack:
-            kind, start_m, start_beat, start_quarters = stack.pop()
+            kind, start_m, start_beat, start_quarters, open_system, open_staff_given = stack.pop()
             self.hairpin_spans.append(
                 HairpinSpan(
                     kind=kind,
@@ -2408,6 +2458,8 @@ class TimelineBuilder:
                     part_id=part_state.part_id,
                     staff=staff,
                     number=number,
+                    system=open_system,
+                    staff_given=open_staff_given,
                 )
             )
             return
@@ -2415,7 +2467,8 @@ class TimelineBuilder:
         # A stop with nothing open: reported with the gap stated rather than
         # dropped. start_* is pinned to the start of the stop's own measure
         # only so containment still resolves - start_known=False is what the
-        # wording keys off.
+        # wording keys off. system/staff_given come from the STOP's own
+        # <direction> here, the only one there is.
         self.hairpin_spans.append(
             HairpinSpan(
                 kind="",
@@ -2429,6 +2482,8 @@ class TimelineBuilder:
                 staff=staff,
                 number=number,
                 start_known=False,
+                system=system,
+                staff_given=staff_given,
             )
         )
 
@@ -2446,7 +2501,7 @@ class TimelineBuilder:
         )
         end_beat = part_state.beat_position(last_m_num, part_state.full_bar_quarters)
         for (staff, number), stack in part_state.open_wedges.items():
-            for kind, start_m, start_beat, start_quarters in stack:
+            for kind, start_m, start_beat, start_quarters, system, staff_given in stack:
                 self.hairpin_spans.append(
                     HairpinSpan(
                         kind=kind,
@@ -2460,6 +2515,8 @@ class TimelineBuilder:
                         staff=staff,
                         number=number,
                         end_known=False,
+                        system=system,
+                        staff_given=staff_given,
                     )
                 )
             stack.clear()

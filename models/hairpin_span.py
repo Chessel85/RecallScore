@@ -37,3 +37,8 @@ class HairpinSpan:
     # the *_known flags are what the wording keys off, never the positions.
     start_known: bool = True
     end_known: bool = True
+    # Stage 1 (PerformanceMarkingsImplementationPlanV2.md): see
+    # DirectionMark.system/staff_given - read off the OPENING <direction>
+    # (or the stop's own, for a stop with nothing open).
+    system: str = ""
+    staff_given: bool = True

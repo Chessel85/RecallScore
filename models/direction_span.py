@@ -33,3 +33,8 @@ class DirectionSpan:
     end_measure: int
     end_beat_position: float
     end_quarters_from_start: float
+    # Stage 1 (PerformanceMarkingsImplementationPlanV2.md): see
+    # DirectionMark.system/staff_given - same meaning, read off the
+    # OPENING <direction> (a span's system/staff don't change mid-span).
+    system: str = ""
+    staff_given: bool = True
