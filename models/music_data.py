@@ -9,7 +9,6 @@ from models.clef_change_mark import ClefChangeMark
 from models.coda_mark import CodaMark
 from models.direction_mark import DirectionMark
 from models.direction_span import DirectionSpan
-from models.directive_mark import DirectiveMark
 from models.ending_span import EndingSpan
 from models.measure_style_mark import MeasureStyleMark
 from models.marking_rows import MarkingRows
@@ -230,18 +229,6 @@ class MusicData:
     to_coda_marks: List[ToCodaMark] = field(default_factory=list)
     fine_marks: List[FineMark] = field(default_factory=list)
     navigation_jumps: List[NavigationJump] = field(default_factory=list)
-    # Stage 7 (PerformanceMarkingsStrategy.md section 9); PI tweaks stage 5
-    # flipped the default: <direction directive="yes"> score-wide
-    # instructions, in file order. MusicXML-only, like segno_marks etc
-    # above. directives_hidden_from_note_list holds the indices (into
-    # directive_marks) Ctrl+N has HIDDEN from the note list - every
-    # directive is shown by default now, empty means "show them all", per-
-    # score via ScoreConfig.directive_labels_hidden_from_note_list
-    # (export_config/apply_config translate between the two, matching by
-    # (measure, label) so a re-parse that reorders the list doesn't silently
-    # hide/show the wrong directive).
-    directive_marks: List[DirectiveMark] = field(default_factory=list)
-    directives_hidden_from_note_list: Set[int] = field(default_factory=set)
     # Stage 9 (PerformanceMarkingsStrategy.md section 8): the note-list
     # categories (models.marking_categories.ALL_CATEGORIES) Ctrl+N has
     # switched OFF - default empty, since every category starts on. A
@@ -691,38 +678,6 @@ class MusicData:
             )
         return data
 
-    def get_directive_rows(self) -> List[Tuple[int, str, bool]]:
-        """Region 1's Directives list (strategy section 9): (index, display
-        text, surfaced) triples, sorted into bar order - directive_marks
-        itself is in file/part-walk order, which needn't be bar order once a
-        later part in the file carries an earlier directive. `index` is the
-        stable position in directive_marks that Ctrl+N (toggle_directive_
-        in_note_list) and persistence both key off. "surfaced" is `index`
-        NOT in directives_hidden_from_note_list (PI tweaks stage 5: every
-        directive is shown by default)."""
-        bar_word_str = vocabulary.bar_word(self.uk_terms)
-        rows = [
-            (
-                i, f"Directive: {mark.label} ({bar_word_str} {mark.measure})",
-                i not in self.directives_hidden_from_note_list,
-            )
-            for i, mark in enumerate(self.directive_marks)
-        ]
-        return sorted(rows, key=lambda row: self.directive_marks[row[0]].measure)
-
-    def toggle_directive_in_note_list(self, index: int) -> bool:
-        """Ctrl+N on a Region 1 directive row: shows/hides it in the note
-        list (as a score-level point row - see MarkingRows.score_level_rows)
-        and returns the new state (True = now shown). A no-op (returns
-        False) for an out-of-range index."""
-        if not (0 <= index < len(self.directive_marks)):
-            return False
-        if index in self.directives_hidden_from_note_list:
-            self.directives_hidden_from_note_list.discard(index)
-            return True
-        self.directives_hidden_from_note_list.add(index)
-        return False
-
     def toggle_marking_category(self, category: str) -> bool:
         """Ctrl+N on a Region 5 row (strategy section 8): flips whether
         `category`'s rows (marking_rows.MarkingRows) and the "* " prefix
@@ -1079,11 +1034,6 @@ class MusicData:
             percussion_item_name_overrides=dict(self.percussion_item_name_overrides),
             percussion_auto_correct_enabled=self.percussion_auto_correct_enabled,
             last_position_index=self.active_event_index,
-            directive_labels_hidden_from_note_list={
-                (self.directive_marks[i].measure, self.directive_marks[i].label)
-                for i in self.directives_hidden_from_note_list
-                if 0 <= i < len(self.directive_marks)
-            },
             marking_categories_off=set(self.marking_categories_off),
         )
 
@@ -1125,19 +1075,6 @@ class MusicData:
         self.apply_key_signature_override(
             config.key_signature_override_fifths, config.key_signature_override_mode
         )
-
-        # Stage 7; PI tweaks stage 5 inverted the default - match saved
-        # (measure, label) HIDDEN directive keys against this score's
-        # freshly parsed directive_marks - best-effort, like every other
-        # override above; an entry matching nothing here is dropped. An
-        # older .rsc's "directive_labels_in_note_list" (the pre-stage-5 key)
-        # is deliberately ignored, not migrated: under the new default every
-        # directive is already shown, a superset of what that key surfaced.
-        hidden = set(config.directive_labels_hidden_from_note_list)
-        self.directives_hidden_from_note_list = {
-            i for i, mark in enumerate(self.directive_marks)
-            if (mark.measure, mark.label) in hidden
-        }
 
         # Stage 9: best-effort like every override above - an unrecognised
         # category id (an older .rsc, or a category renamed since) is

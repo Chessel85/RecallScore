@@ -106,14 +106,6 @@ class ScoreConfig:
     # out-of-range value (the score changed since) is dropped in
     # MusicData.apply_config, leaving the default of 0.
     last_position_index: int = 0
-    # Stage 7 (PerformanceMarkingsStrategy.md section 9); PI tweaks stage 5
-    # inverted the default - every directive is shown unless Ctrl+N has
-    # hidden it, keyed by (measure, label) rather than list position so a
-    # re-parse that reorders directive_marks doesn't silently hide/show the
-    # wrong one - matched best-effort in MusicData.apply_config, like every
-    # other override here. An older .rsc's "directive_labels_in_note_list"
-    # key is ignored on load, not migrated (see apply_config).
-    directive_labels_hidden_from_note_list: Set[Tuple[int, str]] = field(default_factory=set)
     # Stage 9 (PerformanceMarkingsStrategy.md section 8): which note-list
     # marking categories (models.marking_categories.ALL_CATEGORIES) Ctrl+N
     # has switched off for THIS score - empty means every category is on.

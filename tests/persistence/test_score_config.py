@@ -179,6 +179,29 @@ def test_load_for_a_file_saved_before_position_announcer_existed():
     assert loaded.position_announcer_enabled is False
 
 
+def test_load_for_a_file_with_either_old_directive_key_ignores_it():
+    """Stage 3 (PerformanceMarkingsImplementationPlanV2.md) dropped
+    ScoreConfig.directive_labels_hidden_from_note_list entirely - an .rsc
+    saved before that stage, carrying either the pre-stage-5 key
+    ("directive_labels_in_note_list") or the stage-5 key
+    ("directive_labels_hidden_from_note_list"), must still load rather than
+    erroring; there is simply no field left for either key to populate."""
+    path = score_config.path_for("Chessel Duet.mxl")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        '{"schema_version": 4, "parts_muted": [], "metronome_enabled": false, '
+        '"voice_display_attributes": {}, "attribute_order": [], '
+        '"directive_labels_in_note_list": ["2|Jauntily"], '
+        '"directive_labels_hidden_from_note_list": ["2|Jauntily"]}',
+        encoding="utf-8",
+    )
+
+    loaded = score_config.load_for("Chessel Duet.mxl")
+
+    assert loaded is not None
+    assert not hasattr(loaded, "directive_labels_hidden_from_note_list")
+
+
 def test_delete_for_removes_the_file_and_is_safe_when_missing():
     score_config.save("Chessel Duet.mxl", ScoreConfig())
     assert score_config.load_for("Chessel Duet.mxl") is not None

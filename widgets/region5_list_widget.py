@@ -32,9 +32,7 @@ class Region5ListWidget(RegionFocusCycleMixin, QListWidget):
     # False for Ctrl+End.
     span_jump_requested = Signal(bool)
     # Stage 9 (PerformanceMarkingsStrategy.md section 8): the focused row's
-    # marking_categories id, emitted by Ctrl+N or the Menu key/Shift+F10 -
-    # the same discoverable-equivalent pattern Region1ListWidget's
-    # directive_toggle_requested already established.
+    # marking_categories id, emitted by Ctrl+N or the Menu key/Shift+F10.
     category_toggle_requested = Signal(str)
 
     def __init__(self, parent=None):

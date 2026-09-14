@@ -37,8 +37,8 @@ Not routed through level_of() - these have no part_id/staff of their own at
 all, so there is nothing for ground rules 1/3/4 to key off, and they stay
 exactly where they always were (score level, in score_level_rows):
 RepeatSpan/EndingSpan/SectionSpan, BarlineMark, SegnoMark/CodaMark/
-ToCodaMark/FineMark/NavigationJump, DirectiveMark, and the key/time/tempo
-"structural change" labels. Ground rule 2 (score when every part agrees,
+ToCodaMark/FineMark/NavigationJump, and the key/time/tempo "structural
+change" labels. Ground rule 2 (score when every part agrees,
 else part, for barline styles/repeats/endings/key/time) needs a per-part
 comparison none of these objects carry today - that comparison is stage 10
 work (see marking_classification.py's own docstring); until then they stay
@@ -273,19 +273,6 @@ class MarkingRows:
             )
             rows.append(MarkingRow(text=label, marking=mark, category="barlines"))
 
-        # Directives (strategy section 9; PI tweaks stage 5: on by default
-        # now): score-level point rows for every directive Ctrl+N has NOT
-        # hidden - anchored like any other quarters-positioned point mark,
-        # at the first visible event at or after its own position.
-        if data.directive_marks:
-            self._ensure_score_index()
-            for index, mark in enumerate(data.directive_marks):
-                if index in data.directives_hidden_from_note_list:
-                    continue
-                anchor = self._first_at_or_after_score(mark.quarters_from_start)
-                if anchor == event_slice.quarters_from_start:
-                    rows.append(MarkingRow(text=f"Directive: {mark.label}", marking=mark))
-
         # Stage 6: key/time/immediate-tempo changes, via the same source
         # Region 5's one-shot rows and the change cue read
         # (structural_change_labels) - one source keeps the three from
@@ -301,12 +288,12 @@ class MarkingRows:
         rows.extend(family_score_rows)
 
         # Stage 9 (strategy section 8): drop any row whose category the
-        # user has switched off. A row with category=None (the directive
-        # rows above, and every category models.marking_categories
-        # deliberately excludes) is never filtered.
+        # user has switched off. A row with category=None (every category
+        # models.marking_categories deliberately excludes) is never
+        # filtered.
         return [r for r in rows if r.category is None or r.category not in data.marking_categories_off]
 
-    # --- score-level quarters index (stage 7 - directives) --------------
+    # --- score-level quarters index --------------------------------------
 
     def _ensure_score_index(self) -> None:
         if self._score_built:

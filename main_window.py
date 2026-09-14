@@ -588,9 +588,6 @@ class MainWindow(QMainWindow):
         )
         self.region_5.span_jump_requested.connect(self._jump_to_performance_span)
         self.region_4.context_menu_requested.connect(self.show_region_4_attribute_menu)
-        self.region_1.directive_toggle_requested.connect(
-            self.presenter.toggle_directive_in_note_list
-        )
         self.region_5.category_toggle_requested.connect(
             self.presenter.toggle_marking_category_in_note_list
         )

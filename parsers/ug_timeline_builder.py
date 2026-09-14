@@ -550,7 +550,6 @@ class UgTimelineBuilder:
         self.to_coda_marks: List = []
         self.fine_marks: List = []
         self.navigation_jumps: List = []
-        self.directive_marks: List = []  # Stage 7: MusicXML-only
         # P2: [Intro]/[Verse 1]/[Chorus]/... labels, as spans of the
         # fabricated bars.
         self.section_spans: List[SectionSpan] = []

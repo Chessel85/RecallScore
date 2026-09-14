@@ -3015,54 +3015,17 @@ def test_stage7_rehearsal_mark_not_duplicated_as_a_score_level_row(
         assert texts.count("Rehearsal mark A") + texts.count("Rehearsal mark B") <= 1
 
 
-def test_stage7_directive_listed_in_region_1_in_bar_order(timeline, stage7_directive_score):
-    """PI tweaks stage 5: every directive is shown in the note list by
-    default now, not hidden until Ctrl+N."""
+def test_stage3_directive_marking_removed(timeline, stage7_directive_score):
+    """Stage 3 (PerformanceMarkingsImplementationPlanV2.md): directive-only
+    marking rows are gone - a <direction directive="yes"> no longer produces
+    a "Directive: ..." row anywhere in the note list. `get_directive_rows`
+    and `toggle_directive_in_note_list` no longer exist at all."""
     md = timeline(stage7_directive_score)
-    rows = md.get_directive_rows()
-    assert [text for _, text, _ in rows] == ["Directive: Jauntily (measure 2)"]
-    assert [surfaced for _, _, surfaced in rows] == [True]
-
-
-def test_stage7_directive_shown_by_default_hidden_via_toggle(timeline, stage7_directive_score):
-    md = timeline(stage7_directive_score)
-    md.active_event_index = 1  # bar 2, where the directive sits
-    assert "Directive: Jauntily" in _marking_row_texts(md)
-
-    index = md.get_directive_rows()[0][0]
-    assert md.toggle_directive_in_note_list(index) is False
-    assert not any(t.startswith("Directive:") for t in _marking_row_texts(md))
-    assert md.get_directive_rows()[0][2] is False
-
-    assert md.toggle_directive_in_note_list(index) is True
-    assert "Directive: Jauntily" in _marking_row_texts(md)
-
-
-def test_stage7_directive_toggle_survives_save_and_reload(
-    timeline, stage7_directive_score
-):
-    md = timeline(stage7_directive_score)
-    index = md.get_directive_rows()[0][0]
-    md.toggle_directive_in_note_list(index)  # hides it
-
-    config = md.export_config()
-    assert config.directive_labels_hidden_from_note_list == {(2, "Jauntily")}
-
-    reloaded = timeline(stage7_directive_score)
-    reloaded.apply_config(config)
-    assert reloaded.get_directive_rows()[0][2] is False
-
-
-def test_stage7_old_rsc_key_ignored_directive_shown_by_default(timeline, stage7_directive_score):
-    """An old .rsc saved before PI tweaks stage 5 carries only
-    "directive_labels_in_note_list" - that key is dropped on load rather
-    than migrated, so every directive comes up shown, a superset of what it
-    used to surface."""
-    md = timeline(stage7_directive_score)
-    config = md.export_config()
-    assert config.directive_labels_hidden_from_note_list == set()
-    md.apply_config(config)
-    assert md.get_directive_rows()[0][2] is True
+    assert not hasattr(md, "get_directive_rows")
+    assert not hasattr(md, "toggle_directive_in_note_list")
+    for i in range(len(md.timeline_slices)):
+        md.active_event_index = i
+        assert not any(t.startswith("Directive:") for t in _marking_row_texts(md))
 
 
 # --- Stage 9: Ctrl+N marking categories --------------------------------

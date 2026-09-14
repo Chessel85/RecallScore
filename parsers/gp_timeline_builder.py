@@ -76,7 +76,6 @@ class GpTimelineBuilder:
         self.to_coda_marks: List = []
         self.fine_marks: List = []
         self.navigation_jumps: List = []
-        self.directive_marks: List = []  # Stage 7: MusicXML-only
         self.section_spans: List = []  # P2: UG-only so far
         self.total_measures: int = 0
 

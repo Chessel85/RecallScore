@@ -38,9 +38,9 @@ class MarkingRow:
     Stage 9: `category` is one of models.marking_categories.ALL_CATEGORIES
     - MarkingRows filters a row out of the note list entirely when its
     category is in MusicData.marking_categories_off. None (the default)
-    means "always on", either because the row has no toggle (a directive,
-    a barline fermata's category choice aside) or because it comes from a
-    category marking_categories.ALL_CATEGORIES deliberately excludes."""
+    means "always on", either because the row has no toggle (a barline
+    fermata's category choice aside) or because it comes from a category
+    marking_categories.ALL_CATEGORIES deliberately excludes."""
     text: str
     marking: Any
     note_index: Optional[int] = None
