@@ -5,6 +5,8 @@ list's start/end rendering (section 5, stage 3) are two views of the same
 vocabulary; keeping both here is what stops them drifting apart (CLAUDE.md
 invariant 8). Owns no state - pure functions over the measure/beat numbers
 callers already have from a span or mark."""
+from typing import Optional
+
 from models import vocabulary
 
 bar_word = vocabulary.bar_word
@@ -14,9 +16,25 @@ def _beat_str(beat_position: float) -> str:
     return str(int(beat_position)) if float(beat_position).is_integer() else str(beat_position)
 
 
-def bar_beat_label(word: str, measure: int, beat_position: float) -> str:
+def bar_beat_label(
+    word: str, measure: int, beat_position: float, beats_in_bar: Optional[int] = None
+) -> str:
     """"bar N" on the downbeat; "bar N beat B" otherwise - only markers
-    actually falling mid-bar name a beat (user's decision)."""
+    actually falling mid-bar name a beat (user's decision).
+
+    The timeline's own "barline after the last beat" convention
+    (`parsers/timeline_builder.py` `_PartState.beat_position`,
+    `_flush_open_direction_spans`, the barline fermata's `1.0 + ts_num`)
+    represents the barline itself as one unit past the last real beat - a
+    position that is internally consistent but reads as nonsense aloud
+    ("beat 5" in 4/4). `beats_in_bar`, when supplied, is that bar's time
+    signature numerator; a beat_position at or past `beats_in_bar + 1` is
+    that barline and is worded "end of <word> N" instead. The fix lives
+    here, the single place every report and Region 5 row formats a
+    bar/beat pair (CLAUDE.md invariant 8), rather than in the timeline,
+    which would have to invent a value with no other use."""
+    if beats_in_bar is not None and float(beat_position) >= beats_in_bar + 1:
+        return f"end of {word} {measure}"
     if float(beat_position) == 1.0:
         return f"{word} {measure}"
     return f"{word} {measure} beat {_beat_str(beat_position)}"
@@ -71,6 +89,8 @@ def range_label(
     start_beat: float,
     end_measure: int,
     end_beat: float,
+    start_beats_in_bar: Optional[int] = None,
+    end_beats_in_bar: Optional[int] = None,
 ) -> str:
     """Region 5's one-line span rendering (section 6): a span contained in
     one bar reads singular and the bar is named once ("bar 12", or "bar 2
@@ -79,14 +99,26 @@ def range_label(
     downbeat (repeats, endings, sections - they fall on barlines by
     construction) or the full "bar N beat B to bar M beat C" form otherwise.
     General across every span kind - callers prefix it with their own
-    marking name."""
+    marking name.
+
+    `start_beats_in_bar`/`end_beats_in_bar`, when supplied, are those
+    measures' time signature numerators, passed straight to
+    `bar_beat_label` so a span running to the barline (a hairpin or line
+    that reaches the end of a part hits this on every score) reads "to end
+    of bar N" rather than naming a beat past the end (see
+    `bar_beat_label`'s docstring)."""
     if start_measure == end_measure:
         if float(start_beat) == float(end_beat):
-            return bar_beat_label(word, start_measure, start_beat)
-        return f"{word} {start_measure} beat {_beat_str(start_beat)} to beat {_beat_str(end_beat)}"
+            return bar_beat_label(word, start_measure, start_beat, start_beats_in_bar)
+        end_part = (
+            f"end of {word} {end_measure}"
+            if end_beats_in_bar is not None and float(end_beat) >= end_beats_in_bar + 1
+            else f"beat {_beat_str(end_beat)}"
+        )
+        return f"{word} {start_measure} beat {_beat_str(start_beat)} to {end_part}"
     if float(start_beat) == 1.0 and float(end_beat) == 1.0:
         return f"{word}s {start_measure} to {end_measure}"
     return (
-        f"{bar_beat_label(word, start_measure, start_beat)} to "
-        f"{bar_beat_label(word, end_measure, end_beat)}"
+        f"{bar_beat_label(word, start_measure, start_beat, start_beats_in_bar)} to "
+        f"{bar_beat_label(word, end_measure, end_beat, end_beats_in_bar)}"
     )

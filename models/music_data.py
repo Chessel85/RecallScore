@@ -401,6 +401,13 @@ class MusicData:
         # TimelineBuild.apply_to and not mutated after, so this is built
         # lazily and kept, like _measure_numbers_cache.
         self._tempo_change_starts_cache: Optional[List[float]] = None
+        # Stage 4 (PI tweaks): {measure: time-signature numerator}, built
+        # lazily from _real_timeline_slices' first slice of each measure -
+        # same "cache until the build changes" property as the caches
+        # above. Feeds _bar_beat_label / _range_label so "past the end of
+        # the bar" positions can be worded "end of bar N" instead of naming
+        # a beat that does not exist (see marking_labels.bar_beat_label).
+        self._measure_ts_num_cache: Optional[Dict[int, int]] = None
         # P2 (UG "Tab" import): forward-filled "chord / lyric in effect"
         # context, aligned to _real_timeline_slices (the stable, marker-free
         # list) and resolved by quarters_from_start - same "cache until the
@@ -1266,12 +1273,49 @@ class MusicData:
         factored out here so this row's wording matches it exactly."""
         return str(int(value)) if float(value).is_integer() else str(round(value, 2))
 
-    @staticmethod
-    def _bar_beat_label(bar_word: str, measure: int, beat_position: float) -> str:
+    def _ts_num_for_measure(self, measure: int) -> Optional[int]:
+        """The time signature numerator in effect for `measure`, from
+        {measure: ts_num} lazily built off _real_timeline_slices' first
+        slice of each measure and cached like _measure_numbers_cache. None
+        for a measure with no real slice (nothing to divide by). Feeds
+        _bar_beat_label / _range_label's "end of bar" wording."""
+        if self._measure_ts_num_cache is None:
+            cache: Dict[int, int] = {}
+            for s in self._real_timeline_slices:
+                if s.measure not in cache:
+                    cache[s.measure] = s.time_sig[0]
+            self._measure_ts_num_cache = cache
+        return self._measure_ts_num_cache.get(measure)
+
+    def _bar_beat_label(self, bar_word: str, measure: int, beat_position: float) -> str:
         """Delegates to models.marking_labels, the single source of this
-        wording (invariant 8) - kept here as a thin wrapper since
-        performance_rows.py calls it as `data._bar_beat_label(...)`."""
-        return marking_labels.bar_beat_label(bar_word, measure, beat_position)
+        wording (invariant 8). No longer a staticmethod (stage 4 of the PI
+        tweaks plan): it looks up the bar's own time signature numerator so
+        a position at or past the barline reads "end of bar N" rather than
+        a beat that does not exist - see marking_labels.bar_beat_label's
+        docstring for why the timeline itself represents it that way."""
+        return marking_labels.bar_beat_label(
+            bar_word, measure, beat_position, self._ts_num_for_measure(measure)
+        )
+
+    def _range_label(
+        self,
+        bar_word: str,
+        start_measure: int,
+        start_beat: float,
+        end_measure: int,
+        end_beat: float,
+    ) -> str:
+        """Same "end of bar" fix as _bar_beat_label, for the two-ended range
+        wording (models.marking_labels.range_label) used by hairpins and
+        direction lines - a span running to the barline (common: it happens
+        on every score whose last hairpin/line reaches the end of a part)
+        must not bypass the lookup by calling marking_labels.range_label
+        directly."""
+        return marking_labels.range_label(
+            bar_word, start_measure, start_beat, end_measure, end_beat,
+            self._ts_num_for_measure(start_measure), self._ts_num_for_measure(end_measure),
+        )
 
     def _marking_part_prefix(self, part_id: str, contributing_part_ids) -> str:
         """D5: a Region 5 / Performance Report row for a per-part marking is

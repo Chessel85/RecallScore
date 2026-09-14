@@ -161,7 +161,7 @@ class PerformanceRows:
                 jump_m, jump_q = span.start_measure, span.start_quarters_from_start
                 end_m, end_q = jump_m, jump_q
             else:
-                rng = marking_labels.range_label(
+                rng = data._range_label(
                     bar_word, span.start_measure, span.start_beat_position,
                     span.end_measure, span.end_beat_position,
                 )
@@ -203,7 +203,7 @@ class PerformanceRows:
             _in_quarters,
             lambda s: (
                 f"{_dir_prefix(s.kind, s.part_id)}{_line_label(s)} "
-                f"{marking_labels.range_label(bar_word, s.start_measure, s.start_beat_position, s.end_measure, s.end_beat_position)}"
+                f"{data._range_label(bar_word, s.start_measure, s.start_beat_position, s.end_measure, s.end_beat_position)}"
             ),
             jump_quarters=True,
             category="lines",

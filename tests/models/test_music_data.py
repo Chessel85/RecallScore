@@ -3133,6 +3133,42 @@ def test_hairpin_spans_well_formed_on_every_real_score(real_score_path):
         md.get_performance_region_rows(i)
 
 
+# --- stage 4 of the PI tweaks plan: "end of bar" wording -------------------
+
+
+def test_pachelbel_report_never_names_a_beat_past_the_end_of_the_bar():
+    """files/PITweaks.md item 3a: `_PartState.beat_position` represents the
+    barline itself as one unit past the last real beat (beat 5 in 4/4) -
+    internally consistent, but read aloud as nonsense. Every report line
+    must go through the "end of bar" wording instead."""
+    md = MusicData(
+        file_path=str(
+            pathlib.Path(__file__).resolve().parents[2]
+            / "examples" / "pachelbels-canon-in-d-string-quartet.mxl"
+        )
+    )
+    lines = md.get_performance_report_lines()
+    assert lines, "expected a non-empty report"
+    assert not any("beat 5" in line for line in lines)
+    assert any("end of Measure" in line or "end of measure" in line for line in lines)
+
+
+def test_hairpin_running_to_the_end_of_its_part_reads_end_of_bar():
+    md = MusicData(
+        file_path=str(
+            pathlib.Path(__file__).resolve().parents[2]
+            / "examples" / "pachelbels-canon-in-d-string-quartet.mxl"
+        )
+    )
+    span = next(
+        s for s in md.hairpin_spans
+        if s.start_measure == 1 and s.end_measure == 2 and s.part_id == "P4"
+    )
+    idx = md.slice_index_at_or_after_quarters(span.start_quarters_from_start)
+    labels = [r.label for r in md.get_performance_region_rows(idx)]
+    assert any("to end of measure 2" in label for label in labels)
+
+
 def test_p4_plain_score_offers_no_barline_clef_or_measure_style_targets(
     timeline, dynamics_articulation_fingering_score
 ):
