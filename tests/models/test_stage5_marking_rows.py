@@ -211,7 +211,13 @@ def test_pedal_change_precedes_pedal_span_within_part_level_rows():
 def test_stage5_staff_families_are_appended_after_hairpins_and_clef_changes():
     """The two remaining pre-existing staff-level families (hairpins, clef
     changes - pedal moved out to part_level_rows) still precede the stage 5
-    additions, in the plan's table order."""
+    additions, in the plan's table order.
+
+    Implementation plan V2 stage 2's ground rule 3 ("stave if ... the part
+    has more than one staff"): P1 here has only ONE staff, so all three
+    families land in part_level_rows, not staff_level_rows - see
+    test_stage2_marking_levels.py for the multi-staff case that DOES land
+    in staff_level_rows."""
     from models.clef_change_mark import ClefChangeMark
     from models.hairpin_span import HairpinSpan
 
@@ -233,7 +239,7 @@ def test_stage5_staff_families_are_appended_after_hairpins_and_clef_changes():
         timeline_slices=[slice_], hairpin_spans=[hairpin], clef_change_marks=[clef],
         direction_spans=[dashes],
     )
-    rows = md.marking_rows.staff_level_rows(slice_)[("P1", 1)]
+    rows = md.marking_rows.part_level_rows(slice_)["P1"]
     assert _texts(rows) == ["Crescendo", "Clef change: bass", "Dashed line"]
 
 
