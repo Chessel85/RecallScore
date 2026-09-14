@@ -4,8 +4,8 @@
                 (label "8vb" - MusicXML "down" means the printed notes
                 sound an octave LOWER; "up"/size 15 would be "8va"/"15ma")
        beat 3 - <octave-shift type="stop"> closes it
-     Octave shift is a Find + Performance Report target only - never a
-     Region 5 row (D15). -->
+     Octave shift is a Find + Performance Report target, and (stage 4) a
+     Region 5 row. -->
 <score-partwise version="4.0">
   <part-list>
     <score-part id="P1">

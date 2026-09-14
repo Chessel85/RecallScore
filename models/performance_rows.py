@@ -18,6 +18,11 @@ from typing import Dict, List, Optional, Tuple
 from models import marking_labels, vocabulary
 from models.key_signatures import key_signature_display_name
 from models.performance_region_row import PerformanceRegionRow
+from models.synthetic_parts import STAVE_TEXT_VOICE_ID
+
+# Section 3's level order for a Region 5 row: score first, then part, then
+# stave. PerformanceMarkingsImplementationPlanV2.md stage 4.
+_LEVEL_RANK: Dict[str, int] = {"score": 0, "part": 1, "stave": 2}
 
 
 class PerformanceRows:
@@ -33,12 +38,14 @@ class PerformanceRows:
 
         Repeat/ending containment is a measure-number range check (barlines
         fall at measure boundaries); hairpins compare quarters_from_start,
-        since a wedge can start or stop mid-measure. The order (sections,
-        repeats, endings, hairpins, then the one-shot rows, each in
-        span-list order) must stay stable - MainWindow diffs the resulting
-        label list to detect a real change. Wording goes through
-        vocabulary.bar_word and models.marking_labels, never a hardcoded
-        "bar"/"measure" or a second copy of the range-rendering rules."""
+        since a wedge can start or stop mid-measure. Rows are built in a
+        fixed kind order (sections, repeats, endings, hairpins, ... the
+        one-shot rows last) and then stable-sorted by level - score, part,
+        stave (implementation plan stage 4) - so two rows of the same level
+        keep that same kind order. MainWindow diffs the resulting label list
+        to detect a real change. Wording goes through vocabulary.bar_word and
+        models.marking_labels, never a hardcoded "bar"/"measure" or a second
+        copy of the range-rendering rules."""
         data = self.data
         resolved_index = data.active_event_index if index is None else index
         slice_ = (
@@ -50,7 +57,11 @@ class PerformanceRows:
             return []
 
         bar_word = vocabulary.bar_word(data.uk_terms)
-        rows: List[PerformanceRegionRow] = []
+        # (level, row) pairs, in build order - _LEVEL_RANK sorts them into
+        # score/part/stave order (a stable sort, so build order survives as
+        # the tie-break within a level) just before returning.
+        entries: List[Tuple[Tuple, PerformanceRegionRow]] = []
+        level_of = data.marking_rows.level_of
 
         def _in_measure(span) -> bool:
             return span.start_measure <= slice_.measure <= span.end_measure
@@ -59,18 +70,22 @@ class PerformanceRows:
             return (span.start_quarters_from_start <= slice_.quarters_from_start
                     <= span.end_quarters_from_start)
 
-        def _span_row(spans, contained, label, *, jump_quarters=False, category=None):
+        def _span_row(spans, contained, label, *, jump_quarters=False, category=None,
+                      level=("score",), level_fn=None):
             """One row per span `contained` at the cursor (section 6): the
             whole range in one line, with both ends as jump targets.
             jump_target_measure/end_target_measure are the span's own
             start/end measure; the *_quarters fields are added only when the
             span can begin or end mid-bar (a hairpin-style line, not a
             repeat/ending barline). `category` (stage 9) is the note-list
-            toggle this row's Ctrl+N reaches - see models/marking_categories.py."""
+            toggle this row's Ctrl+N reaches - see models/marking_categories.py.
+            `level_fn(span)` (stage 4), when given, overrides the fixed
+            `level` default - the classification-routable families each
+            resolve their own score/part/stave placement per instance."""
             for span in spans:
                 if not contained(span):
                     continue
-                rows.append(PerformanceRegionRow(
+                entries.append((level_fn(span) if level_fn else level, PerformanceRegionRow(
                     label=label(span),
                     category=category,
                     jump_target_measure=span.start_measure,
@@ -81,15 +96,18 @@ class PerformanceRows:
                     end_target_quarters=(
                         span.end_quarters_from_start if jump_quarters else None
                     ),
-                ))
+                )))
 
-        def _point(marks, label, *, kind=None, jump="slice", category=None):
+        def _point(marks, label, *, kind=None, jump="slice", category=None,
+                   level=("score",), level_fn=None):
             """One row per mark sitting at the resolved slice's own measure.
             `jump` picks the Ctrl+Home/Ctrl+End target: "slice" -> the
             cursor's own position (a harmless no-op, where jumping to what the
             mark points at is out of scope), "measure" -> the mark's bar with
             no beat, "mark" -> the mark's own bar and offset. `category`
-            (stage 9) is the note-list toggle this row's Ctrl+N reaches."""
+            (stage 9) is the note-list toggle this row's Ctrl+N reaches.
+            `level_fn(mark)` (stage 4) overrides the fixed `level` default,
+            same as in `_span_row`."""
             for mark in marks:
                 if kind is not None and mark.kind != kind:
                     continue
@@ -101,12 +119,12 @@ class PerformanceRows:
                     jump_m, jump_q = mark.measure, mark.quarters_from_start
                 else:
                     jump_m, jump_q = slice_.measure, slice_.quarters_from_start
-                rows.append(PerformanceRegionRow(
+                entries.append((level_fn(mark) if level_fn else level, PerformanceRegionRow(
                     label=label(mark),
                     category=category,
                     jump_target_measure=jump_m,
                     jump_target_quarters=jump_q,
-                ))
+                )))
 
         # P2 / section 6: the song section(s) containing the cursor come
         # first, one row stating the full range (Ctrl+Home -> first bar,
@@ -142,7 +160,8 @@ class PerformanceRows:
         # and completeness flags. A complete span gets one row stating the
         # full range (section 6); an unmatched wedge gets a single row with
         # the gap stated (section 6's "honest wording"). D5: part-prefixed
-        # only when >1 part has a hairpin.
+        # only when >1 part has a hairpin. Stage 4: placed at score/part/
+        # stave via level_of(), same as its note-list row.
         _hairpin_part_ids = [s.part_id for s in data.hairpin_spans]
         for span in data.hairpin_spans:
             if not (span.start_quarters_from_start <= slice_.quarters_from_start
@@ -168,23 +187,21 @@ class PerformanceRows:
                 label = f"{prefix}{kind_label} {rng}"
                 jump_m, jump_q = span.start_measure, span.start_quarters_from_start
                 end_m, end_q = span.end_measure, span.end_quarters_from_start
-            rows.append(PerformanceRegionRow(
+            entries.append((level_of(span), PerformanceRegionRow(
                 label=label,
                 category="hairpins",
                 jump_target_measure=jump_m,
                 jump_target_quarters=jump_q,
                 end_target_measure=end_m,
                 end_target_quarters=end_q,
-            ))
+            )))
 
-        # P3: dashed / bracketed lines and the D6 catch-all get Region 5
-        # rows (D12 order: after hairpins, before the one-shot rows). Pedal
-        # and octave shift deliberately do NOT (D15) - a pedal-heavy piece
-        # would rebuild Region 5 and fire the change cue on nearly every bar.
-        # D5: a kind's label is part-prefixed only when >1 part contributes a
-        # span/mark of that kind - _dir_kind_pids is that lookup, built once
-        # here rather than re-concatenating direction_spans + direction_marks
-        # on every _dir_prefix call.
+        # P3: dashed / bracketed lines, octave shift and the D6 catch-all get
+        # Region 5 rows (D12 order: after hairpins, before the one-shot
+        # rows). D5: a kind's label is part-prefixed only when >1 part
+        # contributes a span/mark of that kind - _dir_kind_pids is that
+        # lookup, built once here rather than re-concatenating
+        # direction_spans + direction_marks on every _dir_prefix call.
         _dir_kind_pids: Dict[str, List[str]] = {}
         for _x in (*data.direction_spans, *data.direction_marks):
             _dir_kind_pids.setdefault(_x.kind, []).append(_x.part_id)
@@ -203,6 +220,21 @@ class PerformanceRows:
             ),
             jump_quarters=True,
             category="lines",
+            level_fn=level_of,
+        )
+
+        # Stage 4: octave shift gets its own Region 5 row (previously D15
+        # kept it, and pedal below, out of Region 5 entirely).
+        _span_row(
+            [s for s in data.direction_spans if s.kind == "octave_shift"],
+            _in_quarters,
+            lambda s: (
+                f"{_dir_prefix('octave_shift', s.part_id)}{marking_labels.octave_shift_name(s)} "
+                f"{data._range_label(bar_word, s.start_measure, s.start_beat_position, s.end_measure, s.end_beat_position)}"
+            ),
+            jump_quarters=True,
+            category="octave_shift",
+            level_fn=level_of,
         )
 
         _point(
@@ -213,6 +245,7 @@ class PerformanceRows:
             ),
             kind="other_direction",
             category="other_directions",
+            level_fn=level_of,
         )
 
         # Rehearsal marks - a score-level landmark, one-shot point row (no
@@ -235,7 +268,10 @@ class PerformanceRows:
             prefix = data._marking_part_prefix(m.part_id, _dynword_part_ids)
             return f"{prefix}{marking_labels.dynamics_word_label(m.label)}"
 
-        _point(data.direction_marks, _dynword_label, kind="dynamics_word", category="dynamics_words")
+        _point(
+            data.direction_marks, _dynword_label, kind="dynamics_word",
+            category="dynamics_words", level_fn=level_of,
+        )
 
         _tempword_part_ids = [
             m.part_id for m in data.direction_marks if m.kind == "tempo_word"
@@ -248,12 +284,67 @@ class PerformanceRows:
             ),
             kind="tempo_word",
             category="tempo_words",
+            level_fn=level_of,
         )
 
+        # Stage 4: sustain pedal - a whole-instrument control, always
+        # PART-level (models/marking_classification.py pins levels=("part",)
+        # for <pedal>), never prefixed by part name (matching the Performance
+        # Report's own unprefixed "Pedal"/"Pedal change" wording). The change
+        # point comes before the span's own row, the same relative order the
+        # note list has always used (models/marking_rows.py's _family_rows).
+        _point(
+            data.direction_marks, lambda m: "Pedal change",
+            kind="pedal_change", category="pedal", level_fn=level_of,
+        )
+        _span_row(
+            [s for s in data.direction_spans if s.kind == "pedal"],
+            _in_quarters,
+            lambda s: (
+                f"{marking_labels.pedal_name()} "
+                f"{data._range_label(bar_word, s.start_measure, s.start_beat_position, s.end_measure, s.end_beat_position)}"
+            ),
+            jump_quarters=True,
+            category="pedal",
+            level_fn=level_of,
+        )
+
+        # Stage 4: stave text - a generic <words> direction that failed the
+        # dynamics/tempo allow-list. Still read off the fabricated Stave Text
+        # NoteData (parsers/timeline_builder.py's STAVE_TEXT_VOICE_ID voice,
+        # stage 5 replaces this with a real DirectionMark), gated on the
+        # slice's own measure like the other point families above. Rehearsal
+        # text rides the same voice but is excluded here - it already has its
+        # own row above. D5: part-prefixed only when >1 part carries stave
+        # text anywhere in the score.
+        _stave_text_part_ids = [
+            n.part_id
+            for s in data._real_timeline_slices
+            for n in s.notes
+            if n.voice == STAVE_TEXT_VOICE_ID and not n.is_rehearsal_text
+        ]
+
+        def _stave_text_level(part_id: str, staff: int) -> Tuple:
+            if len(data.marking_rows._staves_for_part(part_id)) > 1:
+                return ("stave", part_id, staff)
+            return ("part", part_id)
+
+        for event_slice in data._real_timeline_slices:
+            if event_slice.measure != slice_.measure:
+                continue
+            for note in event_slice.notes:
+                if note.voice != STAVE_TEXT_VOICE_ID or note.is_rehearsal_text:
+                    continue
+                prefix = data._marking_part_prefix(note.part_id, _stave_text_part_ids)
+                entries.append((_stave_text_level(note.part_id, note.staff), PerformanceRegionRow(
+                    label=f"{prefix}{marking_labels.stave_text_label(note.step_name)}",
+                    category="stave_text",
+                    jump_target_measure=slice_.measure,
+                    jump_target_quarters=slice_.quarters_from_start,
+                )))
+
         # P4: barline / clef-change / measure-style one-shot rows, gated on
-        # the mark's own measure (a point mark, like segno below). D15 keeps
-        # only pedal/octave-shift out of Region 5; these three stay in (rare,
-        # structural).
+        # the mark's own measure (a point mark, like segno below).
         def _barline_label(m) -> str:
             base = (
                 "Double barline" if m.kind == "double_barline"
@@ -272,14 +363,29 @@ class PerformanceRows:
                 prefix = f"{name}: " if name else ""
             return f"{prefix}Clef change: {m.label}, staff {m.staff}"
 
-        _point(data.clef_change_marks, _clef_label, jump="mark", category="clef_changes")
+        _point(data.clef_change_marks, _clef_label, jump="mark", category="clef_changes", level_fn=level_of)
 
         _point(
             data.measure_style_marks,
             lambda m: f"{marking_labels.measure_style_label(m)}: {bar_word} {m.measure}",
             jump="measure",
             category="measure_styles",
+            level_fn=level_of,
         )
+
+        # Stage 4: fermata rows - a note-attached attribute, but one that
+        # pauses the whole texture at that moment (same aggregate rule as
+        # the note list's own fermata row, models/marking_rows.py's
+        # _add_fermata_rows: one score-level row when every part with a note
+        # at this event carries a fermata, else one part-level row per
+        # carrying part).
+        for level, label in self._fermata_region_rows(slice_):
+            entries.append((level, PerformanceRegionRow(
+                label=label,
+                category="fermatas",
+                jump_target_measure=slice_.measure,
+                jump_target_quarters=slice_.quarters_from_start,
+            )))
 
         # Segno / Coda / To coda / Fine / D.C. / D.S.: one-shot point rows,
         # each a single point (not a start/end pair). jump_target_* is always
@@ -313,25 +419,54 @@ class PerformanceRows:
         # change cue (RegionPresenter.refresh_region_5), so the three can't
         # disagree about what counts as a change (invariant 8).
         for _kind, label in self.structural_change_labels(resolved_index):
-            rows.append(
-                PerformanceRegionRow(
-                    label=label,
-                    category="structural_changes",
-                    jump_target_measure=slice_.measure,
-                    jump_target_quarters=slice_.quarters_from_start,
-                )
-            )
+            entries.append((("score",), PerformanceRegionRow(
+                label=label,
+                category="structural_changes",
+                jump_target_measure=slice_.measure,
+                jump_target_quarters=slice_.quarters_from_start,
+            )))
+
+        # Stage 4: score, then part, then stave - a stable sort, so within a
+        # level the rows stay in the build order above (section 3's "level
+        # of one marking" rule, applied last so it can act as one pass over
+        # rows already carrying whatever the family loops above decided).
+        entries.sort(key=lambda entry: _LEVEL_RANK[entry[0][0]])
+        rows: List[PerformanceRegionRow] = [row for _level, row in entries]
 
         # Stage 9 (strategy section 8): "* " on a row whose category is
         # currently surfaced in the note list - i.e. NOT in
-        # marking_categories_off. A row with no category (None, or one of
-        # the three models.marking_categories excludes) never gets the
+        # marking_categories_off. A row with no category never gets the
         # prefix - there is nothing Ctrl+N here could turn off.
         for row in rows:
             if row.category is not None and row.category not in data.marking_categories_off:
                 row.label = f"* {row.label}"
 
         return rows
+
+    def _fermata_region_rows(self, event_slice) -> List[Tuple[Tuple, str]]:
+        """(level, label) pairs for `event_slice`'s fermata rows - the exact
+        aggregate rule models/marking_rows.py's `_add_fermata_rows` uses for
+        the note list, reused here (Region 5) so the two can't disagree about
+        what counts as "every part had a fermata here" (invariant 8)."""
+        notes_by_part: Dict[str, List] = {}
+        for note in event_slice.notes:
+            notes_by_part.setdefault(note.part_id, []).append(note)
+        if not notes_by_part:
+            return []
+        fermata_note_by_part = {}
+        for part_id, notes in notes_by_part.items():
+            fermata_note = next((n for n in notes if n.fermata), None)
+            if fermata_note is not None:
+                fermata_note_by_part[part_id] = fermata_note
+        if not fermata_note_by_part:
+            return []
+        if len(fermata_note_by_part) == len(notes_by_part):
+            first_note = next(iter(fermata_note_by_part.values()))
+            return [(("score",), marking_labels.fermata_name(first_note.fermata))]
+        return [
+            (("part", part_id), marking_labels.fermata_name(note.fermata))
+            for part_id, note in fermata_note_by_part.items()
+        ]
 
     def structural_change_labels(self, index: Optional[int] = None) -> List[Tuple[str, str]]:
         """(kind, label) pairs - kind in "key"/"time"/"tempo" - for a key

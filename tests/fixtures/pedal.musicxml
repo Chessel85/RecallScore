@@ -3,8 +3,8 @@
        bar 1 beat 1 - <pedal type="start"> opens the pedal span
        bar 1 beat 3 - <pedal type="change">  -> a `pedal_change` point mark
        bar 2 beat 1 - <pedal type="stop">   closes the span (bar 1 -> bar 2)
-     Pedal is a Find + Performance Report target only - never a Region 5
-     row (D15). Complete bars, so pickup detection does not fire. -->
+     Pedal is a Find + Performance Report target, and (stage 4) a Region 5
+     row. Complete bars, so pickup detection does not fire. -->
 <score-partwise version="4.0">
   <part-list>
     <score-part id="P1">

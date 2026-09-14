@@ -488,7 +488,7 @@ class MarkingRows:
         for span in data.direction_spans:
             if span.kind == "octave_shift":
                 self._add_span_rows_by_level(
-                    _add, event_slice, span, marking_labels.octave_shift_name(span), None
+                    _add, event_slice, span, marking_labels.octave_shift_name(span), "octave_shift"
                 )
         for span in data.direction_spans:
             if span.kind == "dashes":
@@ -546,12 +546,12 @@ class MarkingRows:
             level = self.level_of(mark)
             anchor = self._first_at_or_after_level(level, mark.quarters_from_start)
             if anchor == event_slice.quarters_from_start:
-                _add(level, MarkingRow(text="Pedal change", marking=mark, category=None))
+                _add(level, MarkingRow(text="Pedal change", marking=mark, category="pedal"))
 
         for span in data.direction_spans:
             if span.kind == "pedal":
                 self._add_span_rows_by_level(
-                    _add, event_slice, span, marking_labels.pedal_name(), None
+                    _add, event_slice, span, marking_labels.pedal_name(), "pedal"
                 )
 
         # Fermata (PI tweaks follow-up, reported; PerformanceMarkingsImplem-
@@ -561,8 +561,8 @@ class MarkingRows:
         # carries a fermata, else one part-level row per carrying part -
         # deduped across every staff/voice of a part the same way it always
         # was. No cross-slice anchoring needed (the note is already in this
-        # event_slice); no category (no Region 5 row exists to hang Ctrl+N
-        # off - D15's "always on" reasoning still applies).
+        # event_slice); category "fermatas" (stage 4 - PerformanceRows now
+        # has a matching Region 5 row for it).
         self._add_fermata_rows(_add, event_slice)
 
         return score_rows, part_rows, stave_rows
@@ -615,10 +615,10 @@ class MarkingRows:
             # supplies the wording (shapes are not merged across parts).
             first_note = next(iter(fermata_note_by_part.values()))
             _add(("score",), MarkingRow(
-                text=marking_labels.fermata_name(first_note.fermata), marking=first_note, category=None
+                text=marking_labels.fermata_name(first_note.fermata), marking=first_note, category="fermatas"
             ))
             return
         for part_id, note in fermata_note_by_part.items():
             _add(("part", part_id), MarkingRow(
-                text=marking_labels.fermata_name(note.fermata), marking=note, category=None
+                text=marking_labels.fermata_name(note.fermata), marking=note, category="fermatas"
             ))

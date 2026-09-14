@@ -91,16 +91,16 @@ def fermata_name(value: str) -> str:
 
 
 def pedal_name() -> str:
-    """The note list's bare name for a pedal span (stage 5) - "Pedal", like
-    a hairpin's "Crescendo"/"Diminuendo". Pedal has no Region 5 row (D15),
-    so this exists only for the note list."""
+    """The bare name for a pedal span - "Pedal", like a hairpin's
+    "Crescendo"/"Diminuendo". Shared by the note list (stage 5) and Region 5
+    (stage 4)."""
     return "Pedal"
 
 
 def octave_shift_name(span) -> str:
     """"Octave shift 8va" - the report's own wording (`_tally("Octave
-    shifts", ...)`), reused for the note list's span rows (stage 5).
-    Octave shift has no Region 5 row (D15)."""
+    shifts", ...)`), reused for the note list's span rows (stage 5) and
+    Region 5's (stage 4)."""
     return f"Octave shift {span.label}" if span.label else "Octave shift"
 
 
@@ -124,6 +124,15 @@ def other_direction_label(label: str) -> str:
     """"Direction: X" - the D6 catch-all's wording, shared by Region 5 and
     the note list (stage 5)."""
     return f"Direction: {label}"
+
+
+def stave_text_label(text: str) -> str:
+    """"Stave text: Allegro" - Region 5's stage 4 wording for a generic
+    <words> direction that doesn't match the dynamics/tempo allow-list
+    (models/vocabulary.py). Region 3 shows the bare text on its own fabricated
+    row (STAVE_TEXT_VOICE_ID); Region 5 names the kind so a one-line summary
+    away from the note list still reads as text, not a mystery string."""
+    return f"Stave text: {text}"
 
 
 def measure_style_label(mark) -> str:

@@ -324,15 +324,15 @@ def chord_diagram_score() -> str:
 @pytest.fixture
 def pedal_score() -> str:
     """P3 (M1): two 4/4 bars - a <pedal> span (bar 1
-    -> bar 2) plus a mid-bar <pedal type="change"> point. Find + report
-    only, no Region 5 row (D15)."""
+    -> bar 2) plus a mid-bar <pedal type="change"> point. Find, report and
+    (stage 4) Region 5."""
     return _require(FIXTURES_DIR / "pedal.musicxml")
 
 
 @pytest.fixture
 def octave_shift_score() -> str:
     """P3 (M2): one 4/4 bar - an <octave-shift type="down" size="8"> span
-    (label "8vb"). Find + report only, no Region 5 row (D15)."""
+    (label "8vb"). Find, report and (stage 4) Region 5."""
     return _require(FIXTURES_DIR / "octave_shift.musicxml")
 
 

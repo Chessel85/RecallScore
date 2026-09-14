@@ -80,8 +80,7 @@ MARKING_KINDS: List[Tuple[str, str]] = [
     ("time_signature_change", "Time signature change"),
     ("tempo_change", "Tempo change"),
     # P3: <direction>/<direction-type> spans and points. Pedal and octave
-    # shift are Find + Performance Report only, no Region 5 row (D15 - a
-    # pedal-heavy piece would fire the change cue on nearly every bar).
+    # shift get a Region 5 row too, as of stage 4.
     ("pedal_start", "Pedal start"),
     ("pedal_end", "Pedal end"),
     ("pedal_change", "Pedal change"),

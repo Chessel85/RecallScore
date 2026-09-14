@@ -2534,17 +2534,27 @@ def test_p3_pedal_targets_offered_and_walk_their_positions(timeline, pedal_score
     assert md.find_occurrence(start, from_index=first, direction=1) == first
 
 
-def test_p3_pedal_and_octave_shift_produce_no_region_5_row(
-    timeline, pedal_score, octave_shift_score
-):
-    """D15: pedal and octave shift are Find + Performance Report only. A
-    Region 5 row would rebuild Region 5 and fire the performance cue on
-    nearly every bar of pedal-heavy music. Do NOT relax this "for
-    consistency" with dashes/bracket."""
-    for score in (pedal_score, octave_shift_score):
-        md = timeline(score)
-        for i in range(len(md.timeline_slices)):
-            assert md.get_performance_region_rows(i) == []
+def test_p3_pedal_and_octave_shift_get_region_5_rows(timeline, pedal_score, octave_shift_score):
+    """Stage 4 (PerformanceMarkingsImplementationPlanV2.md): pedal and
+    octave shift now get a Region 5 row like every other family - D15's
+    "never a Region 5 row" is retired now that marking_categories.py's
+    "pedal"/"octave_shift" categories let Ctrl+N hide them again if a
+    pedal-heavy piece turns out too noisy."""
+    md = timeline(pedal_score)
+    bar1 = md.first_event_index_of_measure(1)
+    bar2 = md.first_event_index_of_measure(2)
+    bar1_rows = md.get_performance_region_rows(bar1)
+    labels = [r.label for r in bar1_rows]
+    assert "* Pedal change" in labels
+    assert "* Pedal measures 1 to 2" in labels
+    assert {r.category for r in bar1_rows if "Pedal" in r.label} == {"pedal"}
+    bar2_labels = [r.label for r in md.get_performance_region_rows(bar2)]
+    assert "* Pedal change" not in bar2_labels
+    assert "* Pedal measures 1 to 2" in bar2_labels
+
+    md = timeline(octave_shift_score)
+    labels = [r.label for r in md.get_performance_region_rows(0)]
+    assert "* Octave shift 8vb measure 1 beat 1 to beat 3" in labels
 
 
 def test_p3_octave_shift_size_label_in_the_report(timeline, octave_shift_score):
@@ -3088,6 +3098,100 @@ def test_stage5_dynamics_words_category_toggle_flips_asterisk_and_note_list(
 
     config = md.export_config()
     assert config.marking_categories_off == set()
+
+
+# --- Stage 4 (PerformanceMarkingsImplementationPlanV2.md): a Region 5 row
+# and a category for pedal, octave shift, stave text and fermata. -----------
+
+
+def test_stage4_pedal_category_toggle_flips_asterisk_and_note_list(timeline, pedal_score):
+    md = timeline(pedal_score)
+    bar1 = md.first_event_index_of_measure(1)
+    # The pedal change point mark anchors to its own event (bar1 + 2, the
+    # third note) rather than the bar's first event, which is "Pedal start"
+    # instead - see MarkingRows._family_rows.
+    change_index = bar1 + 2
+    md.active_event_index = change_index
+
+    assert "* Pedal change" in [r.label for r in md.get_performance_region_rows(bar1)]
+    assert "Pedal change" in _marking_row_texts(md)
+
+    assert md.toggle_marking_category("pedal") is False
+    assert "Pedal change" in [r.label for r in md.get_performance_region_rows(bar1)]
+    assert "Pedal change" not in _marking_row_texts(md)
+
+    assert md.toggle_marking_category("pedal") is True
+    assert "* Pedal change" in [r.label for r in md.get_performance_region_rows(bar1)]
+    assert "Pedal change" in _marking_row_texts(md)
+
+
+def test_stage4_octave_shift_category_toggle_flips_asterisk_and_note_list(
+    timeline, octave_shift_score
+):
+    md = timeline(octave_shift_score)
+    md.active_event_index = 0
+
+    assert "* Octave shift 8vb measure 1 beat 1 to beat 3" in [
+        r.label for r in md.get_performance_region_rows(0)
+    ]
+    assert any(t.startswith("Octave shift") for t in _marking_row_texts(md))
+
+    assert md.toggle_marking_category("octave_shift") is False
+    assert "Octave shift 8vb measure 1 beat 1 to beat 3" in [
+        r.label for r in md.get_performance_region_rows(0)
+    ]
+    assert not any(t.startswith("Octave shift") for t in _marking_row_texts(md))
+
+
+def test_stage4_stave_text_region_5_row_and_category_toggle(timeline, stave_text_score):
+    """"Allegro" and "III" both qualify as generic stave text (the SMuFL
+    glyph and "D.S." do not - see stave_text.musicxml). Region 5 gets a row
+    for each, part-prefixed not at all (one part carries stave text)."""
+    md = timeline(stave_text_score)
+    labels = [r.label for r in md.get_performance_region_rows(0)]
+    assert "* Stave text: Allegro" in labels
+    assert "* Stave text: III" in labels
+    assert not any("SMuFL" in label or "D.S." in label for label in labels)
+
+    assert md.toggle_marking_category("stave_text") is False
+    labels = [r.label for r in md.get_performance_region_rows(0)]
+    assert "Stave text: Allegro" in labels
+    assert "Stave text: III" in labels
+
+
+def test_stage4_fermata_region_5_row_is_score_level_for_a_single_part(
+    timeline, fermata_and_arpeggio_score
+):
+    md = timeline(fermata_and_arpeggio_score)
+    bare_index = next(
+        i for i, s in enumerate(md.timeline_slices)
+        if any(n.fermata == "fermata" for n in s.notes)
+    )
+    shaped_index = next(
+        i for i, s in enumerate(md.timeline_slices)
+        if any(n.fermata == "angled fermata" for n in s.notes)
+    )
+    assert "* Fermata" in [r.label for r in md.get_performance_region_rows(bare_index)]
+    assert "* Angled fermata" in [r.label for r in md.get_performance_region_rows(shaped_index)]
+
+    rows = md.get_performance_region_rows(bare_index)
+    fermata_row = next(r for r in rows if r.label == "* Fermata")
+    assert fermata_row.category == "fermatas"
+
+    assert md.toggle_marking_category("fermatas") is False
+    assert "Fermata" in [r.label for r in md.get_performance_region_rows(bare_index)]
+
+
+def test_stage4_marking_category_toggle_survives_save_and_reload(timeline, pedal_score):
+    md = timeline(pedal_score)
+    md.toggle_marking_category("pedal")
+
+    config = md.export_config()
+    assert config.marking_categories_off == {"pedal"}
+
+    reloaded = timeline(pedal_score)
+    reloaded.apply_config(config)
+    assert reloaded.marking_categories_off == {"pedal"}
 
 
 def test_apply_config_drops_an_unknown_marking_category(

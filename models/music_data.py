@@ -204,15 +204,14 @@ class MusicData:
     hairpin_spans: List[HairpinSpan] = field(default_factory=list)
     # P3: <direction>/<direction-type> spans (pedal, octave shift, dashed/
     # bracketed lines) and points (rehearsal, pedal change, D6 catch-all),
-    # collected per part (D5). Pedal/octave-shift are Find + Performance
-    # Report only - deliberately NO Region 5 row (D15).
+    # collected per part (D5). Findable, in the Performance Report, and
+    # (stage 4) shown as a Region 5 row.
     direction_spans: List[DirectionSpan] = field(default_factory=list)
     direction_marks: List[DirectionMark] = field(default_factory=list)
     # P4: <bar-style> points (M6), mid-part <clef> changes (M7),
     # <measure-style> points (M8). MusicXML-only - MIDI/GP/UG stub them
     # empty. Findable, listed in the Performance Report, and shown as a
-    # one-shot Region 5 row at their own measure (D15 bars only pedal/
-    # octave-shift from Region 5, not these).
+    # one-shot Region 5 row at their own measure.
     barline_marks: List[BarlineMark] = field(default_factory=list)
     clef_change_marks: List[ClefChangeMark] = field(default_factory=list)
     measure_style_marks: List[MeasureStyleMark] = field(default_factory=list)

@@ -1,28 +1,27 @@
 # models/marking_categories.py
-"""PerformanceMarkingsStrategy.md section 8 / implementation plan stage 9:
-the note-list category a Region 5 row belongs to, so Ctrl+N toggles one
-category rather than one marking at a time.
+"""PerformanceMarkingsStrategy.md section 8 / implementation plan stage 9
+(categories) and stage 4 (a Region 5 row, and a category, for every family):
+the note-list/Region 5 category a marking row belongs to, so Ctrl+N toggles
+one category rather than one marking at a time.
 
-Deliberately narrower than section 8's full eleven-name list. Two of its
-categories are left out because there is no Region 5 row to press Ctrl+N
-on in the first place:
+Every inventory family now has a category - "pedal", "octave_shift",
+"stave_text" and "fermatas" were the last four without one, because none of
+them had a Region 5 row to press Ctrl+N on (D15's "a pedal-heavy piece would
+rebuild Region 5 on nearly every bar" reasoning). Stage 4 gave each of them
+one, so each also gets a category here.
 
-* "pedal" - the pedal CHANGE point and (stage 5) the pedal span both get a
-  note-list row (PART-level, models/marking_rows.py's part_level_rows - a
-  sustain pedal is a whole-instrument control, not a per-stave one), but
-  neither has a Region 5 row (D15), and nothing puts one there - so there
-  is nothing to press Ctrl+N on. Both rows are always on.
-* "octave shift" - same reasoning: a note-list row exists (stage 5), no
-  Region 5 row does (D15). Always on.
+Region 5 itself filters nothing by category - PerformanceRows' "* " prefix is
+cosmetic only, reporting whether the category is currently surfaced
+elsewhere. Only MarkingRows' note-list rows (score_level_rows/
+part_level_rows/staff_level_rows) actually drop a row when its category is
+off.
 
-"stave text" is not in this tuple either, for a different reason: the
-fabricated Stave Text / Rehearsal Mark rows are real NoteData in the
-timeline (parsers/timeline_builder.py), rendered by models/note_renderer.py's
-main note loop rather than synthesised from a span/mark list. Suppressing
-just their ROW there without touching the underlying timeline event risks a
-slice with visible notes but zero Region 3 rows, and can couple to a
-neighbouring staff's marking rows in a way the other categories never do.
-Left on permanently until that rendering path is revisited.
+`stave_text`'s Region 5 row reads the fabricated Stave Text NoteData directly
+(parsers/timeline_builder.py's STAVE_TEXT_VOICE_ID voice), so Ctrl+N toggles
+its asterisk, but the matching note-list text is rendered by
+models/note_renderer.py's main note loop, not MarkingRows, and is not yet
+filterable by this category - that wiring is stage 5 work, when stave text
+becomes a real DirectionMark/MarkingRow family.
 
 A category not in this tuple is simply never off - its rows always render
 regardless of marking_categories_off (see MarkingRows filtering and
@@ -45,6 +44,12 @@ ALL_CATEGORIES: Tuple[str, ...] = (
     "tempo_words",
     "other_directions",
     "measure_styles",
+    # Stage 4 (PerformanceMarkingsImplementationPlanV2.md): the four families
+    # that only just got a Region 5 row to hang Ctrl+N off.
+    "pedal",
+    "octave_shift",
+    "stave_text",
+    "fermatas",
 )
 
 # Short, screen-reader-friendly names for the Ctrl+N state announcement
@@ -63,4 +68,8 @@ CATEGORY_NAMES: Dict[str, str] = {
     "tempo_words": "Tempo words",
     "other_directions": "Other directions",
     "measure_styles": "Measure styles",
+    "pedal": "Pedal",
+    "octave_shift": "Octave shift",
+    "stave_text": "Stave text",
+    "fermatas": "Fermatas",
 }
