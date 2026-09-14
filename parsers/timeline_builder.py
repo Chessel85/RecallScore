@@ -969,16 +969,11 @@ class TimelineBuilder:
                 self._flush_pending_grace(measure_state, sink)
                 part_state.carry_forward(measure_state.walker)
 
-            # P3/D5: a pedal/octave-shift/dashes/bracket span left open at
-            # the part's end closes at that part's last measure rather than
-            # being dropped (untested by any real file - same "defensive
-            # default" category as _step_barline's unmatched backward repeat).
-            self._flush_open_direction_spans(
-                part_state, measure_state.m_num, measure_start_quarters
-            )
-            self._flush_open_wedges(
-                part_state, measure_state.m_num, measure_start_quarters
-            )
+            # Stage 6 (P3/D5): a pedal/octave-shift/dashes/bracket span left
+            # open at the part's end becomes a point rather than being
+            # force-closed at that part's last measure.
+            self._flush_open_direction_spans(part_state)
+            self._flush_open_wedges(part_state)
 
         # Multi-part collection - sort chronologically, mirroring
         # scan.tempo_changes.sort(...) in _scan_first_part.
@@ -1177,8 +1172,22 @@ class TimelineBuilder:
             dir_staff = _staff_number(elem, default=None)
             measure_state.pending_dynamics[(dir_staff, walker.offset_divs)] = dynamic_name(mark)
 
+        # Stage 6 (PerformanceMarkingsImplementationPlanV2.md): a <dashes>/
+        # <bracket> sharing this <direction> with <words> takes over that
+        # text entirely - _step_direction_line below reads the same
+        # <words> as the span's own name ("cresc. start"/"cresc. end"), so
+        # the loop below must not ALSO emit a separate point row for it (the
+        # dimension rule: "one length marking named by the words", not two
+        # markings for one <direction>).
+        has_direction_line = (
+            elem.find("direction-type/dashes") is not None
+            or elem.find("direction-type/bracket") is not None
+        )
+
         for words_el in elem.findall("direction-type/words"):
             if not _is_qualifying_stave_text(words_el.text):
+                continue
+            if has_direction_line:
                 continue
             offset_q = _displaced_offset_divs(elem, walker) / walker.divisions
 
@@ -1410,19 +1419,32 @@ class TimelineBuilder:
         elif ltype in ("stop", "end"):
             self._close_direction_span(part_state, kind, m_num, beat_pos, quarters)
 
-    def _flush_open_direction_spans(
-        self, part_state, last_m_num: int, measure_start_quarters
-    ) -> None:
-        """Close any span still open when a part ends (D5) - end position is
-        the end of that part's last measure."""
-        if not part_state.open_direction_spans:
-            return
-        end_quarters = measure_start_quarters.get(last_m_num, 0.0) + part_state.full_bar_quarters
-        end_beat = part_state.beat_position(last_m_num, part_state.full_bar_quarters)
-        for kind in list(part_state.open_direction_spans):
-            self._close_direction_span(
-                part_state, kind, last_m_num, end_beat, end_quarters
+    def _flush_open_direction_spans(self, part_state) -> None:
+        """Stage 6 (D5): a span still open when a part ends (a pedal or
+        octave shift that never stopped) is a point - pinned to its own
+        opening position (start == end), which _add_span_rows_by_level
+        (models/marking_rows.py) and Region 5's range check already render
+        as a single bare-name row, rather than force-closed at the part's
+        last measure."""
+        for kind, open_slot in list(part_state.open_direction_spans.items()):
+            start_m, start_beat, start_quarters, staff, label, system, staff_given = open_slot
+            self.direction_spans.append(
+                DirectionSpan(
+                    kind=kind,
+                    part_id=part_state.part_id,
+                    staff=staff,
+                    label=label,
+                    start_measure=start_m,
+                    start_beat_position=start_beat,
+                    start_quarters_from_start=start_quarters,
+                    end_measure=start_m,
+                    end_beat_position=start_beat,
+                    end_quarters_from_start=start_quarters,
+                    system=system,
+                    staff_given=staff_given,
+                )
             )
+        part_state.open_direction_spans.clear()
 
     # --- P4: mid-part clef changes and measure styles ----------------
 
@@ -2298,10 +2320,10 @@ class TimelineBuilder:
         <wedge type="stop"> closes the innermost (most recently opened) wedge
         first, which reconstructs exactly what is printed when a file gives a
         long hairpin with shorter ones nested inside it and no `number` to
-        tell them apart (files/etude 2.mxl). A stop with an empty stack is
-        emitted as a start_known=False span (its kind is unknowable from a
-        bare stop); a wedge still open when the part ends is flushed with
-        end_known=False by _flush_open_wedges.
+        tell them apart (files/etude 2.mxl). Stage 6: a stop with an empty
+        stack is a point (its kind is unknowable from a bare stop, so it is
+        pinned to its own position); a wedge still open when the part ends
+        is likewise flushed as a point by _flush_open_wedges.
         """
         wedge_el = elem.find("direction-type/wedge")
         if wedge_el is None:
@@ -2352,42 +2374,35 @@ class TimelineBuilder:
             )
             return
 
-        # A stop with nothing open: reported with the gap stated rather than
-        # dropped. start_* is pinned to the start of the stop's own measure
-        # only so containment still resolves - start_known=False is what the
-        # wording keys off. system/staff_given come from the STOP's own
-        # <direction> here, the only one there is.
+        # Stage 6: a stop with nothing open is a point - its kind is
+        # unknowable, so it is pinned to its own position (start == end)
+        # rather than reported with a stated gap back to the start of its
+        # measure. system/staff_given come from the STOP's own <direction>
+        # here, the only one there is.
         self.hairpin_spans.append(
             HairpinSpan(
                 kind="",
                 start_measure=m_num,
-                start_beat_position=part_state.beat_position(m_num, 0.0),
-                start_quarters_from_start=measure_start_quarters.get(m_num, 0.0),
+                start_beat_position=beat_pos,
+                start_quarters_from_start=quarters,
                 end_measure=m_num,
                 end_beat_position=beat_pos,
                 end_quarters_from_start=quarters,
                 part_id=part_state.part_id,
                 staff=staff,
                 number=number,
-                start_known=False,
                 system=system,
                 staff_given=staff_given,
             )
         )
 
-    def _flush_open_wedges(
-        self, part_state, last_m_num: int, measure_start_quarters
-    ) -> None:
-        """A wedge with no <wedge type="stop"> before its part ends
-        (files/etude 2.mxl has one) - emitted with end_known=False, its end
-        pinned to the end of the part's last measure so containment and
-        Ctrl+End still resolve. Sibling of _flush_open_direction_spans."""
+    def _flush_open_wedges(self, part_state) -> None:
+        """Stage 6: a wedge with no <wedge type="stop"> before its part ends
+        (files/etude 2.mxl has one) is a point - pinned to its own opening
+        position (start == end) rather than force-closed at the part's last
+        measure. Sibling of _flush_open_direction_spans."""
         if not any(part_state.open_wedges.values()):
             return
-        end_quarters = (
-            measure_start_quarters.get(last_m_num, 0.0) + part_state.full_bar_quarters
-        )
-        end_beat = part_state.beat_position(last_m_num, part_state.full_bar_quarters)
         for (staff, number), stack in part_state.open_wedges.items():
             for kind, start_m, start_beat, start_quarters, system, staff_given in stack:
                 self.hairpin_spans.append(
@@ -2396,13 +2411,12 @@ class TimelineBuilder:
                         start_measure=start_m,
                         start_beat_position=start_beat,
                         start_quarters_from_start=start_quarters,
-                        end_measure=last_m_num,
-                        end_beat_position=end_beat,
-                        end_quarters_from_start=end_quarters,
+                        end_measure=start_m,
+                        end_beat_position=start_beat,
+                        end_quarters_from_start=start_quarters,
                         part_id=part_state.part_id,
                         staff=staff,
                         number=number,
-                        end_known=False,
                         system=system,
                         staff_given=staff_given,
                     )

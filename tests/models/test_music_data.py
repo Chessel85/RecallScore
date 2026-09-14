@@ -2691,27 +2691,23 @@ def test_p3_dashes_and_bracket_labels_from_sibling_words(
 ):
     """A <dashes>/<bracket type="start"> shares its <direction> with a
     sibling <words> in real MusicXML - that text is what the line extends
-    (e.g. "cresc."). The word "cresc." now becomes its own point mark in the
-    merged Dynamics section; the dashed line drawn under it is reported
-    separately under "Dashed lines:" as written (two things in the file, two
-    lines in the report). A non-dynamics label like "8vb sim." produces no
-    point mark. Region 5 gets a row for both the dashes/bracket span and the
-    "cresc." point."""
+    (e.g. "cresc."). Stage 6 dimension rule: that makes ONE length marking
+    named by the words - no separate Dynamics point mark for "cresc.", no
+    separate stave-text point mark for "8vb sim."; each line is reported
+    under "Dashed lines:"/"Bracket lines:" by its own words-derived name."""
     md = timeline(direction_lines_with_words_score)
 
     lines = md.get_performance_report_lines()
-    assert 'Crescendo (marked "cresc."): Measure 1' in lines
+    assert 'Crescendo (marked "cresc.")' not in "\n".join(lines)
     assert "Dashed lines: 1" in lines
-    assert "Dashed line (cresc.): Measure 1 to Measure 1 beat 3" in lines
+    assert "cresc.: Measure 1 to Measure 1 beat 3" in lines
     assert "Bracket lines: 1" in lines
-    assert "Bracket line (8vb sim.): Measure 1 to Measure 1 beat 4" in lines
+    assert "8vb sim.: Measure 1 to Measure 1 beat 4" in lines
 
     labels = [r.label for r in md.get_performance_region_rows(0)]
-    assert any(l.startswith("* Dashed line (cresc.) measure 1") for l in labels)
-    assert any(l.startswith("* Bracket line (8vb sim.) measure") for l in labels)
-    # Stage 5: dynamics_word marks are their own toggleable note-list
-    # category ("dynamics_words"), so this row gets the "* " prefix too.
-    assert '* Crescendo (marked "cresc.")' in labels
+    assert any(l.startswith("* cresc. measure 1") for l in labels)
+    assert any(l.startswith("* 8vb sim. measure") for l in labels)
+    assert not any("Crescendo" in l for l in labels)
 
 
 # --- accurate hairpins / instruction words --------------------------------
@@ -2721,8 +2717,9 @@ def test_nested_hairpin_region_5_and_report_state_full_ranges(
     timeline, nested_hairpins_score
 ):
     """Each overlapping/nested hairpin is reported with its OWN range -
-    nothing is coalesced. An unmatched wedge reads "no start/end marked in
-    the file" in both Region 5 and the report."""
+    nothing is coalesced. Stage 6: an unmatched wedge (start or stop) is a
+    point, reading its bare name at its own known position in both Region 5
+    and the report - no "no start/end marked" wording."""
     md = timeline(nested_hairpins_score)
 
     lines = md.get_performance_report_lines()
@@ -2730,8 +2727,8 @@ def test_nested_hairpin_region_5_and_report_state_full_ranges(
     assert "Crescendo: Measure 1 to Measure 3 beat 3" in lines
     assert "Crescendo: Measure 1 beat 3 to Measure 2" in lines
     assert "Diminuendo: Measure 2 beat 3 to Measure 3" in lines
-    assert "Hairpin: ends at Measure 4 beat 3, no start marked in the file" in lines
-    assert "Crescendo: starts at Measure 4 beat 4, no end marked in the file" in lines
+    assert "Hairpin: Measure 4 beat 3" in lines
+    assert "Crescendo: Measure 4 beat 4" in lines
 
     # Inside the long outer + inner A (m2 beat 1) - both, each stating its
     # full range, one row readable alone.
@@ -2743,12 +2740,12 @@ def test_nested_hairpin_region_5_and_report_state_full_ranges(
     ]
 
     unmatched = [r.label for r in md.get_performance_region_rows(
-        md.slice_index_at_or_after_quarters(13.0))]
-    assert unmatched == ["* Hairpin ending measure 4 beat 3, no start marked in the file"]
+        md.slice_index_at_or_after_quarters(14.0))]
+    assert unmatched == ["* Hairpin measure 4 beat 3"]
 
     unclosed = [r.label for r in md.get_performance_region_rows(
         md.slice_index_at_or_after_quarters(15.0))]
-    assert unclosed == ["* Crescendo from measure 4 beat 4, no end marked in the file"]
+    assert unclosed == ["* Crescendo measure 4 beat 4"]
 
 
 def test_hairpin_rows_part_prefixed_only_when_several_parts_contribute(
@@ -2782,19 +2779,21 @@ def test_hairpin_rows_part_prefixed_only_when_several_parts_contribute(
 def test_instruction_words_become_point_marks_findable_and_reported(
     timeline, instruction_words_score
 ):
-    """A plain-text "cresc."/"rall." <words> becomes a point mark in the
-    Dynamics / Tempo instruction lists (never a fabricated range); the
-    dashed line drawn under "cresc." is a SEPARATE reported line. Both are
-    Find targets."""
+    """A plain-text "dim."/"rall." <words> becomes a point mark in the
+    Dynamics / Tempo instruction lists (never a fabricated range) and is a
+    Find target. "cresc.", sharing its <direction> with a dashed line
+    (stage 6), NAMES that span instead - no separate Dynamics point mark,
+    reported only under "Dashed lines:"."""
     md = timeline(instruction_words_score)
 
     lines = md.get_performance_report_lines()
-    assert 'Crescendo (marked "cresc."): Measure 1' in lines
+    assert 'Diminuendo (marked "dim."): Measure 1 beat 4' in lines
+    assert 'Crescendo (marked "cresc.")' not in "\n".join(lines)
     assert "Tempo instructions: 1" in lines
     assert 'Tempo instruction (marked "rall."): Measure 2' in lines
-    # The dashed line is its own thing, reported as written.
+    # The dashed line is named by the word it extends, reported as written.
     assert "Dashed lines: 1" in lines
-    assert "Dashed line (cresc.): Measure 1 to Measure 1 beat 3" in lines
+    assert "cresc.: Measure 1 to Measure 1 beat 3" in lines
 
     keys = _marking_keys(md)
     assert {"dynamics_instruction", "tempo_instruction"} <= keys
@@ -2805,10 +2804,51 @@ def test_instruction_words_become_point_marks_findable_and_reported(
     assert md.find_occurrence(tempo, from_index=0, direction=1) is not None
 
     m1_rows = [r.label for r in md.get_performance_region_rows(0)]
-    assert '* Crescendo (marked "cresc.")' in m1_rows
+    assert "* cresc. measure 1 beat 1 to beat 3" in m1_rows
     m2_rows = [r.label for r in md.get_performance_region_rows(
         md.slice_index_at_or_after_quarters(4.0))]
     assert "* Tempo instruction: rall." in m2_rows
+
+
+def test_dashes_with_words_give_start_and_end_note_list_rows_only(
+    timeline, instruction_words_score
+):
+    """Stage 6 dimension rule: a matched dashes span named by its words is a
+    length - "cresc. start"/"cresc. end" in the note list, never a bare
+    "cresc." point row (that's the unmatched/unclosed case only)."""
+    md = timeline(instruction_words_score)
+
+    md.active_event_index = 0
+    assert _marking_row_texts(md) == ["cresc. start"]
+
+    end_index = md.slice_index_at_or_after_quarters(2.0)
+    md.active_event_index = end_index
+    assert _marking_row_texts(md) == ["cresc. end"]
+
+
+def test_unclosed_pedal_reads_as_a_bare_point(timeline, pedal_unclosed_score):
+    """Stage 6: a <pedal type="start"> with no matching stop is a point,
+    pinned to its own opening position - "Pedal", not "Pedal start"."""
+    md = timeline(pedal_unclosed_score)
+
+    md.active_event_index = 0
+    assert _marking_row_texts(md) == ["Pedal"]
+
+    r5 = [r.label for r in md.get_performance_region_rows(0)]
+    assert "* Pedal measure 1" in r5
+
+
+def test_lone_wedge_start_reads_as_bare_crescendo(timeline, nested_hairpins_score):
+    """Stage 6: a wedge start left open when its part ends is a point -
+    "Crescendo", not "Crescendo start"."""
+    md = timeline(nested_hairpins_score)
+    unclosed_start = md.hairpin_spans[-1]
+    assert unclosed_start.kind == "crescendo"
+
+    index = md.slice_index_at_or_after_quarters(unclosed_start.start_quarters_from_start)
+    md.active_event_index = index
+    assert "Crescendo" in _marking_row_texts(md)
+    assert "Crescendo start" not in _marking_row_texts(md)
 
 
 def test_plain_score_offers_no_instruction_word_targets(
@@ -3084,18 +3124,22 @@ def test_stage5_dynamics_words_category_toggle_flips_asterisk_and_note_list(
 ):
     """PI tweaks stage 5's new "dynamics_words" category behaves exactly
     like the pre-existing ones (test_toggle_marking_category_flips_asterisk_
-    and_note_list_membership above)."""
+    and_note_list_membership above). Uses the unpaired "dim." mark - "cresc."
+    in this fixture is merged into the dashed line's own name (stage 6) and
+    carries the "lines" category instead."""
     md = timeline(instruction_words_score)
+    dim_index = md.slice_index_at_or_after_quarters(3.0)
+
     assert md.toggle_marking_category("dynamics_words") is False
-    labels = [r.label for r in md.get_performance_region_rows(0)]
-    assert 'Crescendo (marked "cresc.")' in labels
-    md.active_event_index = 0
-    assert 'Crescendo (marked "cresc.")' not in _marking_row_texts(md)
+    labels = [r.label for r in md.get_performance_region_rows(dim_index)]
+    assert 'Diminuendo (marked "dim.")' in labels
+    md.active_event_index = dim_index
+    assert 'Diminuendo (marked "dim.")' not in _marking_row_texts(md)
 
     assert md.toggle_marking_category("dynamics_words") is True
-    labels = [r.label for r in md.get_performance_region_rows(0)]
-    assert '* Crescendo (marked "cresc.")' in labels
-    assert 'Crescendo (marked "cresc.")' in _marking_row_texts(md)
+    labels = [r.label for r in md.get_performance_region_rows(dim_index)]
+    assert '* Diminuendo (marked "dim.")' in labels
+    assert 'Diminuendo (marked "dim.")' in _marking_row_texts(md)
 
     config = md.export_config()
     assert config.marking_categories_off == set()
@@ -3240,8 +3284,9 @@ def test_hairpin_spans_well_formed_on_every_real_score(real_score_path):
     md = MusicData(file_path=str(real_score_path))
     for span in md.hairpin_spans:
         assert span.start_quarters_from_start <= span.end_quarters_from_start
-        # A bare unmatched stop is the only case with no kind.
-        assert span.kind in ("crescendo", "diminuendo") or span.start_known is False
+        # A bare unmatched stop (stage 6: a point, kind unknowable) is the
+        # only case with no kind.
+        assert span.kind in ("crescendo", "diminuendo", "")
         assert span.part_id != ""
     for i in range(len(md.timeline_slices)):
         md.get_performance_region_rows(i)

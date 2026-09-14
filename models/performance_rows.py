@@ -155,12 +155,13 @@ class PerformanceRows:
             category="repeats_endings",
         )
 
-        # Hairpins carry a part_id (collected per part, not first-part-only)
-        # and completeness flags. A complete span gets one row stating the
-        # full range (section 6); an unmatched wedge gets a single row with
-        # the gap stated (section 6's "honest wording"). D5: part-prefixed
-        # only when >1 part has a hairpin. Stage 4: placed at score/part/
-        # stave via level_of(), same as its note-list row.
+        # Hairpins carry a part_id (collected per part, not first-part-only).
+        # A matched span gets one row stating the full range (section 6);
+        # an unpartnered start or stop is a point pinned to its own known
+        # position (start == end, stage 6), which `_range_label` already
+        # renders singular ("Measure N") with no separate wording needed.
+        # D5: part-prefixed only when >1 part has a hairpin. Stage 4: placed
+        # at score/part/stave via level_of(), same as its note-list row.
         _hairpin_part_ids = [s.part_id for s in data.hairpin_spans]
         for span in data.hairpin_spans:
             if not (span.start_quarters_from_start <= slice_.quarters_from_start
@@ -168,31 +169,17 @@ class PerformanceRows:
                 continue
             prefix = data._marking_part_prefix(span.part_id, _hairpin_part_ids)
             kind_label = span.kind.capitalize() if span.kind else "Hairpin"
-            start_bb = data._bar_beat_label(bar_word, span.start_measure, span.start_beat_position)
-            end_bb = data._bar_beat_label(bar_word, span.end_measure, span.end_beat_position)
-            if not span.start_known:
-                label = f"{prefix}{kind_label} ending {end_bb}, no start marked in the file"
-                jump_m, jump_q = span.end_measure, span.end_quarters_from_start
-                end_m, end_q = jump_m, jump_q
-            elif not span.end_known:
-                label = f"{prefix}{kind_label} from {start_bb}, no end marked in the file"
-                jump_m, jump_q = span.start_measure, span.start_quarters_from_start
-                end_m, end_q = jump_m, jump_q
-            else:
-                rng = data._range_label(
-                    bar_word, span.start_measure, span.start_beat_position,
-                    span.end_measure, span.end_beat_position,
-                )
-                label = f"{prefix}{kind_label} {rng}"
-                jump_m, jump_q = span.start_measure, span.start_quarters_from_start
-                end_m, end_q = span.end_measure, span.end_quarters_from_start
+            rng = data._range_label(
+                bar_word, span.start_measure, span.start_beat_position,
+                span.end_measure, span.end_beat_position,
+            )
             entries.append((level_of(span), PerformanceRegionRow(
-                label=label,
+                label=f"{prefix}{kind_label} {rng}",
                 category="hairpins",
-                jump_target_measure=jump_m,
-                jump_target_quarters=jump_q,
-                end_target_measure=end_m,
-                end_target_quarters=end_q,
+                jump_target_measure=span.start_measure,
+                jump_target_quarters=span.start_quarters_from_start,
+                end_target_measure=span.end_measure,
+                end_target_quarters=span.end_quarters_from_start,
             )))
 
         # P3: dashed / bracketed lines, octave shift and the D6 catch-all get
@@ -561,27 +548,22 @@ class PerformanceRows:
         def _sp(label) -> str:
             return f" {label}" if label else ""
 
-        def _paren(label) -> str:
-            return f" ({label})" if label else ""
-
         # Dynamics (volume): one chronological list merging every way the
         # file expresses a volume change - real <wedge> hairpins (collected
         # per part now, so part-prefixed like everything else), plain-text
         # swell instructions ("cresc."/"dim.", surfaced as point
-        # DirectionMarks), and point <dynamics> marks (mf, f, p, ...). A
-        # dashed/bracket line drawn under a "cresc." is a SEPARATE thing in
-        # the file and is reported under "Dashed lines:" / "Bracket lines:"
-        # as written - not merged in here. An unmatched wedge carries the
-        # same "no start/end marked in the file" wording as Region 5.
+        # DirectionMarks - unless the same <direction> also carries a
+        # <dashes>/<bracket>, stage 6, in which case the word names that span
+        # instead and is reported under "Dashed lines:" / "Bracket lines:",
+        # not here), and point <dynamics> marks (mf, f, p, ...). An
+        # unpartnered wedge start or stop is a point (stage 6), pinned to its
+        # own known position - `_span_range` renders that singular.
         def _hairpin_report_text(span) -> str:
             kind_label = span.kind.capitalize() if span.kind else "Hairpin"
-            start = data._bar_beat_label(bar_word, span.start_measure, span.start_beat_position)
-            end = data._bar_beat_label(bar_word, span.end_measure, span.end_beat_position)
-            if not span.start_known:
-                return f"{kind_label}: ends at {end}, no start marked in the file"
-            if not span.end_known:
-                return f"{kind_label}: starts at {start}, no end marked in the file"
-            return f"{kind_label}: {start} to {end}"
+            if span.start_quarters_from_start == span.end_quarters_from_start:
+                pos = data._bar_beat_label(bar_word, span.start_measure, span.start_beat_position)
+                return f"{kind_label}: {pos}"
+            return f"{kind_label}: {_span_range(span)}"
 
         _dashes = [s for s in data.direction_spans if s.kind == "dashes"]
         _brackets = [s for s in data.direction_spans if s.kind == "bracket"]
@@ -660,10 +642,13 @@ class PerformanceRows:
         # Every dashed / bracketed line, as written - a "cresc." word and the
         # dashed line drawn under it are two things in the file (the word is
         # a point mark in Dynamics above; the line is here).
+        # Stage 6: named by the words it extends when it has them ("cresc."),
+        # via the same marking_labels.direction_line_name Region 5 and the
+        # note list use (invariant 8) - not a second copy of that naming.
         _tally("Dashed lines", _dashes,
-               lambda s: f"Dashed line{_paren(s.label)}: {_span_range(s)}")
+               lambda s: f"{marking_labels.direction_line_name(s)}: {_span_range(s)}")
         _tally("Bracket lines", _brackets,
-               lambda s: f"Bracket line{_paren(s.label)}: {_span_range(s)}")
+               lambda s: f"{marking_labels.direction_line_name(s)}: {_span_range(s)}")
 
         _other_dirs = [m for m in data.direction_marks if m.kind == "other_direction"]
         _tally("Other directions", _other_dirs,

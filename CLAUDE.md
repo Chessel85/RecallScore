@@ -233,7 +233,8 @@ bottom row); Tab/Shift+Tab cycle.
     after — setting it later silently keeps rendering at 44100 Hz against a 48000
     Hz stream, i.e. every note ~a semitone sharp.
 14. **Report every marking as written.** Never merge, infer, or silently drop —
-    a dashed line under a "cresc." is two things in the file and gets two lines.
+    a `<words>` and a `<dashes>` in one `<direction>` are one length marking
+    named by the words; two separate `<direction>` elements are two markings.
 15. **Timeline conventions:** rests are skipped (navigation lands only on
     attacks); a pickup bar makes the pickup measure **0**; beat positions and
     durations are **relative to the time-signature denominator**, not to quarter

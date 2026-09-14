@@ -330,6 +330,13 @@ def pedal_score() -> str:
 
 
 @pytest.fixture
+def pedal_unclosed_score() -> str:
+    """Stage 6: a <pedal type="start"> that never stops before the part
+    ends - flushed as a point, reading the bare name "Pedal"."""
+    return _require(FIXTURES_DIR / "pedal_unclosed.musicxml")
+
+
+@pytest.fixture
 def octave_shift_score() -> str:
     """P3 (M2): one 4/4 bar - an <octave-shift type="down" size="8"> span
     (label "8vb"). Find, report and (stage 4) Region 5."""
@@ -686,7 +693,7 @@ def nested_hairpins_score() -> str:
     """Modelled on files/etude 2.mxl: a long outer hairpin with two shorter
     ones nested inside it (all number="1", one staff), plus an unmatched
     stop and an unclosed start - the innermost-first pairing and the
-    start_known/end_known conventions."""
+    unpartnered-start-or-stop-is-a-point convention (stage 6)."""
     return _require(FIXTURES_DIR / "nested_hairpins.musicxml")
 
 
@@ -700,9 +707,10 @@ def hairpins_two_parts_score() -> str:
 
 @pytest.fixture
 def instruction_words_score() -> str:
-    """Plain-text "cresc." (with a dashed line) and "rall." <words> - the
-    dynamics/tempo instruction point marks, and that the dashed line is
-    reported separately from the word."""
+    """Plain-text "cresc." sharing a <direction> with a dashed line (stage 6:
+    the dashes span is named by the word, no separate word row), an unpaired
+    "dim." <words> (still its own dynamics-instruction point mark), and a
+    "rall." <words> (tempo instruction point mark)."""
     return _require(FIXTURES_DIR / "instruction_words.musicxml")
 
 

@@ -123,7 +123,7 @@ def test_dashed_and_bracket_lines_are_note_list_rows_filtered_by_lines_category(
     )
     md.active_event_index = 0
     assert _texts(md.get_region_3_rows()) == [
-        "Dashed line start", "Bracket line (cresc.) start", "C",
+        "Dashed line start", "cresc. start", "C",
     ]
 
     md.marking_categories_off = {"lines"}

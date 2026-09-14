@@ -8,8 +8,8 @@
        m2 b3  diminuendo (inner B) opens
        m3 b1  stop -> closes inner B
        m3 b3  stop -> closes the LONG outer
-       m4 b3  stop -> nothing open: an unmatched stop (start_known=False)
-       m4 b4  crescendo opens and never stops (end_known=False, flushed) -->
+       m4 b3  stop -> nothing open: an unmatched stop, reported as a point
+       m4 b4  crescendo opens and never stops - flushed as a point too -->
 <score-partwise version="4.0">
   <part-list>
     <score-part id="P1">

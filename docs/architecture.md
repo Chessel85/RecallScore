@@ -977,13 +977,19 @@ with shorter ones nested inside it is a real notation concept, so a
 `<wedge type="stop">` closes the innermost first. Nested pedals/dashes are not a
 thing, so those stay single-slot.
 
-A `stop` with an empty stack emits `HairpinSpan(kind="", start_known=False)` (the
-kind of a bare stop is unknowable); a wedge still open when its part ends is
-flushed by `_flush_open_wedges` with `end_known=False`. Both synthetic positions
-exist only so containment / Ctrl+End resolve — **the `*_known` flags are what the
-wording keys off** ("no start marked in the file" / "no end marked in the file").
-`self.hairpin_spans` is sorted by `start_quarters_from_start` at the end of
-`build()` so the multi-part collection is chronological.
+Stage 6 (PerformanceMarkingsImplementationPlanV2.md): an unpartnered wedge start
+or stop is a **point**, not a span with a stated gap. A `stop` with an empty
+stack emits `HairpinSpan(kind="")` pinned to its own position (`start == end` —
+the kind of a bare stop is unknowable); a wedge still open when its part ends is
+flushed by `_flush_open_wedges` the same way, pinned to its own opening position
+rather than force-closed at the part's last measure. The position-equality check
+(`start_quarters_from_start == end_quarters_from_start`) is what every renderer
+(`models/marking_rows.py`, `models/performance_rows.py`) keys off to read the
+bare kind name with no "start"/"end" suffix — the same collapse a same-event
+matched pair already gets. `self.hairpin_spans` is sorted by
+`start_quarters_from_start` at the end of `build()` so the multi-part collection
+is chronological. `_flush_open_direction_spans` (pedal/octave-shift/dashes/
+bracket) follows the identical convention.
 
 Plain-text `<words>` dynamics/tempo instructions ("cresc.", "rall.") are
 classified in `_handle_direction` via `models/vocabulary.py`'s

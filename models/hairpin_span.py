@@ -14,7 +14,7 @@ class HairpinSpan:
     build(), the same pattern as TempoChange/tempo_changes."""
 
     kind: str  # "crescendo" or "diminuendo"; "" for a bare <wedge type="stop">
-    #           with no start marked in the file (its kind is unknowable)
+    #           with nothing open (its kind is unknowable)
     start_measure: int
     start_beat_position: float
     start_quarters_from_start: float
@@ -22,21 +22,14 @@ class HairpinSpan:
     end_beat_position: float
     end_quarters_from_start: float
 
-    # Provenance + completeness, all defaulted so the positional construction
-    # in existing tests still works. Hairpins are collected in the per-part
+    # Provenance, all defaulted so the positional construction in existing
+    # tests still works. Hairpins are collected in the per-part
     # walk now (not first-part-only, like tempo/time signature), so a wedge on
     # any staff of any part is reported; part_id is what the Region 5 / report
     # label is part-prefixed with when more than one part contributes.
     part_id: str = ""
     staff: int = 1
     number: int = 1  # the <wedge number="..."> attribute (overlapping wedges)
-    # False when the file gives a stop with no matching start (start_* is then
-    # the start of the stop's own measure); False when a start never stops
-    # before its part ends (end_* is then the end of the part's last measure).
-    # The positions are filled only so containment / Ctrl+End still resolve -
-    # the *_known flags are what the wording keys off, never the positions.
-    start_known: bool = True
-    end_known: bool = True
     # Stage 1 (PerformanceMarkingsImplementationPlanV2.md): see
     # DirectionMark.system/staff_given - read off the OPENING <direction>
     # (or the stop's own, for a stop with nothing open).

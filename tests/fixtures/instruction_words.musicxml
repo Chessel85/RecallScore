@@ -2,10 +2,13 @@
 <!-- Plain-text dynamics / tempo instructions as free <words> (files/etude 2
      .mxl carries "cresc.", "dim.", "rall." this way). One part, two 4/4 bars:
        m1 b1  <words>cresc.</words> sharing its <direction> with a
-              <dashes type="start"> - the word is a point mark in the merged
-              Dynamics list; the dashed line is a SEPARATE "Dashed lines:"
-              entry, reported as written.
+              <dashes type="start"> - stage 6: the word NAMES the dashes span
+              ("cresc. start"/"cresc. end"/"Dashed lines: cresc. ..."), no
+              separate Dynamics point mark for it.
        m1 b3  <dashes type="stop">
+       m1 b4  <words>dim.</words> UNPAIRED (no dashes/bracket sibling) - a
+              genuine Dynamics point mark, so dynamics-instruction Find/
+              category coverage still has something to reach.
        m2 b1  <words>rall.</words> - a Tempo instruction point mark. -->
 <score-partwise version="4.0">
   <part-list>
@@ -32,6 +35,9 @@
         <direction-type><dashes type="stop" number="1"/></direction-type>
       </direction>
       <note><pitch><step>E</step><octave>4</octave></pitch><duration>1</duration><voice>1</voice><type>quarter</type><staff>1</staff></note>
+      <direction placement="below">
+        <direction-type><words>dim.</words></direction-type>
+      </direction>
       <note><pitch><step>F</step><octave>4</octave></pitch><duration>1</duration><voice>1</voice><type>quarter</type><staff>1</staff></note>
     </measure>
     <measure number="2">

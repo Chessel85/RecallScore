@@ -439,7 +439,7 @@ def test_nested_and_unmatched_hairpins_paired_innermost_first(
     assert long_outer.kind == "crescendo"
     assert (long_outer.start_measure, long_outer.start_beat_position) == (1, 1.0)
     assert (long_outer.end_measure, long_outer.end_beat_position) == (3, 3.0)
-    assert long_outer.start_known and long_outer.end_known
+    assert long_outer.start_quarters_from_start != long_outer.end_quarters_from_start
 
     assert inner_a.kind == "crescendo"
     assert (inner_a.start_measure, inner_a.start_beat_position) == (1, 3.0)
@@ -449,17 +449,17 @@ def test_nested_and_unmatched_hairpins_paired_innermost_first(
     assert (inner_b.start_measure, inner_b.start_beat_position) == (2, 3.0)
     assert (inner_b.end_measure, inner_b.end_beat_position) == (3, 1.0)
 
-    # A bare stop: its kind is unknowable, start_* pinned only so containment
-    # resolves.
+    # Stage 6: a bare stop is a point - its kind is unknowable, and it is
+    # pinned to its own known position (start == end) rather than reported
+    # with a stated gap.
     assert unmatched_stop.kind == ""
-    assert unmatched_stop.start_known is False
-    assert unmatched_stop.end_known is True
+    assert unmatched_stop.start_quarters_from_start == unmatched_stop.end_quarters_from_start
     assert (unmatched_stop.end_measure, unmatched_stop.end_beat_position) == (4, 3.0)
 
-    # A start that never stops: end pinned to the end of the part's last bar.
+    # Stage 6: a start that never stops is likewise a point - pinned to its
+    # own opening position, not force-closed at the end of the part's last bar.
     assert unclosed_start.kind == "crescendo"
-    assert unclosed_start.start_known is True
-    assert unclosed_start.end_known is False
+    assert unclosed_start.start_quarters_from_start == unclosed_start.end_quarters_from_start
     assert (unclosed_start.start_measure, unclosed_start.start_beat_position) == (4, 4.0)
 
 

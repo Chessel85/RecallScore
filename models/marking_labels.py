@@ -72,13 +72,16 @@ _DIRECTION_LINE_NAMES = {"dashes": "Dashed line", "bracket": "Bracket line"}
 
 
 def direction_line_name(span) -> str:
-    """"Dashed line"/"Bracket line", with the file's own printed text in
-    parentheses when it has one - shared by Region 5 (today's `_line_label`)
-    and the note list (stage 5), so a dashed/bracket span's bare name (the
-    point-row case, start == end) and its start/end wording can't drift
-    apart (invariant 8)."""
-    base = _DIRECTION_LINE_NAMES[span.kind]
-    return f"{base} ({span.label})" if span.label else base
+    """Stage 6: named by the <words> it extends when its <direction> had
+    one ("cresc."), read verbatim rather than wrapped - the dimension rule
+    "one length marking named by the words". Falls back to the bare line
+    kind ("Dashed line"/"Bracket line") when there was no words sibling.
+    Shared by Region 5 and the note list, so a dashed/bracket span's bare
+    name (the point-row case, start == end) and its start/end wording can't
+    drift apart (invariant 8)."""
+    if span.label:
+        return span.label
+    return _DIRECTION_LINE_NAMES[span.kind]
 
 
 def fermata_name(value: str) -> str:

@@ -45,11 +45,12 @@ work (see marking_classification.py's own docstring); until then they stay
 unconditionally score, matching pre-stage-2 behaviour.
 
 dashes/bracket (`inherits_level_from_words`, `levels=()` in the
-classification table) can't yet be placed against their paired <words> -
-that merge is stage 6 ("Dashes or bracket with words in the same
-<direction> produce one span carrying the words as its name"). Until then
-`level_of` falls back to the ordinary stave/part rule for them, same as any
-other staff-eligible element - i.e. today's (pre-stage-2) placement.
+classification table) are placed via the ordinary stave/part fallback below,
+which already gives the right answer: stage 6 makes the parser record their
+`system`/`staff_given` off the SAME <direction> element a paired <words>
+shares (parsers.timeline_builder._step_direction_line), so there is nothing
+further to inherit here - the fallback rule sees exactly what the words
+would have.
 
 Note fermata is not classification-routed either, despite having a
 CLASSIFICATION entry (`note_fermata_aggregate=True`) - its rule is specific
@@ -454,27 +455,26 @@ class MarkingRows:
             name = span.kind.capitalize() if span.kind else "Hairpin"
             level = self.level_of(span)
 
-            if (
-                span.start_known and span.end_known
-                and span.start_quarters_from_start == span.end_quarters_from_start
-            ):
+            # Stage 6: a matched pair collapsed to one position (a same-event
+            # start/stop) AND an unpartnered start or stop (parser-pinned to
+            # start == end) are both a point - one bare-name row, no
+            # "start"/"end" suffix.
+            if span.start_quarters_from_start == span.end_quarters_from_start:
                 anchor = self._first_at_or_after_level(level, span.start_quarters_from_start)
                 if anchor == event_slice.quarters_from_start:
                     _add(level, MarkingRow(text=name, marking=span, category="hairpins"))
                 continue
 
-            if span.end_known:
-                anchor = self._last_at_or_before_level(level, span.end_quarters_from_start)
-                if anchor == event_slice.quarters_from_start:
-                    _add(level, MarkingRow(
-                        text=marking_labels.end_label(name), marking=span, category="hairpins"
-                    ))
-            if span.start_known:
-                anchor = self._first_at_or_after_level(level, span.start_quarters_from_start)
-                if anchor == event_slice.quarters_from_start:
-                    _add(level, MarkingRow(
-                        text=marking_labels.start_label(name), marking=span, category="hairpins"
-                    ))
+            anchor_end = self._last_at_or_before_level(level, span.end_quarters_from_start)
+            if anchor_end == event_slice.quarters_from_start:
+                _add(level, MarkingRow(
+                    text=marking_labels.end_label(name), marking=span, category="hairpins"
+                ))
+            anchor_start = self._first_at_or_after_level(level, span.start_quarters_from_start)
+            if anchor_start == event_slice.quarters_from_start:
+                _add(level, MarkingRow(
+                    text=marking_labels.start_label(name), marking=span, category="hairpins"
+                ))
 
         # Clef changes.
         for mark in data.clef_change_marks:

@@ -104,18 +104,20 @@ def test_swell_produces_two_point_rows_in_file_order():
     assert _texts(rows) == ["Crescendo", "Diminuendo", "C", "C"]
 
 
-def test_unmatched_stop_gets_only_its_known_end_row():
+def test_unmatched_stop_reads_as_a_bare_point():
+    """Stage 6: an unpartnered stop is a point, pinned to its own known
+    position (start == end) - a bare "Hairpin" row, no "start"/"end" suffix."""
     span = HairpinSpan(
-        kind="", start_measure=1, start_beat_position=1.0, start_quarters_from_start=0.0,
+        kind="", start_measure=2, start_beat_position=1.0, start_quarters_from_start=4.0,
         end_measure=2, end_beat_position=1.0, end_quarters_from_start=4.0,
-        part_id="P1", staff=1, start_known=False,
+        part_id="P1", staff=1,
     )
     md = _md([span])
     md.active_event_index = 0
     assert not any(isinstance(r, MarkingRow) for r in md.get_region_3_rows())
     md.active_event_index = 1
     rows = md.get_region_3_rows()
-    assert _texts(rows) == ["Hairpin end", "C", "C"]
+    assert _texts(rows) == ["Hairpin", "C", "C"]
 
 
 def test_hairpin_row_not_repeated_per_voice_of_the_same_staff():
