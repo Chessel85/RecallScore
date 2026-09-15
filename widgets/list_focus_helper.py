@@ -1,7 +1,7 @@
 # widgets/list_focus_helper.py
 import shiboken6
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QListWidget
+from PySide6.QtWidgets import QListWidget, QTreeWidget
 
 # Gap between each step below. Reported live (2026-08-29): the original,
 # single-tick version of this function (setFocus() then an immediate
@@ -76,6 +76,36 @@ def focus_list_and_reannounce_current_row(list_widget: QListWidget) -> None:
             if not shiboken6.isValid(list_widget):
                 return
             list_widget.setCurrentRow(row)
+        return _run
+
+    _do_focus()
+
+
+def focus_tree_and_reannounce_current_row(tree_widget: QTreeWidget) -> None:
+    """QTreeWidget counterpart of focus_list_and_reannounce_current_row
+    (stage 8: PerformanceReportDialog's tree) - same root cause, same fix,
+    same _STEP_DELAY_MS spacing, just QTreeWidget's currentItem()/
+    setCurrentItem() API instead of QListWidget's *Row methods."""
+    def _do_focus():
+        if not shiboken6.isValid(tree_widget):
+            return
+        tree_widget.setFocus()
+        QTimer.singleShot(_STEP_DELAY_MS, _do_clear)
+
+    def _do_clear():
+        if not shiboken6.isValid(tree_widget):
+            return
+        item = tree_widget.currentItem()
+        if item is None:
+            return
+        tree_widget.setCurrentItem(None)
+        QTimer.singleShot(_STEP_DELAY_MS, _do_restore(item))
+
+    def _do_restore(item):
+        def _run():
+            if not shiboken6.isValid(tree_widget):
+                return
+            tree_widget.setCurrentItem(item)
         return _run
 
     _do_focus()

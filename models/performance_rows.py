@@ -18,6 +18,7 @@ from typing import Dict, List, Optional, Tuple
 from models import marking_labels, vocabulary
 from models.key_signatures import key_signature_display_name
 from models.performance_region_row import PerformanceRegionRow
+from models.report_row import ReportRow
 
 # Section 3's level order for a Region 5 row: score first, then part, then
 # stave. PerformanceMarkingsImplementationPlanV2.md stage 4.
@@ -480,15 +481,26 @@ class PerformanceRows:
             out.append(("tempo", marking_labels.tempo_change_label(number, unit)))
         return out
 
-    def get_performance_report_lines(self) -> List[str]:
-        """Ref 29: the Performance Report's content - a whole-score summary,
-        deliberately independent of the Region 2 filter (unlike every other
-        accessor here), since it describes the piece, not the current view."""
+    def get_performance_report_rows(self) -> List[ReportRow]:
+        """Ref 29 / PITweaksImplementationPlan.md stage 6 (PerformanceMarkings
+        ImplementationPlanV2.md stage 8): the Performance Report's content as
+        structured rows for PerformanceReportDialog's tree, deliberately
+        independent of the Region 2 filter (unlike every other accessor
+        here), since it describes the piece, not the current view.
+
+        level 0 = a header/preamble line; level 1 = one of its details.
+        Jump targets are carried from the object that produced the text
+        (invariant 8, ReportRow's own docstring): jump_quarters for a
+        continuous position, jump_measure for a barline-aligned one,
+        jump_index for a barline marker event (see below), part_id for a
+        Parts row."""
         data = self.data
         # Reuses get_region_1_data() wholesale rather than cherry-picking
         # keys like "Title"/"Composer": credit keys come from each file's own
         # <credit-type> text, so no fixed name is guaranteed to exist.
-        lines: List[str] = [f"{k}: {v}" for k, v in data.get_region_1_data().items()]
+        rows: List[ReportRow] = [
+            ReportRow(text=f"{k}: {v}", level=0) for k, v in data.get_region_1_data().items()
+        ]
 
         bar_word = vocabulary.bar_word(data.uk_terms).capitalize()
         anacrusis_slices = [s for s in data.timeline_slices if s.measure == 0]
@@ -499,21 +511,22 @@ class PerformanceRows:
                 if float(beat_position).is_integer()
                 else str(beat_position)
             )
-            lines.append(f"Anacrusis starts on beat {beat_str}")
-        lines.append(f"Number of {bar_word.lower()}s: {data.total_measures}")
+            rows.append(ReportRow(text=f"Anacrusis starts on beat {beat_str}", level=0))
+        rows.append(ReportRow(text=f"Number of {bar_word.lower()}s: {data.total_measures}", level=0))
 
-        def _tally(header, items, line_fn):
-            """A "<header>: <count>" line then one `line_fn(item)` line per
-            item. The whole block (header included) is omitted when there is
-            nothing to list (stage 12 item 3b: no more "X: 0" headers)."""
+        def _tally(header, items, row_fn):
+            """A level-0 "<header>: <count>" row then one level-1
+            `ReportRow(**row_fn(item))` per item. The whole block (header
+            included) is omitted when there is nothing to list (stage 12
+            item 3b: no more "X: 0" headers)."""
             if not items:
                 return
-            lines.append(f"{header}: {len(items)}")
-            lines.extend(line_fn(it) for it in items)
+            rows.append(ReportRow(text=f"{header}: {len(items)}", level=0))
+            rows.extend(ReportRow(level=1, **row_fn(it)) for it in items)
 
         _tally(
             "Sections", data.section_spans,
-            lambda s: f"{s.label}: {bar_word} {s.start_measure} to {bar_word} {s.end_measure}",
+            lambda s: {"text": f"{s.label}: {bar_word} {s.start_measure} to {bar_word} {s.end_measure}"},
         )
 
         note_counts: Dict[str, int] = {}
@@ -523,16 +536,16 @@ class PerformanceRows:
                     note_counts[n.part_name] = note_counts.get(n.part_name, 0) + 1
         _tally(
             "Parts", data.parts_info,
-            lambda p: f"{p.name}: {note_counts.get(p.name, 0)} notes",
+            lambda p: {"text": f"{p.name}: {note_counts.get(p.name, 0)} notes", "part_id": p.part_id},
         )
 
         _tally(
             "Repeated sections", data.repeat_spans,
-            lambda s: f"Repeat: {bar_word} {s.start_measure} to {bar_word} {s.end_measure}",
+            lambda s: {"text": f"Repeat: {bar_word} {s.start_measure} to {bar_word} {s.end_measure}"},
         )
         _tally(
             "Endings", data.ending_spans,
-            lambda s: f"Ending {s.number}: {bar_word} {s.start_measure} to {bar_word} {s.end_measure}",
+            lambda s: {"text": f"Ending {s.number}: {bar_word} {s.start_measure} to {bar_word} {s.end_measure}"},
         )
 
         # P3: <direction> spans and points. Pedal/octave-shift appear here
@@ -557,7 +570,10 @@ class PerformanceRows:
         # instead and is reported under "Dashed lines:" / "Bracket lines:",
         # not here), and point <dynamics> marks (mf, f, p, ...). An
         # unpartnered wedge start or stop is a point (stage 6), pinned to its
-        # own known position - `_span_range` renders that singular.
+        # own known position - `_span_range` renders that singular. Every
+        # entry's jump target is its own quarters_from_start (stage 8's
+        # table: hairpins jump by start_quarters_from_start - equal to
+        # end_quarters_from_start for a point, so this covers both).
         def _hairpin_report_text(span) -> str:
             kind_label = span.kind.capitalize() if span.kind else "Hairpin"
             if span.start_quarters_from_start == span.end_quarters_from_start:
@@ -568,13 +584,14 @@ class PerformanceRows:
         _dashes = [s for s in data.direction_spans if s.kind == "dashes"]
         _brackets = [s for s in data.direction_spans if s.kind == "bracket"]
 
-        # (sort_key, line_text, part_id or None)
-        _dynamics_events: List[Tuple[float, str, Optional[str]]] = []
+        # (sort_key, line_text, part_id or None, jump_quarters)
+        _dynamics_events: List[Tuple[float, str, Optional[str], float]] = []
         for span in data.hairpin_spans:
             _dynamics_events.append((
                 span.start_quarters_from_start,
                 _hairpin_report_text(span),
                 span.part_id or None,
+                span.start_quarters_from_start,
             ))
         for mark in data.direction_marks:
             if mark.kind != "dynamics_word":
@@ -585,6 +602,7 @@ class PerformanceRows:
                 mark.quarters_from_start,
                 f'{sense.capitalize()} (marked "{mark.label}"): {position}',
                 mark.part_id or None,
+                mark.quarters_from_start,
             ))
         _seen_dynamic_marks = set()
         for s in data._real_timeline_slices:
@@ -597,29 +615,39 @@ class PerformanceRows:
                 _seen_dynamic_marks.add(key)
                 position = data._bar_beat_label(bar_word, s.measure, s.beat_position)
                 _dynamics_events.append((
-                    s.quarters_from_start, f"Dynamic {n.dynamic}: {position}", n.part_id
+                    s.quarters_from_start, f"Dynamic {n.dynamic}: {position}", n.part_id,
+                    s.quarters_from_start,
                 ))
 
-        _dynamics_part_ids = {pid for _, _, pid in _dynamics_events if pid}
-        _dynamics_lines: List[str] = []
-        for _, event_line, part_id in sorted(_dynamics_events, key=lambda e: e[0]):
+        _dynamics_part_ids = {pid for _, _, pid, _ in _dynamics_events if pid}
+        _dynamics_rows: List[dict] = []
+        for _, event_line, part_id, jump_quarters in sorted(_dynamics_events, key=lambda e: e[0]):
             prefix = ""
             if part_id and len(_dynamics_part_ids) > 1:
                 name = next((p.name for p in data.parts_info if p.part_id == part_id), None)
                 prefix = f"{name}: " if name else ""
-            _dynamics_lines.append(f"{prefix}{event_line}")
-        _tally("Dynamics", _dynamics_lines, lambda line: line)
+            _dynamics_rows.append({"text": f"{prefix}{event_line}", "jump_quarters": jump_quarters})
+        _tally("Dynamics", _dynamics_rows, lambda kwargs: kwargs)
 
         _pedal_spans = [s for s in data.direction_spans if s.kind == "pedal"]
         _pedal_changes = [m for m in data.direction_marks if m.kind == "pedal_change"]
-        _pedal_lines = [f"Pedal: {_span_range(span)}" for span in _pedal_spans]
-        _pedal_lines.extend(f"Pedal change: {bar_word} {mark.measure}" for mark in _pedal_changes)
-        _tally("Pedal marks", _pedal_lines, lambda line: line)
+        _pedal_rows: List[dict] = [
+            {"text": f"Pedal: {_span_range(span)}", "jump_quarters": span.start_quarters_from_start}
+            for span in _pedal_spans
+        ]
+        _pedal_rows.extend(
+            {"text": f"Pedal change: {bar_word} {mark.measure}", "jump_quarters": mark.quarters_from_start}
+            for mark in _pedal_changes
+        )
+        _tally("Pedal marks", _pedal_rows, lambda kwargs: kwargs)
 
         _octave_spans = [s for s in data.direction_spans if s.kind == "octave_shift"]
         _tally(
             "Octave shifts", _octave_spans,
-            lambda s: f"Octave shift{_sp(s.label)}: {_span_range(s)}",
+            lambda s: {
+                "text": f"Octave shift{_sp(s.label)}: {_span_range(s)}",
+                "jump_quarters": s.start_quarters_from_start,
+            },
         )
 
         # Rehearsal marks and plain-text tempo instructions ("rall.",
@@ -628,15 +656,43 @@ class PerformanceRows:
         _rehearsals = [m for m in data.direction_marks if m.kind == "rehearsal"]
         _tally(
             "Rehearsal marks", _rehearsals,
-            lambda m: f"Rehearsal mark{_sp(m.label)}: {bar_word} {m.measure}",
+            lambda m: {
+                "text": f"Rehearsal mark{_sp(m.label)}: {bar_word} {m.measure}",
+                "jump_quarters": m.quarters_from_start,
+            },
         )
         _tempo_words = [m for m in data.direction_marks if m.kind == "tempo_word"]
         _tally(
             "Tempo instructions", _tempo_words,
-            lambda m: (
-                f'Tempo instruction (marked "{m.label}"): '
-                f"{data._bar_beat_label(bar_word, m.measure, m.beat_position)}"
-            ),
+            lambda m: {
+                "text": (
+                    f'Tempo instruction (marked "{m.label}"): '
+                    f"{data._bar_beat_label(bar_word, m.measure, m.beat_position)}"
+                ),
+                "jump_quarters": m.quarters_from_start,
+            },
+        )
+
+        # Stage 8 addendum: stave text ("words" - a generic <words> direction
+        # matching neither the dynamics nor tempo allow-list) gets its own
+        # report tally. PerformanceMarkingsImplementationPlanV2.md stage 5
+        # required "Find and the Performance Report must still list the
+        # words" when stave text stopped being a fabricated note; Find
+        # already does (find_index.py), the report never gained the tally -
+        # added here. Wording matches Region 5's own (marking_labels.
+        # stave_text_label, invariant 8); the note list's row is the bare
+        # text instead (models/marking_rows.py). Jump target is the mark's
+        # own quarters_from_start, like every other point mark above.
+        _stave_texts = [m for m in data.direction_marks if m.kind == "words"]
+        _tally(
+            "Stave text", _stave_texts,
+            lambda m: {
+                "text": (
+                    f"{marking_labels.stave_text_label(m.label)}: "
+                    f"{data._bar_beat_label(bar_word, m.measure, m.beat_position)}"
+                ),
+                "jump_quarters": m.quarters_from_start,
+            },
         )
 
         # Every dashed / bracketed line, as written - a "cresc." word and the
@@ -646,32 +702,96 @@ class PerformanceRows:
         # via the same marking_labels.direction_line_name Region 5 and the
         # note list use (invariant 8) - not a second copy of that naming.
         _tally("Dashed lines", _dashes,
-               lambda s: f"{marking_labels.direction_line_name(s)}: {_span_range(s)}")
+               lambda s: {
+                   "text": f"{marking_labels.direction_line_name(s)}: {_span_range(s)}",
+                   "jump_quarters": s.start_quarters_from_start,
+               })
         _tally("Bracket lines", _brackets,
-               lambda s: f"{marking_labels.direction_line_name(s)}: {_span_range(s)}")
+               lambda s: {
+                   "text": f"{marking_labels.direction_line_name(s)}: {_span_range(s)}",
+                   "jump_quarters": s.start_quarters_from_start,
+               })
 
         _other_dirs = [m for m in data.direction_marks if m.kind == "other_direction"]
         _tally("Other directions", _other_dirs,
-               lambda m: f"Direction {m.label}: {bar_word} {m.measure}")
+               lambda m: {
+                   "text": f"Direction {m.label}: {bar_word} {m.measure}",
+                   "jump_quarters": m.quarters_from_start,
+               })
 
         # P4: bar-style points (M6), mid-part clef changes (M7),
-        # measure-style points (M8).
+        # measure-style points (M8). Clef changes carry their own
+        # quarters_from_start (stage 8's table: "quarters if the mark
+        # carries them") - the rest here only have a measure.
         _tally("Barline changes", data.barline_marks,
-               lambda m: f"{m.style.capitalize()} barline: {bar_word} {m.measure}")
+               lambda m: {
+                   "text": f"{m.style.capitalize()} barline: {bar_word} {m.measure}",
+                   "jump_measure": m.measure,
+               })
+
+        # Stage 8 addendum: barline marker events (models/event_slice.py's
+        # barline_items - a <barline> carrying fermata/segno/coda,
+        # generalised in PerformanceMarkingsImplementationPlanV2.md stage 7)
+        # get their own tally, previously unreported anywhere - a distinct
+        # source from segno_marks/coda_marks below, which read a plain
+        # <direction> instead; a file can carry one, the other, or both.
+        # jump_index, not jump_quarters: the event's quarters_from_start
+        # coincides with the following bar's first note (a barline is the
+        # end of ITS bar - CLAUDE.md invariant on barline position), so a
+        # quarters-based lookup could resolve to that note instead of the
+        # marker event itself. Using the row's own already-known index in
+        # data.timeline_slices sidesteps the ambiguity entirely.
+        _barline_marker_items = [
+            (idx, slice_, item)
+            for idx, slice_ in enumerate(data.timeline_slices)
+            for item in slice_.barline_items
+        ]
+        _tally(
+            "Barline markers", _barline_marker_items,
+            lambda entry: {
+                "text": f"{marking_labels.barline_item_label(entry[2])}: {bar_word} {entry[1].measure}",
+                "jump_index": entry[0],
+            },
+        )
+
         _tally("Clef changes", data.clef_change_marks,
-               lambda m: f"Clef change: {m.label}, staff {m.staff}, {bar_word} {m.measure}")
+               lambda m: {
+                   "text": f"Clef change: {m.label}, staff {m.staff}, {bar_word} {m.measure}",
+                   "jump_quarters": m.quarters_from_start,
+               })
         _tally("Measure style markers", data.measure_style_marks,
-               lambda m: f"{marking_labels.measure_style_label(m)}: {bar_word} {m.measure}")
+               lambda m: {
+                   "text": f"{marking_labels.measure_style_label(m)}: {bar_word} {m.measure}",
+                   "jump_measure": m.measure,
+               })
 
         _tally("Segno marks", data.segno_marks,
-               lambda m: f"Segno{marking_labels.label_suffix(m.label)}: {bar_word} {m.measure}")
+               lambda m: {
+                   "text": f"Segno{marking_labels.label_suffix(m.label)}: {bar_word} {m.measure}",
+                   "jump_measure": m.measure,
+               })
         _tally("Coda marks", data.coda_marks,
-               lambda m: f"Coda{marking_labels.label_suffix(m.label)}: {bar_word} {m.measure}")
+               lambda m: {
+                   "text": f"Coda{marking_labels.label_suffix(m.label)}: {bar_word} {m.measure}",
+                   "jump_measure": m.measure,
+               })
         _tally("To coda marks", data.to_coda_marks,
-               lambda m: f"To coda{marking_labels.label_suffix(m.label)}: {bar_word} {m.measure}")
+               lambda m: {
+                   "text": f"To coda{marking_labels.label_suffix(m.label)}: {bar_word} {m.measure}",
+                   "jump_measure": m.measure,
+               })
         _tally("Fine marks", data.fine_marks,
-               lambda m: f"Fine: {bar_word} {m.measure}")
+               lambda m: {"text": f"Fine: {bar_word} {m.measure}", "jump_measure": m.measure})
         _tally("Navigation jumps", data.navigation_jumps,
-               lambda nj: f"{'Da capo' if nj.kind == 'dacapo' else 'Dal segno'}: {bar_word} {nj.measure}")
+               lambda nj: {
+                   "text": f"{'Da capo' if nj.kind == 'dacapo' else 'Dal segno'}: {bar_word} {nj.measure}",
+                   "jump_measure": nj.measure,
+               })
 
-        return lines
+        return rows
+
+    def get_performance_report_lines(self) -> List[str]:
+        """Ref 29: the flat line list every existing caller/test reads -
+        just the text of get_performance_report_rows(), kept for
+        MusicData's own delegator and every test written against it."""
+        return [r.text for r in self.get_performance_report_rows()]

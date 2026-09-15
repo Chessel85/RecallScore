@@ -1533,15 +1533,29 @@ class MainWindow(QMainWindow):
                 self._actions.refresh_on_playback.setChecked(settings.refresh_during_playback)
 
     def _show_performance_report_dialog(self):
-        """Ref 29: read-only, no live signal wiring - build from current
-        data, exec, restore previous focus."""
+        """Ref 29 / stage 8: build the tree from current data, exec, then
+        act on an Accepted result's chosen_row - a Parts row selects that
+        Region 2 node and focuses Region 2 (the X shortcut's own path);
+        anything else resolves through the navigation controller and, on
+        success, focuses Region 3 (the C shortcut's own path). That happens
+        OUTSIDE the _preserving_focus() block: it restores focus on exit,
+        which would undo the jump."""
         if not self._music_data:
             return
         with self._preserving_focus():
             dialog = PerformanceReportDialog(
-                self, lines=self._music_data.get_performance_report_lines()
+                self, rows=self._music_data.get_performance_report_rows()
             )
-            dialog.exec()
+            result = dialog.exec()
+
+        if result != QDialog.DialogCode.Accepted or dialog.chosen_row is None:
+            return
+        row = dialog.chosen_row
+        if row.part_id is not None:
+            self.region_2.select_node(f"part_{row.part_id}")
+            self.region_2.setFocus()
+        elif self.navigation.jump_to_report_row(row):
+            self.region_3.setFocus()
 
     def _show_mixer_dialog(self):
         """Wishlist #4. rows/commit/cancel all live on PlaybackController -

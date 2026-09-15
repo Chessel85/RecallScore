@@ -1322,6 +1322,12 @@ class MusicData:
         Delegator - see PerformanceRows.get_performance_report_lines."""
         return self.performance_rows.get_performance_report_lines()
 
+    def get_performance_report_rows(self):
+        """Ref 29 / stage 8: the Performance Report's content as structured,
+        jumpable ReportRows. Delegator - see
+        PerformanceRows.get_performance_report_rows."""
+        return self.performance_rows.get_performance_report_rows()
+
     # Ref 12 AC2: hard bounds, in the score's DISPLAY units - what the user
     # reads and types (the time-signature-denominator beat), not the
     # internal quarter-note equivalent.

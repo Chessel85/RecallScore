@@ -175,6 +175,20 @@ class NavigationController(QObject):
             return
         self._moved(self.music_data.jump_to_measure(int(digits)), announce_measure=True)
 
+    def _resolve_position_index(self, quarters, measure, *, is_start: bool) -> Optional[int]:
+        """Shared by jump_to_span and jump_to_report_row: a continuous
+        position (quarters, when given) resolves through
+        slice_index_at_or_after_quarters; a barline-aligned one (measure
+        only) resolves through first/last_visible_event_index_of_measure
+        depending on which end is wanted."""
+        if quarters is not None:
+            return self.music_data.slice_index_at_or_after_quarters(quarters)
+        if measure is None:
+            return None
+        if is_start:
+            return self.music_data.first_visible_event_index_of_measure(measure)
+        return self.music_data.last_visible_event_index_of_measure(measure)
+
     def jump_to_span(self, row, is_start: bool) -> None:
         """Region 5's Ctrl+Home/Ctrl+End (Ref 29). `row` is the focused
         PerformanceRegionRow, passed in rather than read off the widget.
@@ -200,12 +214,7 @@ class NavigationController(QObject):
         else:
             measure, quarters = row.end_target_measure, row.end_target_quarters
 
-        if quarters is not None:
-            index = self.music_data.slice_index_at_or_after_quarters(quarters)
-        elif is_start:
-            index = self.music_data.first_visible_event_index_of_measure(measure)
-        else:
-            index = self.music_data.last_visible_event_index_of_measure(measure)
+        index = self._resolve_position_index(quarters, measure, is_start=is_start)
 
         if index is None:
             self.boundary_hit.emit()
@@ -213,6 +222,43 @@ class NavigationController(QObject):
 
         self.music_data.active_event_index = index
         self.position_changed.emit(True, False)
+
+    def jump_to_report_row(self, row) -> bool:
+        """Edit > Performance Report... (PITweaksImplementationPlan.md
+        stage 6 / PerformanceMarkingsImplementationPlanV2.md stage 8):
+        resolve a ReportRow's jump target and move the cursor there.
+
+        Resolves like jump_to_span's start branch (quarters, else measure)
+        EXCEPT for jump_index (a barline marker event, models/
+        event_slice.py's barline_items): that index is used as-is, with no
+        lookup at all - see ReportRow's own docstring for why a
+        quarters-based lookup can't be trusted there. A row with none of
+        jump_index/jump_quarters/jump_measure (a header, a range-only row)
+        returns False without a boundary cue - MainWindow only calls this
+        once it has already ruled out a part_id row, and a no-target row is
+        an ordinary header, not a failed jump."""
+        self.clear_pending_digits()
+        if not self.music_data or row is None:
+            return False
+
+        if row.jump_index is not None:
+            index = (
+                row.jump_index
+                if 0 <= row.jump_index < len(self.music_data.timeline_slices)
+                else None
+            )
+        elif row.jump_quarters is not None or row.jump_measure is not None:
+            index = self._resolve_position_index(row.jump_quarters, row.jump_measure, is_start=True)
+        else:
+            return False
+
+        if index is None:
+            self.boundary_hit.emit()
+            return False
+
+        self.music_data.active_event_index = index
+        self.position_changed.emit(True, False)
+        return True
 
     def next_section(self) -> None:
         """Ctrl+Alt+Right (P2): jump to the first bar of the next song

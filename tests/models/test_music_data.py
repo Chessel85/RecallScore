@@ -3513,3 +3513,151 @@ def test_context_rows_empty_without_sections_chords_or_lyrics():
                                     quarters_from_start=0.0, notes=[note])],
     )
     assert md.get_performance_context_rows(0) == []
+
+
+# --- Stage 8 (PITweaksImplementationPlan.md stage 6 / PerformanceMarkings
+# ImplementationPlanV2.md stage 8): the report as structured, jumpable rows.
+
+def test_report_rows_text_matches_the_flat_line_list(timeline, pedal_score):
+    md = timeline(pedal_score)
+
+    rows = md.get_performance_report_rows()
+
+    assert [r.text for r in rows] == md.get_performance_report_lines()
+
+
+def test_report_rows_headers_are_level_0_details_are_level_1(timeline, pedal_score):
+    md = timeline(pedal_score)
+
+    rows = md.get_performance_report_rows()
+    header = next(r for r in rows if r.text == "Pedal marks: 2")
+    assert header.level == 0
+    idx = rows.index(header)
+    assert rows[idx + 1].level == 1
+    assert rows[idx + 2].level == 1
+
+
+def test_report_rows_parts_row_carries_part_id_and_no_position(timeline, minimal_score):
+    md = timeline(
+        minimal_score,
+        parts_info=[PartStructureInfo(part_id="P1", name="Test Part", gmidi_program=1)],
+    )
+
+    rows = md.get_performance_report_rows()
+    part_row = next(r for r in rows if r.text.startswith("Test Part:"))
+
+    assert part_row.part_id == "P1"
+    assert part_row.jump_quarters is None
+    assert part_row.jump_measure is None
+    assert part_row.jump_index is None
+
+
+def test_report_rows_repeat_row_carries_no_jump_target(timeline, repeats_and_endings_score):
+    md = timeline(repeats_and_endings_score)
+
+    rows = md.get_performance_report_rows()
+    repeat_row = next(r for r in rows if r.text.startswith("Repeat:"))
+
+    assert not repeat_row.has_jump_target()
+
+
+def test_report_rows_pedal_span_carries_its_start_quarters(timeline, pedal_score):
+    """Table row: "Pedal, octave shift, dashed, bracket spans |
+    start_quarters_from_start"."""
+    md = timeline(pedal_score)
+
+    rows = md.get_performance_report_rows()
+    pedal_row = next(r for r in rows if r.text.startswith("Pedal: "))
+
+    assert pedal_row.jump_quarters is not None
+    assert pedal_row.jump_measure is None
+
+
+def test_report_rows_stave_text_tally_and_quarters_jump_target(timeline, stave_text_score):
+    """Stage 8 addendum: stave text ("words") gets its own report tally
+    (previously missing - stage 5 required it), jumping by quarters like
+    every other point mark."""
+    md = timeline(stave_text_score)
+
+    rows = md.get_performance_report_rows()
+    header = next(r for r in rows if r.text.startswith("Stave text:"))
+    assert header.level == 0
+    detail = next(r for r in rows if "Allegro" in r.text)
+    assert detail.level == 1
+    assert detail.jump_quarters is not None
+    assert detail.jump_measure is None
+    assert detail.jump_index is None
+
+
+def test_report_rows_barline_markers_tally_and_index_jump_target(
+    timeline, stage7_barline_jump_marks_score
+):
+    """Stage 8 addendum: a barline marker event (models/event_slice.py's
+    barline_items) gets its own report tally, jumping by its own timeline
+    index rather than quarters/measure - see ReportRow's docstring."""
+    md = timeline(stage7_barline_jump_marks_score)
+
+    rows = md.get_performance_report_rows()
+    header = next(r for r in rows if r.text.startswith("Barline markers:"))
+    assert header.level == 0
+    segno_row = next(r for r in rows if r.text == "Segno: Measure 1")
+    coda_row = next(r for r in rows if r.text == "Coda: Measure 2")
+
+    assert segno_row.jump_index is not None
+    assert segno_row.jump_quarters is None
+    assert segno_row.jump_measure is None
+    assert md.timeline_slices[segno_row.jump_index].barline_items == ("segno",)
+    assert md.timeline_slices[coda_row.jump_index].barline_items == ("coda",)
+
+
+def test_jump_to_report_row_with_jump_index_moves_to_that_exact_slice(
+    timeline, stage7_barline_jump_marks_score
+):
+    from controllers.navigation_controller import NavigationController
+
+    class _FakeSession:
+        def __init__(self, music_data):
+            self.music_data = music_data
+
+    md = timeline(stage7_barline_jump_marks_score)
+    nav = NavigationController(_FakeSession(md))
+    rows = md.get_performance_report_rows()
+    coda_row = next(r for r in rows if r.text == "Coda: Measure 2")
+
+    assert nav.jump_to_report_row(coda_row) is True
+    assert md.active_event_index == coda_row.jump_index
+
+
+def test_jump_to_report_row_with_no_target_returns_false(timeline, repeats_and_endings_score):
+    from controllers.navigation_controller import NavigationController
+
+    class _FakeSession:
+        def __init__(self, music_data):
+            self.music_data = music_data
+
+    md = timeline(repeats_and_endings_score)
+    nav = NavigationController(_FakeSession(md))
+    rows = md.get_performance_report_rows()
+    repeat_row = next(r for r in rows if r.text.startswith("Repeat:"))
+
+    assert nav.jump_to_report_row(repeat_row) is False
+
+
+def test_jump_to_report_row_with_out_of_range_index_emits_boundary_hit(
+    timeline, minimal_score
+):
+    from controllers.navigation_controller import NavigationController
+    from models.report_row import ReportRow
+
+    class _FakeSession:
+        def __init__(self, music_data):
+            self.music_data = music_data
+
+    md = timeline(minimal_score)
+    nav = NavigationController(_FakeSession(md))
+    hits = []
+    nav.boundary_hit.connect(lambda: hits.append(True))
+
+    row = ReportRow(text="bogus", level=1, jump_index=9999)
+    assert nav.jump_to_report_row(row) is False
+    assert hits == [True]

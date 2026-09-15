@@ -133,17 +133,65 @@ def test_performance_report_action_shows_the_dialog_and_restores_focus(
 
     from widgets.performance_report_dialog import PerformanceReportDialog
 
-    dialog = PerformanceReportDialog(window, lines=window._music_data.get_performance_report_lines())
+    dialog = PerformanceReportDialog(window, rows=window._music_data.get_performance_report_rows())
     monkeypatch.setattr(dialog, "exec", lambda: PerformanceReportDialog.DialogCode.Rejected)
     monkeypatch.setattr(
         "main_window.PerformanceReportDialog",
-        lambda parent, lines=None: dialog,
+        lambda parent, rows=None: dialog,
     )
 
     window._show_performance_report_dialog()
 
-    assert dialog.report_list.count() > 0
+    assert dialog.report_tree.topLevelItemCount() > 0
+
+
+def test_performance_report_part_row_selects_region_2_and_focuses_it(
+    window, qtbot, minimal_score, monkeypatch
+):
+    """Stage 8: activating a Parts detail row selects that part in Region 2
+    and moves focus there - the window's own "part_id row" branch."""
+    load_and_wait(window, qtbot, minimal_score)
+    window.region_3.setFocus()
+
+    from widgets.performance_report_dialog import PerformanceReportDialog
+
+    rows = window._music_data.get_performance_report_rows()
+    part_row = next(r for r in rows if r.part_id is not None)
+    dialog = PerformanceReportDialog(window, rows=rows)
+    dialog.chosen_row = part_row
+    monkeypatch.setattr(dialog, "exec", lambda: PerformanceReportDialog.DialogCode.Accepted)
+    monkeypatch.setattr("main_window.PerformanceReportDialog", lambda parent, rows=None: dialog)
+
+    window._show_performance_report_dialog()
+
     assert window.focusWidget() is window.region_2
+    assert window.region_2.current_node().node_id == f"part_{part_row.part_id}"
+
+
+def test_performance_report_positioned_row_jumps_and_focuses_region_3(
+    window, qtbot, pedal_score, monkeypatch
+):
+    """Stage 8: activating a positioned detail row (a pedal span here, a
+    jump_quarters row) moves the timeline cursor and focuses Region 3."""
+    load_and_wait(window, qtbot, pedal_score)
+    qtbot.keyClick(window.region_3, Qt.Key.Key_Right)
+    qtbot.keyClick(window.region_3, Qt.Key.Key_Right)
+    window.region_2.setFocus()
+    before_index = window._music_data.active_event_index
+
+    from widgets.performance_report_dialog import PerformanceReportDialog
+
+    rows = window._music_data.get_performance_report_rows()
+    pedal_row = next(r for r in rows if r.text.startswith("Pedal: "))
+    dialog = PerformanceReportDialog(window, rows=rows)
+    dialog.chosen_row = pedal_row
+    monkeypatch.setattr(dialog, "exec", lambda: PerformanceReportDialog.DialogCode.Accepted)
+    monkeypatch.setattr("main_window.PerformanceReportDialog", lambda parent, rows=None: dialog)
+
+    window._show_performance_report_dialog()
+
+    assert window.focusWidget() is window.region_3
+    assert window._music_data.active_event_index != before_index
 
 
 def test_gp_file_loads_and_chords_voice_is_toggleable_and_auditions_full_chord(
