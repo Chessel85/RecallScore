@@ -17,6 +17,7 @@ from models.fine_mark import FineMark
 from models.find_index import FindIndex
 from models.find_target import FindTarget
 from models.hairpin_span import HairpinSpan
+from models.key_change_mark import KeyChangeMark
 from models.key_signatures import key_signature_display_name
 from models import marking_labels
 from models import marking_categories
@@ -41,8 +42,10 @@ from models.section_span import SectionSpan
 from models.segno_mark import SegnoMark
 from models.strum_pattern import StrumPattern
 from models.tempo_change import TempoChange
+from models.time_change_mark import TimeChangeMark
 from models.timeline_navigator import TimelineNavigator
 from models.to_coda_mark import ToCodaMark
+from models.wavy_line_span import WavyLineSpan
 from models.synthetic_parts import CHORDS_PART_ID, LYRICS_PART_ID
 
 
@@ -216,6 +219,12 @@ class MusicData:
     barline_marks: List[BarlineMark] = field(default_factory=list)
     clef_change_marks: List[ClefChangeMark] = field(default_factory=list)
     measure_style_marks: List[MeasureStyleMark] = field(default_factory=list)
+    # Stage 10 (PerformanceMarkingsImplementationPlanV2.md): mid-part key/
+    # time signature changes (per-part, D5) and barline wavy-lines (score-
+    # wide). MusicXML-only - MIDI/GP/UG stub them empty.
+    key_change_marks: List[KeyChangeMark] = field(default_factory=list)
+    time_change_marks: List[TimeChangeMark] = field(default_factory=list)
+    wavy_line_spans: List[WavyLineSpan] = field(default_factory=list)
     total_measures: int = 0
 
     # Segno/Coda/D.C./D.S./Fine navigation marks, same side-channel pattern
@@ -1179,6 +1188,15 @@ class MusicData:
         shared by Region 5's one-shot rows, the note list's structural rows
         (models/marking_rows.py) and the change cue."""
         return self.performance_rows.structural_change_labels(index)
+
+    def has_key_or_time_change_at(self, event_slice: Optional[EventSlice] = None) -> bool:
+        """Stage 10: True when a key or time signature change (majority or
+        minority - see MarkingRows.has_key_or_time_change_at) lands exactly
+        at `event_slice` (default: the cursor's own slice). Combined with
+        structural_change_labels() (tempo), this is the change cue's
+        (RegionPresenter.refresh_region_5) full trigger condition."""
+        slice_ = self.get_current_slice() if event_slice is None else event_slice
+        return self.marking_rows.has_key_or_time_change_at(slice_)
 
     def _ensure_context_arrays(self) -> None:
         """Builds the forward-filled chord/lyric context once. Each entry is

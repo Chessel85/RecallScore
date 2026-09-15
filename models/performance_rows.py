@@ -155,6 +155,14 @@ class PerformanceRows:
                       f"{marking_labels.range_label(bar_word, s.start_measure, 1.0, s.end_measure, 1.0)}",
             category="repeats_endings",
         )
+        # Stage 10: barline wavy-line - same measure-range shape as
+        # repeat/ending above (score-wide, first-part-only scan).
+        _span_row(
+            data.wavy_line_spans, _in_measure,
+            lambda s: f"Wavy line "
+                      f"{marking_labels.range_label(bar_word, s.start_measure, 1.0, s.end_measure, 1.0)}",
+            category="barlines",
+        )
 
         # Hairpins carry a part_id (collected per part, not first-part-only).
         # A matched span gets one row stating the full range (section 6);
@@ -221,6 +229,21 @@ class PerformanceRows:
             ),
             jump_quarters=True,
             category="octave_shift",
+            level_fn=level_of,
+        )
+
+        # Stage 10: principal-voice (Hauptstimme/Nebenstimme bracket) - the
+        # same shape as octave shift above, now that it's a real span
+        # instead of the other_direction catch-all.
+        _span_row(
+            [s for s in data.direction_spans if s.kind == "principal_voice"],
+            _in_quarters,
+            lambda s: (
+                f"{_dir_prefix('principal_voice', s.part_id)}{marking_labels.principal_voice_name(s)} "
+                f"{data._range_label(bar_word, s.start_measure, s.start_beat_position, s.end_measure, s.end_beat_position)}"
+            ),
+            jump_quarters=True,
+            category="principal_voice",
             level_fn=level_of,
         )
 
@@ -337,6 +360,37 @@ class PerformanceRows:
 
         _point(data.clef_change_marks, _clef_label, jump="mark", category="clef_changes", level_fn=level_of)
 
+        # Stage 10: key/time signature changes that disagreed across parts -
+        # one row per differing part, part-name prefixed (Region 5 is a flat
+        # list, unlike the note list where the part-level bucket already
+        # groups the row under that part). The AGREEING case keeps its
+        # existing unprefixed "Key/Time signature change: X" one-shot row
+        # further down (structural_change_labels, now gated to skip a
+        # disagreeing measure so the two paths never double-report one bar).
+        def _key_time_prefix(part_id: str) -> str:
+            name = next((p.name for p in data.parts_info if p.part_id == part_id), None)
+            return f"{name}: " if name else ""
+
+        _point(
+            [m for m in data.key_change_marks
+             if not m.is_score_level and data.key_signature_override_fifths is None],
+            lambda m: (
+                f"{_key_time_prefix(m.part_id)}"
+                f"{marking_labels.key_signature_change_label(key_signature_display_name(m.fifths, None))}"
+            ),
+            jump="mark", category="structural_changes",
+            level_fn=lambda m: ("part", m.part_id),
+        )
+        _point(
+            [m for m in data.time_change_marks if not m.is_score_level],
+            lambda m: (
+                f"{_key_time_prefix(m.part_id)}"
+                f"{marking_labels.time_signature_change_label(m.ts_num, m.ts_den)}"
+            ),
+            jump="mark", category="structural_changes",
+            level_fn=lambda m: ("part", m.part_id),
+        )
+
         _point(
             data.measure_style_marks,
             lambda m: f"{marking_labels.measure_style_label(m)}: {bar_word} {m.measure}",
@@ -386,10 +440,8 @@ class PerformanceRows:
         # S7/stage 6: a one-shot alert - unlike the three span kinds above,
         # this has no start/end pair, it just fires once at the transition
         # itself. structural_change_labels is the single source for "did a
-        # key/time/tempo change land exactly here" - shared with the note
-        # list's own structural rows (models/marking_rows.py) and the
-        # change cue (RegionPresenter.refresh_region_5), so the three can't
-        # disagree about what counts as a change (invariant 8).
+        # tempo change land exactly here" - shared with the change cue
+        # (RegionPresenter.refresh_region_5).
         for _kind, label in self.structural_change_labels(resolved_index):
             entries.append((("score",), PerformanceRegionRow(
                 label=label,
@@ -397,6 +449,35 @@ class PerformanceRows:
                 jump_target_measure=slice_.measure,
                 jump_target_quarters=slice_.quarters_from_start,
             )))
+
+        # Stage 10: the majority key/time change at this position (see
+        # structural_change_labels' docstring for why this reads the mark
+        # directly rather than diffing timeline_slices' key_fifths/time_sig).
+        # Anchored the same way as every other point mark - the score
+        # index's first slice at or after the mark's own quarters_from_start.
+        for mark in data.key_change_marks:
+            if not mark.is_score_level or data.key_signature_override_fifths is not None:
+                continue
+            anchor = data.marking_rows._first_at_or_after_level(("score",), mark.quarters_from_start)
+            if anchor == slice_.quarters_from_start:
+                key_name = key_signature_display_name(mark.fifths, None)
+                entries.append((("score",), PerformanceRegionRow(
+                    label=marking_labels.key_signature_change_label(key_name),
+                    category="structural_changes",
+                    jump_target_measure=slice_.measure,
+                    jump_target_quarters=slice_.quarters_from_start,
+                )))
+        for mark in data.time_change_marks:
+            if not mark.is_score_level:
+                continue
+            anchor = data.marking_rows._first_at_or_after_level(("score",), mark.quarters_from_start)
+            if anchor == slice_.quarters_from_start:
+                entries.append((("score",), PerformanceRegionRow(
+                    label=marking_labels.time_signature_change_label(mark.ts_num, mark.ts_den),
+                    category="structural_changes",
+                    jump_target_measure=slice_.measure,
+                    jump_target_quarters=slice_.quarters_from_start,
+                )))
 
         # Stage 4: score, then part, then stave - a stable sort, so within a
         # level the rows stay in the build order above (section 3's "level
@@ -441,22 +522,35 @@ class PerformanceRows:
         ]
 
     def structural_change_labels(self, index: Optional[int] = None) -> List[Tuple[str, str]]:
-        """(kind, label) pairs - kind in "key"/"time"/"tempo" - for a key
-        signature, time signature, or immediate tempo change landing
-        exactly at `index` (default: the cursor). "Previous" is the
-        immediately preceding entry in whichever list the resolved slice
-        came from (data.timeline_slices), so this works whether or not the
-        metronome's synthetic beat markers are currently spliced in - a
-        marker slice carries the same real key/time_sig/tempo as its own
-        position, same as a real one.
+        """(kind, label) pairs - kind in "key"/"time"/"tempo" - for an
+        immediate tempo change landing exactly at `index` (default: the
+        cursor), PLUS (fallback only - see below) a key or time signature
+        change.
 
         Never returns anything for index 0 (or an out-of-range index) - the
-        score's OPENING key/time signature/tempo are already shown in
-        Region 1 and the status bar; alerting on them here on every load
-        would just be noise. A score whose key never changes - the common
-        case - therefore never gets a key-signature entry at all; that
-        silence is this same "no alert on the opening value, no alert on
-        no-op repetition" rule, not a separate suppression."""
+        score's OPENING key/time/tempo are already shown in Region 1 and
+        the status bar; alerting on them here on every load would just be
+        noise.
+
+        Stage 10: key/time signature changes are now normally rendered
+        directly from data.key_change_marks/time_change_marks
+        (TimelineBuilder._resolve_key_time_levels' is_score_level, majority-
+        vote-resolved - see this class's own key/time Region 5 rows and
+        MarkingRows.score_level_rows), NOT by diffing data.timeline_slices'
+        key_fifths/time_sig here as before - that value is whichever part's
+        note a (measure, offset) bucket happened to see LAST (_NoteSink.
+        add's "last writer wins"), not necessarily the majority a real file
+        proved the two can disagree about.
+
+        The raw diff below survives ONLY as a fallback for a score with NO
+        key_change_marks/time_change_marks at all - a MIDI/GP/UG-sourced
+        MusicData (those builders never populate the mark lists; single
+        continuous timeline, no per-part XML declarations to build marks
+        from) or a directly-constructed MusicData in a test that sets
+        timeline_slices' key_fifths/time_sig by hand. Any real MusicXML
+        parse always populates at least one mark for every change, so this
+        fallback and the mark-based path never both fire for the same
+        change."""
         data = self.data
         resolved_index = data.active_event_index if index is None else index
         if not (0 < resolved_index < len(data.timeline_slices)):
@@ -464,15 +558,14 @@ class PerformanceRows:
         slice_ = data.timeline_slices[resolved_index]
         previous = data.timeline_slices[resolved_index - 1]
         out: List[Tuple[str, str]] = []
-
-        # A key-signature override (S6) forces one constant display key
-        # score-wide, so the file's own per-slice key_fifths can no longer
-        # disagree with itself in effect - suppress the alert while one is
-        # active rather than comparing raw, overridden-away values.
-        if data.key_signature_override_fifths is None and previous.key_fifths != slice_.key_fifths:
+        if (
+            not data.key_change_marks
+            and data.key_signature_override_fifths is None
+            and previous.key_fifths != slice_.key_fifths
+        ):
             key_name = key_signature_display_name(slice_.key_fifths, None)
             out.append(("key", marking_labels.key_signature_change_label(key_name)))
-        if previous.time_sig != slice_.time_sig:
+        if not data.time_change_marks and previous.time_sig != slice_.time_sig:
             ts_num, ts_den = slice_.time_sig
             out.append(("time", marking_labels.time_signature_change_label(ts_num, ts_den)))
         if data._tempo_change_at(resolved_index - 1) != data._tempo_change_at(resolved_index):
@@ -546,6 +639,10 @@ class PerformanceRows:
         _tally(
             "Endings", data.ending_spans,
             lambda s: {"text": f"Ending {s.number}: {bar_word} {s.start_measure} to {bar_word} {s.end_measure}"},
+        )
+        _tally(
+            "Wavy lines", data.wavy_line_spans,
+            lambda s: {"text": f"Wavy line: {bar_word} {s.start_measure} to {bar_word} {s.end_measure}"},
         )
 
         # P3: <direction> spans and points. Pedal/octave-shift appear here
@@ -646,6 +743,15 @@ class PerformanceRows:
             "Octave shifts", _octave_spans,
             lambda s: {
                 "text": f"Octave shift{_sp(s.label)}: {_span_range(s)}",
+                "jump_quarters": s.start_quarters_from_start,
+            },
+        )
+
+        _principal_voice_spans = [s for s in data.direction_spans if s.kind == "principal_voice"]
+        _tally(
+            "Principal voice marks", _principal_voice_spans,
+            lambda s: {
+                "text": f"{marking_labels.principal_voice_name(s)}: {_span_range(s)}",
                 "jump_quarters": s.start_quarters_from_start,
             },
         )

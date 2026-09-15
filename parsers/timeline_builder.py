@@ -22,6 +22,7 @@ from models.measure_style_mark import MeasureStyleMark
 from models.event_slice import EventSlice
 from models.fine_mark import FineMark
 from models.hairpin_span import HairpinSpan
+from models.key_change_mark import KeyChangeMark
 from models.navigation_jump import NavigationJump
 from models.note_data import GraceNote, NoteData
 from models.synthetic_parts import (
@@ -34,7 +35,9 @@ from models.parts_structure import PartStructureInfo
 from models.repeat_span import RepeatSpan
 from models.segno_mark import SegnoMark
 from models.tempo_change import TempoChange
+from models.time_change_mark import TimeChangeMark
 from models.to_coda_mark import ToCodaMark
+from models.wavy_line_span import WavyLineSpan
 from models.vocabulary import (
     articulation_name,
     clef_name,
@@ -408,6 +411,14 @@ class _FirstPartScan:
     # carrying one or more of those children - see _step_barline. Turned
     # into moment EventSlices by TimelineBuilder.build() after assembly.
     barline_marker_measures: Dict[int, List[str]] = field(default_factory=dict)
+    # Stage 10 (PerformanceMarkingsImplementationPlanV2.md): <barline>/
+    # <wavy-line> start/stop pairs, barline-level like the items above -
+    # see _step_barline. open_wavy_line_measure is the closing measure of
+    # the most recent unmatched start (most-recent-wins, same convention as
+    # open_repeat_measure - nested wavy lines aren't a real notation
+    # concept).
+    wavy_line_spans: List[WavyLineSpan] = field(default_factory=list)
+    open_wavy_line_measure: Optional[int] = None
 
 
 def _staff_number(elem, default):
@@ -564,6 +575,7 @@ _RECOGNISED_NOTATION_TAGS = frozenset({
 _RECOGNISED_DIRECTION_TYPE_TAGS = frozenset({
     "words", "dynamics", "wedge", "metronome", "segno", "coda",
     "pedal", "octave-shift", "rehearsal", "dashes", "bracket",
+    "principal-voice",
 })
 
 
@@ -616,6 +628,12 @@ class _PartState:
     time_sig_num: int = 4
     time_sig_den: int = 4
     fifths: int = 0
+    # Stage 10: False until this part's first real (non-carried) <attributes>
+    # has been processed - guards KeyChangeMark/TimeChangeMark detection in
+    # _handle_attributes so the piece's OPENING key/time is never reported as
+    # a mid-part change (the same "no alert on the opening value" rule
+    # structural_change_labels already applies score-wide).
+    attributes_seen: bool = False
 
     current_chord_pitches: Optional[List[int]] = None
     current_chord_label: str = "Strum"
@@ -834,6 +852,15 @@ class TimelineBuilder:
         self.barline_marks: List[BarlineMark] = []
         self.clef_change_marks: List[ClefChangeMark] = []
         self.measure_style_marks: List[MeasureStyleMark] = []
+        # Stage 10 (PerformanceMarkingsImplementationPlanV2.md): mid-part key/
+        # time signature changes (per-part, D5) and barline wavy-lines
+        # (score-wide, like bar-style/repeats/endings). Populated by
+        # _handle_attributes / _scan_first_part; key_change_marks/
+        # time_change_marks are resolved in place by _resolve_key_time_levels
+        # once every part has been walked.
+        self.key_change_marks: List[KeyChangeMark] = []
+        self.time_change_marks: List[TimeChangeMark] = []
+        self.wavy_line_spans: List[WavyLineSpan] = []
         # Segno/Coda/D.C./D.S./Fine navigation marks, same side-channel
         # pattern - see _step_direction_jump_marks.
         self.segno_marks: List[SegnoMark] = []
@@ -915,6 +942,7 @@ class TimelineBuilder:
         self.to_coda_marks = scan.to_coda_marks
         self.fine_marks = scan.fine_marks
         self.navigation_jumps = scan.navigation_jumps
+        self.wavy_line_spans = scan.wavy_line_spans
         self.total_measures = max(measure_start_quarters.keys()) if measure_start_quarters else 0
 
         sink = _NoteSink()
@@ -979,6 +1007,7 @@ class TimelineBuilder:
         # Multi-part collection - sort chronologically, mirroring
         # scan.tempo_changes.sort(...) in _scan_first_part.
         self.hairpin_spans.sort(key=lambda s: s.start_quarters_from_start)
+        self._resolve_key_time_levels()
 
         slices = self._assemble_slices(
             root, sink, measure_start_quarters, measure_ts_fifths, pickup_filled_quarters
@@ -1270,6 +1299,11 @@ class TimelineBuilder:
                     dt_child, part_state, m_num, beat_pos, quarters, staff,
                     system, staff_given,
                 )
+            elif tag == "principal-voice":
+                self._step_principal_voice(
+                    dt_child, part_state, m_num, beat_pos, quarters, staff,
+                    system, staff_given,
+                )
             elif tag in ("dashes", "bracket"):
                 self._step_direction_line(
                     dt_child, tag, part_state, m_num, beat_pos, quarters, staff,
@@ -1404,6 +1438,27 @@ class TimelineBuilder:
         elif stype == "stop":
             self._close_direction_span(part_state, "octave_shift", m_num, beat_pos, quarters)
 
+    def _step_principal_voice(
+        self, elem, part_state, m_num, beat_pos, quarters, staff,
+        system: str = "", staff_given: bool = True,
+    ) -> None:
+        """Stage 10 (PerformanceMarkingsImplementationPlanV2.md):
+        <principal-voice type="start"|"stop" symbol="Hauptstimme"|
+        "Nebenstimme"|"plain"|"none">, the same open/close span shape as
+        octave shift - previously only ever reached the `other_direction`
+        catch-all point (inventory.csv: "Catch-all point today; length is
+        low priority"). The symbol is set at the opening end and carried to
+        the closed span; marking_labels.principal_voice_name reads it."""
+        ptype = elem.attrib.get("type", "")
+        symbol = elem.attrib.get("symbol", "")
+        if ptype == "start":
+            self._open_direction_span(
+                part_state, "principal_voice", m_num, beat_pos, quarters, staff, symbol,
+                system, staff_given,
+            )
+        elif ptype == "stop":
+            self._close_direction_span(part_state, "principal_voice", m_num, beat_pos, quarters)
+
     def _step_direction_line(
         self, line_el, kind: str, part_state, m_num, beat_pos, quarters, staff,
         words_text: str = "", system: str = "", staff_given: bool = True,
@@ -1455,9 +1510,13 @@ class TimelineBuilder:
         self, elem, part_state, measure_state, measure_start_quarters
     ) -> None:
         """P4/M7/M8: an <attributes> element's <clef> and <measure-style>
-        children. Divisions / time / key are already applied by the walker
-        (_apply_attributes); this is only the two findable facts on top.
-        Per-part/per-staff (D5)."""
+        children, plus (stage 10) a mid-part key/time signature change.
+        Divisions / time / key are already applied by the walker
+        (_apply_attributes); this reads the two findable facts on top, and
+        (for key/time) compares the walker's now-current value against
+        part_state's not-yet-carried-forward one. Per-part/per-staff (D5)."""
+        already_had_attributes = part_state.attributes_seen
+        part_state.attributes_seen = True
         if elem.attrib.get(SECTION_CARRIED_MARKER) == "yes":
             # A synthesised carry-forward block prepended by
             # parsers.score_sections when this part is a later section of a
@@ -1491,6 +1550,32 @@ class TimelineBuilder:
         offset_q = walker.offset_divs / walker.divisions
         beat_pos = part_state.beat_position(m_num, offset_q)
         quarters = measure_start_quarters.get(m_num, 0.0) + offset_q
+
+        # Stage 10: a mid-part key/time signature change - part_state still
+        # holds the value going INTO this <attributes> (carry_forward runs at
+        # the end of the measure), so comparing it against the walker's
+        # already-applied one is exactly the clef loop's prev/identity check
+        # below, generalised to key/time. is_score_level is resolved later,
+        # once every part has been walked (_resolve_key_time_levels).
+        if already_had_attributes:
+            if walker.fifths != part_state.fifths:
+                self.key_change_marks.append(KeyChangeMark(
+                    part_id=part_state.part_id,
+                    fifths=walker.fifths,
+                    previous_fifths=part_state.fifths,
+                    measure=m_num,
+                    beat_position=beat_pos,
+                    quarters_from_start=quarters,
+                ))
+            if (walker.ts_num, walker.ts_den) != (part_state.time_sig_num, part_state.time_sig_den):
+                self.time_change_marks.append(TimeChangeMark(
+                    part_id=part_state.part_id,
+                    ts_num=walker.ts_num,
+                    ts_den=walker.ts_den,
+                    measure=m_num,
+                    beat_position=beat_pos,
+                    quarters_from_start=quarters,
+                ))
 
         for clef_el in elem.findall("clef"):
             try:
@@ -1554,6 +1639,53 @@ class TimelineBuilder:
                         measure=m_num,
                     )
                 )
+
+    def _resolve_key_time_levels(self) -> None:
+        """Stage 10 rule 2 (PerformanceMarkingsImplementationPlanV2.md
+        section 3): called once, after every part has been walked. Groups
+        key_change_marks/time_change_marks by measure and, within a
+        measure, by value (a "vote"); the MAJORITY value collapses to one
+        of its marks (document part order), is_score_level=True - the
+        minority (if any) keeps every one of its own marks, each
+        is_score_level=False, one row per differing part.
+
+        Reported against a real file (files/ManyParts/dvorak-symphony-
+        no-9-new-world-ii-largo.mxl, bar 46): a literal "score only when
+        EVERY part agrees" made one stray part (of 12) spoil the row for
+        the other 11 that genuinely agreed with each other, producing 11
+        duplicate note-list/Region 5 rows plus the real outlier - noise,
+        not the rule's intent ("otherwise part for each part that
+        differs" - the majority isn't "differing" from itself). A tied
+        vote picks whichever value's marks were produced first (document
+        part order) - arbitrary but fixed, and untested by any real file
+        so far. A single-part score's marks are trivially a group of one
+        with no possible minority, so this is a no-op there (backward
+        compatible)."""
+        def _resolve(marks: List, value_of) -> List:
+            by_measure: Dict[int, List] = {}
+            for mark in marks:
+                by_measure.setdefault(mark.measure, []).append(mark)
+            resolved: List = []
+            for group in by_measure.values():
+                by_value: Dict = {}
+                for mark in group:
+                    by_value.setdefault(value_of(mark), []).append(mark)
+                majority = max(by_value.values(), key=len)
+                majority[0].is_score_level = True
+                resolved.append(majority[0])
+                for value, marks_for_value in by_value.items():
+                    if marks_for_value is not majority:
+                        resolved.extend(marks_for_value)
+            resolved.sort(key=lambda m: m.quarters_from_start)
+            return resolved
+
+        # Key agreement compares the CHANGE (fifths - previous_fifths), not
+        # the new fifths value - see KeyChangeMark's docstring (a
+        # transposing part's written key is permanently offset from a
+        # concert-pitch part's, but a shared modulation shifts every part's
+        # own fifths by the same delta). Time has no such per-part offset.
+        self.key_change_marks = _resolve(self.key_change_marks, lambda m: m.fifths - m.previous_fifths)
+        self.time_change_marks = _resolve(self.time_change_marks, lambda m: (m.ts_num, m.ts_den))
 
     def _handle_harmony(self, elem, part_state, measure_state, sink) -> None:
         """<harmony> is a <measure> child like <direction>, not a <note>
@@ -2256,6 +2388,24 @@ class TimelineBuilder:
             for item in barline_items:
                 if item not in existing_items:
                     existing_items.append(item)
+
+        # Stage 10: <wavy-line type="start"|"stop"> - a trill line crossing
+        # the barline. type="continue" (a system-break restatement) is not
+        # a second span endpoint and is ignored.
+        wavy_el = barline_parent.find("wavy-line")
+        if wavy_el is not None:
+            wavy_type = wavy_el.attrib.get("type", "")
+            if wavy_type == "start":
+                scan.open_wavy_line_measure = closing_measure
+            elif wavy_type == "stop":
+                start = (
+                    scan.open_wavy_line_measure if scan.open_wavy_line_measure is not None
+                    else closing_measure
+                )
+                scan.wavy_line_spans.append(
+                    WavyLineSpan(start_measure=start, end_measure=closing_measure)
+                )
+                scan.open_wavy_line_measure = None
 
         repeat_el = barline_parent.find("repeat")
         if repeat_el is not None:

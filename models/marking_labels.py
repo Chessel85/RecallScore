@@ -123,6 +123,16 @@ def octave_shift_name(span) -> str:
     return f"Octave shift {span.label}" if span.label else "Octave shift"
 
 
+def principal_voice_name(span) -> str:
+    """Stage 10 (PerformanceMarkingsImplementationPlanV2.md):
+    <principal-voice symbol="Hauptstimme"|"Nebenstimme"|"plain"|"none">
+    - the symbol name when it names a real Hauptstimme/Nebenstimme bracket,
+    else the generic "Principal voice" (a "plain"/"none" symbol, or none
+    given at all). Shared by the note list and Region 5, like every other
+    span name in this module."""
+    return span.label if span.label in ("Hauptstimme", "Nebenstimme") else "Principal voice"
+
+
 def dynamics_word_label(label: str) -> str:
     """'Crescendo (marked "cresc.")' - the sense word (crescendo/diminuendo,
     via vocabulary.dynamics_instruction_kind, falling back to "dynamics")

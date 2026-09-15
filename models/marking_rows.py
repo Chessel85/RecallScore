@@ -37,12 +37,19 @@ Not routed through level_of() - these have no part_id/staff of their own at
 all, so there is nothing for ground rules 1/3/4 to key off, and they stay
 exactly where they always were (score level, in score_level_rows):
 RepeatSpan/EndingSpan/SectionSpan, BarlineMark, SegnoMark/CodaMark/
-ToCodaMark/FineMark/NavigationJump, and the key/time/tempo "structural
-change" labels. Ground rule 2 (score when every part agrees,
-else part, for barline styles/repeats/endings/key/time) needs a per-part
-comparison none of these objects carry today - that comparison is stage 10
-work (see marking_classification.py's own docstring); until then they stay
-unconditionally score, matching pre-stage-2 behaviour.
+ToCodaMark/FineMark/NavigationJump, and the tempo "structural change" label
+(structural_change_labels). Ground rule 2 (score when the majority of
+parts agree, else part for each differing part - PerformanceMarkings
+ImplementationPlanV2.md stage 10) needs a per-part comparison none of
+these objects carry today; barline styles/repeats/endings stay
+unconditionally score, matching pre-stage-2 behaviour - stage 10 only
+covers key and time (see marking_classification.py's own docstring).
+Key/time changes ARE routed through level_of() (KeyChangeMark/
+TimeChangeMark carry their own resolved is_score_level - see level_of()'s
+own docstring), but the score-level (majority) case is rendered via
+score_level_rows' own small loop rather than through _family_rows, to
+keep its row position exactly where structural_change_labels used to put
+it for the common (unanimous) case - see that loop's comment.
 
 dashes/bracket (`inherits_level_from_words`, `levels=()` in the
 classification table) are placed via the ordinary stave/part fallback below,
@@ -79,9 +86,12 @@ from models.clef_change_mark import ClefChangeMark
 from models.direction_mark import DirectionMark
 from models.direction_span import DirectionSpan
 from models.hairpin_span import HairpinSpan
+from models.key_change_mark import KeyChangeMark
+from models.key_signatures import key_signature_display_name
 from models.marking_classification import classification_for
 from models.measure_style_mark import MeasureStyleMark
 from models.region3_row import MarkingRow
+from models.time_change_mark import TimeChangeMark
 
 # DirectionMark.kind / DirectionSpan.kind -> the inventory.csv element name
 # CLASSIFICATION is keyed by. Several parser-level kinds (dynamics_word,
@@ -101,6 +111,7 @@ _DIRECTION_SPAN_ELEMENT: Dict[str, str] = {
     "octave_shift": "octave-shift",
     "dashes": "dashes",
     "bracket": "bracket",
+    "principal_voice": "principal-voice",
 }
 
 
@@ -163,9 +174,16 @@ class MarkingRows:
         `score_level_rows` still handles directly). Returns ("score",),
         ("part", part_id) or ("stave", part_id, staff).
 
-        Rule 2 (score-or-part by cross-part agreement) is stage 10 work and
-        never reached here - none of these five types are the barline-
-        style/repeat/ending/key/time elements it applies to."""
+        Rule 2 (score-or-part by cross-part agreement) is stage 10 work for
+        key/time changes only (barline styles/repeats/endings stay
+        unconditionally score - see this module's docstring). KeyChangeMark/
+        TimeChangeMark carry their own resolved is_score_level (set once,
+        after every part is walked, by TimelineBuilder._resolve_key_time_
+        levels) rather than going through classification's levels/system/
+        staff rules below - the agreement comparison needs sibling marks at
+        the same bar, which a single marking's own fields can't answer."""
+        if isinstance(marking, (KeyChangeMark, TimeChangeMark)):
+            return ("score",) if marking.is_score_level else ("part", marking.part_id)
         classification = self._classification_for_marking(marking)
         levels = classification.levels
         if levels == ("score",):
@@ -232,6 +250,11 @@ class MarkingRows:
             _add(span, f"Ending {span.number}", "repeats_endings")
         for span in data.section_spans:
             _add(span, f"Section {span.label}" if span.label else "Section", "sections")
+        # Stage 10: a barline wavy-line, the same bare start/end/one-bar
+        # rendering as the three spans above - it too is scanned score-wide
+        # (first part only), never per-part.
+        for span in data.wavy_line_spans:
+            _add(span, "Wavy line", "barlines")
 
         def _at_first(m_num: int) -> bool:
             return event_slice.measure == m_num and self._is_first_of_measure(event_slice)
@@ -289,12 +312,37 @@ class MarkingRows:
             )
             rows.append(MarkingRow(text=label, marking=mark, category="barlines"))
 
-        # Stage 6: key/time/immediate-tempo changes, via the same source
-        # Region 5's one-shot rows and the change cue read
-        # (structural_change_labels) - one source keeps the three from
-        # disagreeing (invariant 8). Already suppressed at index 0 there.
+        # Stage 6: immediate-tempo changes, via the same source Region 5's
+        # one-shot rows and the change cue read (structural_change_labels) -
+        # one source keeps the three from disagreeing (invariant 8). Already
+        # suppressed at index 0 there.
         for kind, label in data.structural_change_labels():
             rows.append(MarkingRow(text=label, marking=kind, category="structural_changes"))
+
+        # Stage 10: the majority key/time change at this position - read
+        # directly off the is_score_level=True mark (see PerformanceRows.
+        # structural_change_labels' docstring for why key/time moved off the
+        # old timeline_slices-diffing path). The minority (is_score_level=
+        # False, one row per differing part) is handled by _family_rows
+        # below instead, at "part" level.
+        self._ensure_score_index()
+        for mark in data.key_change_marks:
+            if not mark.is_score_level or data.key_signature_override_fifths is not None:
+                continue
+            if self._first_at_or_after_score(mark.quarters_from_start) == event_slice.quarters_from_start:
+                key_name = key_signature_display_name(mark.fifths, None)
+                rows.append(MarkingRow(
+                    text=marking_labels.key_signature_change_label(key_name),
+                    marking=mark, category="structural_changes",
+                ))
+        for mark in data.time_change_marks:
+            if not mark.is_score_level:
+                continue
+            if self._first_at_or_after_score(mark.quarters_from_start) == event_slice.quarters_from_start:
+                rows.append(MarkingRow(
+                    text=marking_labels.time_signature_change_label(mark.ts_num, mark.ts_den),
+                    marking=mark, category="structural_changes",
+                ))
 
         # Stage 2: every classification-routed family's score-level rows
         # (a family only lands here via ground rule 1 - "score if the
@@ -520,6 +568,11 @@ class MarkingRows:
                 self._add_span_rows_by_level(
                     _add, event_slice, span, marking_labels.direction_line_name(span), "lines"
                 )
+        for span in data.direction_spans:
+            if span.kind == "principal_voice":
+                self._add_span_rows_by_level(
+                    _add, event_slice, span, marking_labels.principal_voice_name(span), "principal_voice"
+                )
 
         # Dynamics word / tempo word / other-direction points.
         for mark in data.direction_marks:
@@ -593,6 +646,34 @@ class MarkingRows:
                 self._add_span_rows_by_level(
                     _add, event_slice, span, marking_labels.pedal_name(), "pedal"
                 )
+
+        # Stage 10: key/time signature changes that disagreed across parts -
+        # one part-level row per differing part (level_of()'s KeyChangeMark/
+        # TimeChangeMark shortcut). The AGREEING case (is_score_level=True)
+        # is NOT handled here: it stays on the pre-stage-10 path
+        # (PerformanceRows.structural_change_labels via score_level_rows'
+        # own loop) so no existing file's score-level row order shifts - see
+        # this module's docstring. No linked-part borrowing: key/time is
+        # score-wide state, not this family's business.
+        for mark in data.key_change_marks:
+            if mark.is_score_level or data.key_signature_override_fifths is not None:
+                continue
+            anchor = self._first_at_or_after_level(("part", mark.part_id), mark.quarters_from_start)
+            if anchor == event_slice.quarters_from_start:
+                key_name = key_signature_display_name(mark.fifths, None)
+                _add(("part", mark.part_id), MarkingRow(
+                    text=marking_labels.key_signature_change_label(key_name),
+                    marking=mark, category="structural_changes",
+                ))
+        for mark in data.time_change_marks:
+            if mark.is_score_level:
+                continue
+            anchor = self._first_at_or_after_level(("part", mark.part_id), mark.quarters_from_start)
+            if anchor == event_slice.quarters_from_start:
+                _add(("part", mark.part_id), MarkingRow(
+                    text=marking_labels.time_signature_change_label(mark.ts_num, mark.ts_den),
+                    marking=mark, category="structural_changes",
+                ))
 
         # Fermata (PI tweaks follow-up, reported; PerformanceMarkingsImplem-
         # entationPlanV2.md section 3's aggregate rule): a note-attached
@@ -711,3 +792,26 @@ class MarkingRows:
                 anchor = self._first_at_or_after_level(level, event_slice.quarters_from_start)
                 if anchor == event_slice.quarters_from_start:
                     _add(level, MarkingRow(text=text, marking=note, category="fermatas"), True)
+
+    def has_key_or_time_change_at(self, event_slice) -> bool:
+        """Stage 10: True when a key or time signature change - majority
+        (is_score_level=True, score level) or minority (False, part level) -
+        lands exactly at `event_slice`. Tempo is covered separately by
+        PerformanceRows.structural_change_labels(); together the two are
+        MusicData.has_key_or_time_change_at, the change cue's
+        (RegionPresenter.refresh_region_5) full trigger condition."""
+        if event_slice is None:
+            return False
+        self._ensure_index()
+        data = self.data
+        for mark in data.key_change_marks:
+            if mark.is_score_level and data.key_signature_override_fifths is not None:
+                continue
+            level = ("score",) if mark.is_score_level else ("part", mark.part_id)
+            if self._first_at_or_after_level(level, mark.quarters_from_start) == event_slice.quarters_from_start:
+                return True
+        for mark in data.time_change_marks:
+            level = ("score",) if mark.is_score_level else ("part", mark.part_id)
+            if self._first_at_or_after_level(level, mark.quarters_from_start) == event_slice.quarters_from_start:
+                return True
+        return False

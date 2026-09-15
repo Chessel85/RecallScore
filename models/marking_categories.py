@@ -43,6 +43,10 @@ ALL_CATEGORIES: Tuple[str, ...] = (
     "octave_shift",
     "stave_text",
     "fermatas",
+    # Stage 10 (PerformanceMarkingsImplementationPlanV2.md): principal-voice
+    # is now a real span family (previously the other_direction catch-all),
+    # so it gets its own toggle like octave_shift's.
+    "principal_voice",
 )
 
 # Short, screen-reader-friendly names for the Ctrl+N state announcement
@@ -65,4 +69,5 @@ CATEGORY_NAMES: Dict[str, str] = {
     "octave_shift": "Octave shift",
     "stave_text": "Stave text",
     "fermatas": "Fermatas",
+    "principal_voice": "Principal voice",
 }

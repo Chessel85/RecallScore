@@ -325,11 +325,12 @@ class RegionPresenter(QObject):
         span. The change cue no longer fires on every list rebuild - that
         generic "Region 5 changed" trigger was retired (section 7) - it
         fires whenever the cursor's CURRENT position carries a structural
-        change (a key signature, time signature, or immediate tempo change:
-        MusicData.structural_change_labels, which already suppresses index
-        0), independent of whether the row list itself needed rebuilding -
-        landing back on a structural-change event via a repeat re-fires it,
-        same as any other landing.
+        change - a key signature or time signature change
+        (MusicData.has_key_or_time_change_at, stage 10) or an immediate
+        tempo change (MusicData.structural_change_labels, which already
+        suppresses index 0) - independent of whether the row list itself
+        needed rebuilding - landing back on a structural-change event via a
+        repeat re-fires it, same as any other landing.
 
         `allow_cue=False` (update_timeline_views passes play_all through
         here) is for a refresh that isn't a real navigation - a Region 2
@@ -355,7 +356,7 @@ class RegionPresenter(QObject):
                     self.region_5.refresh_list(context, structural)
                 self.last_context_labels = ctx_labels
 
-        if allow_cue and md.structural_change_labels():
+        if allow_cue and (md.structural_change_labels() or md.has_key_or_time_change_at()):
             self.session.synth.play_performance_cue(*performance_cue_event())
 
     def select_all_region_3(self) -> None:

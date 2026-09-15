@@ -44,6 +44,12 @@ class TimelineBuild:
     barline_marks: List[Any] = field(default_factory=list)
     clef_change_marks: List[Any] = field(default_factory=list)
     measure_style_marks: List[Any] = field(default_factory=list)
+    # Stage 10 (PerformanceMarkingsImplementationPlanV2.md): mid-part key/
+    # time signature changes (per-part, D5) and barline wavy-lines (score-
+    # wide). MusicXML-only; the other builders stub these empty.
+    key_change_marks: List[Any] = field(default_factory=list)
+    time_change_marks: List[Any] = field(default_factory=list)
+    wavy_line_spans: List[Any] = field(default_factory=list)
     segno_marks: List[Any] = field(default_factory=list)
     coda_marks: List[Any] = field(default_factory=list)
     to_coda_marks: List[Any] = field(default_factory=list)
@@ -75,6 +81,9 @@ class TimelineBuild:
             barline_marks=builder.barline_marks,
             clef_change_marks=builder.clef_change_marks,
             measure_style_marks=builder.measure_style_marks,
+            key_change_marks=builder.key_change_marks,
+            time_change_marks=builder.time_change_marks,
+            wavy_line_spans=builder.wavy_line_spans,
             segno_marks=builder.segno_marks,
             coda_marks=builder.coda_marks,
             to_coda_marks=builder.to_coda_marks,
@@ -97,6 +106,9 @@ class TimelineBuild:
         music_data.barline_marks = self.barline_marks
         music_data.clef_change_marks = self.clef_change_marks
         music_data.measure_style_marks = self.measure_style_marks
+        music_data.key_change_marks = self.key_change_marks
+        music_data.time_change_marks = self.time_change_marks
+        music_data.wavy_line_spans = self.wavy_line_spans
         music_data.segno_marks = self.segno_marks
         music_data.coda_marks = self.coda_marks
         music_data.to_coda_marks = self.to_coda_marks

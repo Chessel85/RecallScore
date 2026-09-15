@@ -19,8 +19,13 @@ instead of being force-fit into `levels`:
 
 * "Score when every part agrees, else Part" (ground rule 2: barline
   styles, repeats, endings, key, time) - `levels=("score", "part")` plus
-  `score_or_part_by_agreement=True`. The agreement comparison itself is
-  stage 10 work; this only records that the element is subject to it.
+  `score_or_part_by_agreement=True`. Stage 10 implemented the agreement
+  comparison for key/time only (KeyChangeMark/TimeChangeMark carry their
+  own resolved `is_score_level`, majority-vote, not strict unanimity - see
+  models/marking_rows.py's `level_of` and TimelineBuilder.
+  _resolve_key_time_levels); barline styles/repeats/endings still stay
+  unconditionally score (this flag only records that they're SUBJECT to
+  the rule, not that it's implemented for them).
 * "Note, plus Score or Part row" (note fermata) - `levels=("note", "score",
   "part")` plus `note_fermata_aggregate=True`, since the aggregation rule
   (one score row if every sounding part has a fermata there, else one part
