@@ -42,8 +42,8 @@ def test_principal_voice_gives_a_note_list_row_at_its_start_and_stop():
     for idx, slice_ in enumerate(md.timeline_slices):
         md.active_event_index = idx
         texts.extend(_marking_row_texts(md.get_region_3_rows()))
-    assert "Hauptstimme start" in texts
-    assert "Hauptstimme end" in texts
+    assert "Hauptstimme, start" in texts
+    assert "Hauptstimme, end" in texts
 
 
 def test_wavy_line_span_crosses_the_barline():
@@ -60,5 +60,5 @@ def test_wavy_line_gives_a_score_level_note_list_row():
     for idx, slice_ in enumerate(md.timeline_slices):
         md.active_event_index = idx
         texts.extend(_marking_row_texts(md.get_region_3_rows()))
-    assert "Wavy line start" in texts
-    assert "Wavy line end" in texts
+    assert "Wavy line, start" in texts
+    assert "Wavy line, end" in texts

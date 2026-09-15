@@ -41,15 +41,32 @@ def bar_beat_label(
 
 
 def start_label(name: str) -> str:
-    """Note list span-start wording (strategy section 5): "Repeat start",
-    "Crescendo start". Region 5's own range_label is the other rendering of
+    """Note list span-start wording (strategy section 5): "Repeat, start",
+    "Crescendo, start" - the marking's own name, comma, then the state word,
+    never run together as if "Repeat start"/"Crescendo start" were the name
+    of a distinct thing. Region 5's own range_label is the other rendering of
     the same span."""
-    return f"{name} start"
+    return f"{name}, start"
 
 
 def end_label(name: str) -> str:
-    """Note list span-end wording (strategy section 5): "Repeat end"."""
-    return f"{name} end"
+    """Note list span-end wording (strategy section 5): "Repeat, end" - never
+    "stop"; start/end is the only vocabulary this app uses for a span's two
+    ends."""
+    return f"{name}, end"
+
+
+def span_state_word(raw: Optional[str]) -> Optional[str]:
+    """MusicXML's own `type="stop"` (a slur, a tie, ...) read in this app's
+    start/end vocabulary - never "stop". A note can close one span and open
+    another at once (a slur's raw value can be "stop, start"), so each
+    comma-joined token is translated on its own rather than the whole string
+    matched as one word."""
+    if raw is None:
+        return None
+    return ", ".join(
+        "end" if token.strip() == "stop" else token.strip() for token in raw.split(",")
+    )
 
 
 def label_suffix(label: str) -> str:

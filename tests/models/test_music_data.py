@@ -2122,7 +2122,10 @@ def test_available_find_targets_lists_only_marking_kinds_actually_present(
 
     marking_keys = {t.key for t in md.available_find_targets() if t.category == "marking"}
 
-    assert marking_keys == {"repeat_start", "repeat_end", "ending_start", "ending_end"}
+    assert marking_keys == {
+        "repeat_any", "repeat_start", "repeat_end",
+        "ending_any", "ending_start", "ending_end",
+    }
 
 
 def test_available_find_targets_lists_hairpin_kinds_present(timeline, hairpin_score):
@@ -2131,7 +2134,8 @@ def test_available_find_targets_lists_hairpin_kinds_present(timeline, hairpin_sc
     marking_keys = {t.key for t in md.available_find_targets() if t.category == "marking"}
 
     assert marking_keys == {
-        "crescendo_start", "crescendo_end", "diminuendo_start", "diminuendo_end",
+        "crescendo_any", "crescendo_start", "crescendo_end",
+        "diminuendo_any", "diminuendo_start", "diminuendo_end",
     }
 
 
@@ -2394,7 +2398,7 @@ def test_p1_value_expanded_keys_split_into_per_value_targets(timeline, tie_and_s
         t.value for t in md.available_find_targets()
         if t.key == "slur" and t.value is not None
     )
-    assert slur_values == ["start", "stop"]
+    assert slur_values == ["end", "start"]
 
 
 def test_p1_grace_is_offered_as_a_single_any_target(timeline, grace_note_score):
@@ -2844,21 +2848,21 @@ def test_dashes_with_words_give_start_and_end_note_list_rows_only(
     timeline, instruction_words_score
 ):
     """Stage 6 dimension rule: a matched dashes span named by its words is a
-    length - "cresc. start"/"cresc. end" in the note list, never a bare
+    length - "cresc., start"/"cresc., end" in the note list, never a bare
     "cresc." point row (that's the unmatched/unclosed case only)."""
     md = timeline(instruction_words_score)
 
     md.active_event_index = 0
-    assert _marking_row_texts(md) == ["cresc. start"]
+    assert _marking_row_texts(md) == ["cresc., start"]
 
     end_index = md.slice_index_at_or_after_quarters(2.0)
     md.active_event_index = end_index
-    assert _marking_row_texts(md) == ["cresc. end"]
+    assert _marking_row_texts(md) == ["cresc., end"]
 
 
 def test_unclosed_pedal_reads_as_a_bare_point(timeline, pedal_unclosed_score):
     """Stage 6: a <pedal type="start"> with no matching stop is a point,
-    pinned to its own opening position - "Pedal", not "Pedal start"."""
+    pinned to its own opening position - "Pedal", not "Pedal, start"."""
     md = timeline(pedal_unclosed_score)
 
     md.active_event_index = 0
@@ -2870,7 +2874,7 @@ def test_unclosed_pedal_reads_as_a_bare_point(timeline, pedal_unclosed_score):
 
 def test_lone_wedge_start_reads_as_bare_crescendo(timeline, nested_hairpins_score):
     """Stage 6: a wedge start left open when its part ends is a point -
-    "Crescendo", not "Crescendo start"."""
+    "Crescendo", not "Crescendo, start"."""
     md = timeline(nested_hairpins_score)
     unclosed_start = md.hairpin_spans[-1]
     assert unclosed_start.kind == "crescendo"
@@ -2878,7 +2882,7 @@ def test_lone_wedge_start_reads_as_bare_crescendo(timeline, nested_hairpins_scor
     index = md.slice_index_at_or_after_quarters(unclosed_start.start_quarters_from_start)
     md.active_event_index = index
     assert "Crescendo" in _marking_row_texts(md)
-    assert "Crescendo start" not in _marking_row_texts(md)
+    assert "Crescendo, start" not in _marking_row_texts(md)
 
 
 def test_plain_score_offers_no_instruction_word_targets(
@@ -3103,12 +3107,12 @@ def test_region_4_rows_for_a_marking_row_show_kind_and_range(timeline, repeats_a
     reads its kind (the same text Region 3 shows) plus the FULL range,
     regardless of which end of the span the selected row named."""
     md = timeline(repeats_and_endings_score)
-    md.active_event_index = 1  # bar 2 - "Repeat start"
-    row_index = _marking_row_index(md, "Repeat start")
+    md.active_event_index = 1  # bar 2 - "Repeat, start"
+    row_index = _marking_row_index(md, "Repeat, start")
 
     region_4_rows = md.get_region_4_rows_for_region_3_selection([row_index])
 
-    assert region_4_rows[0] == ("Kind", "", "Repeat start")
+    assert region_4_rows[0] == ("Kind", "", "Repeat, start")
     assert region_4_rows[1][0] == "Range"
     assert "2" in region_4_rows[1][2] and "3" in region_4_rows[1][2], (
         "the full span (bars 2 to 3), not just the selected start row's own bar"
@@ -3203,14 +3207,14 @@ def test_toggle_marking_category_flips_asterisk_and_note_list_membership(
     labels = [r.label for r in md.get_performance_region_rows(m3_index)]
     assert labels == ["* Repeat measures 2 to 3", "* Ending 1 measure 3"]
     md.active_event_index = m3_index
-    assert any(t == "Repeat end" for t in _marking_row_texts(md))
+    assert any(t == "Repeat, end" for t in _marking_row_texts(md))
 
     assert md.toggle_marking_category("repeats_endings") is False
     labels = [r.label for r in md.get_performance_region_rows(m3_index)]
     # "repeats_endings" is one category (strategy section 8) - endings lose
     # their asterisk right along with repeats.
     assert labels == ["Repeat measures 2 to 3", "Ending 1 measure 3"]
-    assert not any(t in ("Repeat end", "Ending 1 start") for t in _marking_row_texts(md))
+    assert not any(t in ("Repeat, end", "Ending 1, start") for t in _marking_row_texts(md))
 
     assert md.toggle_marking_category("repeats_endings") is True
     labels = [r.label for r in md.get_performance_region_rows(m3_index)]
@@ -3265,7 +3269,7 @@ def test_stage4_pedal_category_toggle_flips_asterisk_and_note_list(timeline, ped
     md = timeline(pedal_score)
     bar1 = md.first_event_index_of_measure(1)
     # The pedal change point mark anchors to its own event (bar1 + 2, the
-    # third note) rather than the bar's first event, which is "Pedal start"
+    # third note) rather than the bar's first event, which is "Pedal, start"
     # instead - see MarkingRows._family_rows.
     change_index = bar1 + 2
     md.active_event_index = change_index

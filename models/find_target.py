@@ -1,6 +1,6 @@
 # models/find_target.py
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 
 @dataclass(frozen=True)
@@ -62,14 +62,18 @@ MARKING_KINDS: List[Tuple[str, str]] = [
     # P2: song sections (Intro/Verse/Chorus/...). UG-only today; presence-
     # filtered like every other kind, so nothing shows for a score without.
     ("section", "Section"),
-    ("repeat_start", "Repeat start"),
-    ("repeat_end", "Repeat end"),
-    ("ending_start", "Ending start"),
-    ("ending_end", "Ending end"),
-    ("crescendo_start", "Crescendo start"),
-    ("crescendo_end", "Crescendo end"),
-    ("diminuendo_start", "Diminuendo start"),
-    ("diminuendo_end", "Diminuendo end"),
+    ("repeat_any", "Repeat (any)"),
+    ("repeat_start", "Repeat, start"),
+    ("repeat_end", "Repeat, end"),
+    ("ending_any", "Ending (any)"),
+    ("ending_start", "Ending, start"),
+    ("ending_end", "Ending, end"),
+    ("crescendo_any", "Crescendo (any)"),
+    ("crescendo_start", "Crescendo, start"),
+    ("crescendo_end", "Crescendo, end"),
+    ("diminuendo_any", "Diminuendo (any)"),
+    ("diminuendo_start", "Diminuendo, start"),
+    ("diminuendo_end", "Diminuendo, end"),
     ("segno", "Segno"),
     ("coda", "Coda"),
     ("to_coda", "To coda"),
@@ -81,16 +85,20 @@ MARKING_KINDS: List[Tuple[str, str]] = [
     ("tempo_change", "Tempo change"),
     # P3: <direction>/<direction-type> spans and points. Pedal and octave
     # shift get a Region 5 row too, as of stage 4.
-    ("pedal_start", "Pedal start"),
-    ("pedal_end", "Pedal end"),
+    ("pedal_any", "Pedal (any)"),
+    ("pedal_start", "Pedal, start"),
+    ("pedal_end", "Pedal, end"),
     ("pedal_change", "Pedal change"),
-    ("octave_shift_start", "Octave shift start"),
-    ("octave_shift_end", "Octave shift end"),
+    ("octave_shift_any", "Octave shift (any)"),
+    ("octave_shift_start", "Octave shift, start"),
+    ("octave_shift_end", "Octave shift, end"),
     ("rehearsal", "Rehearsal mark"),
-    ("dashed_line_start", "Dashed line start"),
-    ("dashed_line_end", "Dashed line end"),
-    ("bracket_line_start", "Bracket line start"),
-    ("bracket_line_end", "Bracket line end"),
+    ("dashed_line_any", "Dashed line (any)"),
+    ("dashed_line_start", "Dashed line, start"),
+    ("dashed_line_end", "Dashed line, end"),
+    ("bracket_line_any", "Bracket line (any)"),
+    ("bracket_line_start", "Bracket line, start"),
+    ("bracket_line_end", "Bracket line, end"),
     # D6 catch-all: any <direction-type> child with no explicit handler.
     ("other_direction", "Direction"),
     # Plain-text <words> instructions surfaced as point marks.
@@ -111,3 +119,21 @@ MARKING_KINDS: List[Tuple[str, str]] = [
     ("multi_measure_rest", "Multi-measure rest"),
     ("measure_repeat", "Measure repeat"),
 ]
+
+# A "_any" marking kind (added above, immediately before its own start/end
+# pair) resolves to the union of its start and end kind's occurrences - the
+# marking-catalog counterpart of an attribute's "(any)" target
+# (VALUE_EXPANDED_KEYS/available_targets_with_counts). Kept as data, not a
+# naming convention FindIndex has to parse back out of the "_any" suffix, so
+# a future start/end pair only has to be listed once, here and in
+# MARKING_KINDS.
+MARKING_ANY_SOURCES: Dict[str, Tuple[str, str]] = {
+    "repeat_any": ("repeat_start", "repeat_end"),
+    "ending_any": ("ending_start", "ending_end"),
+    "crescendo_any": ("crescendo_start", "crescendo_end"),
+    "diminuendo_any": ("diminuendo_start", "diminuendo_end"),
+    "pedal_any": ("pedal_start", "pedal_end"),
+    "octave_shift_any": ("octave_shift_start", "octave_shift_end"),
+    "dashed_line_any": ("dashed_line_start", "dashed_line_end"),
+    "bracket_line_any": ("bracket_line_start", "bracket_line_end"),
+}

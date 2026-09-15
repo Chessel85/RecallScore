@@ -72,13 +72,13 @@ def test_pedal_span_is_part_level_and_surfaces_above_the_first_staff_group():
         direction_spans=[span],
     )
     md.active_event_index = 0
-    assert _texts(md.get_region_3_rows()) == ["Pedal start", "C", "C"]
+    assert _texts(md.get_region_3_rows()) == ["Pedal, start", "C", "C"]
     md.active_event_index = 1
-    assert _texts(md.get_region_3_rows()) == ["Pedal end", "C", "C"]
+    assert _texts(md.get_region_3_rows()) == ["Pedal, end", "C", "C"]
 
     md.marking_categories_off = {"lines", "hairpins", "repeats_endings"}
     md.active_event_index = 0
-    assert "Pedal start" in _marking_row_texts(md)
+    assert "Pedal, start" in _marking_row_texts(md)
 
 
 def test_pedal_change_is_also_part_level():
@@ -123,7 +123,7 @@ def test_dashed_and_bracket_lines_are_note_list_rows_filtered_by_lines_category(
     )
     md.active_event_index = 0
     assert _texts(md.get_region_3_rows()) == [
-        "Dashed line start", "cresc. start", "C",
+        "Dashed line, start", "cresc., start", "C",
     ]
 
     md.marking_categories_off = {"lines"}

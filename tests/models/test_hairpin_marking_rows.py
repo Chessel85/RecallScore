@@ -46,7 +46,7 @@ def test_hairpin_start_appears_only_above_the_left_hand_staff():
     md = _md([span])
     md.active_event_index = 0
     rows = md.get_region_3_rows()
-    assert _texts(rows) == ["C", "Crescendo start", "C"]
+    assert _texts(rows) == ["C", "Crescendo, start", "C"]
     assert isinstance(rows[0], NoteRow) and rows[0].note_index == 0  # staff 1's note
     assert isinstance(rows[2], NoteRow) and rows[2].note_index == 1  # staff 2's note
 
@@ -60,7 +60,7 @@ def test_hairpin_end_row_at_the_last_event():
     md = _md([span])
     md.active_event_index = 2
     rows = md.get_region_3_rows()
-    assert _texts(rows) == ["C", "Diminuendo end", "C"]
+    assert _texts(rows) == ["C", "Diminuendo, end", "C"]
 
 
 def test_no_hairpin_row_at_a_position_merely_inside_the_span():
@@ -144,4 +144,4 @@ def test_hairpin_row_not_repeated_per_voice_of_the_same_staff():
     )
     md.active_event_index = 0
     rows = md.get_region_3_rows()
-    assert _texts(rows) == ["Crescendo start", "C", "E"]
+    assert _texts(rows) == ["Crescendo, start", "C", "E"]

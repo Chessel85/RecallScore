@@ -23,6 +23,16 @@ from models.note_data import NoteData
 from models.region3_row import MarkingRow, NoteRow, Region3Row
 
 
+
+# Attribute keys whose value is a start/end state word rather than a
+# descriptive word/number - "slur, start", never the run-together "slur
+# start" a listener could mistake for a two-word attribute name of its own.
+# Every other prefixed attribute (dynamic, articulation, beat position...)
+# keeps the plain "label value" join, which reads fine because its value is
+# never itself a state word.
+SPAN_STATE_ATTRIBUTE_KEYS = frozenset({"slur"})
+
+
 class NoteRenderer:
     def __init__(self, data):
         self.data = data
@@ -88,7 +98,7 @@ class NoteRenderer:
             # - a tied chain's duration IS the tie now; note.tie stays a
             # real field only for TimelineBuilder._merge_tied_chains'
             # internal chain detection.
-            ("slur", note.slur),
+            ("slur", marking_labels.span_state_word(note.slur)),
             ("tuplet", note.tuplet),
             ("grace", note.grace),
             ("arpeggio", note.arpeggio),
@@ -158,7 +168,8 @@ class NoteRenderer:
                 parts.append(pairs[key])
             else:
                 label = vocabulary.attribute_label(key, data.uk_terms)
-                parts.append(f"{label} {pairs[key]}")
+                sep = ", " if key in SPAN_STATE_ATTRIBUTE_KEYS else " "
+                parts.append(f"{label}{sep}{pairs[key]}")
         return ", ".join(parts)
 
     def region_3_data(self) -> List[Region3Row]:

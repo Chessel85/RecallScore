@@ -2042,15 +2042,22 @@ class TimelineBuilder:
         # --- P1: note-attached notations made findable -----------------
         # <tied>/<slur> can each appear twice on one note (a note that ends
         # one slur and begins the next), so findall - never find (F3 bug).
-        tie_types = [
+        # dict.fromkeys, not a plain list, so two independent <tied>/<slur>
+        # elements that happen to carry the SAME type (two slur numbers both
+        # starting on this note, say) collapse to one value - the app never
+        # surfaces slur/tie numbers, so a repeated state word is noise, not
+        # information (same reasoning as other_notation's dedup below). A
+        # note that both ends one and begins another keeps both, distinct
+        # words in file order.
+        tie_types = dict.fromkeys(
             e.attrib.get("type") for e in elem.findall("notations/tied")
             if e.attrib.get("type")
-        ]
+        )
         marks.tie = ", ".join(tie_types) or None
-        slur_types = [
+        slur_types = dict.fromkeys(
             e.attrib.get("type") for e in elem.findall("notations/slur")
             if e.attrib.get("type")
-        ]
+        )
         marks.slur = ", ".join(slur_types) or None
 
         # Tuplet: folded into the duration NAME already (_duration_display_

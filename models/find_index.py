@@ -14,7 +14,9 @@ import bisect
 from typing import Dict, List, Optional, Set, Tuple
 
 from models import vocabulary
-from models.find_target import MARKING_KINDS, VALUE_EXPANDED_KEYS, FindTarget
+from models.find_target import (
+    MARKING_ANY_SOURCES, MARKING_KINDS, VALUE_EXPANDED_KEYS, FindTarget,
+)
 
 
 class FindIndex:
@@ -130,6 +132,18 @@ class FindIndex:
         first_of = data.first_visible_event_index_of_measure
         last_of = data.last_visible_event_index_of_measure
         at_quarters = data.slice_index_at_or_after_quarters
+
+        # "(any)" targets (find_target.MARKING_ANY_SOURCES) are the union of
+        # their own start and end kind's occurrences - presence-based, like
+        # an attribute's "(any)" target, rather than a plain concatenation
+        # count, so a zero-length span's coincident start/end still counts
+        # once (sorted_candidate_indices dedupes via set()).
+        if kind in MARKING_ANY_SOURCES:
+            start_kind, end_kind = MARKING_ANY_SOURCES[kind]
+            return (
+                self.candidate_indices_for_target(FindTarget("marking", start_kind, ""))
+                + self.candidate_indices_for_target(FindTarget("marking", end_kind, ""))
+            )
 
         if kind == "section":
             return [first_of(s.start_measure) for s in data.section_spans]
@@ -351,7 +365,16 @@ class FindIndex:
                 indices = self.sorted_candidate_indices(target)
                 if indices:
                     value_rows.append((target, len(indices)))
-            value_rows.sort(key=lambda row: (-row[1], row[0].value or ""))
+            # "start" reads before "end" (user decision, D1 follow-up) even
+            # though it sorts after alphabetically - the same logical
+            # ordering MARKING_KINDS already hardcodes for span markings.
+            # Falls through to the count-desc/alpha ordering for every other
+            # value, so a key with no start/end pair (dynamics, technique,
+            # ...) is unaffected.
+            start_end_rank = {"start": 0, "end": 1}
+            value_rows.sort(
+                key=lambda row: (start_end_rank.get(row[0].value, 2), -row[1], row[0].value or "")
+            )
             results.extend(value_rows)
 
         for kind_id, label in MARKING_KINDS:

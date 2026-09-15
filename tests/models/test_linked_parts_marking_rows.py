@@ -62,15 +62,15 @@ def test_pedal_span_is_borrowed_onto_the_linked_partner():
     md.direction_spans = [_pedal_span("P1")]
     md.link_parts(["P1", "P2"])
 
-    assert _marking_texts(md, 0) == ["Pedal start", "Pedal start"]  # own (P1) + borrowed (P2)
-    assert _marking_texts(md, 2) == ["Pedal end", "Pedal end"]
+    assert _marking_texts(md, 0) == ["Pedal, start", "Pedal, start"]  # own (P1) + borrowed (P2)
+    assert _marking_texts(md, 2) == ["Pedal, end", "Pedal, end"]
 
 
 def test_pedal_span_not_borrowed_when_unlinked():
     md = _two_part_md()
     md.direction_spans = [_pedal_span("P1")]
 
-    assert _marking_texts(md, 0) == ["Pedal start"]
+    assert _marking_texts(md, 0) == ["Pedal, start"]
 
 
 def test_borrowed_row_survives_the_source_part_being_muted():
@@ -84,7 +84,7 @@ def test_borrowed_row_survives_the_source_part_being_muted():
 
     md.active_event_index = 0
     rows = md.get_region_3_rows()
-    assert [r.text for r in rows if isinstance(r, MarkingRow)] == ["Pedal start"]
+    assert [r.text for r in rows if isinstance(r, MarkingRow)] == ["Pedal, start"]
 
 
 def test_dashes_line_borrowed_onto_a_stave_level_partner():
@@ -114,8 +114,8 @@ def test_dashes_line_borrowed_onto_a_stave_level_partner():
 
     md.active_event_index = 0
     texts = [r.text for r in md.get_region_3_rows() if isinstance(r, MarkingRow)]
-    assert "Dashed line start" in texts
-    assert texts.count("Dashed line start") == 2  # P1's own + P2's borrow
+    assert "Dashed line, start" in texts
+    assert texts.count("Dashed line, start") == 2  # P1's own + P2's borrow
 
 
 def test_dynamics_word_point_is_borrowed():
@@ -181,7 +181,7 @@ def test_same_marking_on_both_parts_gives_one_row_each():
     md.direction_spans = [_pedal_span("P1"), _pedal_span("P2")]
     md.link_parts(["P1", "P2"])
 
-    assert _marking_texts(md, 0) == ["Pedal start", "Pedal start"]  # not four rows
+    assert _marking_texts(md, 0) == ["Pedal, start", "Pedal, start"]  # not four rows
 
 
 def test_category_off_hides_borrowed_rows():

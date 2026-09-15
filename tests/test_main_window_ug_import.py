@@ -36,9 +36,9 @@ def test_ultimate_guitar_import_populates_two_flat_region_2_parts_and_region_3(
     window.presenter.update_timeline_views()
     row_texts = [window.region_3.item(i).text() for i in range(window.region_3.count())]
     # PerformanceMarkingsImplementationPlan.md stage 3: bar 2 is the last bar
-    # of the single "Verse 1" section, so a score-level "Section Verse 1 end"
+    # of the single "Verse 1" section, so a score-level "Section Verse 1, end"
     # row now precedes the chord/lyric pair.
-    assert row_texts == ["Section Verse 1 end", "G", "world"]
+    assert row_texts == ["Section Verse 1, end", "G", "world"]
 
     null_synth.played.clear()
     window._audition_current_selection()
@@ -122,7 +122,7 @@ def test_opening_a_saved_ug_file_reproduces_the_original_import(
     window._music_data.active_event_index = 1
     window.presenter.update_timeline_views()
     row_texts = [window.region_3.item(i).text() for i in range(window.region_3.count())]
-    assert row_texts == ["Section Verse 1 end", "G", "world"]
+    assert row_texts == ["Section Verse 1, end", "G", "world"]
 
 
 def test_auditioning_a_ug_bar_plays_a_plain_chord_even_with_strumming_data(

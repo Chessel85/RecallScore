@@ -37,11 +37,11 @@ def test_repeat_start_and_end_rows_anchor_to_the_right_bars():
 
     md.active_event_index = 1  # bar 2, where the repeat opens
     rows = md.get_region_3_rows()
-    assert [r.text for r in rows if isinstance(r, MarkingRow)] == ["Repeat start"]
+    assert [r.text for r in rows if isinstance(r, MarkingRow)] == ["Repeat, start"]
 
     md.active_event_index = 2  # bar 3, where the repeat closes
     rows = md.get_region_3_rows()
-    assert [r.text for r in rows if isinstance(r, MarkingRow)] == ["Repeat end"]
+    assert [r.text for r in rows if isinstance(r, MarkingRow)] == ["Repeat, end"]
 
     md.active_event_index = 0  # bar 1: neither
     rows = md.get_region_3_rows()
@@ -52,11 +52,11 @@ def test_ending_row_wording_and_position():
     md = _md(ending_spans=[EndingSpan(number=1, start_measure=3, end_measure=4)])
     md.active_event_index = 2  # bar 3, where the ending opens
     rows = md.get_region_3_rows()
-    assert [r.text for r in rows if isinstance(r, MarkingRow)] == ["Ending 1 start"]
+    assert [r.text for r in rows if isinstance(r, MarkingRow)] == ["Ending 1, start"]
 
     md.active_event_index = 3  # bar 4, where the ending closes
     rows = md.get_region_3_rows()
-    assert [r.text for r in rows if isinstance(r, MarkingRow)] == ["Ending 1 end"]
+    assert [r.text for r in rows if isinstance(r, MarkingRow)] == ["Ending 1, end"]
 
 
 def test_section_row_survives_region_2_filtering_to_no_visible_notes():
@@ -64,7 +64,7 @@ def test_section_row_survives_region_2_filtering_to_no_visible_notes():
     md.active_event_index = 0
     md.set_active_voice_filter(set())  # every voice hidden
     rows = md.get_region_3_rows()
-    assert [r.text for r in rows] == ["Section Verse start"]
+    assert [r.text for r in rows] == ["Section Verse, start"]
 
 
 def test_note_rows_keep_their_visible_notes_index_after_marking_rows_prepended():
@@ -134,11 +134,11 @@ def test_one_bar_span_with_two_events_keeps_separate_start_and_end_rows():
     )
     md.active_event_index = 1  # first event of bar 2
     rows = md.get_region_3_rows()
-    assert [r.text for r in rows if isinstance(r, MarkingRow)] == ["Repeat start"]
+    assert [r.text for r in rows if isinstance(r, MarkingRow)] == ["Repeat, start"]
 
     md.active_event_index = 2  # last event of bar 2
     rows = md.get_region_3_rows()
-    assert [r.text for r in rows if isinstance(r, MarkingRow)] == ["Repeat end"]
+    assert [r.text for r in rows if isinstance(r, MarkingRow)] == ["Repeat, end"]
 
 
 def test_repeat_end_and_ending_end_on_the_same_event_stay_two_rows():
@@ -149,4 +149,4 @@ def test_repeat_end_and_ending_end_on_the_same_event_stay_two_rows():
     md.active_event_index = 1  # bar 2's single event: both spans close here
     rows = md.get_region_3_rows()
     texts = [r.text for r in rows if isinstance(r, MarkingRow)]
-    assert texts == ["Repeat end", "Ending 1 end"]
+    assert texts == ["Repeat, end", "Ending 1, end"]
