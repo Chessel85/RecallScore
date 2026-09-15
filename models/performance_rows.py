@@ -16,6 +16,7 @@ diffs the Region 5 label list to detect a real change.
 from typing import Dict, List, Optional, Tuple
 
 from models import marking_labels, vocabulary
+from models.marking_categories import ENGRAVING_DETAIL_CATEGORIES
 from models.key_signatures import key_signature_display_name
 from models.performance_region_row import PerformanceRegionRow
 from models.report_row import ReportRow
@@ -486,6 +487,13 @@ class PerformanceRows:
         entries.sort(key=lambda entry: _LEVEL_RANK[entry[0][0]])
         rows: List[PerformanceRegionRow] = [row for _level, row in entries]
 
+        # Options > Show Engraving Details: unlike marking_categories_off/
+        # Ctrl+N below, this drops the row outright rather than only
+        # changing its asterisk - clef changes never reach here (no Region
+        # 5 row), but octave-shift spans do.
+        if not data.show_engraving_details_enabled:
+            rows = [r for r in rows if r.category not in ENGRAVING_DETAIL_CATEGORIES]
+
         # Stage 9 (strategy section 8): "* " on a row whose category is
         # currently surfaced in the note list - i.e. NOT in
         # marking_categories_off. A row with no category never gets the
@@ -738,7 +746,13 @@ class PerformanceRows:
         )
         _tally("Pedal marks", _pedal_rows, lambda kwargs: kwargs)
 
-        _octave_spans = [s for s in data.direction_spans if s.kind == "octave_shift"]
+        # Options > Show Engraving Details: off by default, so the
+        # Performance Report's octave-shift tally matches Region 5/the note
+        # list rather than always listing it (invariant 8).
+        _octave_spans = (
+            [s for s in data.direction_spans if s.kind == "octave_shift"]
+            if data.show_engraving_details_enabled else []
+        )
         _tally(
             "Octave shifts", _octave_spans,
             lambda s: {
@@ -860,11 +874,16 @@ class PerformanceRows:
             },
         )
 
-        _tally("Clef changes", data.clef_change_marks,
-               lambda m: {
-                   "text": f"Clef change: {m.label}, staff {m.staff}, {bar_word} {m.measure}",
-                   "jump_quarters": m.quarters_from_start,
-               })
+        # Options > Show Engraving Details: off by default, matching Region
+        # 5/the note list rather than always listing clef changes.
+        _tally(
+            "Clef changes",
+            data.clef_change_marks if data.show_engraving_details_enabled else [],
+            lambda m: {
+                "text": f"Clef change: {m.label}, staff {m.staff}, {bar_word} {m.measure}",
+                "jump_quarters": m.quarters_from_start,
+            },
+        )
         _tally("Measure style markers", data.measure_style_marks,
                lambda m: {
                    "text": f"{marking_labels.measure_style_label(m)}: {bar_word} {m.measure}",

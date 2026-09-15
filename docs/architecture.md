@@ -1299,9 +1299,21 @@ dropped by `invalidate_cache()` from `MusicData._invalidate_visibility_cache`.
 `"1 occurrence"` (`find_target.occurrence_label`). A count is
 `len(sorted_candidate_indices(target))` — timeline *positions*, so a chord of
 three staccato notes counts once — computed via the cached path in
-`available_targets_with_counts()`, not a second scan. **Attribute counts respect
-the Region 2 voice filter; marking counts don't** (markings are structural, like
-Region 5). Documented in the user guide 5.7.
+`available_targets_with_counts()`, not a second scan. **Both attribute and
+marking counts respect the active parts/staves filter (Ref 7)** — a marking
+target's occurrences are filtered through `FindIndex._is_marking_visible`,
+which reads the same `MarkingRows.level_of()` placement the note list and
+Region 5 already use, so Find never offers or lands on an occurrence hidden by
+a muted part or stave. Score-wide marking kinds (repeats, endings, sections,
+barlines, segno/coda/fine/D.C./D.S., the diff-based key/time/tempo change
+points) have no owning part and are never filtered. Because marking candidate
+lists are never cached (see `FindIndex.__init__`), Alt+Right/Alt+Left and a
+reopened Find dialog both read the *current* filter live — closing the dialog
+and then changing Region 2's active parts/staves/voices immediately changes
+what `find_next`/`find_previous` can land on; if the armed target has no
+occurrences left at all, `find_occurrence` returns `None` and
+`NavigationController._find` sounds the boundary cue instead of moving.
+Documented in the user guide 5.7.
 
 **Two catch-alls are the completeness guarantee.** `_read_notations` keeps a
 `_RECOGNISED_NOTATION_TAGS` frozenset; any other `<notations>` child becomes

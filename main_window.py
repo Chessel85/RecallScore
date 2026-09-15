@@ -458,6 +458,12 @@ class MainWindow(QMainWindow):
         # by toggle_lead_in. The play-mode action is a non-checkable cycle
         # (three states), so it carries no checked state of its own.
         self._actions.lead_in_toggle.setChecked(self.playback.play_settings.lead_in_enabled)
+        # Global (AppSettings.show_engraving_details_enabled), same reasoning
+        # as lead_in_toggle above - set once here so the menu reflects the
+        # user's preference even before any score is loaded.
+        self._actions.show_engraving_details.setChecked(
+            app_settings.load().show_engraving_details_enabled
+        )
         # Per-score (music_data.refresh_settings), unlike lead_in_toggle
         # above - set here from RefreshSettings' own defaults (no score is
         # loaded yet), then re-synced in _update_ui_regions on every score
@@ -840,9 +846,11 @@ class MainWindow(QMainWindow):
         # override it - a score with no saved config yet still starts with
         # whatever categories the user last toggled elsewhere, rather than
         # always reverting to "every category on".
+        global_settings = app_settings.load()
         music_data.marking_categories_off = set(
-            app_settings.load().marking_categories_off
+            global_settings.marking_categories_off
         ) & set(marking_categories.ALL_CATEGORIES)
+        music_data.show_engraving_details_enabled = global_settings.show_engraving_details_enabled
 
         saved_config = self.persistence.load_for_current()
         if saved_config is not None:
@@ -906,6 +914,7 @@ class MainWindow(QMainWindow):
         self._actions.metronome.setChecked(self._music_data.metronome_enabled)
         self._actions.position_announcer.setChecked(self._music_data.position_announcer_enabled)
         self._actions.bar_line_indicator.setChecked(self._music_data.bar_line_indicator_enabled)
+        self._actions.show_engraving_details.setChecked(self._music_data.show_engraving_details_enabled)
         self._actions.refresh_on_playback.setChecked(
             self._music_data.refresh_settings.refresh_during_playback
         )
@@ -1092,6 +1101,25 @@ class MainWindow(QMainWindow):
         accessible_announcer.announce(
             self.region_3,
             f"Bar line indicator {'on' if enabled else 'off'}",
+        )
+
+    def toggle_show_engraving_details(self):
+        """Ctrl+V: on/off for surfacing octave-shift/clef-change rows in
+        the note list, Region 5 and Find (models.marking_categories.
+        ENGRAVING_DETAIL_CATEGORIES). Global, not per-score, unlike the
+        bar-line/metronome/position-announcer toggles above - persists to
+        AppSettings unconditionally, and also flips the loaded score's own
+        copy so the note list/Region 5/Find reflect it immediately."""
+        if self._music_data is not None:
+            enabled = self._music_data.toggle_show_engraving_details()
+            self.presenter.update_timeline_views(play_all=False)
+        else:
+            enabled = not app_settings.load().show_engraving_details_enabled
+        app_settings.set_show_engraving_details_enabled(enabled)
+        self._actions.show_engraving_details.setChecked(enabled)
+        accessible_announcer.announce(
+            self.region_3,
+            f"Engraving details {'on' if enabled else 'off'}",
         )
 
     def toggle_live_midi_input(self):

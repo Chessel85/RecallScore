@@ -246,6 +246,14 @@ class MusicData:
     # before applying a per-score ScoreConfig, the same two-step set_uk_terms
     # already follows for the dialect.
     marking_categories_off: Set[str] = field(default_factory=set)
+    # Options > Show Engraving Details (Ctrl+V), default off: engraving-only
+    # information (octave shift, clef change - both already realised by
+    # playing the printed note at the right pitch) is dropped outright from
+    # the note list, Region 5 and Find, not just cosmetically asterisked
+    # like marking_categories_off/Ctrl+N above. A plain field like
+    # marking_categories_off, seeded by main_window.py from the global
+    # AppSettings default on every load.
+    show_engraving_details_enabled: bool = False
     # P2: named song sections (Intro/Verse/Chorus/...). Populated by
     # UgTimelineBuilder today; other builders stub it empty. Drives a
     # Region 5 row, a Find target, and Ctrl+Alt+Left/Right section stepping.
@@ -707,6 +715,15 @@ class MusicData:
         self.marking_categories_off.add(category)
         return False
 
+    def toggle_show_engraving_details(self) -> bool:
+        """Ctrl+V (Options > Show Engraving Details): flips whether
+        octave-shift/clef-change rows are surfaced anywhere (note list,
+        Region 5, Find) rather than only cosmetically, per
+        models.marking_categories.ENGRAVING_DETAIL_CATEGORIES. Returns the
+        new state."""
+        self.show_engraving_details_enabled = not self.show_engraving_details_enabled
+        return self.show_engraving_details_enabled
+
     def get_score_structure(self) -> List[Dict[str, Any]]:
         """The parts/staves/voices shape Region2HierarchyModel expects
         (Ref 7). A pure transform of parts_info, no XML access."""
@@ -731,6 +748,23 @@ class MusicData:
     def set_active_voice_filter(self, active_tuples: Set[Tuple[str, int, int]]) -> None:
         self.active_voice_filter = set(active_tuples)
         self._invalidate_visibility_cache()
+
+    def _is_part_active(self, part_id: str) -> bool:
+        """True when at least one staff/voice of `part_id` passes the
+        Region 2 filter (Ref 7) - i.e. the part isn't fully muted. Used by
+        FindIndex to hide a part-level marking occurrence (level_of()
+        resolving to ("part", part_id)) once its part is switched off,
+        matching what the note list already shows for it."""
+        if self.active_voice_filter is None:
+            return True
+        return any(t[0] == part_id for t in self.active_voice_filter)
+
+    def _is_staff_active(self, part_id: str, staff: int) -> bool:
+        """Stave-level counterpart of _is_part_active, for a marking
+        FindIndex resolves via level_of() to ("stave", part_id, staff)."""
+        if self.active_voice_filter is None:
+            return True
+        return any(t[0] == part_id and t[1] == staff for t in self.active_voice_filter)
 
     def _all_voice_tuples(self) -> Set[Tuple[str, int, int]]:
         """Every (part_id, staff, voice) the score has - the universe

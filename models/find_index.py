@@ -48,6 +48,26 @@ class FindIndex:
         # for anything the scan didn't reach.
         self._attribute_candidate_cache: Dict[Tuple[str, Optional[str]], List[int]] = {}
 
+    def _is_marking_visible(self, marking) -> bool:
+        """True when `marking` passes the active parts/staves filter (Ref
+        7), read live off the same MarkingRows.level_of() placement the note
+        list and Region 5 already use - so Find can never offer, or land on,
+        an occurrence that part/staff-mute has hidden everywhere else
+        (invariant 8: one source of "where a marking is", not a second
+        filtering rule). Objects with no part concept at all - RepeatSpan,
+        EndingSpan, SectionSpan, BarlineMark, SegnoMark/CodaMark/ToCodaMark/
+        FineMark, NavigationJump, and the diff-based key/time/tempo change
+        points - carry no `part_id` field, so they are always visible,
+        matching how they are score-wide in the note list too."""
+        if not hasattr(marking, "part_id"):
+            return True
+        level = self.data.marking_rows.level_of(marking)
+        if level[0] == "score":
+            return True
+        if level[0] == "part":
+            return self.data._is_part_active(level[1])
+        return self.data._is_staff_active(level[1], level[2])
+
     def invalidate_cache(self) -> None:
         """Drop the cached attribute-target occurrence lists - see
         __init__. Called from MusicData._invalidate_visibility_cache
@@ -162,13 +182,15 @@ class FindIndex:
             hairpin_kind = kind[: -len("_start")]
             return [
                 at_quarters(s.start_quarters_from_start)
-                for s in data.hairpin_spans if s.kind == hairpin_kind
+                for s in data.hairpin_spans
+                if s.kind == hairpin_kind and self._is_marking_visible(s)
             ]
         if kind in ("crescendo_end", "diminuendo_end"):
             hairpin_kind = kind[: -len("_end")]
             return [
                 at_quarters(s.end_quarters_from_start)
-                for s in data.hairpin_spans if s.kind == hairpin_kind
+                for s in data.hairpin_spans
+                if s.kind == hairpin_kind and self._is_marking_visible(s)
             ]
         if kind == "segno":
             return [first_of(m.measure) for m in data.segno_marks]
@@ -190,51 +212,72 @@ class FindIndex:
         # points resolve through first_visible_event_index_of_measure.
         if kind == "pedal_start":
             return [at_quarters(s.start_quarters_from_start)
-                    for s in data.direction_spans if s.kind == "pedal"]
+                    for s in data.direction_spans
+                    if s.kind == "pedal" and self._is_marking_visible(s)]
         if kind == "pedal_end":
             return [at_quarters(s.end_quarters_from_start)
-                    for s in data.direction_spans if s.kind == "pedal"]
+                    for s in data.direction_spans
+                    if s.kind == "pedal" and self._is_marking_visible(s)]
         if kind == "pedal_change":
             return [first_of(m.measure)
-                    for m in data.direction_marks if m.kind == "pedal_change"]
+                    for m in data.direction_marks
+                    if m.kind == "pedal_change" and self._is_marking_visible(m)]
         if kind == "octave_shift_start":
+            if not data.show_engraving_details_enabled:
+                return []
             return [at_quarters(s.start_quarters_from_start)
-                    for s in data.direction_spans if s.kind == "octave_shift"]
+                    for s in data.direction_spans
+                    if s.kind == "octave_shift" and self._is_marking_visible(s)]
         if kind == "octave_shift_end":
+            if not data.show_engraving_details_enabled:
+                return []
             return [at_quarters(s.end_quarters_from_start)
-                    for s in data.direction_spans if s.kind == "octave_shift"]
+                    for s in data.direction_spans
+                    if s.kind == "octave_shift" and self._is_marking_visible(s)]
         if kind == "rehearsal":
             return [first_of(m.measure)
-                    for m in data.direction_marks if m.kind == "rehearsal"]
+                    for m in data.direction_marks
+                    if m.kind == "rehearsal" and self._is_marking_visible(m)]
         if kind == "dashed_line_start":
             return [at_quarters(s.start_quarters_from_start)
-                    for s in data.direction_spans if s.kind == "dashes"]
+                    for s in data.direction_spans
+                    if s.kind == "dashes" and self._is_marking_visible(s)]
         if kind == "dashed_line_end":
             return [at_quarters(s.end_quarters_from_start)
-                    for s in data.direction_spans if s.kind == "dashes"]
+                    for s in data.direction_spans
+                    if s.kind == "dashes" and self._is_marking_visible(s)]
         if kind == "bracket_line_start":
             return [at_quarters(s.start_quarters_from_start)
-                    for s in data.direction_spans if s.kind == "bracket"]
+                    for s in data.direction_spans
+                    if s.kind == "bracket" and self._is_marking_visible(s)]
         if kind == "bracket_line_end":
             return [at_quarters(s.end_quarters_from_start)
-                    for s in data.direction_spans if s.kind == "bracket"]
+                    for s in data.direction_spans
+                    if s.kind == "bracket" and self._is_marking_visible(s)]
         if kind == "other_direction":
             return [first_of(m.measure)
-                    for m in data.direction_marks if m.kind == "other_direction"]
+                    for m in data.direction_marks
+                    if m.kind == "other_direction" and self._is_marking_visible(m)]
         if kind == "dynamics_instruction":
             return [first_of(m.measure)
-                    for m in data.direction_marks if m.kind == "dynamics_word"]
+                    for m in data.direction_marks
+                    if m.kind == "dynamics_word" and self._is_marking_visible(m)]
         if kind == "tempo_instruction":
             return [first_of(m.measure)
-                    for m in data.direction_marks if m.kind == "tempo_word"]
+                    for m in data.direction_marks
+                    if m.kind == "tempo_word" and self._is_marking_visible(m)]
         if kind == "stave_text":
             return [first_of(m.measure)
-                    for m in data.direction_marks if m.kind == "words"]
+                    for m in data.direction_marks
+                    if m.kind == "words" and self._is_marking_visible(m)]
         # P4: barline / clef-change / measure-style points, all resolved to
         # the first visible event of their measure (uniform with every other
         # point marking - the barline @location nuance is deferred).
         if kind == "clef_change":
-            return [first_of(m.measure) for m in data.clef_change_marks]
+            if not data.show_engraving_details_enabled:
+                return []
+            return [first_of(m.measure) for m in data.clef_change_marks
+                    if self._is_marking_visible(m)]
         if kind == "double_barline":
             return [first_of(m.measure)
                     for m in data.barline_marks if m.kind == "double_barline"]
@@ -243,10 +286,12 @@ class FindIndex:
                     for m in data.barline_marks if m.kind == "other_barline"]
         if kind == "multi_measure_rest":
             return [first_of(m.measure)
-                    for m in data.measure_style_marks if m.kind == "multi_measure_rest"]
+                    for m in data.measure_style_marks
+                    if m.kind == "multi_measure_rest" and self._is_marking_visible(m)]
         if kind == "measure_repeat":
             return [first_of(m.measure)
-                    for m in data.measure_style_marks if m.kind == "measure_repeat"]
+                    for m in data.measure_style_marks
+                    if m.kind == "measure_repeat" and self._is_marking_visible(m)]
         if kind == "key_signature_change":
             return list(self.key_signature_change_indices())
         if kind == "time_signature_change":
@@ -335,9 +380,13 @@ class FindIndex:
         actually present on a note in one of the currently active voices
         (Ref 7); each such key gets an "any" target, and - for the keys in
         VALUE_EXPANDED_KEYS - one target per distinct value (D1/D2), ordered
-        most-common-first. Marking targets are whichever of MARKING_KINDS
-        actually occur anywhere in the score (structural, like Region 5 -
-        not filtered by voice).
+        most-common-first. Marking targets are whichever of MARKING_KINDS actually
+        occur under the active parts/staves filter (Ref 7) - a marking whose
+        owning part or stave is switched off in Region 2 contributes no
+        occurrence, via _is_marking_visible. Score-wide marking kinds
+        (repeats, endings, sections, barlines, segno/coda/fine/D.C./D.S.,
+        the diff-based key/time/tempo change points) have no owning part at
+        all and are never filtered.
 
         Every target's occurrence list is computed exactly once here - the
         attribute lists in one combined pass (_scan_attribute_candidates,

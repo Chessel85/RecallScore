@@ -60,7 +60,13 @@ class AppSettings:
     global default for a score that has never had its own .rsc written yet -
     once a score is saved, persistence/score_config.py's per-score value
     takes over for that file. Every Ctrl+N toggle writes through to both, so
-    a newly opened score inherits whatever the user last chose."""
+    a newly opened score inherits whatever the user last chose.
+
+    show_engraving_details_enabled (Options > Show Engraving Details,
+    Ctrl+V) is global only, with no per-score override - a user-wide
+    preference for whether octave-shift/clef-change rows are worth
+    surfacing at all (e.g. when collaborating with a sighted musician),
+    not a property of any one score. Off by default."""
 
     uk_terms: Optional[bool] = None
     recent_files: List[str] = field(default_factory=list)
@@ -72,6 +78,7 @@ class AppSettings:
     tuner: TunerSettings = field(default_factory=TunerSettings)
     shortcuts: Dict[str, str] = field(default_factory=dict)
     marking_categories_off: List[str] = field(default_factory=list)
+    show_engraving_details_enabled: bool = False
 
 
 def settings_path() -> Path:
@@ -106,6 +113,7 @@ def load() -> AppSettings:
             tuner=TunerSettings.from_dict(data.get("tuner")),
             shortcuts=_str_dict(data.get("shortcuts")),
             marking_categories_off=list(data.get("marking_categories_off", [])),
+            show_engraving_details_enabled=bool(data.get("show_engraving_details_enabled", False)),
         )
     except FileNotFoundError:
         return AppSettings()
@@ -206,4 +214,13 @@ def set_marking_categories_off(categories_off) -> None:
     set_play_settings above."""
     current = load()
     current.marking_categories_off = sorted(categories_off)
+    save(current)
+
+
+def set_show_engraving_details_enabled(enabled: bool) -> None:
+    """Records the Options > Show Engraving Details (Ctrl+V) preference,
+    load-mutate-save for the same reason as add_recent_file/
+    set_play_settings above."""
+    current = load()
+    current.show_engraving_details_enabled = enabled
     save(current)

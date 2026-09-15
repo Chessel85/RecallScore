@@ -2587,12 +2587,14 @@ def test_p3_pedal_and_octave_shift_get_region_5_rows(timeline, pedal_score, octa
     assert "* Pedal measures 1 to 2" in bar2_labels
 
     md = timeline(octave_shift_score)
+    md.show_engraving_details_enabled = True
     labels = [r.label for r in md.get_performance_region_rows(0)]
     assert "* Octave shift 8vb measure 1 beat 1 to beat 3" in labels
 
 
 def test_p3_octave_shift_size_label_in_the_report(timeline, octave_shift_score):
     md = timeline(octave_shift_score)
+    md.show_engraving_details_enabled = True
     lines = md.get_performance_report_lines()
     assert "Octave shifts: 1" in lines
     assert "Octave shift 8vb: Measure 1 to Measure 1 beat 3" in lines
@@ -2948,6 +2950,7 @@ def test_p4_clef_change_findable_reported_and_shown_in_region_5(
     line, and a one-shot Region 5 row at its own measure. Only one part
     changes clef here, so the label is NOT part-prefixed (D5)."""
     md = timeline(clef_change_score)
+    md.show_engraving_details_enabled = True
     assert "clef_change" in _marking_keys(md)
 
     target = _find_target(md, "clef_change", "marking")
@@ -2972,6 +2975,7 @@ def test_p4_clef_change_region_5_label_matches_find_report_wording(
     """D3: the Region 5 clef-change row and the Performance Report line use
     the same core string ("Clef change: <clef>, staff <n>")."""
     md = timeline(clef_change_score)
+    md.show_engraving_details_enabled = True
     r5 = [r.label for i in range(len(md.timeline_slices))
           for r in md.get_performance_region_rows(i)
           if "Clef change" in r.label]
@@ -3157,6 +3161,7 @@ def test_stage7_clef_change_is_a_staff_level_note_list_point_row(
     timeline, clef_change_score
 ):
     md = timeline(clef_change_score)
+    md.show_engraving_details_enabled = True
     md.active_event_index = 1  # bar 2: P1 changes to bass
     assert "Clef change: bass" in _marking_row_texts(md)
     md.active_event_index = 0  # bar 1: the first clef is never a change
@@ -3290,6 +3295,7 @@ def test_stage4_octave_shift_category_toggle_flips_asterisk_and_note_list(
     timeline, octave_shift_score
 ):
     md = timeline(octave_shift_score)
+    md.show_engraving_details_enabled = True
     md.active_event_index = 0
 
     assert "* Octave shift 8vb measure 1 beat 1 to beat 3" in [

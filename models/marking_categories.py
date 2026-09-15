@@ -20,7 +20,7 @@ A category not in this tuple is simply never off - its rows always render
 regardless of marking_categories_off (see MarkingRows filtering and
 PerformanceRows' asterisk logic, both of which treat category=None the
 same way as a category outside ALL_CATEGORIES)."""
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 ALL_CATEGORIES: Tuple[str, ...] = (
     "repeats_endings",
@@ -71,3 +71,31 @@ CATEGORY_NAMES: Dict[str, str] = {
     "fermatas": "Fermatas",
     "principal_voice": "Principal voice",
 }
+
+# Options > Show Engraving Details (Ctrl+V). These two categories describe
+# engraving/layout choices a blind musician doesn't need to reproduce the
+# performance - an octave shift and a clef change are both already realised
+# by playing the printed note at its correct pitch. Off by default; when off
+# they are dropped outright (not just cosmetically asterisked) from the note
+# list, Region 5 and Find - unlike marking_categories_off/Ctrl+N, which never
+# touches Find or removes a Region 5 row. Kept as a fixed pair rather than a
+# generic "engraving" flag on every category, since the user may name more
+# candidates later and each addition should be a deliberate one-line change
+# here, not an accidental side effect of some other property.
+ENGRAVING_DETAIL_CATEGORIES = frozenset({"clef_changes", "octave_shift"})
+
+
+def category_visible(
+    category: Optional[str], marking_categories_off, show_engraving_details_enabled: bool
+) -> bool:
+    """True if a row/Find-target with this category should be surfaced,
+    folding together the two independent gates: Ctrl+N's per-category
+    marking_categories_off (note-list only, cosmetic elsewhere) and the
+    engraving-details toggle (drops the row everywhere when off). A
+    category of None - every family without a Region 5 row to hang Ctrl+N
+    on - is always visible, matching both gates' existing treatment of it."""
+    if category is None:
+        return True
+    if category in ENGRAVING_DETAIL_CATEGORIES and not show_engraving_details_enabled:
+        return False
+    return category not in marking_categories_off

@@ -99,7 +99,10 @@ def test_octave_shift_span_is_a_bare_point_row_when_start_equals_end():
         start_measure=1, start_beat_position=1.0, start_quarters_from_start=0.0,
         end_measure=1, end_beat_position=1.0, end_quarters_from_start=0.0,
     )
-    md = MusicData(timeline_slices=[_slice(1, 0.0)], direction_spans=[span])
+    md = MusicData(
+        timeline_slices=[_slice(1, 0.0)], direction_spans=[span],
+        show_engraving_details_enabled=True,
+    )
     md.active_event_index = 0
     assert _texts(md.get_region_3_rows()) == ["Octave shift 8vb", "C"]
 
@@ -237,7 +240,7 @@ def test_stage5_staff_families_are_appended_after_hairpins_and_clef_changes():
     )
     md = MusicData(
         timeline_slices=[slice_], hairpin_spans=[hairpin], clef_change_marks=[clef],
-        direction_spans=[dashes],
+        direction_spans=[dashes], show_engraving_details_enabled=True,
     )
     rows = md.marking_rows.part_level_rows(slice_)["P1"]
     assert _texts(rows) == ["Crescendo", "Clef change: bass", "Dashed line"]

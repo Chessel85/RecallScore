@@ -148,6 +148,7 @@ def test_other_direction_point_is_borrowed():
 
 def test_clef_change_is_never_borrowed():
     md = _two_part_md()
+    md.show_engraving_details_enabled = True
     md.clef_change_marks = [
         ClefChangeMark(
             part_id="P1", staff=1, label="Bass Clef",

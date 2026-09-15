@@ -82,6 +82,7 @@ import bisect
 from typing import Dict, List, Optional, Set, Tuple
 
 from models import marking_labels
+from models.marking_categories import category_visible
 from models.clef_change_mark import ClefChangeMark
 from models.direction_mark import DirectionMark
 from models.direction_span import DirectionSpan
@@ -354,8 +355,12 @@ class MarkingRows:
         # Stage 9 (strategy section 8): drop any row whose category the
         # user has switched off. A row with category=None (every category
         # models.marking_categories deliberately excludes) is never
-        # filtered.
-        return [r for r in rows if r.category is None or r.category not in data.marking_categories_off]
+        # filtered. Options > Show Engraving Details additionally drops
+        # clef_changes/octave_shift rows outright when off.
+        return [
+            r for r in rows
+            if category_visible(r.category, data.marking_categories_off, data.show_engraving_details_enabled)
+        ]
 
     # --- score-level quarters index --------------------------------------
 
@@ -466,9 +471,12 @@ class MarkingRows:
         if event_slice is None:
             return {}
         _score_rows, part_rows, _stave_rows = self._family_rows(event_slice)
-        off = self.data.marking_categories_off
+        data = self.data
         return {
-            key: [r for r in rows if r.category is None or r.category not in off]
+            key: [
+                r for r in rows
+                if category_visible(r.category, data.marking_categories_off, data.show_engraving_details_enabled)
+            ]
             for key, rows in part_rows.items()
         }
 
@@ -480,9 +488,12 @@ class MarkingRows:
         if event_slice is None:
             return {}
         _score_rows, _part_rows, stave_rows = self._family_rows(event_slice)
-        off = self.data.marking_categories_off
+        data = self.data
         return {
-            key: [r for r in rows if r.category is None or r.category not in off]
+            key: [
+                r for r in rows
+                if category_visible(r.category, data.marking_categories_off, data.show_engraving_details_enabled)
+            ]
             for key, rows in stave_rows.items()
         }
 

@@ -71,6 +71,7 @@ class Actions:
     metronome: Optional[QAction] = None
     position_announcer: Optional[QAction] = None
     bar_line_indicator: Optional[QAction] = None
+    show_engraving_details: Optional[QAction] = None
     live_midi_input: Optional[QAction] = None
     live_midi_input_settings: Optional[QAction] = None
     voice_control: Optional[QAction] = None
@@ -628,6 +629,23 @@ class MenuBuilder:
             status_tip="Play a high metronome beep when arrow-key navigation crosses a bar line",
         )
         options_menu.addAction(a.bar_line_indicator)
+
+        # Octave-shift/clef-change rows are engraving detail a blind
+        # musician doesn't need - both are already realised by playing the
+        # printed note at its correct pitch - so they're off by default and
+        # dropped everywhere (note list, Region 5, Find), not just
+        # cosmetically. Useful when collaborating with a sighted musician
+        # who needs to see that detail discussed. Global, not per-score
+        # (persistence/app_settings.py), since it's a personal preference
+        # about how much engraving detail to hear, not a property of any
+        # one piece.
+        a.show_engraving_details = self._action(
+            "Show &Engraving Details", self.slots.toggle_show_engraving_details,
+            QKeySequence("Ctrl+V"), checkable=True,
+            status_tip="Surface octave-shift and clef-change details in the note list, "
+                       "Region 5 and Find",
+        )
+        options_menu.addAction(a.show_engraving_details)
 
         # macOS: Ctrl+M would map to Cmd+M (Minimize) - see
         # _shortcut_for_platform. Falls back to the physical Control key there.

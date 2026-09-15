@@ -181,3 +181,66 @@ def test_the_attribute_cache_is_dropped_when_the_voice_filter_changes(
     md.set_active_voice_filter({("P1", 1, 1)})
 
     assert md.find_index.sorted_candidate_indices(target) == []
+
+
+# --- marking targets respect the active parts/staves filter (Ref 7) -----
+
+def test_marking_targets_are_limited_to_the_active_parts(
+    timeline, hairpins_two_parts_score
+):
+    """Guitar (P1) has a diminuendo, Cello (P2) a crescendo. Muting P1
+    entirely must drop its hairpin from Find's catalog and from the
+    diminuendo target's own occurrence list, while leaving the crescendo
+    (P2) target untouched - the same live, uncached read find_occurrence
+    already gives attribute targets."""
+    md = timeline(hairpins_two_parts_score)
+
+    diminuendo_start = FindTarget("marking", "diminuendo_start", "Diminuendo, start")
+    crescendo_start = FindTarget("marking", "crescendo_start", "Crescendo, start")
+    assert md.find_index.sorted_candidate_indices(diminuendo_start) != []
+    assert md.find_index.sorted_candidate_indices(crescendo_start) != []
+
+    md.set_active_voice_filter({("P2", 1, 1)})
+
+    assert md.find_index.sorted_candidate_indices(diminuendo_start) == []
+    assert md.find_index.sorted_candidate_indices(crescendo_start) != []
+
+    keys = [(t.category, t.key) for t in md.available_find_targets()]
+    assert ("marking", "diminuendo_start") not in keys
+    assert ("marking", "diminuendo_any") not in keys
+    assert ("marking", "crescendo_start") in keys
+
+
+def test_find_occurrence_sounds_the_boundary_cue_once_the_armed_target_is_hidden(
+    timeline, hairpins_two_parts_score
+):
+    """The scenario in the user's request: arm a target, close the dialog,
+    then mute the part it lives on via Region 2 - find_next/find_previous
+    must not move (find_occurrence returns None), which is what makes
+    NavigationController._find sound the boundary cue instead."""
+    md = timeline(hairpins_two_parts_score)
+    diminuendo_start = FindTarget("marking", "diminuendo_start", "Diminuendo, start")
+    assert md.find_occurrence(diminuendo_start, from_index=0, direction=1) is not None
+
+    md.set_active_voice_filter({("P2", 1, 1)})
+
+    assert md.find_occurrence(diminuendo_start, from_index=0, direction=1) is None
+
+
+def test_score_wide_marking_targets_are_never_filtered(
+    timeline, hairpins_two_parts_score
+):
+    """A P1-owned hairpin is hidden once P1 is muted, but a marking type
+    with no part_id field at all (RepeatSpan, EndingSpan, SectionSpan,
+    BarlineMark, SegnoMark/CodaMark/ToCodaMark/FineMark, NavigationJump)
+    is unaffected by any parts/staves filter - the generic hasattr guard in
+    _is_marking_visible, not a hairpin-specific rule."""
+    from models.repeat_span import RepeatSpan
+
+    md = timeline(hairpins_two_parts_score)
+    md.set_active_voice_filter({("P2", 1, 1)})
+
+    p1_span = next(s for s in md.hairpin_spans if s.part_id == "P1")
+    assert not md.find_index._is_marking_visible(p1_span)
+
+    assert md.find_index._is_marking_visible(RepeatSpan(start_measure=1, end_measure=2))
