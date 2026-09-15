@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Set, Union
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QAbstractItemView, QTreeWidget, QTreeWidgetItem
 
+from .accessible_announcer import announce
 from .region2_manager import Region2HierarchyModel, Region2Node, node_status_label
 from .region_focus_cycle import RegionFocusCycleMixin
 
@@ -270,7 +271,10 @@ class Region2ListWidget(RegionFocusCycleMixin, QTreeWidget):
 
     def toggle_mute_current(self) -> None:
         """F8 (via the Playback menu's Mute action) - mutes/unmutes the
-        focused row only."""
+        focused row only. No announce() here (tried and reverted) - the row
+        text's own "muted" suffix (node_status_label) already speaks the
+        state, on this row and every other, so a one-off announcement was
+        redundant chatter."""
         node = self.current_node()
         if node is None:
             return
@@ -280,7 +284,8 @@ class Region2ListWidget(RegionFocusCycleMixin, QTreeWidget):
 
     def toggle_solo_current(self) -> None:
         """F9 (via the Playback menu's Solo action) - solos/unsolos the
-        focused row only."""
+        focused row only. No announce() here, same reasoning as
+        toggle_mute_current."""
         node = self.current_node()
         if node is None:
             return
@@ -292,11 +297,13 @@ class Region2ListWidget(RegionFocusCycleMixin, QTreeWidget):
         """Alt+F8 (via the Playback menu's Unmute All action)."""
         self.model_manager.clear_all_mute()
         self._refresh_all_item_texts_and_notify()
+        announce(self, "unmuted all")
 
     def unsolo_all(self) -> None:
         """Alt+F9 (via the Playback menu's Unsolo All action)."""
         self.model_manager.clear_all_solo()
         self._refresh_all_item_texts_and_notify()
+        announce(self, "unsoloed all")
 
     def _refresh_item_text(self, node: Region2Node) -> None:
         item = self._item_by_node_id.get(node.node_id)

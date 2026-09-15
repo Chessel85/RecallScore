@@ -5,7 +5,19 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import QApplication
 
+from widgets import accessible_announcer
+
 from tests.support.main_window_helpers import _focus, _show, load_and_wait
+
+
+def _capture_announcements(monkeypatch):
+    messages = []
+    monkeypatch.setattr(
+        accessible_announcer.QAccessible,
+        "updateAccessibility",
+        lambda event: messages.append(event.message()),
+    )
+    return messages
 
 
 # --- Playback menu: mute/solo (F8/F9/Alt+F8/Alt+F9) -----------------------
@@ -295,3 +307,20 @@ def test_region_2_row_text_reflects_mute_and_solo_state(window, qtbot, score_due
 
     qtbot.keyClick(window.region_2, Qt.Key.Key_F9)
     assert window.region_2.visible_item_texts()[0] == f"{part_name} muted soloed"
+
+
+def test_toggle_mute_and_solo_do_not_announce(window, qtbot, monkeypatch, score_duet):
+    """Only the row text's own "muted"/"soloed" suffix conveys state now -
+    Unmute All / Unsolo All still announce, but the per-row F8/F9 toggle
+    does not (tried and reverted: redundant on top of the suffix)."""
+    load_and_wait(window, qtbot, score_duet)
+    _show(window, qtbot)
+    _focus(window.region_2)
+    part_id = window.region_2.model_manager.roots[0].node_id
+    window.region_2.select_node(part_id)
+    messages = _capture_announcements(monkeypatch)
+
+    qtbot.keyClick(window.region_2, Qt.Key.Key_F8)
+    qtbot.keyClick(window.region_2, Qt.Key.Key_F9)
+
+    assert messages == []

@@ -1,5 +1,13 @@
 # Recall Score Release Notes
 
+
+## 2026.1.61
+
+* Revamp of how attributes and performance indicators are surfaced.
+* Improved solo and mute announcements
+* Improved sound dictionary 
+* Reviewed keystroke shortcut help entry 
+
 ## 2026.1.60
 
 * Added a text refresh toggle (Ctrl+H) and a delay refresh feature

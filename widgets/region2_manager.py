@@ -417,11 +417,30 @@ def node_status_label(node: Region2Node) -> str:
     in what actually sounds (get_active_voice_tuples), but both states are
     independently real and both get named here.
 
+    Tried and reverted: dropping this suffix and relying only on the one-off
+    accessible_announcer.announce("muted"/"soloed") fired by
+    toggle_mute_current/toggle_solo_current. Live-tested 2026-09-15 and
+    found unusable - without the word in the row text there is no way to
+    later tell an item is muted/soloed just by revisiting it, only at the
+    moment it was toggled. The per-toggle announcement was removed again
+    (see toggle_mute_current/toggle_solo_current); this suffix is the only
+    place mute/solo state is now conveyed.
+
     Stage 9: a linked part's row gets its group number prefixed ("1.
     Classical Guitar") - display only, never folded into display_name
     itself (invariant 8), so a rename or reorder can't disturb it. The path
     label just above the tree row (built from display_name directly by its
-    own caller) deliberately stays unprefixed."""
+    own caller) deliberately stays unprefixed.
+
+    Tried and reverted: speaking a staff/voice row's depth as a trailing
+    ", level N" to work around Qt's QTreeWidget accessibility backend never
+    implementing QAccessibleAttributesInterface for tree-item cells (so the
+    IAccessible2 "level" NVDA's native announcement needs never reaches it).
+    Live NVDA testing showed Qt's native (empty/wrong) level announcement
+    still fires alongside the hand-spoken one, so a staff row was read as
+    "level 2" AND "level 1" - worse than the original gap. Left as a known
+    Qt limitation rather than re-attempted; see
+    project_qt_tree_no_native_level memory."""
     suffix_words = []
     if node.muted:
         suffix_words.append("muted")

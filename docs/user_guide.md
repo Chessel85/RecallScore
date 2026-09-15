@@ -487,6 +487,18 @@ position - never which positions exist to move between. The current
 timeline position, and Region 3's selection, stay exactly where they
 were before and after any change in Region 2.
 
+### 6.5 Linking Parts to Share Performance Markings
+
+Parts > Link Parts... marks two or more parts as "the same music" - for
+example a doubled melody line, or a part written out twice at different
+transpositions. Once linked, each part's note list also shows the
+performance markings entered on its partners, instead of only its own.
+Select two or more parts in the dialog and choose Link; select a linked
+part and choose Unlink to remove it from its group (a pair that loses one
+member simply stops being linked, while a group of three or more shrinks
+by one). There is no default keyboard shortcut for Link Parts...; assign
+one through Tools > Keyboard Shortcuts if you use it often.
+
 ## 7. Listening to the Score
 
 ### 7.1 Automatic Playback During Navigation
@@ -673,6 +685,16 @@ file, section 13) and starts off for a score you haven't set it on
 before. It has no effect while the metronome (section 7.7) is switched
 on, since the metronome already accents the first beat of every bar; it
 works normally alongside the position announcer.
+
+**Show Engraving Details.** Options > Show Engraving Details, or `Ctrl+V`,
+is off by default. Octave-shift and clef-change markings are
+engraving-only information - the printed note already sounds at its
+correct pitch, so nothing about playback changes whether this is on or
+off. With it off, those two kinds of rows are dropped outright from the
+note list, the Performance region and Find; switching it on surfaces
+them everywhere, mainly useful when you're collaborating with a sighted
+musician who needs to see that detail discussed. This is a global
+preference, not saved per score.
 
 ### 7.9 Adjusting Volume and Pan (the Mixer)
 
@@ -867,7 +889,18 @@ timeline position to that marking's start; `Ctrl+End` moves it to the
 last sounding note of the marking's end bar. Either jump plays the notes
 at the new position immediately, the same as any other timeline move.
 
-### 8.4 The Performance Report (Tools > Performance Report...)
+### 8.4 Hiding a Marking Category (Ctrl+N)
+
+With focus on a Performance region entry, `Ctrl+N` (or the Menu key, or
+`Shift+F10`) toggles that entry's category out of - or back into - the
+note list, the Performance region and Find. A category currently hidden
+this way is prefixed with `* ` on its Performance region row so you can
+tell at a glance which ones are switched off. This is saved per score,
+with a global default in Options that every toggle also updates. Pedal,
+octave-shift and stave-text markings can't be hidden this way (section
+7.8 covers octave-shift specifically, via Show Engraving Details).
+
+### 8.5 The Performance Report (Tools > Performance Report...)
 
 Tools > Performance Report... (`Ctrl+Shift+F`) opens a read-only summary of the whole
 piece, independent of whatever's currently filtered in Region 2: title,
@@ -1413,14 +1446,16 @@ directly (see also section 16.3).
 | Toggle Voice Control | Alt+Enter | Turns hands-free voice control on or off (section 7.12). |
 | Voice Control Settings... | Ctrl+Shift+R | Chooses the microphone and confidence threshold for voice control (section 7.12). |
 | Reorder Attributes... | Ctrl+Shift+A | Changes the order note attributes are read in, and switches attributes on or off, for the current Region 2 scope (section 9.4). |
+| Show Engraving Details | Ctrl+V | Surfaces octave-shift and clef-change rows in the note list, Performance region and Find, which are hidden by default (section 7.8). |
 | Reorder Parts... | Ctrl+Shift+O | Changes the order parts are listed in Region 2, and in turn the order their notes are listed in Region 3 (section 10.3). |
+| Link Parts... | - | Marks two or more parts as "the same music" so each shows the others' performance markings (section 6.5). |
 
 ### 14.6 Tools Menu
 
 | Item | Shortcut | What it does |
 | :--- | :--- | :--- |
 | Tuner... | Ctrl+Shift+T | Opens the microphone-based chromatic tuner (section 11). |
-| Performance Report... | Ctrl+Shift+F | Opens a read-only summary of the whole piece (section 8.4). |
+| Performance Report... | Ctrl+Shift+F | Opens a read-only summary of the whole piece (section 8.5). |
 | Strumming Patterns... | Ctrl+Shift+U | Opens a read-only view of an Ultimate Guitar import's strum pattern(s), with a tempo / metronome-click control and looped demo playback (section 10.7). Disabled unless such an import is loaded. |
 
 ### 14.7 Help Menu
@@ -1492,7 +1527,9 @@ directly (see also section 16.3).
 | Open the Reorder Parts dialog | Ctrl+Shift+O |
 | Move the selected part up / down *(Reorder Parts dialog only)* | Alt+U / Alt+D |
 | Jump to the start / end of the focused Performance region entry *(Performance region only)* | Ctrl+Home / Ctrl+End |
+| Hide / unhide the focused entry's marking category *(Performance region only)* | Ctrl+N, or Menu key / Shift+F10 |
 | Open the Performance Report | Ctrl+Shift+F |
+| Toggle Show Engraving Details on/off | Ctrl+V |
 | Open a note attribute's context menu *(Note Attributes region only)* | right-click, or Menu key / Shift+F10 |
 | Open a score file | Ctrl+O |
 

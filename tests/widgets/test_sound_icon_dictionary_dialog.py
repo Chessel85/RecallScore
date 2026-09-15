@@ -10,11 +10,11 @@ def _entries():
     ]
 
 
-def test_lists_one_row_per_entry(qtbot):
+def test_lists_one_row_per_entry_with_short_name_only(qtbot):
     dialog = SoundIconDictionaryDialog(None, entries=_entries())
     qtbot.addWidget(dialog)
     assert dialog.sound_list.count() == 2
-    assert "Boundary cue" in dialog.sound_list.item(0).text()
+    assert dialog.sound_list.item(0).text() == "Boundary cue"
 
 
 def test_play_button_disabled_for_an_entry_with_no_events(qtbot):
@@ -31,6 +31,25 @@ def test_play_button_emits_play_index_requested(qtbot):
     received = []
     dialog.play_index_requested.connect(received.append)
     dialog.play_button.click()
+    assert received == [0]
+
+
+def test_navigating_to_an_entry_with_no_events_does_not_auto_play(qtbot):
+    dialog = SoundIconDictionaryDialog(None, entries=_entries())
+    qtbot.addWidget(dialog)
+    received = []
+    dialog.play_index_requested.connect(received.append)
+    dialog.sound_list.setCurrentRow(1)  # "Live MIDI input" has no events
+    assert received == []
+
+
+def test_navigating_to_an_entry_with_events_auto_plays_it(qtbot):
+    dialog = SoundIconDictionaryDialog(None, entries=_entries())
+    qtbot.addWidget(dialog)
+    received = []
+    dialog.play_index_requested.connect(received.append)
+    dialog.sound_list.setCurrentRow(1)
+    dialog.sound_list.setCurrentRow(0)
     assert received == [0]
 
 

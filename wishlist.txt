@@ -1,14 +1,7 @@
-The tree in region 2 always says the level is level 1.  
-Are the commands of typing a bar and pressing enter or control enter in the shortcut list in help menu?
 Make the long beeps in repeat bar sounds longer.
-Need speech feedback on unsolo and unmute all. and possibly on unmuting and unsoloing single entries.
 Want a way to see in attributes list which are surfaced and to what. like the asterisk for performance indicators.
 Need to write the user guide better. 
 nvda + T should read out title of modal dialogues not python or application title.
-surfacing region 5 data better
-Generally want option to add region 5 items to note list as well. Crescendo start, crescendo end. 
-Is there a difference between score text and stave text?  Is score text generally just at the beginning?
-How to distinguish between text meant just for one part instructions meant for all staves?
 stripping announcement of attribute name during playback
 If a stave has only one voice, then no point opening it in the parts view and no point having "Add attribute to voice" etc.
 The performance summary report should not list something if there are zero occurances.
@@ -19,4 +12,9 @@ Need to review file formats; midi 0 and ultimate guitar need assumptions about b
 * A mute option so midi is not played. - can do this by setting score to 0 volume  in the mixer so wait to see if this feature is requested later by others
 Should play respect speed ups, slows down, louder, softer, trills. want option to play it straight 
 Notes need to account for staff symbol e.g. a piano bass stave (without a treble) seems to play too high
+The tree in region 2 always says the level is level 1. this is a Qt bug so upgrade pyside6.
+QTBUG-149577 — "Accessibility: expose group position (PositionInSet/SizeOfSet) and structural Level to assistive        
+technologies" — is an exact match: it explicitly covers QTreeView items not reporting a Level attribute via             
+QAccessibleAttributesInterface (mapped to UIA_LevelPropertyId, 1-based structural depth), which is precisely what we    
+found missing for QTreeWidget.                                                                                          
 

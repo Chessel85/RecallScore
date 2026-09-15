@@ -639,6 +639,18 @@ Muting and Soloing Affect Navigation and Playback</h3>
 timeline position - never which positions exist to move between. The
 current timeline position, and Region 3’s selection, stay exactly where
 they were before and after any change in Region 2.</p>
+<h3 id="linking-parts-to-share-performance-markings">6.5 Linking Parts
+to Share Performance Markings</h3>
+<p>Parts &gt; Link Parts… marks two or more parts as “the same music” -
+for example a doubled melody line, or a part written out twice at
+different transpositions. Once linked, each part’s note list also shows
+the performance markings entered on its partners, instead of only its
+own. Select two or more parts in the dialog and choose Link; select a
+linked part and choose Unlink to remove it from its group (a pair that
+loses one member simply stops being linked, while a group of three or
+more shrinks by one). There is no default keyboard shortcut for Link
+Parts…; assign one through Tools &gt; Keyboard Shortcuts if you use it
+often.</p>
 <h2 id="listening-to-the-score">7. Listening to the Score</h2>
 <h3 id="automatic-playback-during-navigation">7.1 Automatic Playback
 During Navigation</h3>
@@ -821,6 +833,15 @@ for a score you haven’t set it on before. It has no effect while the
 metronome (section 7.7) is switched on, since the metronome already
 accents the first beat of every bar; it works normally alongside the
 position announcer.</p>
+<p><strong>Show Engraving Details.</strong> Options &gt; Show Engraving
+Details, or <code>Ctrl+V</code>, is off by default. Octave-shift and
+clef-change markings are engraving-only information - the printed note
+already sounds at its correct pitch, so nothing about playback changes
+whether this is on or off. With it off, those two kinds of rows are
+dropped outright from the note list, the Performance region and Find;
+switching it on surfaces them everywhere, mainly useful when you’re
+collaborating with a sighted musician who needs to see that detail
+discussed. This is a global preference, not saved per score.</p>
 <h3 id="adjusting-volume-and-pan-the-mixer">7.9 Adjusting Volume and Pan
 (the Mixer)</h3>
 <p>Playback &gt; Mixer… (<code>Ctrl+Shift+X</code>) opens a dialog
@@ -997,7 +1018,18 @@ to a Marking’s Start or End (Ctrl+Home / Ctrl+End)</h3>
 start; <code>Ctrl+End</code> moves it to the last sounding note of the
 marking’s end bar. Either jump plays the notes at the new position
 immediately, the same as any other timeline move.</p>
-<h3 id="the-performance-report-tools-performance-report">8.4 The
+<h3 id="hiding-a-marking-category-ctrln">8.4 Hiding a Marking Category
+(Ctrl+N)</h3>
+<p>With focus on a Performance region entry, <code>Ctrl+N</code> (or the
+Menu key, or <code>Shift+F10</code>) toggles that entry’s category out
+of - or back into - the note list, the Performance region and Find. A
+category currently hidden this way is prefixed with <code>*</code> on
+its Performance region row so you can tell at a glance which ones are
+switched off. This is saved per score, with a global default in Options
+that every toggle also updates. Pedal, octave-shift and stave-text
+markings can’t be hidden this way (section 7.8 covers octave-shift
+specifically, via Show Engraving Details).</p>
+<h3 id="the-performance-report-tools-performance-report">8.5 The
 Performance Report (Tools &gt; Performance Report…)</h3>
 <p>Tools &gt; Performance Report… (<code>Ctrl+Shift+F</code>) opens a
 read-only summary of the whole piece, independent of whatever’s
@@ -1793,11 +1825,25 @@ in, and switches attributes on or off, for the current Region 2 scope
 (section 9.4).</td>
 </tr>
 <tr>
+<td style="text-align: left;">Show Engraving Details</td>
+<td style="text-align: left;">Ctrl+V</td>
+<td style="text-align: left;">Surfaces octave-shift and clef-change rows
+in the note list, Performance region and Find, which are hidden by
+default (section 7.8).</td>
+</tr>
+<tr>
 <td style="text-align: left;">Reorder Parts…</td>
 <td style="text-align: left;">Ctrl+Shift+O</td>
 <td style="text-align: left;">Changes the order parts are listed in
 Region 2, and in turn the order their notes are listed in Region 3
 (section 10.3).</td>
+</tr>
+<tr>
+<td style="text-align: left;">Link Parts…</td>
+<td style="text-align: left;">-</td>
+<td style="text-align: left;">Marks two or more parts as “the same
+music” so each shows the others’ performance markings (section
+6.5).</td>
 </tr>
 </tbody>
 </table>
@@ -1826,7 +1872,7 @@ Region 2, and in turn the order their notes are listed in Region 3
 <td style="text-align: left;">Performance Report…</td>
 <td style="text-align: left;">Ctrl+Shift+F</td>
 <td style="text-align: left;">Opens a read-only summary of the whole
-piece (section 8.4).</td>
+piece (section 8.5).</td>
 </tr>
 <tr>
 <td style="text-align: left;">Strumming Patterns…</td>
@@ -2157,8 +2203,17 @@ Performance region entry <em>(Performance region only)</em></td>
 <td style="text-align: left;">Ctrl+Home / Ctrl+End</td>
 </tr>
 <tr>
+<td style="text-align: left;">Hide / unhide the focused entry’s marking
+category <em>(Performance region only)</em></td>
+<td style="text-align: left;">Ctrl+N, or Menu key / Shift+F10</td>
+</tr>
+<tr>
 <td style="text-align: left;">Open the Performance Report</td>
 <td style="text-align: left;">Ctrl+Shift+F</td>
+</tr>
+<tr>
+<td style="text-align: left;">Toggle Show Engraving Details on/off</td>
+<td style="text-align: left;">Ctrl+V</td>
 </tr>
 <tr>
 <td style="text-align: left;">Open a note attribute’s context menu

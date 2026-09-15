@@ -65,6 +65,7 @@ not rebindable through Tools > Keyboard Shortcuts.
 | Toggle Live MIDI Input | Ctrl+D |
 | Live MIDI Input Settings | Ctrl+Shift+L |
 | Reorder Attributes | Ctrl+Shift+A |
+| Show Engraving Details | Ctrl+V |
 | Set MuseScore Location | *(none)* |
 
 ## Orientation
@@ -81,6 +82,7 @@ not rebindable through Tools > Keyboard Shortcuts.
 |---|---|
 | Instruments | Ctrl+Shift+I |
 | Reorder Parts | Ctrl+Shift+O |
+| Link Parts | *(none)* |
 | Solo | F9 |
 | Mute | F8 |
 | Unsolo All | Alt+F9 |
