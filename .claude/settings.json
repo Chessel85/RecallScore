@@ -2,6 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(.venv/Scripts/python.exe -m pytest *)",
+      "Bash(.venv/Scripts/python.exe tests/manual/model_fingerprint.py *)",
+      "Bash(.venv/Scripts/python.exe tests/manual/parser_fingerprint.py *)",
       "Bash(git worktree add *)",
       "Bash(git worktree remove *)",
       "Bash(rm -rf /c/Temp/*)"
