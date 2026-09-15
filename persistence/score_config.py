@@ -115,6 +115,9 @@ def load_for(file_path: str) -> Optional[ScoreConfig]:
             # "directive_labels_hidden_from_note_list" key is simply ignored
             # on load - there is no field left to populate from it.
             marking_categories_off=set(data.get("marking_categories_off", [])),
+            part_link_groups=[
+                [str(p) for p in g] for g in (data.get("part_link_groups") or [])
+            ],
         )
     except FileNotFoundError:
         return None
@@ -157,6 +160,7 @@ def save(file_path: str, config: ScoreConfig) -> None:
         "percussion_auto_correct_enabled": config.percussion_auto_correct_enabled,
         "last_position_index": config.last_position_index,
         "marking_categories_off": sorted(config.marking_categories_off),
+        "part_link_groups": [list(g) for g in config.part_link_groups],
     }
     try:
         os.makedirs(path.parent, exist_ok=True)

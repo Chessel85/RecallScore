@@ -103,6 +103,9 @@ class RegionPresenter(QObject):
     def rename_voice(self, part_id: str, staff_id: int, voice_id: int, label: str) -> None:
         self.region_2.rename_voice(part_id, staff_id, voice_id, label)
 
+    def apply_link_groups(self, numbers) -> None:
+        self.region_2.apply_link_groups(numbers)
+
     def reorder_parts(self, part_id_order) -> None:
         self.region_2.reorder_parts(part_id_order)
 

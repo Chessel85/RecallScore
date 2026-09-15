@@ -168,7 +168,15 @@ class NoteRenderer:
         (score_level_rows/part_level_rows/staff_level_rows - stave text and
         rehearsal marks among them since stage 5) interleaved ahead of the
         groups they belong to. MusicData.get_region_3_data() is the thin
-        string-list wrapper every existing caller still uses."""
+        string-list wrapper every existing caller still uses.
+
+        Stage 9 (linked parts): part_rows/staff_rows already contain any
+        row borrowed from a linked partner part, keyed by the BORROWING
+        part's own part_id/staff (models/marking_rows.py). Nothing here
+        needs to know a row is borrowed - it shows whenever the borrowing
+        part/staff is visible, regardless of the source part's own
+        visibility, because it was anchored using the borrowing part's own
+        events in the first place."""
         data = self.data
         current = data.get_current_slice()
         score_level_rows = data.marking_rows.score_level_rows(current)

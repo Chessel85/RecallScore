@@ -55,6 +55,20 @@ def test_save_then_load_round_trips_all_fields():
     assert loaded.attribute_order == ["step", "string", "fret", "octave"]
 
 
+def test_save_then_load_round_trips_part_link_groups():
+    config = ScoreConfig(part_link_groups=[["P1", "P2"], ["P3", "P4", "P5"]])
+    score_config.save("Linked Score.mxl", config)
+
+    loaded = score_config.load_for("Linked Score.mxl")
+    assert loaded.part_link_groups == [["P1", "P2"], ["P3", "P4", "P5"]]
+
+
+def test_load_with_no_saved_link_groups_defaults_to_empty():
+    score_config.save("No Links.mxl", ScoreConfig())
+    loaded = score_config.load_for("No Links.mxl")
+    assert loaded.part_link_groups == []
+
+
 def test_save_then_load_round_trips_refresh_settings():
     """UserPlans/DelayRefresh.md: per-score, like mixer - a saved choice
     travels with this score's .rsc, not with AppSettings."""

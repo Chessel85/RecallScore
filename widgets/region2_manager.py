@@ -16,6 +16,11 @@ class Region2Node:
     voice_id: Optional[int] = None
     children: List['Region2Node'] = field(default_factory=list)
     parent: Optional['Region2Node'] = None
+    # Stage 9 (Link Parts...): this part's link group number (1-based), or
+    # None when unlinked. Part nodes only - display only, set via
+    # Region2HierarchyModel.apply_link_groups, never persisted on the node
+    # itself (MusicData.part_link_groups is the source of truth).
+    link_group: Optional[int] = None
 
 
 class Region2HierarchyModel:
@@ -148,6 +153,14 @@ class Region2HierarchyModel:
         node = self._node_lookup.get(node_id)
         if node is not None:
             node.display_name = new_label
+
+    def apply_link_groups(self, numbers: Dict[str, int]) -> None:
+        """Stage 9 (Link Parts...): sets each root's link_group from
+        `numbers` (part_id -> group number, only linked parts present) and
+        clears it on every part not in `numbers`. Display only - never
+        touches display_name (invariant 8)."""
+        for part in self.roots:
+            part.link_group = numbers.get(part.part_id)
 
     def reorder_roots(self, part_id_order: List[str]) -> None:
         """Options > Reorder Parts... - reorders self.roots (the part-level
@@ -402,12 +415,19 @@ def node_status_label(node: Region2Node) -> str:
     ("Piano"), else the name plus "muted"/"soloed" in that fixed order
     ("Piano muted", "Piano soloed", "Piano muted soloed"). Solo beats mute
     in what actually sounds (get_active_voice_tuples), but both states are
-    independently real and both get named here."""
+    independently real and both get named here.
+
+    Stage 9: a linked part's row gets its group number prefixed ("1.
+    Classical Guitar") - display only, never folded into display_name
+    itself (invariant 8), so a rename or reorder can't disturb it. The path
+    label just above the tree row (built from display_name directly by its
+    own caller) deliberately stays unprefixed."""
     suffix_words = []
     if node.muted:
         suffix_words.append("muted")
     if node.soloed:
         suffix_words.append("soloed")
-    if not suffix_words:
-        return node.display_name
-    return f"{node.display_name} {' '.join(suffix_words)}"
+    label = node.display_name if not suffix_words else f"{node.display_name} {' '.join(suffix_words)}"
+    if node.link_group is not None:
+        return f"{node.link_group}. {label}"
+    return label

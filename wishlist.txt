@@ -1,3 +1,4 @@
+The tree in region 2 always says the level is level 1.  
 Are the commands of typing a bar and pressing enter or control enter in the shortcut list in help menu?
 Make the long beeps in repeat bar sounds longer.
 Need speech feedback on unsolo and unmute all. and possibly on unmuting and unsoloing single entries.

@@ -62,6 +62,7 @@ from widgets.live_midi_input_dialog import LiveMidiInputDialog
 from widgets.menu_builder import MenuBuilder, goto_measure_action_text
 from widgets.metronome_player_dialog import MetronomePlayerDialog
 from widgets.mixer_dialog import MixerDialog
+from widgets.link_parts_dialog import LinkPartsDialog
 from widgets.part_order_dialog import PartOrderDialog
 from widgets.performance_report_dialog import PerformanceReportDialog
 from widgets.delay_refresh_dialog import DelayRefreshDialog
@@ -863,6 +864,7 @@ class MainWindow(QMainWindow):
             self.region_2.apply_soloed_node_keys(
                 saved_config.parts_soloed, saved_config.staves_soloed, saved_config.voices_soloed
             )
+            self.presenter.apply_link_groups(self.score_edit.link_group_numbers())
             self._audition_current_selection()
 
     def _on_score_load_failed(self, error_text: str):
@@ -1226,6 +1228,29 @@ class MainWindow(QMainWindow):
             )
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 self.score_edit.reorder_parts(dialog.part_order())
+            if selected_node_id is not None:
+                self.region_2.select_node(selected_node_id)
+
+    def _show_link_parts_dialog(self):
+        """Parts > Link Parts... (stage 9) - modelled on
+        _show_part_order_dialog: dialog constructed here (tests monkeypatch
+        main_window.LinkPartsDialog), applied via
+        self.score_edit.apply_part_link_groups(...) on Accepted, Region 2's
+        selection restored to the same node regardless of Accept/Cancel."""
+        if not self._music_data:
+            return
+        node = self.region_2.current_node()
+        initial_part_id = node.part_id if node is not None else None
+        selected_node_id = node.node_id if node is not None else None
+        with self._preserving_focus():
+            dialog = LinkPartsDialog(
+                self,
+                rows=self.score_edit.link_dialog_rows(),
+                groups=self.score_edit.current_part_link_groups(),
+                initial_part_id=initial_part_id,
+            )
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                self.score_edit.apply_part_link_groups(dialog.part_link_groups())
             if selected_node_id is not None:
                 self.region_2.select_node(selected_node_id)
 

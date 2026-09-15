@@ -242,6 +242,19 @@ class Region2ListWidget(RegionFocusCycleMixin, QTreeWidget):
         for item in items:
             self.addTopLevelItem(item)
 
+    def apply_link_groups(self, numbers: dict) -> None:
+        """Stage 9 (Link Parts...): reflects a live link/unlink onto the
+        already-built tree in place - never load_score_structure (invariant
+        11), same reasoning as reorder_parts/apply_muted_node_keys above.
+        Rewrites every row's label but does NOT emit filter_changed -
+        unlike mute/solo, a link group never changes which voices sound or
+        show, so there is nothing for Region 3 to refresh."""
+        self.model_manager.apply_link_groups(numbers)
+        for node_id, item in self._item_by_node_id.items():
+            node = self.model_manager.node(node_id)
+            if node is not None:
+                item.setText(0, node_status_label(node))
+
     def apply_muted_node_keys(self, parts_muted: set, staves_muted: set, voices_muted: set) -> None:
         """Ref 27: restores each node's own mute state from a saved
         ScoreConfig, after load_score_structure has reset everything to

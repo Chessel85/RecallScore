@@ -1791,6 +1791,36 @@ def test_export_config_then_apply_config_round_trips_part_order():
     assert [n.part_id for n in fresh.timeline_slices[0].notes] == ["lyrics", "chords"]
 
 
+# --- Stage 9: linked parts ---------------------------------------------------
+
+def test_export_config_then_apply_config_round_trips_part_link_groups():
+    md = _two_part_music_data()
+    md.link_parts(["chords", "lyrics"])
+
+    config = md.export_config()
+
+    fresh = _two_part_music_data()
+    fresh.apply_config(config)
+
+    assert fresh.part_link_groups == [["chords", "lyrics"]]
+
+
+def test_apply_config_drops_a_stale_link_group():
+    """A link group naming a part no longer in the freshly loaded score is
+    dropped, like every other saved-config restore in this class."""
+    md = _two_part_music_data()
+    fresh = MusicData(parts_info=[PartStructureInfo(part_id="chords", name="Chords")])
+    fresh.apply_config(md.export_config())  # md itself has no links yet
+    fresh.apply_config(ScoreConfig(part_link_groups=[["chords", "ghost"]]))
+    assert fresh.part_link_groups == []
+
+
+def test_apply_config_with_no_saved_link_groups_stays_unlinked():
+    fresh = _two_part_music_data()
+    fresh.apply_config(ScoreConfig())
+    assert fresh.part_link_groups == []
+
+
 # --- S6: key signature override ---------------------------------------------
 
 def _midi_note(file_key_fifths, midi_pitch=66, step_name="") -> NoteData:

@@ -57,7 +57,20 @@ CLASSIFICATION entry (`note_fermata_aggregate=True`) - its rule is specific
 enough (one score row when every part with a note at the event carries a
 fermata, else one part row per carrying part) that it gets its own small
 method, `_add_fermata_rows`, rather than being force-fit through the
-span/point anchoring machinery the other families share."""
+span/point anchoring machinery the other families share.
+
+PerformanceMarkingsImplementationPlanV2.md stage 9 (PITweaksImplementation-
+Plan.md item 1, "linked parts"): every part- or stave-level row a family
+above produces is also placed, at the SAME kind of level, in every OTHER
+part of data.part_link_groups' group - `_levels_including_borrows` turns
+one marking's own level into a list of levels (its own plus one per linked
+partner), and `_add_span_rows_by_level`/`_add_point_row_by_level`/
+`_add_fermata_rows` each check every one of those levels independently
+against ITS OWN nearest event, since a borrowed row is not guaranteed to
+land on the same event_slice as the owning part's row. Score-level rows and
+clef changes are never borrowed. Skipped entirely (a single `not
+data.part_link_groups` check) when nothing is linked, so an unlinked score
+pays nothing extra (Ref 9)."""
 import bisect
 from typing import Dict, List, Optional, Set, Tuple
 
@@ -445,39 +458,44 @@ class MarkingRows:
         score_rows: List[MarkingRow] = []
         part_rows: Dict[str, List[MarkingRow]] = {}
         stave_rows: Dict[Tuple[str, int], List[MarkingRow]] = {}
+        # Stage 9: for each key, the bucket index of a currently-standing
+        # BORROWED row, by text - lets a same-text OWN row (from the target
+        # part's own, separately notated marking) replace it in place rather
+        # than sitting alongside it, whichever order the two are produced
+        # in (the family loops below process every part's markings in one
+        # pass with no guaranteed part order). Deliberately NOT a general
+        # same-text dedupe across own rows - two independent own markings
+        # that happen to render identical text (e.g. two overlapping
+        # hairpins) have always both been kept, unlinked or not, and must
+        # stay that way (fingerprint-verified: zero diff with no links).
+        borrowed_index: Dict[Tuple, Dict[str, int]] = {}
 
-        def _add(level: Tuple, row: MarkingRow) -> None:
+        def _add(level: Tuple, row: MarkingRow, borrowed: bool = False) -> None:
             if level[0] == "score":
                 score_rows.append(row)
-            elif level[0] == "part":
-                part_rows.setdefault(level[1], []).append(row)
-            else:
-                stave_rows.setdefault((level[1], level[2]), []).append(row)
+                return
+            key = level[1] if level[0] == "part" else (level[1], level[2])
+            bucket = part_rows.setdefault(key, []) if level[0] == "part" else stave_rows.setdefault(key, [])
+            index_map = borrowed_index.setdefault(key, {})
+            if borrowed:
+                if any(r.text == row.text for r in bucket):
+                    return
+                index_map[row.text] = len(bucket)
+                bucket.append(row)
+                return
+            if row.text in index_map:
+                bucket[index_map.pop(row.text)] = row
+                return
+            bucket.append(row)
 
         for span in data.hairpin_spans:
             name = span.kind.capitalize() if span.kind else "Hairpin"
-            level = self.level_of(span)
-
             # Stage 6: a matched pair collapsed to one position (a same-event
             # start/stop) AND an unpartnered start or stop (parser-pinned to
             # start == end) are both a point - one bare-name row, no
-            # "start"/"end" suffix.
-            if span.start_quarters_from_start == span.end_quarters_from_start:
-                anchor = self._first_at_or_after_level(level, span.start_quarters_from_start)
-                if anchor == event_slice.quarters_from_start:
-                    _add(level, MarkingRow(text=name, marking=span, category="hairpins"))
-                continue
-
-            anchor_end = self._last_at_or_before_level(level, span.end_quarters_from_start)
-            if anchor_end == event_slice.quarters_from_start:
-                _add(level, MarkingRow(
-                    text=marking_labels.end_label(name), marking=span, category="hairpins"
-                ))
-            anchor_start = self._first_at_or_after_level(level, span.start_quarters_from_start)
-            if anchor_start == event_slice.quarters_from_start:
-                _add(level, MarkingRow(
-                    text=marking_labels.start_label(name), marking=span, category="hairpins"
-                ))
+            # "start"/"end" suffix. _add_span_rows_by_level implements
+            # exactly this (and, stage 9, borrowing across linked parts).
+            self._add_span_rows_by_level(_add, event_slice, span, name, "hairpins")
 
         # Clef changes.
         for mark in data.clef_change_marks:
@@ -565,12 +583,10 @@ class MarkingRows:
         # both permanently to "part" (levels=("part",) - never stave/score),
         # matching the whole-instrument-not-one-hand reasoning below.
         for mark in data.direction_marks:
-            if mark.kind != "pedal_change":
-                continue
-            level = self.level_of(mark)
-            anchor = self._first_at_or_after_level(level, mark.quarters_from_start)
-            if anchor == event_slice.quarters_from_start:
-                _add(level, MarkingRow(text="Pedal change", marking=mark, category="pedal"))
+            if mark.kind == "pedal_change":
+                self._add_point_row_by_level(
+                    _add, event_slice, mark, "Pedal change", "pedal", mark.quarters_from_start
+                )
 
         for span in data.direction_spans:
             if span.kind == "pedal":
@@ -596,29 +612,69 @@ class MarkingRows:
         point row when the span's start and end resolve to the same
         position at its level, otherwise an end row and/or a start row -
         generalises the old staff-only `_add_span_rows` to any of the three
-        levels."""
-        level = self.level_of(span)
-        if span.start_quarters_from_start == span.end_quarters_from_start:
-            anchor = self._first_at_or_after_level(level, span.start_quarters_from_start)
-            if anchor == event_slice.quarters_from_start:
-                _add(level, MarkingRow(text=name, marking=span, category=category))
-            return
-        end_anchor = self._last_at_or_before_level(level, span.end_quarters_from_start)
-        if end_anchor == event_slice.quarters_from_start:
-            _add(level, MarkingRow(
-                text=marking_labels.end_label(name), marking=span, category=category
-            ))
-        start_anchor = self._first_at_or_after_level(level, span.start_quarters_from_start)
-        if start_anchor == event_slice.quarters_from_start:
-            _add(level, MarkingRow(
-                text=marking_labels.start_label(name), marking=span, category=category
-            ))
+        levels. Stage 9: also placed, at the SAME kind of level, in every
+        linked partner part (_levels_including_borrows), each checked
+        against ITS OWN nearest event - a borrowed row can land on a
+        different event_slice than the owning part's own row."""
+        own_level = self.level_of(span)
+        for level in self._levels_including_borrows(own_level):
+            borrowed = level != own_level
+            if span.start_quarters_from_start == span.end_quarters_from_start:
+                anchor = self._first_at_or_after_level(level, span.start_quarters_from_start)
+                if anchor == event_slice.quarters_from_start:
+                    _add(level, MarkingRow(text=name, marking=span, category=category), borrowed)
+                continue
+            end_anchor = self._last_at_or_before_level(level, span.end_quarters_from_start)
+            if end_anchor == event_slice.quarters_from_start:
+                _add(level, MarkingRow(
+                    text=marking_labels.end_label(name), marking=span, category=category
+                ), borrowed)
+            start_anchor = self._first_at_or_after_level(level, span.start_quarters_from_start)
+            if start_anchor == event_slice.quarters_from_start:
+                _add(level, MarkingRow(
+                    text=marking_labels.start_label(name), marking=span, category=category
+                ), borrowed)
 
     def _add_point_row_by_level(self, _add, event_slice, mark, name, category, quarters) -> None:
-        level = self.level_of(mark)
-        anchor = self._first_at_or_after_level(level, quarters)
-        if anchor == event_slice.quarters_from_start:
-            _add(level, MarkingRow(text=name, marking=mark, category=category))
+        """Stage 9: see _add_span_rows_by_level's docstring - the same
+        own-level-plus-borrowed-levels loop, each checked independently."""
+        own_level = self.level_of(mark)
+        for level in self._levels_including_borrows(own_level):
+            anchor = self._first_at_or_after_level(level, quarters)
+            if anchor == event_slice.quarters_from_start:
+                _add(level, MarkingRow(text=name, marking=mark, category=category), level != own_level)
+
+    # --- stage 9: linked parts borrow part/stave-level rows -------------
+
+    def _levels_including_borrows(self, level: Tuple) -> List[Tuple]:
+        """`level` (a marking's own placement) plus one extra level per
+        linked partner part, each at the SAME kind of level ("a borrowed
+        row keeps its level in the borrowing part" -
+        PerformanceMarkingsImplementationPlanV2.md stage 9). Score-level
+        rows are never borrowed. Skips the partner lookup entirely when no
+        parts are linked at all (Ref 9 - the common case)."""
+        if level[0] not in ("part", "stave") or not self.data.part_link_groups:
+            return [level]
+        partners = self.data.link_partners(level[1])
+        if not partners:
+            return [level]
+        levels = [level]
+        if level[0] == "part":
+            levels.extend(("part", partner) for partner in partners)
+        else:
+            for partner in partners:
+                borrow_staff = self._borrow_staff(partner)
+                if borrow_staff is not None:
+                    levels.append(("stave", partner, borrow_staff))
+        return levels
+
+    def _borrow_staff(self, part_id: str) -> Optional[int]:
+        """The stave a borrowed stave-level row lands on in `part_id` - its
+        lowest staff number in _staff_quarters (arbitrary but fixed, since a
+        borrowed row is not tied to any one of the source part's staves)."""
+        self._ensure_staff_index()
+        staves = self._staves_per_part.get(part_id)
+        return min(staves) if staves else None
 
     def _add_fermata_rows(self, _add, event_slice) -> None:
         notes_by_part: Dict[str, List] = {}
@@ -643,6 +699,15 @@ class MarkingRows:
             ))
             return
         for part_id, note in fermata_note_by_part.items():
-            _add(("part", part_id), MarkingRow(
-                text=marking_labels.fermata_name(note.fermata), marking=note, category="fermatas"
-            ))
+            own_level = ("part", part_id)
+            text = marking_labels.fermata_name(note.fermata)
+            _add(own_level, MarkingRow(text=text, marking=note, category="fermatas"))
+            # Stage 9: borrow to every linked partner, anchored (like every
+            # other point row) at THAT partner's own nearest event at or
+            # after this one - not necessarily this same event_slice.
+            for level in self._levels_including_borrows(own_level):
+                if level == own_level:
+                    continue
+                anchor = self._first_at_or_after_level(level, event_slice.quarters_from_start)
+                if anchor == event_slice.quarters_from_start:
+                    _add(level, MarkingRow(text=text, marking=note, category="fermatas"), True)

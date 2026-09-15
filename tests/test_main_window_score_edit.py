@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QDialog
 from models import mixer_settings
 from widgets.instrument_dialog import InstrumentDialog
 from widgets.key_signature_dialog import KeySignatureDialog
+from widgets.link_parts_dialog import LinkPartsDialog
 from widgets.mixer_dialog import MixerDialog
 from widgets.part_order_dialog import PartOrderDialog
 from tests.support.main_window_helpers import _focus, _show, load_and_wait, no_lead_in, _load_ug_import
@@ -549,5 +550,96 @@ def test_part_order_dialog_restores_region_2_selection_on_cancel_too(
 
     _fake_part_order_dialog(monkeypatch, window, accept=False)
     window._show_part_order_dialog()
+
+    assert window.region_2.current_node().node_id == "voice_P1_1_1"
+
+
+# --- Stage 9: Parts > Link Parts... --------------------------------------
+
+def _fake_link_parts_dialog(monkeypatch, window, *, accept: bool, on_exec=None):
+    """Same convention as _fake_part_order_dialog above."""
+    captured = {}
+
+    def fake_constructor(parent, rows, groups, initial_part_id=None):
+        captured["initial_part_id"] = initial_part_id
+        dialog = LinkPartsDialog(parent, rows=rows, groups=groups, initial_part_id=initial_part_id)
+
+        def fake_exec():
+            if on_exec is not None:
+                on_exec(dialog)
+            return QDialog.DialogCode.Accepted if accept else QDialog.DialogCode.Rejected
+
+        monkeypatch.setattr(dialog, "exec", fake_exec)
+        fake_constructor.dialog = dialog
+        return dialog
+
+    monkeypatch.setattr("main_window.LinkPartsDialog", fake_constructor)
+    fake_constructor.captured = captured
+    return fake_constructor
+
+
+def test_link_parts_dialog_ok_links_and_updates_region_2_and_note_list(
+    window, qtbot, dynamics_articulation_fingering_score, monkeypatch
+):
+    load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
+
+    def link_both(dialog):
+        dialog.part_list.setCurrentRow(0)
+        dialog.part_list.item(1).setSelected(True)
+        dialog._link()
+
+    _fake_link_parts_dialog(monkeypatch, window, accept=True, on_exec=link_both)
+    window._show_link_parts_dialog()
+
+    assert window._music_data.part_link_groups == [["P1", "P2"]]
+    assert window.region_2.model_manager.roots[0].link_group == 1
+    assert window.region_2.visible_item_texts()[0].startswith("1. ")
+
+
+def test_link_parts_dialog_cancel_leaves_parts_unlinked(
+    window, qtbot, dynamics_articulation_fingering_score, monkeypatch
+):
+    load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
+
+    def link_both(dialog):
+        dialog.part_list.setCurrentRow(0)
+        dialog.part_list.item(1).setSelected(True)
+        dialog._link()
+
+    _fake_link_parts_dialog(monkeypatch, window, accept=False, on_exec=link_both)
+    window._show_link_parts_dialog()
+
+    assert window._music_data.part_link_groups == []
+
+
+def test_link_parts_dialog_does_nothing_with_no_score_loaded(window, qtbot):
+    window._show_link_parts_dialog()  # must not crash
+
+
+def test_show_link_parts_dialog_preselects_the_part_of_region_2s_current_selection(
+    window, qtbot, dynamics_articulation_fingering_score, monkeypatch
+):
+    load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
+    window.region_2.select_node("voice_P1_1_1")
+
+    fake_constructor = _fake_link_parts_dialog(monkeypatch, window, accept=False)
+    window._show_link_parts_dialog()
+
+    assert fake_constructor.captured["initial_part_id"] == "P1"
+
+
+def test_link_parts_dialog_restores_region_2_selection_after_linking(
+    window, qtbot, dynamics_articulation_fingering_score, monkeypatch
+):
+    load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
+    window.region_2.select_node("voice_P1_1_1")
+
+    def link_both(dialog):
+        dialog.part_list.setCurrentRow(0)
+        dialog.part_list.item(1).setSelected(True)
+        dialog._link()
+
+    _fake_link_parts_dialog(monkeypatch, window, accept=True, on_exec=link_both)
+    window._show_link_parts_dialog()
 
     assert window.region_2.current_node().node_id == "voice_P1_1_1"

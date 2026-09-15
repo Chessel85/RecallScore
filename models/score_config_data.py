@@ -113,3 +113,7 @@ class ScoreConfig:
     # the global default seeded into a score that has never been toggled
     # (no saved .rsc at all); once a score is saved its own value here wins.
     marking_categories_off: Set[str] = field(default_factory=set)
+    # Stage 9 (PerformanceMarkingsImplementationPlanV2.md / PITweaks item 1):
+    # Link Parts... groups, see MusicData.part_link_groups. Empty means no
+    # parts are linked.
+    part_link_groups: List[List[str]] = field(default_factory=list)

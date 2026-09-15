@@ -5,6 +5,7 @@ import pytest
 
 from widgets.region2_manager import (
     Region2HierarchyModel,
+    Region2Node,
     node_breadcrumb,
     node_status_label,
     voice_tuples_for_node,
@@ -365,3 +366,39 @@ def test_reorder_roots_ignores_unknown_part_ids(model):
 def test_reorder_roots_appends_a_known_part_missing_from_the_order(model):
     model.reorder_roots(["P2"])  # P1 not mentioned
     assert [p.part_id for p in model.roots] == ["P2", "P1"]
+
+
+# --- Stage 9: apply_link_groups / node_status_label's group prefix --------
+
+def test_node_status_label_prefixes_the_group_number():
+    node = Region2Node(node_id="part_P1", node_type="part", display_name="Piano", link_group=1)
+    assert node_status_label(node) == "1. Piano"
+
+
+def test_node_status_label_has_no_prefix_when_unlinked():
+    node = Region2Node(node_id="part_P1", node_type="part", display_name="Piano")
+    assert node_status_label(node) == "Piano"
+
+
+def test_node_status_label_prefix_combines_with_muted_soloed():
+    node = Region2Node(
+        node_id="part_P1", node_type="part", display_name="Piano",
+        link_group=2, muted=True,
+    )
+    assert node_status_label(node) == "2. Piano muted"
+
+
+def test_apply_link_groups_sets_each_roots_group_and_clears_the_rest(model):
+    model.apply_link_groups({"P1": 1})
+    p1 = next(p for p in model.roots if p.part_id == "P1")
+    p2 = next(p for p in model.roots if p.part_id == "P2")
+    assert p1.link_group == 1
+    assert p2.link_group is None
+
+
+def test_apply_link_groups_only_touches_root_nodes(model):
+    """Only part rows carry a group number - staff/voice children keep
+    link_group at its default of None."""
+    model.apply_link_groups({"P1": 1})
+    p1 = next(p for p in model.roots if p.part_id == "P1")
+    assert all(staff.link_group is None for staff in p1.children)

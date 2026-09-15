@@ -64,6 +64,7 @@ class Actions:
     unsolo_all: Optional[QAction] = None
     mixer: Optional[QAction] = None
     part_order: Optional[QAction] = None
+    link_parts: Optional[QAction] = None
     uk_language: Optional[QAction] = None
     us_language: Optional[QAction] = None
     terminology_group: Optional[QActionGroup] = None
@@ -282,6 +283,13 @@ class MenuBuilder:
             QKeySequence("Ctrl+Shift+O"),
         )
         parts_menu.addAction(a.part_order)
+
+        # Stage 9: no default shortcut (user has not asked for one).
+        a.link_parts = self._action(
+            "Lin&k Parts...", self.slots._show_link_parts_dialog,
+            status_tip="Mark parts that are the same music, so each shows the others' performance markings",
+        )
+        parts_menu.addAction(a.link_parts)
 
         parts_menu.addSeparator()
 

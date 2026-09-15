@@ -190,6 +190,7 @@ _CATEGORY_OVERRIDES: Dict[str, str] = {
     "Key Signature": "Notes",
     "Instruments": "Parts",
     "Reorder Parts": "Parts",
+    "Link Parts": "Parts",
     "Solo": "Parts",
     "Mute": "Parts",
     "Unsolo All": "Parts",

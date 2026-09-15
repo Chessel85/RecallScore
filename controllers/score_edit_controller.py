@@ -153,3 +153,35 @@ class ScoreEditController:
         self.presenter.reorder_parts(new_order)
         self.presenter.update_timeline_views(play_all=False)
         return True
+
+    # --- Link Parts dialog (stage 9) ------------------------------------
+
+    def link_dialog_rows(self) -> List[Tuple[str, str, Optional[int]]]:
+        """(part_id, part name, group number) per part, in current part
+        order - the Link Parts dialog's row list."""
+        return [
+            (p.part_id, p.name, self.music_data.link_group_number(p.part_id))
+            for p in self.music_data.parts_info
+        ]
+
+    def current_part_link_groups(self) -> List[List[str]]:
+        return [list(g) for g in self.music_data.part_link_groups]
+
+    def link_group_numbers(self) -> Dict[str, int]:
+        """part_id -> group number for every currently linked part - what
+        Region2HierarchyModel.apply_link_groups needs."""
+        return {
+            part_id: i + 1
+            for i, group in enumerate(self.music_data.part_link_groups)
+            for part_id in group
+        }
+
+    def apply_part_link_groups(self, groups: List[List[str]]) -> bool:
+        """Apply the Link Parts dialog's result. Returns whether it
+        changed."""
+        if groups == self.current_part_link_groups():
+            return False
+        self.music_data.set_part_link_groups(groups)
+        self.presenter.apply_link_groups(self.link_group_numbers())
+        self.presenter.update_timeline_views(play_all=False)
+        return True

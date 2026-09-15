@@ -1140,6 +1140,48 @@ explicit branches:
 
 **Row/line order is unchanged and still load-bearing.**
 
+### Linked parts (stage 9)
+
+`models/part_links.py` (`PartLinks`, a `MusicData` collaborator, no state of
+its own — `MusicData.part_link_groups: List[List[str]]` is the actual data)
+lets the user mark two or more parts as "the same music" (Parts > Link
+Parts…, `widgets/link_parts_dialog.py`) so each part's note-list rows also
+show the others' part- and stave-level performance markings — a
+transposed-clarinet-and-piano-reduction pair, or a guitar's notation and TAB
+staves recorded as separate parts, no longer means reading only half the
+markings depending on which staff is focused.
+
+**Display only, never a second source of truth**: linking never touches
+`PartStructureInfo.name`, `NoteData.part_name` or any note's own fields
+(invariant 8) — it only changes which rows `models/marking_rows.py` places
+where. `MarkingRows._levels_including_borrows` turns one marking's own
+`level_of()` result into a list of levels — its own plus one per linked
+partner, at the SAME kind of level (a part-level row borrows as
+another part-level row; a stave-level row borrows onto the partner's
+lowest staff) — and the anchoring helpers (`_add_span_rows_by_level`,
+`_add_point_row_by_level`, `_add_fermata_rows`) check every one of those
+levels independently against THAT level's own nearest event, since a
+borrowed row is not guaranteed to land on the same `event_slice` as the
+owning part's own row. Score-level rows (repeats, sections, barline events,
+structural changes, rehearsal marks) and clef changes are never borrowed.
+A borrowed row whose text duplicates one already in that key's list (own or
+an earlier borrow) is dropped. The whole borrowing path is skipped with one
+`if not data.part_link_groups` check when nothing is linked (Ref 9) — an
+unlinked score pays nothing extra.
+
+`NoteRenderer.region_3_data` needs no special handling for a borrowed row —
+`part_level_rows`/`staff_level_rows` already key their dicts by the
+BORROWING part's own `part_id`/`staff`, so a borrowed row shows exactly
+when that part/staff is visible, independent of the source part's own
+visibility or mute state.
+
+Region 2 shows a linked part's group number as a display-only prefix
+("1. Classical Guitar" — `Region2Node.link_group`,
+`widgets/region2_manager.py`'s `node_status_label`), set via
+`Region2HierarchyModel.apply_link_groups`/`Region2ListWidget.apply_link_groups`
+and never folded into `display_name` itself, so a rename or reorder can't
+disturb it.
+
 ---
 
 ## Selection-driven regions

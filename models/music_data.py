@@ -25,6 +25,7 @@ from models.navigation_jump import NavigationJump
 from models.note_data import NoteData
 from models.note_renderer import NoteRenderer
 from models.override_manager import OverrideManager
+from models.part_links import PartLinks
 from models.parts_structure import PartStructureInfo
 from models.performance_region_row import PerformanceRegionRow
 from models.performance_rows import PerformanceRows
@@ -253,6 +254,14 @@ class MusicData:
     sections: List[ScoreSection] = field(default_factory=list)
     active_section_index: int = 0
 
+    # Stage 9 (PerformanceMarkingsImplementationPlanV2.md / PITweaks item 1):
+    # groups of part_ids marked "the same music" - each group's parts show
+    # each other's part/stave-level marking rows (models/marking_rows.py,
+    # models/part_links.py). Outer list order is creation order; group
+    # number is 1 + index. Display-only - never read parts_info.name or
+    # NoteData.part_name from here (invariant 8). Empty by default.
+    part_link_groups: List[List[str]] = field(default_factory=list)
+
     @property
     def is_midi(self) -> bool:
         """True for a score loaded from a Standard MIDI File, as opposed to
@@ -330,6 +339,7 @@ class MusicData:
         self.navigator = TimelineNavigator(self)
         self.performance_rows = PerformanceRows(self)
         self.marking_rows = MarkingRows(self)
+        self.part_links = PartLinks(self)
         # DISPLAY_ATTRIBUTE_ORDER is the fixed default; attribute_order is
         # the live copy the reorder dialog mutates. A caller-supplied order
         # is honoured as-is.
@@ -996,6 +1006,32 @@ class MusicData:
         for event_slice in self.timeline_slices:
             event_slice.notes.sort(key=note_sort_key)
 
+    # --- Link Parts dialog (stage 9) ------------------------------------
+
+    def link_parts(self, part_ids: List[str]) -> bool:
+        """Marks `part_ids` (2+) as the same music - see
+        PartLinks.link_parts."""
+        return self.part_links.link_parts(part_ids)
+
+    def unlink_part(self, part_id: str) -> bool:
+        """See PartLinks.unlink_part."""
+        return self.part_links.unlink_part(part_id)
+
+    def link_group_number(self, part_id: str) -> Optional[int]:
+        """See PartLinks.link_group_number."""
+        return self.part_links.link_group_number(part_id)
+
+    def link_partners(self, part_id: str) -> List[str]:
+        """Every other part_id linked to `part_id` - see
+        PartLinks.link_partners. Read by MarkingRows to borrow marking
+        rows across a link group."""
+        return self.part_links.link_partners(part_id)
+
+    def set_part_link_groups(self, groups: List[List[str]]) -> None:
+        """Replaces the whole link-group list, re-validated - see
+        PartLinks.set_part_link_groups."""
+        self.part_links.set_part_link_groups(groups)
+
     def export_config(self) -> ScoreConfig:
         """Ref 27: this score's state as a ScoreConfig. voices_muted is the
         complement of active_voice_filter, not the active list - a muted-set
@@ -1030,6 +1066,7 @@ class MusicData:
             percussion_auto_correct_enabled=self.percussion_auto_correct_enabled,
             last_position_index=self.active_event_index,
             marking_categories_off=set(self.marking_categories_off),
+            part_link_groups=[list(g) for g in self.part_link_groups],
         )
 
     def apply_config(self, config: ScoreConfig) -> None:
@@ -1093,6 +1130,11 @@ class MusicData:
 
         if config.part_order:
             self.reorder_parts(config.part_order)
+
+        # Stage 9: best-effort like part_order above - set_part_link_groups
+        # itself drops unknown part_ids, a part repeated across groups, and
+        # any group left under two members.
+        self.set_part_link_groups(config.part_link_groups)
 
         known_percussion_items = {
             (n.part_id, n.percussion_source_key)
