@@ -1,5 +1,10 @@
 # Recall Score Release Notes
 
+## 2026.1.62
+
+* Changed sections in Ultimate Guitar which indicated intro, verse, chorus etc. to jump points and extended this to Guitar Pro and MusicXML rehearsal points.
+* Accessibility announcement when toggling metronome unless playing.
+* Control left/right are now global, and alt home/end are performance info specific moving to start and end of selected spanning item
 
 ## 2026.1.61
 

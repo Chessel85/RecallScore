@@ -1,0 +1,33 @@
+Point to quick start guide, shortcuts reference and sound dictionary  
+Loading files
+Importing from ultimate guitar
+Simple playback 
+High level info including sections 
+Parts
+Notes - moving up and down and left and right 
+Attributes
+Performance information
+The status bar 
+Adding and removing attributes to the note listand reordering attributes 
+Adding and removing performance information to the note list
+Orientation - metronomes, bar indicator, status bar  
+Setting up a keyboard 
+Learning a score. 
+Filtering parts
+Learning notes in a bar and adding attributes 
+Playing one bar with lead in, metronome, talking metronome, changing speed
+Managing screen reader output - refresh off and on, shifting refresh 
+Extending to more bars
+Coping with repeats and endings 
+Voice Control (VC)
+Performance report to get overview
+Adding and removing Performance information  - order of display in note list 
+Navigation - jump to bars, control left/right, find jump points   
+Status  bar shows information true at that point 
+Mixer to make it all sound better 
+Guitar Pro file specifics 
+Ultimate Guitar import specifics 
+Midi file specifics 
+File management including settings saved per file, saving ultimate guitar for future sessions 
+Parts - instruments used for playback, linking parts, 
+Options
