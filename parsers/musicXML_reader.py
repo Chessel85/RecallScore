@@ -41,9 +41,25 @@ class MusicXMLReader:
         etree_key, etree_time = self._extract_key_and_time_etree(root)
         etree_parts_info = self._extract_part_structure_etree(root)
 
+        # Some notation software exports a metronome mark's note-head glyph
+        # as an empty <beat-unit/> (seen on files from at least one
+        # scanning/OMR tool) instead of a real duration name. music21's
+        # xmlToM21.musicXMLTypeToType(None) treats that as fatal and aborts
+        # parsing the WHOLE score - not just that one marking - which used
+        # to take down every music21-derived field (key/time/tempo
+        # elsewhere in the piece) even though the actual note timeline
+        # (parsers/timeline_builder.py, walked straight from `root`) never
+        # touches `score` at all and would have loaded fine regardless.
+        # Filling the empty tag with a harmless "quarter" default before
+        # handing the tree to music21 only changes that one marking's
+        # cosmetic note-head glyph, never a pitch or duration anyone reads
+        # or hears - see _extract_tempo_etree, whose own fallback already
+        # produces the identical display string via <sound tempo=...>.
+        sanitized = self._fill_empty_beat_units(root)
+
         score = None
         try:
-            if self._was_timewise:
+            if self._was_timewise or sanitized:
                 score = music21.converter.parseData(
                     ET.tostring(root, encoding="unicode"), format="musicxml"
                 )
@@ -94,6 +110,21 @@ class MusicXMLReader:
             }
 
         return music_data
+
+    @staticmethod
+    def _fill_empty_beat_units(root: Optional[ET.Element]) -> bool:
+        """Replaces any textless <beat-unit/> with "quarter" so music21 can
+        parse the file at all - see the comment at the call site in load()
+        for why this is necessary and safe. Returns whether anything was
+        changed, so the caller only re-serializes the tree when it had to."""
+        if root is None:
+            return False
+        changed = False
+        for beat_unit in root.iter("beat-unit"):
+            if not (beat_unit.text and beat_unit.text.strip()):
+                beat_unit.text = "quarter"
+                changed = True
+        return changed
 
     def _parse_xml_root(self) -> Optional[ET.Element]:
         """Parses the file once; every etree-based extractor below reads

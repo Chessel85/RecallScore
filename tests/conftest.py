@@ -107,9 +107,11 @@ def transposing_instrument_score() -> str:
 @pytest.fixture
 def tempo_malformed_later_metronome_score() -> str:
     """Two complete 4/4 bars: a well-formed opening Largo quarter=52, then
-    a malformed <metronome> (empty <beat-unit>) in bar 2 that aborts
-    music21's whole parse - the shape seen in the Dvorak "New World" Largo.
-    MusicXMLReader must still report the opening tempo as 52.
+    a malformed <metronome> (empty <beat-unit>) in bar 2 - the shape seen in
+    the Dvorak "New World" Largo. Left un-sanitized this used to abort
+    music21's whole parse (musicXMLTypeToType(None)); MusicXMLReader now
+    fills the empty tag with "quarter" before handing the tree to music21,
+    so the file parses fully and the opening tempo reports as 52 either way.
     """
     return _require(FIXTURES_DIR / "tempo_malformed_later_metronome.musicxml")
 

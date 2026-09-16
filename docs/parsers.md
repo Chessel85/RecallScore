@@ -67,16 +67,33 @@ music21 is instead fed the already-converted partwise tree via
 the plain `converter.parse(file_path)` path stays byte-for-byte unchanged for
 partwise files.
 
+**A malformed `<metronome>` used to abort music21's WHOLE parse, not just that
+marking.** `_fill_empty_beat_units` scans `root` for any textless
+`<beat-unit/>` (as MuseScore emitted in the Dvořák "New World" Largo, measure
+46 — some notation software exports a metronome mark's note-head glyph this
+way instead of a real duration name) and fills it with `"quarter"` *before*
+handing the tree to music21. Left as-is, music21's
+`xmlToM21.musicXMLTypeToType(None)` raises and `score` comes back `None`,
+which used to drop key/time/tempo **everywhere in the piece**, not just at
+that one marking — even though the real note timeline
+(`parsers/timeline_builder.py`, walked straight from `root`) never touches
+`score` at all and would have loaded fine regardless. The fix only changes
+that one marking's cosmetic note-head glyph — `_extract_tempo_etree`'s own
+fallback already produced the identical display string via a same-`<direction>`
+`<sound tempo>`, so sanitizing is a strict improvement (music21-derived fields
+now work everywhere else in the file too), never a behaviour change for a
+file that already parsed cleanly. Sanitizing forces the `parseData` path
+(same one used for a timewise source) rather than `converter.parse(file_path)`,
+since the tree was mutated in memory.
+
 **Tempo has a genuine ElementTree fallback, not just an absent-value one.**
 `_extract_tempo` (music21) returns `None` — not a default — when it finds no
 usable `MetronomeMark`, *and* `score` is `None` whenever music21 couldn't parse
-the file at all. A single malformed later `<metronome>` (empty `<beat-unit>`,
-as MuseScore emitted in the Dvořák "New World" Largo) aborts music21's whole
-parse, which used to drop the header and playback tempo to a hardcoded 120.
-`_extract_tempo_etree` then walks the first part's `<direction>` elements for
-the first valid marking — a `<metronome>` with a known `<beat-unit>` and a
-positive `<per-minute>` (a same-`<direction>` `<sound tempo>` is authoritative
-for the quarter BPM when present) — mirroring
+the file at all (still possible for failures other than the empty-`<beat-unit>`
+case above). `_extract_tempo_etree` then walks the first part's `<direction>`
+elements for the first valid marking — a `<metronome>` with a known
+`<beat-unit>` and a positive `<per-minute>` (a same-`<direction>`
+`<sound tempo>` is authoritative for the quarter BPM when present) — mirroring
 `TimelineBuilder._tempo_change_from_direction`, which does the same for every
 *later* marking.
 
