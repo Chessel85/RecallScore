@@ -7,6 +7,7 @@ from typing import Dict, List, Optional
 
 from PySide6.QtCore import QStandardPaths
 
+from models import marking_categories
 from models.live_midi_input_settings import LiveMidiInputSettings
 from models.play_settings import PlaySettings
 from models.tuner_settings import TunerSettings
@@ -60,7 +61,10 @@ class AppSettings:
     global default for a score that has never had its own .rsc written yet -
     once a score is saved, persistence/score_config.py's per-score value
     takes over for that file. Every Ctrl+N toggle writes through to both, so
-    a newly opened score inherits whatever the user last chose.
+    a newly opened score inherits whatever the user last chose. The user
+    changed their mind on the original "every category on" default, so a
+    settings.json with no saved value (or missing the key entirely) now
+    defaults to every category off.
 
     show_engraving_details_enabled (Options > Show Engraving Details,
     Ctrl+V) is global only, with no per-score override - a user-wide
@@ -77,7 +81,9 @@ class AppSettings:
     voice_control: VoiceControlSettings = field(default_factory=VoiceControlSettings)
     tuner: TunerSettings = field(default_factory=TunerSettings)
     shortcuts: Dict[str, str] = field(default_factory=dict)
-    marking_categories_off: List[str] = field(default_factory=list)
+    marking_categories_off: List[str] = field(
+        default_factory=lambda: list(marking_categories.ALL_CATEGORIES)
+    )
     show_engraving_details_enabled: bool = False
 
 
@@ -112,7 +118,9 @@ def load() -> AppSettings:
             voice_control=VoiceControlSettings.from_dict(data.get("voice_control")),
             tuner=TunerSettings.from_dict(data.get("tuner")),
             shortcuts=_str_dict(data.get("shortcuts")),
-            marking_categories_off=list(data.get("marking_categories_off", [])),
+            marking_categories_off=list(
+                data.get("marking_categories_off", list(marking_categories.ALL_CATEGORIES))
+            ),
             show_engraving_details_enabled=bool(data.get("show_engraving_details_enabled", False)),
         )
     except FileNotFoundError:

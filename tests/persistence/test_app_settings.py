@@ -2,6 +2,7 @@
 """settings_path() is redirected into a per-test tmp_path by conftest's
 autouse _isolate_persistence fixture, so these never touch the real
 developer machine's %LOCALAPPDATA%."""
+from models import marking_categories
 from models.play_settings import PlaySettings
 from persistence import app_settings
 from persistence.app_settings import AppSettings
@@ -11,6 +12,16 @@ def test_load_with_no_saved_file_returns_defaults():
     settings = app_settings.load()
     assert settings.uk_terms is None
     assert settings.recent_files == []
+
+
+def test_load_with_no_saved_file_defaults_every_marking_category_off():
+    """The user changed their mind on the original "every category on"
+    default - a fresh install (or a settings.json predating this field)
+    should start quiet, matching DEFAULT_DISPLAY_ATTRIBUTES's own "step"-only
+    default for Region 3/4 attributes."""
+    settings = app_settings.load()
+    assert set(settings.marking_categories_off) == set(marking_categories.ALL_CATEGORIES)
+    assert settings.show_engraving_details_enabled is False
 
 
 def test_add_recent_file_puts_newest_first():

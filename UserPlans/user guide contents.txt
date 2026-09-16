@@ -8,6 +8,7 @@ Notes - moving up and down and left and right
 Attributes
 Performance information
 The status bar 
+xxx
 Adding and removing attributes to the note listand reordering attributes 
 Adding and removing performance information to the note list
 Orientation - metronomes, bar indicator, status bar  
@@ -22,7 +23,7 @@ Coping with repeats and endings
 Voice Control (VC)
 Performance report to get overview
 Adding and removing Performance information  - order of display in note list 
-Navigation - jump to bars, control left/right, find jump points   
+Navigation - jump to bars, control left/right, find, jump points   
 Status  bar shows information true at that point 
 Mixer to make it all sound better 
 Guitar Pro file specifics 

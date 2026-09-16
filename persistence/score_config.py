@@ -14,6 +14,7 @@ from typing import Optional
 
 from PySide6.QtCore import QStandardPaths
 
+from models import marking_categories
 from models.mixer_settings import MixerSettings
 from models.refresh_settings import RefreshSettings
 from models.score_config_data import PercussionItemKey, ScoreConfig, StaffKey, VoiceKey
@@ -114,7 +115,14 @@ def load_for(file_path: str) -> Optional[ScoreConfig]:
             # "directive_labels_in_note_list" or
             # "directive_labels_hidden_from_note_list" key is simply ignored
             # on load - there is no field left to populate from it.
-            marking_categories_off=set(data.get("marking_categories_off", [])),
+            #
+            # A .rsc predating this key entirely (saved before Stage 9) has
+            # no per-score value to take over with, so this falls through to
+            # every category off - matching AppSettings.load()'s own
+            # missing-key fallback, not the old "every category on" default.
+            marking_categories_off=set(
+                data.get("marking_categories_off", list(marking_categories.ALL_CATEGORIES))
+            ),
             part_link_groups=[
                 [str(p) for p in g] for g in (data.get("part_link_groups") or [])
             ],

@@ -33,6 +33,8 @@ Uninstall by using the Windows Add/Remove Programs feature.
 
 Open a score file with the File > Open menu item.  This is a standard open dialogue.  Navigate to a folder and select a file.  Hit enter to open it.
 
+When a file has been opened Recall Score will play any notes at the beginning of the score.
+
 Recall Score remembers many settings from when a score was previously opened.  to clear these details use the Clear Settings menu item in the File menu.
 
 Recall Score supports the following file types:
@@ -50,184 +52,81 @@ Recall Score will then read the web page to extract chord names, lyrics, strummi
 
 Use the Save Ultimate Guitar web page to save all this information locally so next time the File / Open dialogue can be used rather than pasting in a web address.
 
-### 2.4 A Five-Minute First Walkthrough
+## Simple Playback
 
-A short first run-through, once you have a MusicXML file to open:
+To  play the current score press spacebar.  
+recall 
+score matches instruments to parts of the score as best it can and plays via a General Midi player.  Spacebar stops playback.
 
-1. Open a file. `Ctrl+O`, choose your file. Region 1 now describes the
-   piece - title, composer, key, time signature, starting tempo.
-2. Get to the notes. Press `C` from anywhere to jump straight to the
-   Note region (Region 3, section 3.4).
-3. Step through it. Press `Right Arrow` a few times. Each press moves to
-   the next note or chord and plays it. `Left Arrow` goes back.
-4. Listen to a chord's individual notes. If you land on a chord (several
-   notes at once), press `Down Arrow` to hear each note in it one at a
-   time, `Up Arrow` to go back up.
-5. Try muting a part. Press `Tab` twice to reach Region 2 (Parts,
-   Staves and Voices), which opens fully collapsed. Press `Right Arrow`
-   on a part to expand it, `Down Arrow` onto a stave or voice, then `F8`
-   to mute it. Pressing `C` returns to the Note region - that part is now
-   silent and no longer listed. `F8` again on the same row in Region 2
-   restores it.
-6. Check your position at any time. Press `F6` to move to the status
-   bar and hear the current measure, beat, key and time signature; `F6`
-   again returns you to whichever region you were last on.
+Press control+spacebar during playback to pause and spacebar to resume or escape to go back to a stopped state.  
 
-From here, section 5 onward covers every navigation and playback control
-in detail.
+Use S to slow the tempo and F to go faster.  D reverts to the default score tempo.
 
-## 3. Understanding the Screen Layout
+## Screen Layout 
 
-### 3.1 The Five Regions at a Glance
+Recall Score consists of a standard menu, the main application area divided into five regions and a status bar.
 
-The main window is arranged in two rows, plus a status bar below them:
-the top row holds two regions, the bottom row holds three.
+Tab and shift+tab cycle through the five regions forward and backward.  There are also quick nav keys of Z, X, C, V and B which jump to the five regions from anywhere.
 
-- Region 1 (top-left): Score Information - the piece's metadata.
-- Region 2 (top-right): Parts, Staves and Voices - what's muted or
-  soloed.
-- Region 3 (bottom-left): Note Timeline - the notes at your current
-  position; this is where you navigate through the music.
-- Region 4 (bottom-middle): Note Attributes - full detail on whatever
-  is currently selected in Region 3.
-- Region 5 (bottom-right): Performance - repeat barlines, 1st/2nd-time
-  endings, dynamics hairpins, and other performance markings active at
-  or occurring exactly at your current position (section 8).
+F6 cycles to the status bar and back to the five regions.  When on the status bar, use tab to move through its constituent parts.
 
-`Tab` moves focus forward through the five regions in this order,
-wrapping back to Region 1 after Region 5; `Shift+Tab` moves backward.
-Each region also has its own normal Up/Down row navigation for moving
-within it - only Region 3 additionally responds to the timeline keys
-described in section 5, and only moving through Region 3 triggers audio
-playback.
+### Score Information
 
-### 3.2 Region 1: Score Information
+Shows high level information such as the score's title, composer or artist, key signature, time
+signature and starting tempo, although exactly what is shown depends on the contents of the file.
 
-Shows the score's title, composer or artist, key signature, time
-signature and starting tempo, as read from the file when it was opened.
-These are the piece's opening values and don't change as you move
-through the score - for values that track your current position instead
-(useful on a piece whose key or time signature changes partway through),
-see the status bar in section 3.7.
+### Parts 
 
-### 3.3 Region 2: Parts, Staves and Voices
+A score is made up of one or more parts.  The exact name depends on how the author of the score named the part and usually matches the instrument that plays it e.g. Piano, saxophone.  Use arrow keys to move up and down the list of parts.
 
-A navigable tree mirroring the structure of the opened file: each Part
-(for example "Classical Guitar") can contain one or more Staves, each
-Stave one or more Voices. Every row starts collapsed; `Right Arrow` on a
-part or stave reveals its children, `Left Arrow` collapses it again. A
-row's name is followed by "muted", "soloed", or "muted soloed" whenever
-that state applies to the row itself - a bare name means neither. `F8`
-mutes or unmutes the focused row; `F9` solos or unsolos it - section 6
-covers how muting and soloing combine across the hierarchy.
+Each part is made up of at least one stave.  Most instruments have one stave.  A piano normally has two staves.  A guitar may have both a music notation stave and a tablature stave.  
+Use the right arrow key on a part to expand it and show the staves.  Arrow down to go through the staves.  Left arrow key colapses a part.
 
-A percussion part's "voices" are its individual drum sounds (for example
-"Closed Hi-Hat", "Snare") rather than notated voices, so one drum in a
-kit can be muted or soloed without affecting the others; section 7.10
-covers renaming a drum sound or changing what it plays back as. A Guitar
-Pro file's stave is labelled "Tab stave" rather than a clef name, and a
-track carrying real chord names or strum markings gains an extra Chords
-voice, shown with the chord name, beat position and stroke direction by
-default - the same treatment a MusicXML score's embedded chord symbols
-get (section 10.6).
+A stave is made up of at least one voice and instruments that can only play one sound at a time typically have just one voice.  A polyphonic instrument like those in the keyboard family, percussion kits or plucked instruments may have more than one voice.  A voice is a series of notes that make up an element of the music such as a melody, counter melody or bass line.  Use the right arrow key to expand a stave into its voices and left arrow key to collapse it.
 
-A stave carrying free-text directions written into the score - a
-guitar's left-hand position marks, or a tempo/technique instruction some
-notation programs write as plain text - gains an extra Stave Text voice,
-listed first among that stave's voices; section 9.7 covers what it looks
-and sounds like.
+Score files can also carry chord information which is shown as a stave within a part.  Lyrics also show up as a separate stave within a part.
 
-For a MIDI file, or an imported song's Chords, Lyrics or Tablature rows
-(section 10), the tree stops at the part level: MIDI has no real stave or
-voice concept, and an imported Chords, Lyrics or Tablature row has no
-notated structure underneath it either, so there's nothing further to
-expand.
+### Notes 
 
-### 3.4 Region 3: Note Timeline
+This region lists notes at a particular position within the score.  It is the region where most time is spent when learning a new piece.
 
-The region you'll spend the most time in. It lists the note or notes
-sounding at your current position in the score. `Left`/`Right Arrow`
-move through time; `Up`/`Down Arrow` move between individual notes when
-several sound together. Every move plays what's now current through
-MIDI, using each part's own instrument sound from the file.
+A new score opens at the bar and beat where the first note occurs, typically bar one beat 1.  Use the right and left arrow keys to move forwards and bckwards along the score.  The notes are played as progress is made through the score.
 
-A small ornamental note that decorates the main note (a grace note) is
-included in the reading rather than skipped - for example "A grace B"
-means the main note A is decorated by a grace note on B. It's also
-briefly sounded before the main note plays, so you hear the ornament,
-not just its name.
+If there is  more than one note at a time position use the up and down arrow keys to select each one indvidually.  All notes are selected at a time position when moving left and right.  Use control+A to select all the notes again after using the up and down arrow keys.
 
-### 3.5 Region 4: Note Attributes
+A key feature of Recall Score is that extra information about notes or performance of the piece can be brought in from the [attributes] and [performance information] regions as desired by the user.  
 
-Shows full detail for whichever note(s) are currently selected in Region
-3 - by default step, octave, measure number, beat position and
-duration, plus dynamics, articulation, fingering, string, fret and other
-details when the source file provides them and they've been switched on
-(section 9). This region updates automatically to always match Region
-3's current selection.
+### Attributes 
 
-### 3.6 Region 5: Performance
+Shows extra information for the selected notes and score information shown in the notes region.  What is listed depends on the information held in the score. 
 
-Lists whichever repeat barlines, 1st/2nd-time endings and dynamics
-hairpins (crescendo/diminuendo) are active at your current position, and
-any Segno, Coda, "To Coda", Fine, Da Capo or Dal Segno mark, or key/time
-signature/tempo change, that occurs exactly there - a start line and an
-end line for each of the first three, or a single "None" row when
-nothing applies. A short sound plays whenever this list changes as you
-navigate, so you know to check it. See section 8 for the full detail,
-including jumping straight to a marking's start or end and the separate
-whole-score Performance Report.
+Notes always have a step, octave, bar, position and duration plus some others.  Performance indicators have different attributes depending on the type.
 
-### 3.7 The Status Bar
+Use the context menu opened by the right alt key on the keybboard or with shift F10) to bring up a menu to add the attribute to notes.  Use the Reorder Attributes dialogue from the Options menu to change the order they are displayed.
 
-Six individually focusable fields, in order: measure and beat position,
-key signature, time signature, playback tempo, playback status
-(Playing/Paused/Stopped) and metronome state (On/Off). Once focus is in
-the status bar, `Tab`/`Shift+Tab` cycle only between these six fields and
-wrap around, rather than leaving the pane - only `F6`/`Shift+F6` (section
-4.2) move focus in or out of the status bar.
+### Performance Information 
 
-Unlike Region 1, the status bar tracks your current cursor position - if
-a score changes key or time signature partway through, the status bar
-reflects whatever is in effect where you are right now. It can also be
-read at any time, from any region, using your screen reader's own
-"report status bar" command (`NVDA+End` on NVDA).
+Lists information applicable to one or all staves/parts.  Examples include crescendos, repeats, endings and codas.
 
-## 4. Moving Between Regions
+For information which has a start and end position, alt+home moves Recall Score to the start and alt+end moves to the end.
 
-### 4.1 Cycling Through the Five Regions (Tab / Shift+Tab)
+Pressing control+N or bringing up the context menu on a line adds and removes the information to the notes list.  An asterisk starts the line for information added to the note list.
 
-`Tab` moves focus to the next region in the Region 1 to 2 to 3 to 4 to 5
-to 1 cycle; `Shift+Tab` moves in reverse. This is separate from each
-region's own internal Up/Down navigation - `Tab` always changes which
-region has focus, it never scrolls within one.
+### Status Bar
 
-### 4.2 Switching Between the Regions Area and the Status Bar (F6)
+Six individually focusable fields: 
 
-`F6` toggles focus between the regions area (returning to whichever
-region you last had focus in) and the status bar. `Shift+F6` does the
-same thing - since there are only two panes, there's no meaningful
-"reverse" direction. The menu bar is reached the normal Windows way
-(the `Alt` key), not through `F6`.
+* Measure and beat position,
+*  Key signature
+* Time signature
+* Playback tempo
+* Playback status
 
-### 4.3 Jumping to Any Region Directly (Z / X / C / V / B)
+Bar and beat are first in the order so a screen reader command to read the status bar announces the current position.
 
-Each region also has its own direct-jump key that moves focus straight
-to it from anywhere in the window - another region, the status bar,
-wherever - without changing your timeline position. The five keys sit
-together on the keyboard's bottom row, left to right, in the same order
-as the five regions:
+Access the status bar with F6 and use tab to move through each element.
 
-| Key | Jumps to |
-| :--- | :--- |
-| `Z` | Region 1, Score Info |
-| `X` | Region 2, Parts List |
-| `C` | Region 3, Notes |
-| `V` | Region 4, Note Attributes |
-| `B` | Region 5, Performance |
-
-This saves repeatedly tabbing all the way around just to reach a
-particular region.
+Tempo shows the current playback tempo.  Key and time signature reflect the current values based on the current position.  Don't ask me what happens if different parts have different values.  I have only just thought about this.
 
 ## 5. Navigating the Timeline
 

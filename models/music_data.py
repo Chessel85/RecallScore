@@ -833,33 +833,18 @@ class MusicData:
         # move_attribute_order boundary test tracks whatever is last.
         "chord symbol", "chord diagram",
     ]
-    # A voice with no entry in voice_display_attributes uses this. PI tweaks
-    # stage 5: widened from {"step"} alone to also include every note-
-    # attached PERFORMANCE attribute (user-approved list) - notation/tab
-    # detail (octave, duration, measure, beat position, part, stave, voice,
-    # midi, string, fret, fingering, pluck, strum, tuplet, grace,
-    # accidental, chord symbol/diagram) is deliberately left out, so an
-    # ordinary note's Region 3 text is unchanged; a note carrying a dynamic,
-    # articulation, ornament, fermata, slur, arpeggio, glissando, technique
-    # or other-notation mark now reads it inline without the user having to
-    # switch it on per voice first. A voice the user HAS configured (any
-    # entry in voice_display_attributes, including one saved by an older
-    # .rsc that only ever meant "step") keeps its own saved set untouched.
-    #
-    # "fermata" is deliberately NOT here (PI tweaks follow-up, reported): a
-    # fermata pauses the whole texture at that moment, not one hand/voice,
-    # even when the file stamps a <fermata> on more than one simultaneous
-    # note - so it is promoted to its own part-level note-list row instead
-    # (MarkingRows.part_level_rows, same "elevate, show once" treatment as
-    # the sustain pedal), never spoken inline per note. It stays a normal,
-    # separately toggleable key in DISPLAY_ATTRIBUTE_ORDER (Region 4's
-    # per-note detail table - which is not gated by this set at all - keeps
-    # showing it, and a voice CAN still switch it on inline via the Region 4
-    # context menu; it just is not on by default any more).
-    DEFAULT_DISPLAY_ATTRIBUTES = frozenset({
-        "step", "dynamic", "articulation", "ornament", "slur",
-        "arpeggio", "glissando", "technique", "other notation",
-    })
+    # A voice with no entry in voice_display_attributes uses this. Reverted
+    # (user changed their mind on the earlier PI-tweaks-stage-5 widening):
+    # only "step" (the plain note name/pitch) is on by default, since that's
+    # the baseline "notes rendered as spoken-friendly text" accessibility
+    # guarantee, not an optional extra. Every other attribute - dynamic,
+    # articulation, ornament, slur, arpeggio, glissando, technique, other
+    # notation, and all the notation/tab detail beyond that - is off until a
+    # voice is explicitly configured via the Region 4 context menu or the
+    # Reorder Attributes dialog's Add/Remove button. A voice the user HAS
+    # configured (any entry in voice_display_attributes, including one saved
+    # by an older .rsc) keeps its own saved set untouched.
+    DEFAULT_DISPLAY_ATTRIBUTES = frozenset({"step"})
 
     # The Find dialog (widgets/find_dialog.py): attribute keys on
     # essentially every note. "Next occurrence of step" is meaningless -

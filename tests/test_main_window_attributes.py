@@ -197,10 +197,8 @@ def test_show_attribute_order_dialog_preselects_region_4s_current_attribute(
 def test_order_menu_actions_offers_add_wording_when_not_yet_present(
     window, qtbot, dynamics_articulation_fingering_score
 ):
-    """"fingering", not "dynamic": PI tweaks stage 5 widened
-    DEFAULT_DISPLAY_ATTRIBUTES to include note-attached performance
-    attributes like "dynamic" by default, so it is notation/tab detail like
-    "fingering" that is still absent until switched on."""
+    """"fingering" is off by default (only "step" is on), so it's still
+    absent until switched on."""
     load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
     node = window.region_2.model_manager.node("voice_P1_1_1")
 

@@ -1320,10 +1320,8 @@ def test_set_display_attribute_for_voice_toggles_for_the_voice_scope_only():
 
 
 def test_set_display_attribute_for_voice_fans_out_to_part_scope():
-    """"fingering", not "dynamic": PI tweaks stage 5 widened
-    DEFAULT_DISPLAY_ATTRIBUTES to include "dynamic" by default, which would
-    make P2 read True even without the fan-out - "fingering" (notation/tab
-    detail) stays off by default, so it still proves the scope leak-check."""
+    """"fingering" - any key other than "step" (the only default-on one) -
+    proves the scope leak-check, since it stays off until explicitly set."""
     md = MusicData(parts_info=[
         PartStructureInfo(part_id="P1", staves_voices={1: [1], 2: [1, 2]}),
         PartStructureInfo(part_id="P2", staves_voices={1: [1]}),
@@ -1426,9 +1424,9 @@ def test_set_display_attribute_multi_select_unions_scope_across_selected_notes()
 
 
 def test_set_display_attribute_can_remove_step():
-    """PI tweaks stage 5 widened DEFAULT_DISPLAY_ATTRIBUTES beyond just
-    "step", so removing "step" no longer leaves a blank voice - it leaves
-    the rest of the default set."""
+    """"step" is DEFAULT_DISPLAY_ATTRIBUTES' only member, so removing it
+    leaves the voice's saved set empty - the user can switch it back off
+    for a voice even though it's the one thing normally on by default."""
     md = MusicData(parts_info=[PartStructureInfo(part_id="P1", staves_voices={1: [1]})])
     note = _note()
 
