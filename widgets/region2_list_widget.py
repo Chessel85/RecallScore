@@ -48,6 +48,14 @@ class Region2ListWidget(RegionFocusCycleMixin, QTreeWidget):
     # notes (Ref 7).
     filter_changed = Signal(set)
 
+    # Right-click or the Menu key/Shift+F10 on a row - node_id + global
+    # position, same S6-style "emit intent" pattern as Region4ListWidget's
+    # own context_menu_requested, wired to show_region_2_context_menu in
+    # MainWindow. Currently only ever populated for a linked part row
+    # (Unlink) - main_window.py returns without opening a menu for anything
+    # else, so right-clicking a staff/voice/unlinked-part row is a no-op.
+    context_menu_requested = Signal(str, object)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.model_manager = Region2HierarchyModel()
@@ -55,6 +63,8 @@ class Region2ListWidget(RegionFocusCycleMixin, QTreeWidget):
         self.setColumnCount(1)
         self.setHeaderHidden(True)
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._show_context_menu)
 
     def current_node(self) -> Optional[Region2Node]:
         """The Region2Node behind the focused row, or None if the tree is
@@ -156,6 +166,12 @@ class Region2ListWidget(RegionFocusCycleMixin, QTreeWidget):
 
     def keyPressEvent(self, event) -> None:
         key = event.key()
+        shift_f10 = key == Qt.Key.Key_F10 and bool(
+            event.modifiers() & Qt.KeyboardModifier.ShiftModifier
+        )
+        if key == Qt.Key.Key_Menu or shift_f10:
+            self._show_context_menu(None)
+            return
         item = self.currentItem()
         if key == Qt.Key.Key_Left and item is not None and item.childCount() > 0:
             self._collapse_item(item)
@@ -166,6 +182,19 @@ class Region2ListWidget(RegionFocusCycleMixin, QTreeWidget):
             self._expand_item(item)
             return
         super().keyPressEvent(event)
+
+    def _show_context_menu(self, pos) -> None:
+        """pos is the local click position for a real right-click, None for
+        the keyboard path (Menu key/Shift+F10) - same as
+        Region4ListWidget._show_attribute_menu."""
+        item = self.itemAt(pos) if pos is not None else None
+        if item is None:
+            item = self.currentItem()
+        if item is None:
+            return
+        node_id = item.data(0, Qt.ItemDataRole.UserRole)
+        anchor = self.visualItemRect(item).center()
+        self.context_menu_requested.emit(node_id, self.viewport().mapToGlobal(anchor))
 
     def _collapse_item(self, item: QTreeWidgetItem) -> None:
         node = self._node_for_item(item)

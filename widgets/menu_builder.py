@@ -164,9 +164,12 @@ class MenuBuilder:
         # in the addAction block, in the position it belongs.
         # "&Recent Files" access key restored at the user's request (they
         # navigate this menu with NVDA and want R to open the submenu while
-        # the File menu is open). The pseudo-global "Alt+R" NVDA announces is
-        # accepted as the lesser cost here; "R" doesn't collide with any
-        # other item in this menu.
+        # the File menu is open) - confirmed NOT the cause of a separate,
+        # live-reported bug where Alt+R with no menu open opened File
+        # instead of the Parts menu (removing this "&" entirely changed
+        # neither symptom: Alt+R still opened File, and plain R stopped
+        # working here too) - see Pa&rts below, now P&arts, for that
+        # unrelated, still-unexplained issue.
         a.recent_files_menu = QMenu("&Recent Files", self.window)
         # Experimental (feature/ug-import): chords + lyrics from an
         # Ultimate Guitar chord-tab page - infrequent, and no "&" access key
@@ -264,9 +267,15 @@ class MenuBuilder:
         FocusController greys all four out unless Region 2 has focus, the
         same "only meaningful with a particular region focused" pattern
         used for Move to First/Last Note. Every action keeps the shortcut
-        and mnemonic it had in its old menu.
+        it had in its old menu (mnemonics below are Parts-menu-local).
         """
-        parts_menu = menu_bar.addMenu("Pa&rts")
+        # Mnemonic on a, not r: live-reported (2026-09-16) that Alt+R
+        # opened File instead of this menu on the user's machine, on a
+        # machine/environment-specific cause that was never actually
+        # root-caused (ruled out: collision with File > &Recent Files' own
+        # R - removing that access key entirely changed neither symptom).
+        # User-requested fallback letter.
+        parts_menu = menu_bar.addMenu("P&arts")
 
         # S5: per-part display-name/instrument override, for both MusicXML
         # and MIDI scores.
@@ -286,9 +295,12 @@ class MenuBuilder:
         )
         parts_menu.addAction(a.part_order)
 
-        # Stage 9: no default shortcut (user has not asked for one).
+        # Ctrl+Shift+N (user-requested): the other candidates in the
+        # Ctrl+Shift+<letter> dialog family were all taken - L is Live MIDI
+        # Input Settings, I is Instruments, K is Key Signature.
         a.link_parts = self._action(
             "Lin&k Parts...", self.slots._show_link_parts_dialog,
+            QKeySequence("Ctrl+Shift+N"),
             status_tip="Mark parts that are the same music, so each shows the others' performance markings",
         )
         parts_menu.addAction(a.link_parts)
@@ -312,8 +324,11 @@ class MenuBuilder:
         )
         parts_menu.addAction(a.unsolo_all)
 
+        # Mnemonic on u, not a: a is now this menu's own top-level mnemonic
+        # (P&arts, above) and an item can't repeat that (regression-tested
+        # by test_no_menu_mnemonic_collisions).
         a.unmute_all = self._action(
-            "Unmute &All", self.slots.unmute_all_region2, QKeySequence("Alt+F8"),
+            "&Unmute All", self.slots.unmute_all_region2, QKeySequence("Alt+F8"),
         )
         parts_menu.addAction(a.unmute_all)
 

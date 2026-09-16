@@ -155,17 +155,22 @@ class ScoreEditController:
         return True
 
     # --- Link Parts dialog (stage 9) ------------------------------------
+    #
+    # Redesigned (user-requested, 2026-09-16): the dialog now only ever
+    # CREATES one new group - a part already in a group can't join another,
+    # so link_dialog_rows omits it rather than showing it as a checkbox the
+    # user could tick and have refused. Dissolving a group is a separate,
+    # single-part action now reached from Region 2's own context menu
+    # (Unlink), not from inside this dialog - see unlink_part below and
+    # MainWindow.show_region_2_context_menu.
 
-    def link_dialog_rows(self) -> List[Tuple[str, str, Optional[int]]]:
-        """(part_id, part name, group number) per part, in current part
-        order - the Link Parts dialog's row list."""
+    def link_dialog_rows(self) -> List[Tuple[str, str]]:
+        """(part_id, part name) for every currently UNLINKED part, in
+        current part order - the Link Parts dialog's row list."""
         return [
-            (p.part_id, p.name, self.music_data.link_group_number(p.part_id))
-            for p in self.music_data.parts_info
+            (p.part_id, p.name) for p in self.music_data.parts_info
+            if self.music_data.link_group_number(p.part_id) is None
         ]
-
-    def current_part_link_groups(self) -> List[List[str]]:
-        return [list(g) for g in self.music_data.part_link_groups]
 
     def link_group_numbers(self) -> Dict[str, int]:
         """part_id -> group number for every currently linked part - what
@@ -176,12 +181,23 @@ class ScoreEditController:
             for part_id in group
         }
 
-    def apply_part_link_groups(self, groups: List[List[str]]) -> bool:
-        """Apply the Link Parts dialog's result. Returns whether it
-        changed."""
-        if groups == self.current_part_link_groups():
+    def link_new_group(self, part_ids: List[str]) -> bool:
+        """Apply the Link Parts dialog's result: link_dialog_rows already
+        guarantees every id here is currently unlinked, so this only fails
+        (per PartLinks.link_parts) if fewer than two distinct ids were
+        checked. Returns whether it changed anything."""
+        if not self.music_data.link_parts(part_ids):
             return False
-        self.music_data.set_part_link_groups(groups)
+        self.presenter.apply_link_groups(self.link_group_numbers())
+        self.presenter.update_timeline_views(play_all=False)
+        return True
+
+    def unlink_part(self, part_id: str) -> bool:
+        """Region 2's context menu Unlink action - dissolves `part_id` out
+        of its link group (the whole group if that leaves fewer than two
+        members). Returns whether anything changed."""
+        if not self.music_data.unlink_part(part_id):
+            return False
         self.presenter.apply_link_groups(self.link_group_numbers())
         self.presenter.update_timeline_views(play_all=False)
         return True

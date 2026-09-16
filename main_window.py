@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QLabel,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QVBoxLayout,
     QWidget,
@@ -622,6 +623,7 @@ class MainWindow(QMainWindow):
         self.region_3.vertical_move_made.connect(self.on_region_3_vertical_move)
         self.region_5.span_jump_requested.connect(self._jump_to_performance_span)
         self.region_4.context_menu_requested.connect(self.show_region_4_attribute_menu)
+        self.region_2.context_menu_requested.connect(self.show_region_2_context_menu)
         self.region_5.category_toggle_requested.connect(
             self.presenter.toggle_marking_category_in_note_list
         )
@@ -1233,6 +1235,22 @@ class MainWindow(QMainWindow):
     def show_region_4_attribute_menu(self, row: int, global_pos):
         self.attributes.show_menu(row, global_pos)
 
+    def show_region_2_context_menu(self, node_id: str, global_pos):
+        """Region 2's own context menu (right-click or the Menu key/
+        Shift+F10) - currently just Unlink, and only for a linked part row.
+        One item, so built directly here rather than through a controller -
+        same "dialog construction stays in the window" reasoning as every
+        _show_*_dialog method, extended to this equally tiny popup."""
+        node = self.region_2.model_manager.node(node_id)
+        if node is None or node.node_type != "part" or node.link_group is None:
+            return
+        menu = QMenu(self)
+        menu.addAction("Unlink").triggered.connect(
+            lambda checked=False: self.score_edit.unlink_part(node.part_id)
+        )
+        menu.exec(global_pos)
+        self.region_2.setFocus()
+
     def _show_attribute_order_dialog(self):
         """Ref 15 AC4: scoped to whichever part/staff/voice Region 2 has
         selected."""
@@ -1293,8 +1311,12 @@ class MainWindow(QMainWindow):
         """Parts > Link Parts... (stage 9) - modelled on
         _show_part_order_dialog: dialog constructed here (tests monkeypatch
         main_window.LinkPartsDialog), applied via
-        self.score_edit.apply_part_link_groups(...) on Accepted, Region 2's
-        selection restored to the same node regardless of Accept/Cancel."""
+        self.score_edit.link_new_group(...) on Accepted, Region 2's
+        selection restored to the same node regardless of Accept/Cancel.
+
+        Only ever creates ONE new group now (redesigned 2026-09-16) -
+        dissolving an existing one is Region 2's own context menu's job
+        (show_region_2_context_menu), not this dialog's."""
         if not self._music_data:
             return
         node = self.region_2.current_node()
@@ -1304,11 +1326,10 @@ class MainWindow(QMainWindow):
             dialog = LinkPartsDialog(
                 self,
                 rows=self.score_edit.link_dialog_rows(),
-                groups=self.score_edit.current_part_link_groups(),
                 initial_part_id=initial_part_id,
             )
             if dialog.exec() == QDialog.DialogCode.Accepted:
-                self.score_edit.apply_part_link_groups(dialog.part_link_groups())
+                self.score_edit.link_new_group(dialog.checked_part_ids())
             if selected_node_id is not None:
                 self.region_2.select_node(selected_node_id)
 

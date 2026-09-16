@@ -554,15 +554,16 @@ def test_part_order_dialog_restores_region_2_selection_on_cancel_too(
     assert window.region_2.current_node().node_id == "voice_P1_1_1"
 
 
-# --- Stage 9: Parts > Link Parts... --------------------------------------
+# --- Stage 9: Parts > Link Parts... (redesigned 2026-09-16: checkbox rows,
+# create-only - see widgets/link_parts_dialog.py) -------------------------
 
 def _fake_link_parts_dialog(monkeypatch, window, *, accept: bool, on_exec=None):
     """Same convention as _fake_part_order_dialog above."""
     captured = {}
 
-    def fake_constructor(parent, rows, groups, initial_part_id=None):
+    def fake_constructor(parent, rows, initial_part_id=None):
         captured["initial_part_id"] = initial_part_id
-        dialog = LinkPartsDialog(parent, rows=rows, groups=groups, initial_part_id=initial_part_id)
+        dialog = LinkPartsDialog(parent, rows=rows, initial_part_id=initial_part_id)
 
         def fake_exec():
             if on_exec is not None:
@@ -578,17 +579,17 @@ def _fake_link_parts_dialog(monkeypatch, window, *, accept: bool, on_exec=None):
     return fake_constructor
 
 
+def _check_first_two_rows(dialog):
+    dialog.part_list.item(0).setCheckState(Qt.CheckState.Checked)
+    dialog.part_list.item(1).setCheckState(Qt.CheckState.Checked)
+
+
 def test_link_parts_dialog_ok_links_and_updates_region_2_and_note_list(
     window, qtbot, dynamics_articulation_fingering_score, monkeypatch
 ):
     load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
 
-    def link_both(dialog):
-        dialog.part_list.setCurrentRow(0)
-        dialog.part_list.item(1).setSelected(True)
-        dialog._link()
-
-    _fake_link_parts_dialog(monkeypatch, window, accept=True, on_exec=link_both)
+    _fake_link_parts_dialog(monkeypatch, window, accept=True, on_exec=_check_first_two_rows)
     window._show_link_parts_dialog()
 
     assert window._music_data.part_link_groups == [["P1", "P2"]]
@@ -601,12 +602,7 @@ def test_link_parts_dialog_cancel_leaves_parts_unlinked(
 ):
     load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
 
-    def link_both(dialog):
-        dialog.part_list.setCurrentRow(0)
-        dialog.part_list.item(1).setSelected(True)
-        dialog._link()
-
-    _fake_link_parts_dialog(monkeypatch, window, accept=False, on_exec=link_both)
+    _fake_link_parts_dialog(monkeypatch, window, accept=False, on_exec=_check_first_two_rows)
     window._show_link_parts_dialog()
 
     assert window._music_data.part_link_groups == []
@@ -614,6 +610,25 @@ def test_link_parts_dialog_cancel_leaves_parts_unlinked(
 
 def test_link_parts_dialog_does_nothing_with_no_score_loaded(window, qtbot):
     window._show_link_parts_dialog()  # must not crash
+
+
+def test_link_parts_dialog_omits_already_linked_parts(
+    window, qtbot, dynamics_articulation_fingering_score, monkeypatch
+):
+    """A part already in a group can't join another (models/part_links.py),
+    so the row list handed to the dialog excludes it entirely."""
+    load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
+    window._music_data.link_parts(["P1", "P2"])
+
+    fake_constructor = _fake_link_parts_dialog(monkeypatch, window, accept=False)
+    window._show_link_parts_dialog()
+
+    listed_part_ids = [
+        fake_constructor.dialog.part_list.item(i).data(Qt.ItemDataRole.UserRole)
+        for i in range(fake_constructor.dialog.part_list.count())
+    ]
+    assert "P1" not in listed_part_ids
+    assert "P2" not in listed_part_ids
 
 
 def test_show_link_parts_dialog_preselects_the_part_of_region_2s_current_selection(
@@ -634,12 +649,33 @@ def test_link_parts_dialog_restores_region_2_selection_after_linking(
     load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
     window.region_2.select_node("voice_P1_1_1")
 
-    def link_both(dialog):
-        dialog.part_list.setCurrentRow(0)
-        dialog.part_list.item(1).setSelected(True)
-        dialog._link()
-
-    _fake_link_parts_dialog(monkeypatch, window, accept=True, on_exec=link_both)
+    _fake_link_parts_dialog(monkeypatch, window, accept=True, on_exec=_check_first_two_rows)
     window._show_link_parts_dialog()
 
     assert window.region_2.current_node().node_id == "voice_P1_1_1"
+
+
+def test_region_2_context_menu_unlinks_a_linked_part(
+    window, qtbot, dynamics_articulation_fingering_score
+):
+    load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
+    window._music_data.link_parts(["P1", "P2"])
+    window.presenter.apply_link_groups(window.score_edit.link_group_numbers())
+
+    window.region_2.select_node("P1")
+    node = window.region_2.current_node()
+    window.score_edit.unlink_part(node.part_id)
+
+    assert window._music_data.part_link_groups == []
+    assert window.region_2.model_manager.roots[0].link_group is None
+
+
+def test_region_2_context_menu_is_a_no_op_for_an_unlinked_part(
+    window, qtbot, dynamics_articulation_fingering_score
+):
+    load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
+    window.region_2.select_node("P1")
+
+    window.show_region_2_context_menu("P1", window.mapToGlobal(window.rect().center()))
+
+    assert window._music_data.part_link_groups == []
