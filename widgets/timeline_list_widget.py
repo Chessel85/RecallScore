@@ -32,6 +32,13 @@ class TimelineListWidget(RegionFocusCycleMixin, QListWidget):
     MainWindow._navigation_menu_first_measure/_last_measure. Likewise
     Ctrl+Left/Ctrl+Right (move by bar) is a global action now, not handled
     here.
+
+    Alt+PageUp/Alt+PageDown (loop length) and Ctrl+1..9 (speak Region 4's
+    Nth attribute row) are ALSO not handled here - both are global
+    `MainWindow.setup_shortcuts` QShortcuts now (see MainWindow.
+    increase_loop_length/decrease_loop_length and RegionPresenter.
+    announce_attribute_by_number), since neither one is really a Region-3
+    position move.
     """
 
     # direction is "left"/"right" - note-by-note stepping only. By-measure
@@ -42,33 +49,10 @@ class TimelineListWidget(RegionFocusCycleMixin, QListWidget):
     # slot re-auditions the note without position cues and clears any
     # half-typed bar number.
     vertical_move_made = Signal()
-    # Alt+PageUp / Alt+PageDown: +1 / -1 to the loop length in bars.
-    loop_length_adjust_requested = Signal(int)
-    # Ctrl+1..9: speak Region 4's Nth attribute row without moving focus.
-    attribute_number_requested = Signal(int)
 
     def keyPressEvent(self, event):
         key = event.key()
         ctrl = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
-        alt = bool(event.modifiers() & Qt.KeyboardModifier.AltModifier)
-
-        if key == Qt.Key.Key_PageUp and alt:
-            # Alt avoids QListWidget's own native PageUp (move the current
-            # row up a page) - bare PageUp/PageDown would collide with that
-            # the same way bare Up/Down would collide with chord-selection
-            # handling below, so this is deliberately not bound plain.
-            self.loop_length_adjust_requested.emit(1)
-            return
-        elif key == Qt.Key.Key_PageDown and alt:
-            self.loop_length_adjust_requested.emit(-1)
-            return
-        elif ctrl and Qt.Key.Key_1 <= key <= Qt.Key.Key_9:
-            # Quick attribute lookup: speaks Region 4's Nth row without
-            # moving focus off Region 3 - see RegionPresenter.
-            # announce_attribute_by_number, which silently no-ops if N
-            # exceeds the currently displayed attribute list.
-            self.attribute_number_requested.emit(key - Qt.Key.Key_0)
-            return
 
         if key == Qt.Key.Key_Left and not ctrl:
             self.navigate_requested.emit("left")

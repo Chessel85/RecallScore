@@ -5,6 +5,8 @@
 * Changed sections in Ultimate Guitar which indicated intro, verse, chorus etc. to jump points and extended this to Guitar Pro and MusicXML rehearsal points.
 * Accessibility announcement when toggling metronome unless playing.
 * Control left/right are now global, and alt home/end are performance info specific moving to start and end of selected spanning item
+* control+number to announce attribute and loop length alt+page up and down are now also global
+* Improved wording for quick nav keystrokes in navigation menu
 
 ## 2026.1.61
 

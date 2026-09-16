@@ -116,12 +116,13 @@ def test_note_by_note_navigation_does_not_announce_a_bar_number(
     assert announcements == []
 
 
-def test_ctrl_number_in_note_region_announces_the_nth_region_4_attribute(
+def test_ctrl_number_announces_the_nth_region_4_attribute_globally(
     window, qtbot, monkeypatch, minimal_score
 ):
-    """The quick attribute lookup: Ctrl+1 in the Note region must speak
-    Region 4's first row for the current selection ("step: C" for
-    minimal_score's opening note) without moving focus or changing Region
+    """REVISITED 2026-09-16: Ctrl+1..9 is a global MainWindow.setup_shortcuts
+    QShortcut now, not a Region-3-only keystroke - it must speak Region 4's
+    first row for the current selection ("step: C" for minimal_score's
+    opening note) from any region, without moving focus or changing Region
     3's own row text."""
     announcements = []
     monkeypatch.setattr(
@@ -130,12 +131,17 @@ def test_ctrl_number_in_note_region_announces_the_nth_region_4_attribute(
         lambda event: announcements.append(event.message()),
     )
     load_and_wait(window, qtbot, minimal_score)
-    announcements.clear()
+    _show(window, qtbot)
 
-    qtbot.keyClick(window.region_3, Qt.Key.Key_1, Qt.KeyboardModifier.ControlModifier)
+    for region in (window.region_1, window.region_2, window.region_3, window.region_4):
+        _focus(region)
+        announcements.clear()
 
-    assert announcements == ["step: C"]
-    assert window.region_3.item(0).text() == "C"
+        qtbot.keyClick(window, Qt.Key.Key_1, Qt.KeyboardModifier.ControlModifier)
+
+        assert announcements == ["step: C"]
+        assert window.region_3.item(0).text() == "C"
+        assert window.focusWidget() is region
 
 
 def test_ctrl_number_beyond_the_attribute_count_does_nothing(
@@ -161,9 +167,10 @@ def test_ctrl_number_beyond_the_attribute_count_does_nothing(
 def test_alt_pageup_pagedown_announce_the_new_loop_length(
     window, qtbot, monkeypatch, minimal_score
 ):
-    """Alt+PageUp/PageDown change the loop length without moving focus off
-    the Note region, so the only other trace of the new value is the status
-    bar's own text - never heard by someone not focused there. Wording
+    """Alt+PageUp/PageDown change the loop length without moving focus
+    (global now - see test_main_window_playback.py for the from-any-region
+    keystroke coverage), so the only other trace of the new value is the
+    status bar's own text - never heard by someone not focused there. Wording
     follows the UK/US terminology setting; the `window` fixture runs with
     uk_terms=False (US), so "measure" here."""
     announcements = []

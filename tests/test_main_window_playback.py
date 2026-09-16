@@ -742,38 +742,62 @@ def test_looping_pickup_does_not_wait_out_the_beats_it_replaces(
     window.toggle_play_stop()
 
 
-# --- Alt+PageUp/PageDown: adjust loop length --------------------------
+# --- Alt+PageUp/PageDown: adjust loop length (global) ------------------
 
 def test_alt_page_up_and_down_adjust_the_loop_length_by_one_bar(window, qtbot, minimal_score):
     load_and_wait(window, qtbot, minimal_score)
+    _show(window, qtbot)
+    _focus(window.region_3)
     assert window.playback.play_settings.loop_length_bars == 2
 
-    qtbot.keyClick(window.region_3, Qt.Key.Key_PageUp, Qt.KeyboardModifier.AltModifier)
+    qtbot.keyClick(window, Qt.Key.Key_PageUp, Qt.KeyboardModifier.AltModifier)
 
     assert window.playback.play_settings.loop_length_bars == 3
     assert window.status_bar._fields[7].text() == "Loop length: 3 measures"
 
-    qtbot.keyClick(window.region_3, Qt.Key.Key_PageDown, Qt.KeyboardModifier.AltModifier)
-    qtbot.keyClick(window.region_3, Qt.Key.Key_PageDown, Qt.KeyboardModifier.AltModifier)
+    qtbot.keyClick(window, Qt.Key.Key_PageDown, Qt.KeyboardModifier.AltModifier)
+    qtbot.keyClick(window, Qt.Key.Key_PageDown, Qt.KeyboardModifier.AltModifier)
 
     assert window.playback.play_settings.loop_length_bars == 1
     assert window.status_bar._fields[7].text() == "Loop length: 1 measures"
 
 
+def test_alt_page_up_and_down_work_from_any_region_without_moving_focus(
+    window, qtbot, minimal_score
+):
+    """REVISITED 2026-09-16: Alt+PageUp/PageDown is a global
+    MainWindow.setup_shortcuts QShortcut now, not a Region-3-only keystroke."""
+    load_and_wait(window, qtbot, minimal_score)
+    _show(window, qtbot)
+
+    for region in (window.region_1, window.region_2, window.region_4, window.region_5):
+        _focus(region)
+        before = window.playback.play_settings.loop_length_bars
+
+        qtbot.keyClick(window, Qt.Key.Key_PageUp, Qt.KeyboardModifier.AltModifier)
+
+        assert window.playback.play_settings.loop_length_bars == before + 1
+        assert window.focusWidget() is region
+
+
 def test_alt_page_down_cannot_go_below_one_bar(window, qtbot, minimal_score):
     load_and_wait(window, qtbot, minimal_score)
+    _show(window, qtbot)
+    _focus(window.region_3)
 
     for _ in range(5):
-        qtbot.keyClick(window.region_3, Qt.Key.Key_PageDown, Qt.KeyboardModifier.AltModifier)
+        qtbot.keyClick(window, Qt.Key.Key_PageDown, Qt.KeyboardModifier.AltModifier)
 
     assert window.playback.play_settings.loop_length_bars == 1
 
 
 def test_alt_page_up_is_capped_at_the_maximum_loop_length(window, qtbot, minimal_score):
     load_and_wait(window, qtbot, minimal_score)
+    _show(window, qtbot)
+    _focus(window.region_3)
 
     for _ in range(80):
-        qtbot.keyClick(window.region_3, Qt.Key.Key_PageUp, Qt.KeyboardModifier.AltModifier)
+        qtbot.keyClick(window, Qt.Key.Key_PageUp, Qt.KeyboardModifier.AltModifier)
 
     assert window.playback.play_settings.loop_length_bars == 64
 
@@ -789,8 +813,10 @@ def test_bare_page_up_down_leaves_the_loop_length_untouched(window, qtbot, minim
 
 def test_alt_page_up_persists_the_new_length_globally(window, qtbot, minimal_score):
     load_and_wait(window, qtbot, minimal_score)
+    _show(window, qtbot)
+    _focus(window.region_3)
 
-    qtbot.keyClick(window.region_3, Qt.Key.Key_PageUp, Qt.KeyboardModifier.AltModifier)
+    qtbot.keyClick(window, Qt.Key.Key_PageUp, Qt.KeyboardModifier.AltModifier)
 
     assert app_settings.load().play.loop_length_bars == 3
 

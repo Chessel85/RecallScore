@@ -209,8 +209,8 @@ class RegionPresenter(QObject):
         self.on_region_3_selection_changed()
 
     def announce_attribute_by_number(self, number: int) -> None:
-        """Ctrl+<number> in the Note region (TimelineListWidget.
-        keyPressEvent) and the "attribute <number>" voice command
+        """Ctrl+<number> (global, MainWindow.setup_shortcuts - works from any
+        region) and the "attribute <number>" voice command
         (VoiceControlController) both land here: speaks Region 4's Nth row
         - the attribute list exactly as currently displayed for whichever
         note(s) are selected in Region 3 - without moving focus off Region

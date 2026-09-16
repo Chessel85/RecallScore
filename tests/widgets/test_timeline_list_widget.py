@@ -64,25 +64,16 @@ def test_home_end_reach_native_list_behaviour(qtbot):
     assert widget.currentRow() == 0
 
 
-def test_alt_pageup_pagedown_emit_loop_length_adjust(qtbot):
+def test_widget_no_longer_defines_loop_length_or_attribute_number_signals(qtbot):
+    """Alt+PageUp/PageDown and Ctrl+1..9 are global MainWindow.setup_shortcuts
+    QShortcuts now (see tests/test_main_window_playback.py and
+    tests/test_main_window_navigation.py) - this widget doesn't interpret
+    them at all any more."""
     widget = TimelineListWidget()
     qtbot.addWidget(widget)
-    calls = _spy(widget.loop_length_adjust_requested)
 
-    _press(widget, Qt.Key.Key_PageUp, Qt.KeyboardModifier.AltModifier)
-    _press(widget, Qt.Key.Key_PageDown, Qt.KeyboardModifier.AltModifier)
-
-    assert calls == [(1,), (-1,)]
-
-
-def test_ctrl_digit_emits_attribute_number_requested(qtbot):
-    widget = TimelineListWidget()
-    qtbot.addWidget(widget)
-    calls = _spy(widget.attribute_number_requested)
-
-    _press(widget, Qt.Key.Key_3, Qt.KeyboardModifier.ControlModifier)
-
-    assert calls == [(3,)]
+    assert not hasattr(widget, "loop_length_adjust_requested")
+    assert not hasattr(widget, "attribute_number_requested")
 
 
 def test_up_down_collapse_selection_and_emit_vertical_move_made(qtbot):

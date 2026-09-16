@@ -1,16 +1,15 @@
 # Recall Score — User Guide
 
-*Written against version 2026.1.50*
+*Written against version 2026.1.62*
 
 ## 1. Introduction
 
-This guide describes Recall Score, a desktop application aimed at making learning new music repertoire easier and quicker for visually impaired musicians.
+This guide describes Recall Score, a Windows desktop application aimed at making learning new music repertoire easier and quicker for visually impaired musicians.
 
 visually impaired musicians
 usually can't read notation and play an instrument at the same time, so
 memorising a piece well enough to play it from memory matters more than
-it does for a sighted player. Recall Score is designed to make that
-memorising process simple and efficient. 
+it does for a sighted player. Recall Score provides tools to make this process efficient.  It covers both the initial memorisation and then embedding that memory.
 
 This document is one long page. 
 Use screen reader quick navigation keystrokes to move between headings.

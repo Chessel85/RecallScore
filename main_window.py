@@ -5,7 +5,7 @@ import sys
 from contextlib import contextmanager
 from typing import Optional
 
-from PySide6.QtCore import QLocale, QTimer, QUrl, Qt
+from PySide6.QtCore import QKeyCombination, QLocale, QTimer, QUrl, Qt
 from PySide6.QtGui import QAction, QDesktopServices, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -374,6 +374,39 @@ class MainWindow(QMainWindow):
             window_shortcut("Ctrl+Return", lambda: self.commit_loop_length()),
         ]
 
+        # Alt+PageUp/Alt+PageDown (loop length) and Ctrl+1..9 (speak Region
+        # 4's Nth attribute row) act globally now, like the navigation menu
+        # actions above - neither is a per-row Region-3 move, so there is no
+        # reason to require Note-region focus first. increase_loop_length/
+        # decrease_loop_length/announce_attribute_by_number don't move focus
+        # themselves either. Bound methods/lambdas referencing
+        # self.playback/self.presenter are safe here even though those don't
+        # exist yet - same reasoning as _commit_loop_length_shortcuts above.
+        # QKeyCombination, not a "Alt+PageUp" string: QKeySequence's string
+        # parser only recognizes PageUp/PageDown under their PortableText
+        # spelling "PgUp"/"PgDown" (see shortcut_controller._seq), so the
+        # human-readable spelling would silently build an empty, inert
+        # shortcut.
+        self._loop_length_shortcuts = [
+            window_shortcut(
+                QKeyCombination(Qt.KeyboardModifier.AltModifier, Qt.Key.Key_PageUp),
+                self.increase_loop_length,
+            ),
+            window_shortcut(
+                QKeyCombination(Qt.KeyboardModifier.AltModifier, Qt.Key.Key_PageDown),
+                self.decrease_loop_length,
+            ),
+        ]
+        self._attribute_number_shortcuts = [
+            window_shortcut(
+                QKeyCombination(
+                    Qt.KeyboardModifier.ControlModifier, Qt.Key(Qt.Key.Key_0 + d)
+                ),
+                lambda d=d: self.presenter.announce_attribute_by_number(d),
+            )
+            for d in range(1, 10)
+        ]
+
     def setup_controllers(self):
         regions = [self.region_1, self.region_2, self.region_3, self.region_4, self.region_5]
 
@@ -587,10 +620,6 @@ class MainWindow(QMainWindow):
         # region_2.filter_changed above.
         self.region_3.navigate_requested.connect(self.navigation.navigate)
         self.region_3.vertical_move_made.connect(self.on_region_3_vertical_move)
-        self.region_3.loop_length_adjust_requested.connect(self._adjust_loop_length)
-        self.region_3.attribute_number_requested.connect(
-            self.presenter.announce_attribute_by_number
-        )
         self.region_5.span_jump_requested.connect(self._jump_to_performance_span)
         self.region_4.context_menu_requested.connect(self.show_region_4_attribute_menu)
         self.region_5.category_toggle_requested.connect(
@@ -1037,11 +1066,12 @@ class MainWindow(QMainWindow):
         self.presenter.announce_loop_repeat_mode(mode)
 
     def increase_loop_length(self):
-        """Alt+PageUp in the Note region. Persisted globally right away,
-        like Play Settings' own OK - a bar count set this way is a practice
-        habit, not a per-score value. Announces the new length aloud since
-        nothing else does - see RegionPresenter.announce_loop_length.
-        adjust_loop_length_bars persists globally itself now."""
+        """Alt+PageUp, global from any region. Persisted globally right
+        away, like Play Settings' own OK - a bar count set this way is a
+        practice habit, not a per-score value. Announces the new length
+        aloud since nothing else does - see RegionPresenter.
+        announce_loop_length. adjust_loop_length_bars persists globally
+        itself now."""
         self.playback.adjust_loop_length_bars(1)
         self.presenter.announce_loop_length(self.playback.play_settings.loop_length_bars)
 
@@ -1049,11 +1079,6 @@ class MainWindow(QMainWindow):
         """Alt+PageDown counterpart of increase_loop_length."""
         self.playback.adjust_loop_length_bars(-1)
         self.presenter.announce_loop_length(self.playback.play_settings.loop_length_bars)
-
-    def _adjust_loop_length(self, delta: int):
-        """Slot for TimelineListWidget.loop_length_adjust_requested (S6):
-        +1 from Alt+PageUp, -1 from Alt+PageDown."""
-        self.increase_loop_length() if delta > 0 else self.decrease_loop_length()
 
     def toggle_mute_current_region2_row(self):
         self.region_2.toggle_mute_current()

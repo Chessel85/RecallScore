@@ -612,9 +612,7 @@ so both are unit-testable with no window.
   `NavigationController.navigate`; bare Home/End are native `QListWidget`
   top/bottom-row behaviour, not routed through this signal),
   `vertical_move_made` (Up/Down to `MainWindow.on_region_3_vertical_move`, kept
-  in the shell as it clears the digit buffer *and* re-auditions),
-  `loop_length_adjust_requested(+/-1)` (Alt+PageUp/PageDown),
-  `attribute_number_requested(n)` (Ctrl+1..9).
+  in the shell as it clears the digit buffer *and* re-auditions).
 * `Region5ListWidget`: `span_jump_requested(is_start)` (Alt+Home/Alt+End).
 
 Ctrl+Home/Ctrl+End ("first/last note of the piece") and Ctrl+Left/Ctrl+Right
@@ -623,7 +621,12 @@ Ctrl+Home/Ctrl+End ("first/last note of the piece") and Ctrl+Left/Ctrl+Right
 Region-3-only signals — they fire from any region or the status bar via
 `MainWindow._navigation_menu_first_measure`/`_last_measure`/`_previous_bar`/
 `_next_bar`, and deliberately leave focus wherever it was (matching Find
-Next/Previous and the jump-point shortcuts).
+Next/Previous and the jump-point shortcuts). Alt+PageUp/Alt+PageDown (loop
+length) and Ctrl+1..9 (speak Region 4's Nth attribute row) are likewise
+global now, but as hidden `MainWindow.setup_shortcuts` `QShortcut`s rather
+than menu actions — `increase_loop_length`/`decrease_loop_length`/
+`RegionPresenter.announce_attribute_by_number`, matching the digit-buffer/
+Ctrl+Enter shortcuts above them.
 
 All wired in `connect_signals()`. Digit/`Enter`/`Escape` are **not** handled in
 `TimelineListWidget` — the typed-bar jump is window-wide.
