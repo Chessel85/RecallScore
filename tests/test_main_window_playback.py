@@ -1024,6 +1024,48 @@ def test_ctrl_m_shortcut_toggles_the_metronome(window, qtbot, minimal_score):
     assert window._music_data.metronome_enabled is True
 
 
+def test_toggle_metronome_announces_on_and_off_when_stopped(
+    window, qtbot, monkeypatch, minimal_score
+):
+    load_and_wait(window, qtbot, minimal_score)
+    messages = _capture_announcements(monkeypatch)
+
+    window.toggle_metronome()
+    window.toggle_metronome()
+
+    assert messages == ["Metronome on", "Metronome off"]
+
+
+def test_toggle_metronome_does_not_announce_while_playing(
+    window, qtbot, monkeypatch, null_synth, minimal_score
+):
+    load_and_wait(window, qtbot, minimal_score)
+    no_lead_in(window)
+    window.toggle_play_stop()
+    assert window.sequencer.is_playing is True
+    messages = _capture_announcements(monkeypatch)
+
+    window.toggle_metronome()
+
+    assert window._music_data.metronome_enabled is True
+    assert messages == []
+
+
+def test_toggle_metronome_announces_while_paused(
+    window, qtbot, monkeypatch, null_synth, minimal_score
+):
+    load_and_wait(window, qtbot, minimal_score)
+    no_lead_in(window)
+    window.toggle_play_stop()
+    window.toggle_pause_resume()
+    assert window.sequencer.is_paused is True
+    messages = _capture_announcements(monkeypatch)
+
+    window.toggle_metronome()
+
+    assert messages == ["Metronome on"]
+
+
 def test_metronome_state_persists_across_reload_of_same_file(window, qtbot, minimal_score):
     load_and_wait(window, qtbot, minimal_score)
     window.toggle_metronome()

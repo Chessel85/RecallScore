@@ -1082,7 +1082,18 @@ class MainWindow(QMainWindow):
         self.presenter.announce_tempo()
 
     def toggle_metronome(self):
-        self._actions.metronome.setChecked(self.playback.toggle_metronome())
+        """Ctrl+M / Options menu: announce the new on/off state, unless
+        playback is actively running - a click track's own sound already
+        tells the user it started, and speech would talk over the music.
+        Still announced while paused, where there's no audio cue."""
+        enabled = self.playback.toggle_metronome()
+        self._actions.metronome.setChecked(enabled)
+        sequencer = self.playback.sequencer
+        if sequencer is None or not sequencer.is_playing:
+            accessible_announcer.announce(
+                self.region_3,
+                f"Metronome {'on' if enabled else 'off'}",
+            )
 
     def toggle_position_announcer(self):
         self._actions.position_announcer.setChecked(
