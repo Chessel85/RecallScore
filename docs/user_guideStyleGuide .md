@@ -9,7 +9,7 @@ This guide describes Recall Score, a Windows desktop application aimed at making
 visually impaired musicians
 usually can't read notation and play an instrument at the same time, so
 memorising a piece well enough to play it from memory matters more than
-it does for a sighted player. Recall Score provides tools to make this process efficient.  It covers both the initial memorisation and then embedding that memory.
+it does for a sighted player. Recall Score provides tools to make this process efficient.  It covers both the initial memorisation and then embedding it into muscle memory.
 
 This document is one long page. 
 Use screen reader quick navigation keystrokes to move between headings.
@@ -17,57 +17,38 @@ or search the page directly for key words.
 
 ## 2. Getting Started
 
+~~~ Quick start 
+
+Look in the Help menu for a [Quick Start Guide], a [Keystrokes listing] and a [Sound Dictionary].
+
 ### 2.1 Installing Recall Score (Windows)
 
-Recall Score ships as a standard Windows installer,
-`RecallScore-Setup-<version>.exe`. Run it and follow the wizard (Welcome,
-Components, Install Location, Start Menu shortcut, Install, Finish).
-Because it installs into Program Files, Windows will ask for
-administrator permission during setup - this is expected.
+The latest Recall Score Windows installer  is available at
+the (Recall Score download page)[https://chessel85.github.io/RecallScore/web_page].
+It is a standard installer.
 
-Once installed, Recall Score appears in your Start Menu and in
-Add/Remove Programs like any other Windows application, with a normal
-uninstaller. Uninstalling does not delete any preferences you've saved
-for individual scores (section 13) - those live separately under your
-own Windows user profile and are covered in section 16.3 if you ever
-want to clear them by hand.
+Uninstall by using the Windows Add/Remove Programs feature.
 
 ### 2.2 Opening a Score File
 
-Choose File > Open... (or press `Ctrl+O`). A standard file-open dialog
-titled "Open Score" appears. Choose your file and select Open. Once the
-file has finished loading, the five regions and status bar (section 3)
-populate automatically - Region 1 with the score's title, composer, key,
-time signature and tempo, Region 2 with its parts and staves, and so on.
-The window's title bar always shows "Recall Score - `<filename>`" once a
-file is loaded, so you can confirm which piece is open at any time.
+Open a score file with the File > Open menu item.  This is a standard open dialogue.  Navigate to a folder and select a file.  Hit enter to open it.
 
-Recall Score also remembers where you were in a piece: reopening a file
-you've already worked with picks up right where you left off, at the
-same note, rather than starting back at the beginning.
+Recall Score remembers many settings from when a score was previously opened.  to clear these details use the Clear Settings menu item in the File menu.
 
-### 2.3 Supported File Types
+Recall Score supports the following file types:
 
-Recall Score opens MusicXML files - `.xml`, `.musicxml`, and the
-compressed `.mxl` format that many notation programs (including
-MuseScore) export by default - Standard MIDI Files - `.mid` and `.midi`
-- and Guitar Pro files - `.gp`. A Guitar Pro file's parts show up in
-Region 2 as tab staves rather than the usual clef labels (section 3.3).
+* MusicXML files - `.xml` and `.musicxml`, 
+* MuseScore files - .mscx.  Requires MuseScore to be installed on the computer.
+* Midi files (types 0 and 1) - .mid
+* Guitar Pro files - .gp, .gpx
 
-MIDI files carry far less information than a real MusicXML score: no
-part/instrument names beyond whatever the file itself declares (Region 2
-shows one row per track rather than the usual part/stave/voice detail,
-since a MIDI track has no real staff or voice concept), and often no - or
-wrong - key signature. Edit > Instruments... and Edit > Key Signature...
-(section 14.2) correct either.
+### Ultimate Guitar Web page Import
 
-Recall Score can also import a song directly from an Ultimate Guitar tab
-page - its chords and lyrics from a chords page, or its guitar tablature
-(with real string and fret numbers) from an ASCII-tablature "Tab" page -
-see section 10. If a MusicXML file already carries its own chord symbols
-and/or lyrics (for example a lead-sheet-style score exported from
-MuseScore), those are picked up automatically as extra Chords and Lyrics
-parts too - see section 10.6.
+Recall Score can import a song directly from an Ultimate Guitar web page.
+Use the Import Ultimate Guitar web page from the file menu and paste the URL (including the https//) into the dialogue and hit enter.
+Recall Score will then read the web page to extract chord names, lyrics, strumming patterns, tab and the position of verses, choruses etc.
+
+Use the Save Ultimate Guitar web page to save all this information locally so next time the File / Open dialogue can be used rather than pasting in a web address.
 
 ### 2.4 A Five-Minute First Walkthrough
 

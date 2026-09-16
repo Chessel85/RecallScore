@@ -1,9 +1,3 @@
-Make control M announce metronome state unless playing 
-Look at changing move to start and end of score to control home and control end. this might allow navigation keys like control left and right to be more universal.
-Update navigation menu to say quick nav to score information, parts, notes, attributes, performance information
-How does the link parts dialogue work?
-Make the long beeps in repeat bar sounds longer.
-Want a way to see in attributes list which are surfaced and to what. like the asterisk for performance indicators.
 Need to write the user guide better. 
 stripping announcement of attribute name during playback
 If a stave has only one voice, then no point opening it in the parts view and no point having "Add attribute to voice" etc.
