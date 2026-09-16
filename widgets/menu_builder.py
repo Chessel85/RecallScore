@@ -407,23 +407,23 @@ class MenuBuilder:
         # same order as the five regions, so they're easy to find by feel -
         # still no collision with the existing bare F/S/D tempo shortcuts.
         a.move_to_metadata = self._action(
-            "Move to Info (&Z)", self.slots._navigation_menu_move_to_metadata,
+            "Score information quick nav", self.slots._navigation_menu_move_to_metadata,
             QKeySequence("Z"),
         )
         a.move_to_parts = self._action(
-            "Move to Parts List (&X)", self.slots._navigation_menu_move_to_parts,
+            "Parts quick nav", self.slots._navigation_menu_move_to_parts,
             QKeySequence("X"),
         )
         a.move_to_notes = self._action(
-            "Move to Notes (&C)", self.slots._navigation_menu_move_to_notes,
+            "Notes quick nav", self.slots._navigation_menu_move_to_notes,
             QKeySequence("C"),
         )
         a.move_to_attributes = self._action(
-            "Move to Attributes (&V)", self.slots._navigation_menu_move_to_attributes,
+            "Attributes quick nav", self.slots._navigation_menu_move_to_attributes,
             QKeySequence("V"),
         )
         a.move_to_performance = self._action(
-            "Move to Performance (&B)", self.slots._navigation_menu_move_to_performance,
+            "Performance information quick nav", self.slots._navigation_menu_move_to_performance,
             QKeySequence("B"),
         )
 

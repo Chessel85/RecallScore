@@ -124,12 +124,12 @@ def _build_reserved() -> Dict[str, str]:
         _seq(Key.Key_PageUp),
         _seq(Key.Key_PageDown),
     )
-    # widgets/timeline_list_widget.py
+    # main_window.setup_shortcuts (global)
     add(
         "read an attribute aloud",
         *[_seq(Qt.Key(Key.Key_1 + d), Mod.ControlModifier) for d in range(9)],
     )
-    # widgets/timeline_list_widget.py
+    # main_window.setup_shortcuts (global)
     add(
         "change the loop length",
         _seq(Key.Key_PageUp, Mod.AltModifier),
@@ -204,11 +204,11 @@ _CATEGORY_OVERRIDES: Dict[str, str] = {
     "Find Previous": "Navigation",
     "Previous Jump Point": "Navigation",
     "Next Jump Point": "Navigation",
-    "Move to Info": "Quick nav",
-    "Move to Parts List": "Quick nav",
-    "Move to Notes": "Quick nav",
-    "Move to Attributes": "Quick nav",
-    "Move to Performance": "Quick nav",
+    "Score information quick nav": "Quick nav",
+    "Parts quick nav": "Quick nav",
+    "Notes quick nav": "Quick nav",
+    "Attributes quick nav": "Quick nav",
+    "Performance information quick nav": "Quick nav",
     "Play/Stop": "Playback",
     "Pause": "Playback",
     "Play Metronome": "Playback",

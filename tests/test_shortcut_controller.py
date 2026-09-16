@@ -90,4 +90,4 @@ def test_display_names_strip_mnemonic_ellipsis_and_trailing_hint(window):
     names = {t.id: t.name() for t in window.shortcuts.targets()}
     assert names["key_signature"] == "Key Signature"
     assert names["mixer"] == "Mixer"
-    assert names["move_to_metadata"] == "Move to Info"
+    assert names["move_to_metadata"] == "Score information quick nav"
