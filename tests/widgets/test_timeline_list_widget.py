@@ -28,19 +28,40 @@ def test_arrow_keys_emit_navigate_requested(qtbot):
 
     _press(widget, Qt.Key.Key_Left)
     _press(widget, Qt.Key.Key_Right)
+
+    assert calls == [("left",), ("right",)]
+
+
+def test_ctrl_left_right_do_not_emit_navigate_requested(qtbot):
+    """Ctrl+Left/Ctrl+Right are now the global "move by bar" menu action,
+    not a Region-3 signal - this widget no longer interprets them at all."""
+    widget = TimelineListWidget()
+    qtbot.addWidget(widget)
+    calls = _spy(widget.navigate_requested)
+
     _press(widget, Qt.Key.Key_Left, Qt.KeyboardModifier.ControlModifier)
     _press(widget, Qt.Key.Key_Right, Qt.KeyboardModifier.ControlModifier)
-    _press(widget, Qt.Key.Key_Home)
-    _press(widget, Qt.Key.Key_End)
 
-    assert calls == [
-        ("left", False),
-        ("right", False),
-        ("left", True),
-        ("right", True),
-        ("home", False),
-        ("end", False),
-    ]
+    assert calls == []
+
+
+def test_home_end_reach_native_list_behaviour(qtbot):
+    """Bare Home/End no longer emit navigate_requested - they fall through to
+    QListWidget's own top/bottom-row behaviour."""
+    widget = TimelineListWidget()
+    qtbot.addWidget(widget)
+    for text in ("C", "E", "G"):
+        widget.addItem(QListWidgetItem(text))
+    widget.setCurrentRow(1)
+    calls = _spy(widget.navigate_requested)
+
+    _press(widget, Qt.Key.Key_End)
+    assert calls == []
+    assert widget.currentRow() == 2
+
+    _press(widget, Qt.Key.Key_Home)
+    assert calls == []
+    assert widget.currentRow() == 0
 
 
 def test_alt_pageup_pagedown_emit_loop_length_adjust(qtbot):

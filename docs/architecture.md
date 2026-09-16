@@ -394,7 +394,7 @@ the window.**
 **GOTCHA:** `FocusController` holds the window solely for `window.focusWidget()`,
 which is NOT `QApplication.focusWidget()` — the former reports focus within this
 window's subtree even when the window isn't active, which the pane and
-Home/End-enabling checks depend on.
+Select-All-enabling check depends on.
 
 **GOTCHA:** dialog *construction* stays in `MainWindow` (every dialog), because
 tests monkeypatch `main_window.<DialogClass>` with a lambda matching the
@@ -608,12 +608,22 @@ calling `keyPressEvent` directly tests a path the app never takes.
 into `MainWindow` through `self.window()` — matching `Region2ListWidget.filter_changed`,
 so both are unit-testable with no window.
 
-* `TimelineListWidget`: `navigate_requested(direction, by_measure)` (Left/Right/
-  Home/End to `NavigationController.navigate`), `vertical_move_made` (Up/Down to
-  `MainWindow.on_region_3_vertical_move`, kept in the shell as it clears the digit
-  buffer *and* re-auditions), `loop_length_adjust_requested(+/-1)`
-  (Alt+PageUp/PageDown), `attribute_number_requested(n)` (Ctrl+1..9).
-* `Region5ListWidget`: `span_jump_requested(is_start)` (Ctrl+Home/Ctrl+End).
+* `TimelineListWidget`: `navigate_requested(direction)` (bare Left/Right to
+  `NavigationController.navigate`; bare Home/End are native `QListWidget`
+  top/bottom-row behaviour, not routed through this signal),
+  `vertical_move_made` (Up/Down to `MainWindow.on_region_3_vertical_move`, kept
+  in the shell as it clears the digit buffer *and* re-auditions),
+  `loop_length_adjust_requested(+/-1)` (Alt+PageUp/PageDown),
+  `attribute_number_requested(n)` (Ctrl+1..9).
+* `Region5ListWidget`: `span_jump_requested(is_start)` (Alt+Home/Alt+End).
+
+Ctrl+Home/Ctrl+End ("first/last note of the piece") and Ctrl+Left/Ctrl+Right
+("move by bar") are global `&Navigation` menu actions
+(`first_measure`/`last_measure`/`previous_bar`/`next_bar`) rather than
+Region-3-only signals — they fire from any region or the status bar via
+`MainWindow._navigation_menu_first_measure`/`_last_measure`/`_previous_bar`/
+`_next_bar`, and deliberately leave focus wherever it was (matching Find
+Next/Previous and the jump-point shortcuts).
 
 All wired in `connect_signals()`. Digit/`Enter`/`Escape` are **not** handled in
 `TimelineListWidget` — the typed-bar jump is window-wide.
@@ -644,9 +654,10 @@ Each region has a direct-jump `QAction` in the `&Navigation` menu
 (`move_to_metadata`/`move_to_parts`/`move_to_notes`/`move_to_attributes`/
 `move_to_performance`) that moves focus there from anywhere in the window without
 changing the timeline position. All five stay enabled regardless of current
-focus, unlike `first_measure`/`last_measure` (Home/End), which
-`FocusController.update_navigation_actions_enabled` greys out outside the Note
-region.
+focus — as do `first_measure`/`last_measure`/`previous_bar`/`next_bar`
+(Ctrl+Home/Ctrl+End/Ctrl+Left/Ctrl+Right), which are global and don't move
+focus either; `FocusController.update_navigation_actions_enabled` no longer
+gates them (it now only gates Select All to the Note region).
 
 Mapped to **Z/X/C/V/B** (regions 1-5). They were originally scattered letters
 (I/V/N/A/P), which were hard to locate by feel; Z/X/C/V/B sit together on the
@@ -1047,11 +1058,11 @@ Repeat/ending rows never name a beat, since barlines occur only at measure
 boundaries by construction.
 
 **Jump targets.** `slice_index_at_or_after_quarters(quarters)` and
-`last_visible_event_index_of_measure(measure)` resolve Ctrl+Home/Ctrl+End. A
+`last_visible_event_index_of_measure(measure)` resolve Alt+Home/Alt+End. A
 hairpin row's `jump_target_quarters` is set (a wedge can start/stop mid-measure)
 so it uses the quarters lookup; a repeat/ending row's is `None`, resolved via the
-measure lookup instead — Ctrl+Home uses `first_visible_event_index_of_measure`,
-Ctrl+End uses `last_visible_event_index_of_measure` (the user's decision: "the end
+measure lookup instead — Alt+Home uses `first_visible_event_index_of_measure`,
+Alt+End uses `last_visible_event_index_of_measure` (the user's decision: "the end
 of it" means the *last* sounding note of the end bar, not the first).
 
 **One-shot rows.** A time-signature or immediate/point tempo change landing
@@ -1063,7 +1074,7 @@ reflect the user's absolute playback-tempo setting and would make changing it lo
 like a score change) against the immediately preceding slice in whichever list the
 resolved slice came from. **Never fires at index 0** — the opening signature/tempo
 is already in Region 1 and the status bar every load. It reuses hairpins'
-`jump_target_quarters` mechanism as-is; both Ctrl+Home/Ctrl+End resolve to the
+`jump_target_quarters` mechanism as-is; both Alt+Home/Alt+End resolve to the
 row's own position, a harmless no-op.
 
 Accelerando/ritardando (a span, like a hairpin) is explicitly out of scope —
@@ -1112,7 +1123,7 @@ dashed/bracket line drawn under a "cresc." is reported **separately** under
 lines.
 
 **No jump-to-location navigation from the report** — an explicit scope cut from
-the user, unlike Region 5's own Ctrl+Home/Ctrl+End.
+the user, unlike Region 5's own Alt+Home/Alt+End.
 
 ### The helper-driven shape (S7 / S17)
 

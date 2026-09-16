@@ -289,45 +289,97 @@ def test_toggling_the_tab_staff_off_removes_the_duplicate_notes(
     ] == ["E", "G"]
 
 
-def test_timeline_navigation_keys_have_no_effect_outside_the_note_region(
+def test_step_by_event_keys_have_no_effect_outside_the_note_region(
     window, qtbot, null_synth, minimal_score
 ):
-    """Ref 4, D-2 RESOLVED: navigation keystrokes are scoped to the Note
-    region, not global - pressing them while another region has focus must
-    not move the timeline. Region 1/4 (RegionPropertyListWidget) and Region 2
-    (Region2ListWidget) never emit navigate_requested into
+    """Ref 4, D-2 RESOLVED: bare Left/Right (step by event) are scoped to
+    the Note region, not global - pressing them while another region has
+    focus must not move the timeline. Region 1/4 (RegionPropertyListWidget)
+    and Region 2 (Region2ListWidget) never emit navigate_requested into
     NavigationController for these keys, so this is a regression test for
-    that, not new wiring."""
+    that, not new wiring. Ctrl+Left/Right/Home/End are NOT covered here -
+    REVISITED 2026-09-16, they are global menu actions now (see
+    test_ctrl_navigation_is_global_and_does_not_move_focus below) and bare
+    Home/End no longer touch the timeline anywhere, including in the Note
+    region itself."""
     load_and_wait(window, qtbot, minimal_score)
     start_index = window._music_data.active_event_index
 
     for region in (window.region_1, window.region_2, window.region_4):
         qtbot.keyClick(region, Qt.Key.Key_Right)
-        qtbot.keyClick(region, Qt.Key.Key_Left, Qt.KeyboardModifier.ControlModifier)
-        qtbot.keyClick(region, Qt.Key.Key_End)
-        qtbot.keyClick(region, Qt.Key.Key_Home)
 
     assert window._music_data.active_event_index == start_index
 
 
+def test_ctrl_navigation_is_global_and_does_not_move_focus(
+    window, qtbot, null_synth, ts_change_score
+):
+    """REVISITED 2026-09-16: Ctrl+Home/Ctrl+End ("first/last note of the
+    piece") and Ctrl+Left/Ctrl+Right ("move by bar") are global menu actions
+    - they fire from any region or the status bar, and leave focus exactly
+    where it was (matching Find Next/Previous and the jump-point
+    shortcuts)."""
+    load_and_wait(window, qtbot, ts_change_score)
+    _show(window, qtbot)
+
+    for region in (window.region_1, window.region_2, window.region_4, window.region_5):
+        _focus(region)
+
+        qtbot.keyClick(window, Qt.Key.Key_Right, Qt.KeyboardModifier.ControlModifier)
+        assert window._music_data.active_event_index == 4  # first event of measure 2
+        assert window.focusWidget() is region
+
+        qtbot.keyClick(window, Qt.Key.Key_Left, Qt.KeyboardModifier.ControlModifier)
+        assert window._music_data.active_event_index == 0  # first event of measure 1
+        assert window.focusWidget() is region
+
+        qtbot.keyClick(window, Qt.Key.Key_End, Qt.KeyboardModifier.ControlModifier)
+        assert window._music_data.active_event_index == window._music_data.last_event_index()
+        assert window.focusWidget() is region
+
+        qtbot.keyClick(window, Qt.Key.Key_Home, Qt.KeyboardModifier.ControlModifier)
+        assert window._music_data.active_event_index == 0
+        assert window.focusWidget() is region
+
+
 def test_ctrl_right_and_ctrl_left_jump_by_measure(window, qtbot, null_synth, ts_change_score):
     load_and_wait(window, qtbot, ts_change_score)
+    _show(window, qtbot)
+    _focus(window.region_3)
 
-    qtbot.keyClick(window.region_3, Qt.Key.Key_Right, Qt.KeyboardModifier.ControlModifier)
+    qtbot.keyClick(window, Qt.Key.Key_Right, Qt.KeyboardModifier.ControlModifier)
     assert window._music_data.active_event_index == 4  # first event of measure 2
 
-    qtbot.keyClick(window.region_3, Qt.Key.Key_Left, Qt.KeyboardModifier.ControlModifier)
+    qtbot.keyClick(window, Qt.Key.Key_Left, Qt.KeyboardModifier.ControlModifier)
     assert window._music_data.active_event_index == 0  # first event of measure 1
 
 
-def test_home_and_end_jump_to_the_timeline_limits(window, qtbot, null_synth, minimal_score):
+def test_ctrl_home_and_ctrl_end_jump_to_the_timeline_limits(window, qtbot, null_synth, minimal_score):
     load_and_wait(window, qtbot, minimal_score)
+    _show(window, qtbot)
+    _focus(window.region_3)
 
-    qtbot.keyClick(window.region_3, Qt.Key.Key_End)
+    qtbot.keyClick(window, Qt.Key.Key_End, Qt.KeyboardModifier.ControlModifier)
     assert window._music_data.active_event_index == 3
 
-    qtbot.keyClick(window.region_3, Qt.Key.Key_Home)
+    qtbot.keyClick(window, Qt.Key.Key_Home, Qt.KeyboardModifier.ControlModifier)
     assert window._music_data.active_event_index == 0
+
+
+def test_bare_home_and_end_in_the_note_region_move_the_row_not_the_timeline(
+    window, qtbot, null_synth, minimal_score
+):
+    """REVISITED 2026-09-16: bare Home/End revert to native QListWidget
+    top/bottom-row behaviour in Region 3 - they no longer jump the timeline
+    at all (that's Ctrl+Home/Ctrl+End now, tested above)."""
+    load_and_wait(window, qtbot, minimal_score)
+    start_index = window._music_data.active_event_index
+
+    qtbot.keyClick(window.region_3, Qt.Key.Key_End)
+    assert window._music_data.active_event_index == start_index
+
+    qtbot.keyClick(window.region_3, Qt.Key.Key_Home)
+    assert window._music_data.active_event_index == start_index
 
 
 def test_left_at_the_first_event_plays_the_boundary_cue_and_does_not_move(
@@ -357,9 +409,11 @@ def test_ctrl_left_at_the_first_measure_plays_the_boundary_cue_and_does_not_move
     """minimal_score is a single complete bar, so Ctrl+Left from its first
     event has no preceding measure to land on (Ref 3 AC4)."""
     load_and_wait(window, qtbot, minimal_score)
+    _show(window, qtbot)
+    _focus(window.region_3)
     null_synth.played.clear()
 
-    qtbot.keyClick(window.region_3, Qt.Key.Key_Left, Qt.KeyboardModifier.ControlModifier)
+    qtbot.keyClick(window, Qt.Key.Key_Left, Qt.KeyboardModifier.ControlModifier)
 
     assert window._music_data.active_event_index == 0
     assert null_synth.boundary_cues and (
@@ -367,17 +421,19 @@ def test_ctrl_left_at_the_first_measure_plays_the_boundary_cue_and_does_not_move
     )
 
 
-def test_home_and_end_never_play_the_boundary_cue(window, qtbot, null_synth, minimal_score):
-    """Ref 5 AC3: Home/End jump to a known limit rather than attempting to
-    move past one, so they must never trigger the boundary sound - even
-    pressed repeatedly once already at that limit."""
+def test_ctrl_home_and_ctrl_end_never_play_the_boundary_cue(window, qtbot, null_synth, minimal_score):
+    """Ref 5 AC3: Ctrl+Home/Ctrl+End jump to a known limit rather than
+    attempting to move past one, so they must never trigger the boundary
+    sound - even pressed repeatedly once already at that limit."""
     load_and_wait(window, qtbot, minimal_score)
+    _show(window, qtbot)
+    _focus(window.region_3)
     null_synth.boundary_cues.clear()
 
-    qtbot.keyClick(window.region_3, Qt.Key.Key_End)
-    qtbot.keyClick(window.region_3, Qt.Key.Key_End)
-    qtbot.keyClick(window.region_3, Qt.Key.Key_Home)
-    qtbot.keyClick(window.region_3, Qt.Key.Key_Home)
+    qtbot.keyClick(window, Qt.Key.Key_End, Qt.KeyboardModifier.ControlModifier)
+    qtbot.keyClick(window, Qt.Key.Key_End, Qt.KeyboardModifier.ControlModifier)
+    qtbot.keyClick(window, Qt.Key.Key_Home, Qt.KeyboardModifier.ControlModifier)
+    qtbot.keyClick(window, Qt.Key.Key_Home, Qt.KeyboardModifier.ControlModifier)
 
     assert null_synth.boundary_cues == []
 
@@ -386,6 +442,8 @@ def test_status_bar_updates_on_load_and_navigation(window, qtbot, null_synth, ts
     """C6: status bar reflects the loaded score and then the new position
     after Ctrl+Right jumps into the 6/8 measure."""
     load_and_wait(window, qtbot, ts_change_score)
+    _show(window, qtbot)
+    _focus(window.region_3)
 
     fields = window.status_bar._fields
     assert [f.text() for f in fields] == [
@@ -571,20 +629,37 @@ def test_navigation_controller_pending_digit_buffer(window, qtbot, null_synth, m
     assert window._music_data.get_current_slice().measure == 3
 
 
-def test_navigation_menu_first_and_last_measure_move_focus_and_position(
+def test_navigation_menu_first_and_last_measure_move_position_not_focus(
     window, qtbot, null_synth, ts_change_score
 ):
+    """REVISITED 2026-09-16: these are now global menu actions and no
+    longer move focus to Region 3 (matching Find Next/Previous and the
+    jump-point shortcuts)."""
     load_and_wait(window, qtbot, ts_change_score)
     window.region_1.setFocus()
 
     window._navigation_menu_last_measure()
     assert window._music_data.active_event_index == window._music_data.last_event_index()
-    assert window.focusWidget() is window.region_3
+    assert window.focusWidget() is window.region_1
 
-    window.region_1.setFocus()
     window._navigation_menu_first_measure()
     assert window._music_data.active_event_index == 0
-    assert window.focusWidget() is window.region_3
+    assert window.focusWidget() is window.region_1
+
+
+def test_navigation_menu_previous_and_next_bar_move_position_not_focus(
+    window, qtbot, null_synth, ts_change_score
+):
+    load_and_wait(window, qtbot, ts_change_score)
+    window.region_1.setFocus()
+
+    window._navigation_menu_next_bar()
+    assert window._music_data.active_event_index == 4  # first event of measure 2
+    assert window.focusWidget() is window.region_1
+
+    window._navigation_menu_previous_bar()
+    assert window._music_data.active_event_index == 0
+    assert window.focusWidget() is window.region_1
 
 
 def test_goto_measure_dialog_accepts_a_valid_measure_number(
@@ -650,6 +725,8 @@ def test_goto_measure_dialog_prefilled_with_the_current_measure(
     window, qtbot, null_synth, ts_change_score
 ):
     load_and_wait(window, qtbot, ts_change_score)
+    _show(window, qtbot)
+    _focus(window.region_3)
     qtbot.keyClick(window.region_3, Qt.Key.Key_Right, Qt.KeyboardModifier.ControlModifier)
     assert window._music_data.get_current_slice().measure == 2
 

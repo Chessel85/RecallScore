@@ -480,8 +480,6 @@ class MainWindow(QMainWindow):
 
         self.persistence.clear_action = self._actions.clear_preferences
         self.persistence.refresh_clear_action()
-        self.focus.first_measure_action = self._actions.first_measure
-        self.focus.last_measure_action = self._actions.last_measure
         self.focus.select_all_action = self._actions.select_all
         self.focus.update_navigation_actions_enabled()
         self.focus.mute_action = self._actions.mute
@@ -1169,11 +1167,15 @@ class MainWindow(QMainWindow):
 
     def _navigation_menu_first_measure(self):
         self.navigate_timeline_home()
-        self.region_3.setFocus()
 
     def _navigation_menu_last_measure(self):
         self.navigate_timeline_end()
-        self.region_3.setFocus()
+
+    def _navigation_menu_previous_bar(self):
+        self.navigation.measure_left()
+
+    def _navigation_menu_next_bar(self):
+        self.navigation.measure_right()
 
     def _navigation_menu_move_to_notes(self):
         self.region_3.setFocus()

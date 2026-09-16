@@ -44,29 +44,29 @@ def test_performance_cue_fires_again_when_leaving_a_repeated_section(
     assert _region_5_labels(window) == ["* Ending 2 measure 4"]
 
 
-def test_ctrl_home_on_region_5_jumps_to_the_span_start(
+def test_alt_home_on_region_5_jumps_to_the_span_start(
     window, qtbot, repeats_and_endings_score
 ):
     load_and_wait(window, qtbot, repeats_and_endings_score)
     qtbot.keyClick(window.region_3, Qt.Key.Key_Right)  # -> measure 2 note 1 (repeat span active)
     window.region_5.setCurrentRow(0)  # "Repeat measures 2 to 3"
 
-    qtbot.keyClick(window.region_5, Qt.Key.Key_Home, Qt.KeyboardModifier.ControlModifier)
+    qtbot.keyClick(window.region_5, Qt.Key.Key_Home, Qt.KeyboardModifier.AltModifier)
 
     assert window._music_data.get_current_slice().measure == 2
 
 
-def test_ctrl_end_on_region_5_jumps_to_the_last_note_of_the_end_bar(
+def test_alt_end_on_region_5_jumps_to_the_last_note_of_the_end_bar(
     window, qtbot, repeats_and_endings_score
 ):
-    """The end bar (measure 3) has a single note - Ctrl+End must land there,
+    """The end bar (measure 3) has a single note - Alt+End must land there,
     the LAST sounding note of that measure (the user's own decision on this,
     not the first)."""
     load_and_wait(window, qtbot, repeats_and_endings_score)
     qtbot.keyClick(window.region_3, Qt.Key.Key_Right)  # -> measure 2 note 1
     window.region_5.setCurrentRow(0)  # "Repeat measures 2 to 3" - one row, both jump targets
 
-    qtbot.keyClick(window.region_5, Qt.Key.Key_End, Qt.KeyboardModifier.ControlModifier)
+    qtbot.keyClick(window.region_5, Qt.Key.Key_End, Qt.KeyboardModifier.AltModifier)
 
     current = window._music_data.get_current_slice()
     assert current.measure == 3

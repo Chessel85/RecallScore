@@ -36,6 +36,8 @@ class Actions:
     select_all: Optional[QAction] = None
     first_measure: Optional[QAction] = None
     last_measure: Optional[QAction] = None
+    previous_bar: Optional[QAction] = None
+    next_bar: Optional[QAction] = None
     goto_measure: Optional[QAction] = None
     find: Optional[QAction] = None
     find_next: Optional[QAction] = None
@@ -321,18 +323,28 @@ class MenuBuilder:
         # prefers a menu to typing into the Note region.
         navigation_menu = menu_bar.addMenu("&Navigation")
 
-        # Move to First/Last Note are greyed out unless the Note region has
-        # focus (kept in sync by FocusController), since otherwise Home/End
-        # silently move the timeline underneath whatever the user is
-        # actually reading. The Move to <region> items are the exception -
-        # staying enabled everywhere is their whole job.
+        # Move to First/Last Note and Move to Previous/Next Bar are global -
+        # they work from any region or the status bar, and never move focus
+        # (matching Find Next/Previous and the jump-point shortcuts below).
+        # Ctrl+Home/Ctrl+End/Ctrl+Left/Ctrl+Right are free for this: bare
+        # Home/End are native QListWidget behaviour in Region 3 now, and
+        # Region 5's own Ctrl+Home/Ctrl+End span-jump moved to Alt+Home/
+        # Alt+End to get out of the way.
         a.first_measure = self._action(
             "Move to &First Note", self.slots._navigation_menu_first_measure,
-            QKeySequence(Qt.Key.Key_Home),
+            QKeySequence("Ctrl+Home"),
         )
         a.last_measure = self._action(
             "Move to &Last Note", self.slots._navigation_menu_last_measure,
-            QKeySequence(Qt.Key.Key_End),
+            QKeySequence("Ctrl+End"),
+        )
+        a.previous_bar = self._action(
+            "Move to Previous Bar", self.slots._navigation_menu_previous_bar,
+            QKeySequence("Ctrl+Left"),
+        )
+        a.next_bar = self._action(
+            "Move to Next Bar", self.slots._navigation_menu_next_bar,
+            QKeySequence("Ctrl+Right"),
         )
         a.goto_measure = self._action(
             goto_measure_action_text(self.uk_terms),
@@ -417,6 +429,8 @@ class MenuBuilder:
 
         navigation_menu.addAction(a.first_measure)
         navigation_menu.addAction(a.last_measure)
+        navigation_menu.addAction(a.previous_bar)
+        navigation_menu.addAction(a.next_bar)
         navigation_menu.addSeparator()
         navigation_menu.addAction(a.goto_measure)
         navigation_menu.addSeparator()

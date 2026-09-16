@@ -13,9 +13,11 @@ from widgets.menu_builder import _shortcut_for_platform
 from tests.support.main_window_helpers import _focus, _show, load_and_wait
 
 
-def test_navigation_menu_items_use_home_and_end_shortcuts(window):
-    assert window._actions.first_measure.shortcut() == QKeySequence(Qt.Key.Key_Home)
-    assert window._actions.last_measure.shortcut() == QKeySequence(Qt.Key.Key_End)
+def test_navigation_menu_items_use_ctrl_home_and_ctrl_end_shortcuts(window):
+    assert window._actions.first_measure.shortcut() == QKeySequence("Ctrl+Home")
+    assert window._actions.last_measure.shortcut() == QKeySequence("Ctrl+End")
+    assert window._actions.previous_bar.shortcut() == QKeySequence("Ctrl+Left")
+    assert window._actions.next_bar.shortcut() == QKeySequence("Ctrl+Right")
     assert window._actions.goto_measure.shortcut() == QKeySequence("Ctrl+G")
     assert window._actions.move_to_notes.shortcut() == QKeySequence("C")
     assert window._actions.move_to_metadata.shortcut() == QKeySequence("Z")

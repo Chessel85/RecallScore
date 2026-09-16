@@ -20,16 +20,16 @@ class Region5ListWidget(RegionFocusCycleMixin, QListWidget):
     user-authored order to preserve across a rebuild, so refresh_list is a
     plain repopulate landing on row 0 rather than an id-based re-anchor.
 
-    Ctrl+Home/Ctrl+End jump the timeline cursor to the focused row's span
-    start/end - scoped to this region only, distinct from plain Home/End,
-    which mean "first/last note of the piece" when Region 3 has focus. The
-    keystroke turns into span_jump_requested rather than a call back into
-    MainWindow, wired in MainWindow.connect_signals() like Region 2's
-    filter_changed.
+    Alt+Home/Alt+End jump the timeline cursor to the focused row's span
+    start/end - scoped to this region only, distinct from the global
+    Ctrl+Home/Ctrl+End, which mean "first/last note of the piece" from
+    anywhere. The keystroke turns into span_jump_requested rather than a
+    call back into MainWindow, wired in MainWindow.connect_signals() like
+    Region 2's filter_changed.
     """
 
-    # is_start: True for Ctrl+Home (jump to the focused span's start),
-    # False for Ctrl+End.
+    # is_start: True for Alt+Home (jump to the focused span's start),
+    # False for Alt+End.
     span_jump_requested = Signal(bool)
     # Stage 9 (PerformanceMarkingsStrategy.md section 8): the focused row's
     # marking_categories id, emitted by Ctrl+N or the Menu key/Shift+F10.
@@ -49,7 +49,7 @@ class Region5ListWidget(RegionFocusCycleMixin, QListWidget):
     ) -> None:
         """Clears and repopulates: the P2 context rows first, then the Ref
         29 structural rows. Both empty shows a single "None" placeholder
-        (UserRole None, so Ctrl+Home/End no-ops on it), matching
+        (UserRole None, so Alt+Home/End no-ops on it), matching
         get_region_3_data()'s own ["None"] convention."""
         self.clear()
         self._context_row_count = len(context_rows)
@@ -93,14 +93,15 @@ class Region5ListWidget(RegionFocusCycleMixin, QListWidget):
     def keyPressEvent(self, event):
         key = event.key()
         ctrl = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
+        alt = bool(event.modifiers() & Qt.KeyboardModifier.AltModifier)
         shift_f10 = key == Qt.Key.Key_F10 and bool(
             event.modifiers() & Qt.KeyboardModifier.ShiftModifier
         )
 
-        if key == Qt.Key.Key_Home and ctrl:
+        if key == Qt.Key.Key_Home and alt:
             self.span_jump_requested.emit(True)
             return
-        elif key == Qt.Key.Key_End and ctrl:
+        elif key == Qt.Key.Key_End and alt:
             self.span_jump_requested.emit(False)
             return
         elif (key == Qt.Key.Key_N and ctrl) or key == Qt.Key.Key_Menu or shift_f10:

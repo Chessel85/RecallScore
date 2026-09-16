@@ -22,13 +22,22 @@ class TimelineListWidget(RegionFocusCycleMixin, QListWidget):
     NavigationController, Enter commits the typed bar number (via
     audition_phrase), Ctrl+Enter commits it as the loop length, and Escape
     cancels. Any cursor move cancels a half-typed number -
-    NavigationController does that for Left/Right/Home/End/Find, and the
-    slot wired to vertical_move_made for an in-slice Up/Down here.
+    NavigationController does that for Left/Right/Find, and the slot wired
+    to vertical_move_made for an in-slice Up/Down here.
+
+    Home/End are NOT handled here either - they fall through to
+    QListWidget's own native top/bottom-row behaviour. "First/last note of
+    the piece" is Ctrl+Home/Ctrl+End, a global menu action (Navigation menu)
+    that doesn't move focus, not a Region-3-only keystroke - see
+    MainWindow._navigation_menu_first_measure/_last_measure. Likewise
+    Ctrl+Left/Ctrl+Right (move by bar) is a global action now, not handled
+    here.
     """
 
-    # (direction, by_measure): direction is "left"/"right"/"home"/"end";
-    # by_measure (Ctrl held) is only meaningful for left/right.
-    navigate_requested = Signal(str, bool)
+    # direction is "left"/"right" - note-by-note stepping only. By-measure
+    # and first/last-of-piece jumps are global menu actions now (see the
+    # class docstring), not routed through this signal.
+    navigate_requested = Signal(str)
     # An in-slice Up/Down finished (selection already collapsed here) - the
     # slot re-auditions the note without position cues and clears any
     # half-typed bar number.
@@ -61,14 +70,10 @@ class TimelineListWidget(RegionFocusCycleMixin, QListWidget):
             self.attribute_number_requested.emit(key - Qt.Key.Key_0)
             return
 
-        if key == Qt.Key.Key_Left:
-            self.navigate_requested.emit("left", ctrl)
-        elif key == Qt.Key.Key_Right:
-            self.navigate_requested.emit("right", ctrl)
-        elif key == Qt.Key.Key_Home:
-            self.navigate_requested.emit("home", False)
-        elif key == Qt.Key.Key_End:
-            self.navigate_requested.emit("end", False)
+        if key == Qt.Key.Key_Left and not ctrl:
+            self.navigate_requested.emit("left")
+        elif key == Qt.Key.Key_Right and not ctrl:
+            self.navigate_requested.emit("right")
         elif key in (Qt.Key.Key_Up, Qt.Key.Key_Down):
             # Qt's ExtendedSelection arrow handling collapses a multi-row
             # selection only as a side effect of the current row CHANGING.

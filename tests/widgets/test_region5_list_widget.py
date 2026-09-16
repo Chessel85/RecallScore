@@ -12,14 +12,14 @@ def _press(widget, key, modifiers=Qt.KeyboardModifier.NoModifier):
     widget.keyPressEvent(QKeyEvent(QKeyEvent.Type.KeyPress, key, modifiers))
 
 
-def test_ctrl_home_end_emit_span_jump_requested(qtbot):
+def test_alt_home_end_emit_span_jump_requested(qtbot):
     widget = Region5ListWidget()
     qtbot.addWidget(widget)
     calls = []
     widget.span_jump_requested.connect(calls.append)
 
-    _press(widget, Qt.Key.Key_Home, Qt.KeyboardModifier.ControlModifier)
-    _press(widget, Qt.Key.Key_End, Qt.KeyboardModifier.ControlModifier)
+    _press(widget, Qt.Key.Key_Home, Qt.KeyboardModifier.AltModifier)
+    _press(widget, Qt.Key.Key_End, Qt.KeyboardModifier.AltModifier)
 
     assert calls == [True, False]
 

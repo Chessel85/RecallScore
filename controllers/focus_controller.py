@@ -20,24 +20,21 @@ class FocusController:
     """
 
     def __init__(self, window, regions: list, status_bar,
-                 first_measure_action=None, last_measure_action=None,
                  select_all_action=None,
                  mute_action=None, solo_action=None,
                  unmute_all_action=None, unsolo_all_action=None):
         # `window` is kept specifically for window.focusWidget(), which is
         # NOT the same as QApplication.focusWidget(): the former reports the
         # focus widget within this window's own subtree even when the window
-        # isn't the active one, which is what the pane and Home/End enabling
-        # checks rely on.
+        # isn't the active one, which is what the pane and Select All
+        # enabling check relies on.
         self._window = window
         self._regions = regions
         self._status_bar = status_bar
-        self.first_measure_action = first_measure_action
-        self.last_measure_action = last_measure_action
-        # Edit > Select All - same "only meaningful in the Note region"
-        # reasoning as Home/End above; selecting every note at the cursor is
-        # what makes Shift+Space's "play them all together" audition
-        # meaningful, and it has no sensible target anywhere else.
+        # Edit > Select All only acts on the Note region's selection, so it
+        # is greyed out elsewhere; selecting every note at the cursor is what
+        # makes Shift+Space's "play them all together" audition meaningful,
+        # and it has no sensible target anywhere else.
         self.select_all_action = select_all_action
         # Playback menu's Mute/Solo/Unmute All/Unsolo All - only meaningful
         # with Region 2 focused, same "greyed out elsewhere" reasoning as
@@ -89,20 +86,15 @@ class FocusController:
         self.update_region2_actions_enabled(now)
 
     def update_navigation_actions_enabled(self, focus_widget=None) -> None:
-        """Home/End (and Select All) only act on the Note region, so they
-        are greyed out elsewhere - otherwise pressing Home in Region 1
-        silently jumps the timeline underneath what the user is reading.
-        Called with no argument at menu-build time, before any
+        """Select All only acts on the Note region, so it is greyed out
+        elsewhere. Called with no argument at menu-build time, before any
         focusChanged has fired."""
-        if self.first_measure_action is None or self.last_measure_action is None:
+        if self.select_all_action is None:
             return
         if focus_widget is None:
             focus_widget = self._window.focusWidget()
         in_note_region = focus_widget is self.note_region
-        self.first_measure_action.setEnabled(in_note_region)
-        self.last_measure_action.setEnabled(in_note_region)
-        if self.select_all_action is not None:
-            self.select_all_action.setEnabled(in_note_region)
+        self.select_all_action.setEnabled(in_note_region)
 
     def update_region2_actions_enabled(self, focus_widget=None) -> None:
         """Mute/Solo/Unmute All/Unsolo All only act on Region 2's focused

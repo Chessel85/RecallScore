@@ -101,21 +101,17 @@ class NavigationController(QObject):
         slice_ = self.music_data.get_current_slice() if self.music_data else None
         return slice_.measure if slice_ is not None else None
 
-    def navigate(self, direction: str, by_measure: bool = False) -> None:
+    def navigate(self, direction: str) -> None:
         """Dispatch a Note-region arrow-key move. Region 3
-        (TimelineListWidget) emits navigate_requested(direction, by_measure)
-        and MainWindow.connect_signals routes it straight here, so the
-        widget itself stays window-free. `direction` is
-        "left"/"right"/"home"/"end"; `by_measure` (Ctrl held) applies only
-        to left/right."""
+        (TimelineListWidget) emits navigate_requested(direction) and
+        MainWindow.connect_signals routes it straight here, so the widget
+        itself stays window-free. `direction` is "left"/"right" - by-measure
+        and first/last-of-piece jumps are global menu actions now, not
+        routed through this signal."""
         if direction == "left":
-            self.measure_left() if by_measure else self.timeline_left()
+            self.timeline_left()
         elif direction == "right":
-            self.measure_right() if by_measure else self.timeline_right()
-        elif direction == "home":
-            self.timeline_home()
-        elif direction == "end":
-            self.timeline_end()
+            self.timeline_right()
 
     def timeline_left(self) -> None:
         self.clear_pending_digits()

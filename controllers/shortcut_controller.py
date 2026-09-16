@@ -72,9 +72,10 @@ def _build_reserved() -> Dict[str, str]:
     Each group's comment names the file that actually handles the key, so
     the next person changing those keys knows to update this list.
 
-    Home/End are deliberately NOT reserved: they're Move to First/Last
-    Note's own rebindable defaults, and Region 3's keyPressEvent keeps
-    handling bare Home/End when that action is rebound."""
+    Bare Home/End are deliberately NOT reserved: Region 3's keyPressEvent no
+    longer handles them at all (native QListWidget top/bottom-row
+    behaviour). Ctrl+Home/Ctrl+End are Move to First/Last Note's own
+    rebindable defaults - also not reserved, same reasoning."""
     reserved: Dict[str, str] = {}
     Key = Qt.Key
     Mod = Qt.KeyboardModifier
@@ -118,8 +119,6 @@ def _build_reserved() -> Dict[str, str]:
         _seq(Key.Key_Down),
         _seq(Key.Key_Left),
         _seq(Key.Key_Right),
-        _seq(Key.Key_Left, Mod.ControlModifier),
-        _seq(Key.Key_Right, Mod.ControlModifier),
         _seq(Key.Key_Up, Mod.ShiftModifier),
         _seq(Key.Key_Down, Mod.ShiftModifier),
         _seq(Key.Key_PageUp),
@@ -139,8 +138,8 @@ def _build_reserved() -> Dict[str, str]:
     # widgets/region5_list_widget.py
     add(
         "move within Performance markings",
-        _seq(Key.Key_Home, Mod.ControlModifier),
-        _seq(Key.Key_End, Mod.ControlModifier),
+        _seq(Key.Key_Home, Mod.AltModifier),
+        _seq(Key.Key_End, Mod.AltModifier),
     )
     # widgets/region4_list_widget.py
     add(
@@ -197,6 +196,8 @@ _CATEGORY_OVERRIDES: Dict[str, str] = {
     "Unmute All": "Parts",
     "Move to First Note": "Navigation",
     "Move to Last Note": "Navigation",
+    "Move to Previous Bar": "Navigation",
+    "Move to Next Bar": "Navigation",
     "Go to Measure": "Navigation",
     "Find": "Navigation",
     "Find Next": "Navigation",

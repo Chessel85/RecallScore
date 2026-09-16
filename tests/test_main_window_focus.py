@@ -183,28 +183,32 @@ def test_closing_the_window_stops_it_tracking_application_focus(
     assert window._focus_tracking_connected is False
 
 
-def test_first_and_last_note_actions_are_only_enabled_in_the_note_region(
+def test_first_last_note_and_bar_actions_are_enabled_everywhere(
     window, qtbot, null_synth, minimal_score
 ):
-    """Tidying: Move to First/Last Note used to act globally from any of the
-    four regions or the status bar - now they're greyed out everywhere
-    except the Note region (Region 3), so a stray Home/End elsewhere can't
-    silently jump the timeline underneath whatever's being read."""
+    """REVISITED 2026-09-16: Move to First/Last Note and Move to Previous/
+    Next Bar are global now (Ctrl+Home/Ctrl+End/Ctrl+Left/Ctrl+Right) - they
+    stay enabled regardless of which region or the status bar has focus,
+    unlike the earlier Note-region-only Home/End behaviour this test used to
+    check for."""
     load_and_wait(window, qtbot, minimal_score)
     _show(window, qtbot)
 
-    for region in (window.region_1, window.region_2, window.region_4):
+    for region in (
+        window.region_1, window.region_2, window.region_3,
+        window.region_4, window.region_5,
+    ):
         _focus(region)
-        assert not window._actions.first_measure.isEnabled()
-        assert not window._actions.last_measure.isEnabled()
+        assert window._actions.first_measure.isEnabled()
+        assert window._actions.last_measure.isEnabled()
+        assert window._actions.previous_bar.isEnabled()
+        assert window._actions.next_bar.isEnabled()
 
     _focus(window.status_bar.first_field())
-    assert not window._actions.first_measure.isEnabled()
-    assert not window._actions.last_measure.isEnabled()
-
-    _focus(window.region_3)
     assert window._actions.first_measure.isEnabled()
     assert window._actions.last_measure.isEnabled()
+    assert window._actions.previous_bar.isEnabled()
+    assert window._actions.next_bar.isEnabled()
 
 
 def test_commit_digits_action_is_enabled_everywhere(window, qtbot, null_synth, minimal_score):
