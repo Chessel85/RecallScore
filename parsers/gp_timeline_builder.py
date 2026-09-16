@@ -22,6 +22,7 @@ from typing import Dict, List, Optional, Tuple
 
 from models.duration_units import beat_unit_display_name, tuplet_word
 from models.event_slice import EventSlice
+from models.jump_point import JumpPoint, build_jump_points
 from models.note_data import NoteData
 from models.synthetic_parts import GP_CHORD_VOICE_ID
 from models.parts_structure import PartStructureInfo
@@ -79,7 +80,8 @@ class GpTimelineBuilder:
         self.to_coda_marks: List = []
         self.fine_marks: List = []
         self.navigation_jumps: List = []
-        self.section_spans: List = []  # P2: UG-only so far
+        # P2: GP's own <Section> rehearsal marks (gp_source.py).
+        self.jump_points: List[JumpPoint] = []
         self.total_measures: int = 0
 
     def build(self) -> List[EventSlice]:
@@ -95,6 +97,9 @@ class GpTimelineBuilder:
             return []
 
         self.total_measures = len(source.master_bars)
+        self.jump_points = build_jump_points(
+            [mb.section_text or "" for mb in source.master_bars], self.total_measures,
+        )
 
         start_quarters: Dict[int, float] = {}
         offset = 0.0

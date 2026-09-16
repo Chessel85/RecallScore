@@ -231,7 +231,7 @@ def test_score_wide_marking_targets_are_never_filtered(
     timeline, hairpins_two_parts_score
 ):
     """A P1-owned hairpin is hidden once P1 is muted, but a marking type
-    with no part_id field at all (RepeatSpan, EndingSpan, SectionSpan,
+    with no part_id field at all (RepeatSpan, EndingSpan, JumpPoint,
     BarlineMark, SegnoMark/CodaMark/ToCodaMark/FineMark, NavigationJump)
     is unaffected by any parts/staves filter - the generic hasattr guard in
     _is_marking_visible, not a hairpin-specific rule."""

@@ -2644,7 +2644,7 @@ def test_stage12_report_omits_every_zero_count_header(timeline, octave_shift_sco
     md = timeline(octave_shift_score)
     lines = md.get_performance_report_lines()
     for header in (
-        "Sections:", "Repeated sections:", "Endings:", "Dynamics:",
+        "Jump Points:", "Repeated sections:", "Endings:", "Dynamics:",
         "Pedal marks:", "Dashed lines:", "Bracket lines:", "Other directions:",
         "Barline changes:", "Clef changes:", "Measure style markers:",
         "Segno marks:", "Coda marks:", "To coda marks:", "Fine marks:",
@@ -3477,7 +3477,7 @@ def _ug_context_music_data() -> MusicData:
     """A chord onset (bar 1), two fingerpicking-only slices (bar 2), then a
     new chord onset (bar 3) - the coarse/fine granularity the context rows
     reconcile."""
-    from models.section_span import SectionSpan
+    from models.jump_point import JumpPoint
     from models.synthetic_parts import CHORDS_PART_ID, LYRICS_PART_ID, TAB_PART_ID
 
     def chord_slice(measure, quarters, sym, words):
@@ -3516,7 +3516,7 @@ def _ug_context_music_data() -> MusicData:
             tab_slice(4.5, 1.5),
             chord_slice(3, 8.0, "G", "Out here it's like"),
         ],
-        section_spans=[SectionSpan(label="Verse 1", start_measure=1, end_measure=3)],
+        jump_points=[JumpPoint(label="Verse 1", start_measure=1, end_measure=3)],
     )
 
 
@@ -3524,14 +3524,14 @@ def test_context_rows_forward_fill_the_earlier_chord_through_a_fingerpicking_run
     md = _ug_context_music_data()
 
     mid_run = [r.label for r in md.get_performance_context_rows(2)]
-    assert mid_run == ["Section: Verse 1", "Chord: D", "Lyric: I know they say"]
+    assert mid_run == ["Jump Point: Verse 1", "Chord: D", "Lyric: I know they say"]
 
 
 def test_context_rows_flip_to_the_new_chord_at_its_onset():
     md = _ug_context_music_data()
 
     at_onset = [r.label for r in md.get_performance_context_rows(3)]
-    assert at_onset == ["Section: Verse 1", "Chord: G", "Lyric: Out here it's like"]
+    assert at_onset == ["Jump Point: Verse 1", "Chord: G", "Lyric: Out here it's like"]
 
 
 def test_context_rows_have_no_chord_or_lyric_before_the_first_onset():
@@ -3539,11 +3539,11 @@ def test_context_rows_have_no_chord_or_lyric_before_the_first_onset():
     # slice 0 IS the first onset, so it already has them; a score that opens
     # on a tab bar would not. Assert the jump targets instead.
     rows = md.get_performance_context_rows(0)
-    assert [r.label for r in rows] == ["Section: Verse 1", "Chord: D", "Lyric: I know they say"]
-    assert rows[0].jump_target_measure == 1  # section start bar
+    assert [r.label for r in rows] == ["Jump Point: Verse 1", "Chord: D", "Lyric: I know they say"]
+    assert rows[0].jump_target_measure == 1  # jump point start bar
 
 
-def test_context_rows_empty_without_sections_chords_or_lyrics():
+def test_context_rows_empty_without_jump_points_chords_or_lyrics():
     note = NoteData(step_name="C", measure=1, beat_position=1.0, ts_duration=1.0,
                     quarter_length=1.0, part_id="P1", part_name="Piano", staff=1,
                     voice=1, midi_pitch=60)

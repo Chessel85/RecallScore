@@ -38,7 +38,7 @@ from models.repeat_span import RepeatSpan
 from models.score_config_data import ScoreConfig
 from models.score_formats import family_for_path
 from models.score_section import ScoreSection
-from models.section_span import SectionSpan
+from models.jump_point import JumpPoint
 from models.segno_mark import SegnoMark
 from models.strum_pattern import StrumPattern
 from models.tempo_change import TempoChange
@@ -254,10 +254,15 @@ class MusicData:
     # marking_categories_off, seeded by main_window.py from the global
     # AppSettings default on every load.
     show_engraving_details_enabled: bool = False
-    # P2: named song sections (Intro/Verse/Chorus/...). Populated by
-    # UgTimelineBuilder today; other builders stub it empty. Drives a
-    # Region 5 row, a Find target, and Ctrl+Alt+Left/Right section stepping.
-    section_spans: List[SectionSpan] = field(default_factory=list)
+    # P2: named song jump points (Intro/Verse/Chorus/...) - deliberately not
+    # called "sections", which would be confusable with the unrelated
+    # multi-section MusicXML feature below. Populated by UgTimelineBuilder
+    # and GpTimelineBuilder; MusicXML/MIDI stub it empty (MusicXML's
+    # equivalent, <rehearsal> marks, is a first-class DirectionMark kind
+    # already, so Ctrl+Alt+Left/Right reads those directly for MusicXML -
+    # see NavigationController._step_jump_point). Drives a Region 5 row, a
+    # Find target, and Ctrl+Alt+Left/Right jump-point stepping.
+    jump_points: List[JumpPoint] = field(default_factory=list)
 
     # Multi-section MusicXML (UserPlans/MultiSectionScores.md): one file
     # holding several independent pieces back to back. build_sections()
@@ -438,8 +443,7 @@ class MusicData:
     @property
     def has_multiple_sections(self) -> bool:
         """True for a MusicXML file split into 2+ independent pieces (see
-        `sections`). Drives whether Region 1's section tab bar shows and
-        whether `Navigation > Select Section...` is enabled."""
+        `sections`). Drives whether Region 1's section tab bar shows."""
         return len(self.sections) > 1
 
     @property
@@ -1261,21 +1265,22 @@ class MusicData:
         self._lyric_context = lyric_ctx
         self._context_quarters = quarters
 
-    def _section_span_at(self, measure: int) -> Optional[SectionSpan]:
-        """The song section (P2) containing `measure`, or None. Sections
-        don't overlap, so the first match is the only one."""
-        for span in self.section_spans:
-            if span.start_measure <= measure <= span.end_measure:
-                return span
+    def _jump_point_at(self, measure: int) -> Optional[JumpPoint]:
+        """The song jump point (P2) containing `measure`, or None. Jump
+        points don't overlap, so the first match is the only one."""
+        for point in self.jump_points:
+            if point.start_measure <= measure <= point.end_measure:
+                return point
         return None
 
     def get_performance_context_rows(self, index: Optional[int] = None) -> List[PerformanceRegionRow]:
         """P2: 0-3 "what's in effect at the cursor" rows for Region 5 -
-        Section / Chord / Lyric - each omitted when it has no value. Updated
-        as the cursor moves (RegionPresenter.refresh_region_5 relabels them
-        in place, without re-firing the change cue). Structural context,
-        like sections themselves - computed regardless of the Region 2 voice
-        filter. Ctrl+Home/Ctrl+End on one jumps to its onset bar."""
+        Jump Point / Chord / Lyric - each omitted when it has no value.
+        Updated as the cursor moves (RegionPresenter.refresh_region_5
+        relabels them in place, without re-firing the change cue).
+        Structural context, like jump points themselves - computed
+        regardless of the Region 2 voice filter. Ctrl+Home/Ctrl+End on one
+        jumps to its onset bar."""
         resolved_index = self.active_event_index if index is None else index
         if not (0 <= resolved_index < len(self.timeline_slices)):
             return []
@@ -1283,11 +1288,11 @@ class MusicData:
         self._ensure_context_arrays()
 
         rows: List[PerformanceRegionRow] = []
-        span = self._section_span_at(slice_.measure)
-        if span is not None and span.label:
+        point = self._jump_point_at(slice_.measure)
+        if point is not None and point.label:
             rows.append(PerformanceRegionRow(
-                label=f"Section: {span.label}",
-                jump_target_measure=span.start_measure,
+                label=f"Jump Point: {point.label}",
+                jump_target_measure=point.start_measure,
             ))
 
         assert self._context_quarters is not None

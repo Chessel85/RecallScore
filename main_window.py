@@ -706,7 +706,6 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle("Recall Score")
         self._actions.close.setEnabled(False)
-        self._actions.select_section.setEnabled(False)
         self._actions.strumming.setEnabled(False)
         self._actions.save_ug_import.setEnabled(False)
         # Reverts "go to bar N"'s vocabulary to nothing score-specific -
@@ -822,7 +821,6 @@ class MainWindow(QMainWindow):
         voices the user had switched off."""
         self.setWindowTitle(self._window_title_for(music_data))
         self._actions.close.setEnabled(True)
-        self._actions.select_section.setEnabled(music_data.has_multiple_sections)
         self._actions.strumming.setEnabled(bool(music_data.ug_strum_patterns))
         self._actions.save_ug_import.setEnabled(bool(music_data.is_ug))
 
@@ -951,11 +949,11 @@ class MainWindow(QMainWindow):
     def find_previous(self):
         self.navigation.find_previous()
 
-    def next_section(self):
-        self.navigation.next_section()
+    def next_jump_point(self):
+        self.navigation.next_jump_point()
 
-    def previous_section(self):
-        self.navigation.previous_section()
+    def previous_jump_point(self):
+        self.navigation.previous_jump_point()
 
     # --- playback (delegators) ----------------------------------------
 
@@ -1182,12 +1180,6 @@ class MainWindow(QMainWindow):
         logic is NavigationController's. announce=False: the tab bar's own
         NVDA "tab, N of M" already covers it."""
         self.navigation.select_section(index, announce=False)
-
-    def _navigation_menu_select_section(self):
-        """Navigation > Select Section...: just moves focus to the Region 1
-        section tab bar (the control and the display both). Enabled only for
-        a multi-section score, so the bar is always visible when this runs."""
-        self.region_1_section_tabs.setFocus()
 
     def _navigation_menu_move_to_parts(self):
         self.region_2.setFocus()

@@ -37,12 +37,11 @@ class Actions:
     first_measure: Optional[QAction] = None
     last_measure: Optional[QAction] = None
     goto_measure: Optional[QAction] = None
-    select_section: Optional[QAction] = None
     find: Optional[QAction] = None
     find_next: Optional[QAction] = None
     find_previous: Optional[QAction] = None
-    next_section: Optional[QAction] = None
-    previous_section: Optional[QAction] = None
+    next_jump_point: Optional[QAction] = None
+    previous_jump_point: Optional[QAction] = None
     move_to_metadata: Optional[QAction] = None
     move_to_parts: Optional[QAction] = None
     move_to_notes: Optional[QAction] = None
@@ -339,19 +338,6 @@ class MenuBuilder:
             goto_measure_action_text(self.uk_terms),
             self.slots._show_goto_measure_dialog, QKeySequence("Ctrl+G"),
         )
-        # Multi-section MusicXML (UserPlans/MultiSectionScores.md): a
-        # keyboard route to the section choice from any region without
-        # first jumping to Region 1. Not redundant with Region 1's tab bar,
-        # which is the display as well as the control - this just moves
-        # focus there (it is not a modal dialog; with the tab bar present a
-        # select dialog would have nothing left to do). Disabled unless the
-        # loaded score actually has more than one section (main_window.py
-        # keeps it in sync in _on_score_loaded / close_score).
-        a.select_section = self._action(
-            "Select &Section...", self.slots._navigation_menu_select_section,
-            status_tip="Move focus to the section tab bar in Score information",
-        )
-        a.select_section.setEnabled(False)
         # Find (attributes like "articulation"/"string", and performance
         # markings like repeat/ending/hairpin/Segno/Coda/D.C./D.S./key/
         # time-sig/tempo changes): pick a target, jump to occurrences of it.
@@ -383,21 +369,25 @@ class MenuBuilder:
         a.find_previous = self._action(
             "Find Previo&us", self.slots.find_previous, QKeySequence("Alt+Left"),
         )
-        # P2: jump between song sections (Intro/Verse/Chorus/...) - Ctrl+Alt+
-        # Left/Right, global like Find Next/Previous. Always enabled; a
-        # no-op on a score with no sections (UG imports are the only source
-        # so far). Ctrl+Alt+Space (Play Metronome) is the only other
-        # Ctrl+Alt binding, so these are free. No mnemonic - they carry a
-        # real shortcut and act from anywhere.
-        a.previous_section = self._action(
-            "Previous Section", self.slots.previous_section,
+        # P2: jump between song jump points (Intro/Verse/Chorus/...) - named
+        # "jump point" rather than "section" so it can't be confused with
+        # the unrelated multi-section MusicXML feature (Select Section...
+        # used to sit right above this in the menu - see
+        # NavigationController.select_section). Ctrl+Alt+Left/Right, global
+        # like Find Next/Previous. Always enabled; a no-op on a score with
+        # no jump points (UG and GP imports are the only sources so far).
+        # Ctrl+Alt+Space (Play Metronome) is the only other Ctrl+Alt
+        # binding, so these are free. No mnemonic - they carry a real
+        # shortcut and act from anywhere.
+        a.previous_jump_point = self._action(
+            "Previous Jump Point", self.slots.previous_jump_point,
             QKeySequence("Ctrl+Alt+Left"),
-            status_tip="Jump to the start of the previous song section",
+            status_tip="Jump to the start of the previous song jump point",
         )
-        a.next_section = self._action(
-            "Next Section", self.slots.next_section,
+        a.next_jump_point = self._action(
+            "Next Jump Point", self.slots.next_jump_point,
             QKeySequence("Ctrl+Alt+Right"),
-            status_tip="Jump to the start of the next song section",
+            status_tip="Jump to the start of the next song jump point",
         )
         # A direct-jump shortcut per region. Z/X/C/V/B (user-requested
         # 2026-08-22, replacing the old scattered I/V/N/A/P): the five keys
@@ -429,14 +419,13 @@ class MenuBuilder:
         navigation_menu.addAction(a.last_measure)
         navigation_menu.addSeparator()
         navigation_menu.addAction(a.goto_measure)
-        navigation_menu.addAction(a.select_section)
         navigation_menu.addSeparator()
         navigation_menu.addAction(a.find)
         navigation_menu.addAction(a.find_next)
         navigation_menu.addAction(a.find_previous)
         navigation_menu.addSeparator()
-        navigation_menu.addAction(a.previous_section)
-        navigation_menu.addAction(a.next_section)
+        navigation_menu.addAction(a.previous_jump_point)
+        navigation_menu.addAction(a.next_jump_point)
         navigation_menu.addSeparator()
         navigation_menu.addAction(a.move_to_metadata)
         navigation_menu.addAction(a.move_to_parts)

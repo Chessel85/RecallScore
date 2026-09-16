@@ -260,27 +260,32 @@ class NavigationController(QObject):
         self.position_changed.emit(True, False)
         return True
 
-    def next_section(self) -> None:
-        """Ctrl+Alt+Right (P2): jump to the first bar of the next song
-        section after the cursor. A positional jump like Home/End, so it
-        cues the boundary at the last section rather than wrapping (unlike
-        Find). A no-op boundary cue on a score with no sections."""
-        self._step_section(direction=1)
+    def next_jump_point(self) -> None:
+        """Ctrl+Alt+Right (P2): jump to the first bar of the next song jump
+        point after the cursor - a UG [Section]/GP <Section> jump point, or
+        for MusicXML (which has no JumpPoint of its own - see
+        models/jump_point.py) a <rehearsal> mark. A positional jump like
+        Home/End, so it cues the boundary at the last one rather than
+        wrapping (unlike Find). A no-op boundary cue on a score with
+        neither."""
+        self._step_jump_point(direction=1)
 
-    def previous_section(self) -> None:
-        """Ctrl+Alt+Left counterpart of next_section."""
-        self._step_section(direction=-1)
+    def previous_jump_point(self) -> None:
+        """Ctrl+Alt+Left counterpart of next_jump_point."""
+        self._step_jump_point(direction=-1)
 
-    def _step_section(self, direction: int) -> None:
+    def _step_jump_point(self, direction: int) -> None:
         self.clear_pending_digits()
         data = self.music_data
-        if not data or not data.section_spans:
+        if data is None:
             self.boundary_hit.emit()
             return
+        jump_measures = [s.start_measure for s in data.jump_points]
+        jump_measures += [m.measure for m in data.direction_marks if m.kind == "rehearsal"]
         starts = sorted(
             i for i in (
-                data.first_visible_event_index_of_measure(s.start_measure)
-                for s in data.section_spans
+                data.first_visible_event_index_of_measure(m)
+                for m in jump_measures
             )
             if i is not None
         )
@@ -301,10 +306,11 @@ class NavigationController(QObject):
     # --- score sections (multi-section MusicXML) -------------------------
     #
     # A "section" here is one of N independent pieces packed into a single
-    # file (UserPlans/MultiSectionScores.md) - distinct from the P2 "song
-    # section" jumps above. Selecting one swaps MusicData's live
-    # TimelineBuild so every other region behaves as if that section were
-    # the whole file.
+    # file (UserPlans/MultiSectionScores.md) - unrelated to the P2 "jump
+    # point" stepping above (renamed away from "section" specifically to
+    # stop the two being confused - they share nothing but the word).
+    # Selecting one swaps MusicData's live TimelineBuild so every other
+    # region behaves as if that section were the whole file.
 
     def select_section(self, index: int, announce: bool = True) -> bool:
         """Make section `index` active. Returns True when it actually

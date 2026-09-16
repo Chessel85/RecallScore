@@ -840,14 +840,12 @@ def test_section_tab_bar_shows_one_tab_per_section_labelled(window, qtbot, two_s
     assert not tabs.isHidden()
     assert [tabs.tabText(i) for i in range(tabs.count())] == ["Exercise 1", "Exercise 2"]
     assert tabs.currentIndex() == 0
-    assert window._actions.select_section.isEnabled()
 
 
 def test_section_tab_bar_is_hidden_for_a_single_section_score(window, qtbot, minimal_score):
     load_and_wait(window, qtbot, minimal_score)
 
     assert window.region_1_section_tabs.isHidden()
-    assert not window._actions.select_section.isEnabled()
 
 
 def test_setting_the_current_tab_switches_section_and_region_3(window, qtbot, two_sections_score):
@@ -1081,7 +1079,6 @@ def test_loading_a_single_section_file_after_a_multi_section_one_drops_the_tab_b
     assert window._music_data.has_multiple_sections is False
     assert len(window._music_data.sections) == 1
     assert window.region_1_section_tabs.isHidden()
-    assert not window._actions.select_section.isEnabled()
 
 
 def test_close_score_drops_the_sections_and_hides_the_tab_bar(
@@ -1094,4 +1091,3 @@ def test_close_score_drops_the_sections_and_hides_the_tab_bar(
 
     assert window._music_data is None
     assert window.region_1_section_tabs.isHidden()
-    assert not window._actions.select_section.isEnabled()

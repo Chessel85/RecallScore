@@ -1,5 +1,7 @@
 # tests/parsers/test_gp_source.py
-from parsers.gp_source import iter_track_positions, read_gp_source
+import xml.etree.ElementTree as ET
+
+from parsers.gp_source import _parse_master_bars, iter_track_positions, read_gp_source
 
 
 def test_reads_title_artist_tempo(gp_ripple):
@@ -30,6 +32,38 @@ def test_102_measures_all_4_4(gp_ripple):
     source = read_gp_source(gp_ripple)
     assert len(source.master_bars) == 102
     assert all(mb.time_sig == (4, 4) for mb in source.master_bars)
+
+
+def test_no_section_marker_in_the_real_sample(gp_ripple):
+    """Confirms the assumption _parse_master_bars is built on: the only
+    real .gp file available has no <Section> markers at all, which is why
+    that parsing (below) is unit-tested against a synthetic snippet rather
+    than this fixture."""
+    source = read_gp_source(gp_ripple)
+    assert all(mb.section_text is None for mb in source.master_bars)
+
+
+def test_section_text_is_read_from_the_masterbar_when_present():
+    """GP7/8's own rehearsal-mark feature: <MasterBar><Section><Text>. Bars
+    with no <Section> at all, or a <Section> with an empty/missing <Text>,
+    both read as None - a bare <Letter>-only marker names no jump point."""
+    root = ET.fromstring("""
+        <GPIF>
+          <MasterBars>
+            <MasterBar><Bars>0</Bars></MasterBar>
+            <MasterBar>
+              <Bars>1</Bars>
+              <Section><Letter>A</Letter><Text>Verse 1</Text></Section>
+            </MasterBar>
+            <MasterBar>
+              <Bars>2</Bars>
+              <Section><Letter>B</Letter></Section>
+            </MasterBar>
+          </MasterBars>
+        </GPIF>
+    """)
+    master_bars = _parse_master_bars(root)
+    assert [mb.section_text for mb in master_bars] == [None, "Verse 1", None]
 
 
 def test_master_bar_track_bar_ids_align_to_tracks_order(gp_ripple):

@@ -94,6 +94,9 @@ class GpMasterBar:
     # (rather than inferring contiguous id ranges per track, which nothing
     # in the schema actually guarantees).
     track_bar_ids: List[int] = field(default_factory=list)
+    # GP's rehearsal-mark text ("Verse 1", "Chorus", ...), or None where this
+    # bar carries no <Section> - see _parse_master_bars.
+    section_text: Optional[str] = None
 
 
 @dataclass
@@ -200,7 +203,22 @@ def _parse_master_bars(root: ET.Element) -> List[GpMasterBar]:
         track_bar_ids = (
             [int(b) for b in bars_el.text.split()] if (bars_el is not None and bars_el.text) else []
         )
-        master_bars.append(GpMasterBar(time_sig=time_sig, key_fifths=key_fifths, track_bar_ids=track_bar_ids))
+
+        # GP's own rehearsal-mark feature ("Sections" in the GP7/8 UI, the
+        # dropdown used for exactly the same jump-around-the-song purpose
+        # our own Ctrl+Alt+Left/Right serves) - <MasterBar><Section><Text>.
+        # Untested against a real sample (none available with a Section
+        # placed - files/GP/Grateful Dead-Ripple-12-20-2025.gp has none), so
+        # read defensively like every other optional element here: absent
+        # is "not present", never an error. <Letter> (GP's own "A"/"B"/...
+        # short tag) is not read - our own label is the free-text <Text>,
+        # matching UgTimelineBuilder's [Section] label.
+        section_text = _cdata_text(mb_el.find("Section/Text")) or None
+
+        master_bars.append(GpMasterBar(
+            time_sig=time_sig, key_fifths=key_fifths, track_bar_ids=track_bar_ids,
+            section_text=section_text,
+        ))
     return master_bars
 
 

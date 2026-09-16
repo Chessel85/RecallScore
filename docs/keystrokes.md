@@ -39,12 +39,11 @@ through Tools > Keyboard Shortcuts.
 | Move to First Note | Home |
 | Move to Last Note | End |
 | Go to Measure | Ctrl+G |
-| Select Section | *(none)* |
 | Find | Ctrl+F |
 | Find Next | Alt+Right |
 | Find Previous | Alt+Left |
-| Previous Section | Ctrl+Alt+Left |
-| Next Section | Ctrl+Alt+Right |
+| Previous Jump Point | Ctrl+Alt+Left |
+| Next Jump Point | Ctrl+Alt+Right |
 
 Typing digits jumps to a bar number (Enter) or sets the loop length
 (Ctrl+Enter); **Escape** cancels a half-typed bar number, or — while

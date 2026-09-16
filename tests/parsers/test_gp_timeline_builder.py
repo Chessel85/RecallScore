@@ -7,7 +7,8 @@ from a bare parts_info=[] would just prove it does nothing, not that it
 works correctly.
 """
 from parsers.gp_reader import GpReader
-from parsers.gp_timeline_builder import GP_CHORD_VOICE_ID
+from parsers.gp_source import GpMasterBar, GpSource, GpTrack
+from parsers.gp_timeline_builder import GP_CHORD_VOICE_ID, GpTimelineBuilder
 
 
 def _chord_notes(data, part_id=None):
@@ -181,3 +182,26 @@ def test_playback_events_sound_the_whole_chord_not_one_note(gp_ripple):
     assert len(events) == 1
     _channel, _program, pitches, _duration_ms = events[0]
     assert len(pitches) >= 4
+
+
+def test_jump_points_are_built_from_section_text():
+    """GpMasterBar.section_text (gp_source.py's <Section><Text> parse) feeds
+    build_jump_points the same way UgTimelineBuilder's [Section] labels do -
+    unlike the chord-voice tests above, jump points don't depend on
+    parts_info/GpReader's chord-qualifying pass, so a bare, track-less
+    GpSource genuinely exercises this path rather than proving nothing."""
+    source = GpSource(
+        tracks=[GpTrack(index=0, name="Guitar", gmidi_program=25)],
+        master_bars=[
+            GpMasterBar(track_bar_ids=[], section_text=None),
+            GpMasterBar(track_bar_ids=[], section_text="Verse 1"),
+            GpMasterBar(track_bar_ids=[], section_text=None),
+            GpMasterBar(track_bar_ids=[], section_text="Chorus"),
+        ],
+    )
+    builder = GpTimelineBuilder("x.gp", [], source=source)
+    builder.build()
+    assert [(jp.label, jp.start_measure, jp.end_measure) for jp in builder.jump_points] == [
+        ("Verse 1", 2, 3),
+        ("Chorus", 4, 4),
+    ]

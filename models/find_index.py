@@ -55,7 +55,7 @@ class FindIndex:
         an occurrence that part/staff-mute has hidden everywhere else
         (invariant 8: one source of "where a marking is", not a second
         filtering rule). Objects with no part concept at all - RepeatSpan,
-        EndingSpan, SectionSpan, BarlineMark, SegnoMark/CodaMark/ToCodaMark/
+        EndingSpan, JumpPoint, BarlineMark, SegnoMark/CodaMark/ToCodaMark/
         FineMark, NavigationJump, and the diff-based key/time/tempo change
         points - carry no `part_id` field, so they are always visible,
         matching how they are score-wide in the note list too."""
@@ -165,8 +165,8 @@ class FindIndex:
                 + self.candidate_indices_for_target(FindTarget("marking", end_kind, ""))
             )
 
-        if kind == "section":
-            return [first_of(s.start_measure) for s in data.section_spans]
+        if kind == "jump_point":
+            return [first_of(s.start_measure) for s in data.jump_points]
         if kind == "repeat_start":
             return [first_of(s.start_measure) for s in data.repeat_spans]
         if kind == "repeat_end":

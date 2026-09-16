@@ -110,9 +110,14 @@ Related small models: **`models/strum_pattern.py`** (`StrumPattern(name, bpm,
 denominator, is_triplet, codes)` plus `slots_per_bar()`/`bar_count()`/
 `slot_ms()`/`slot_labels()`/`slot_rows()`), **`models/beat_position_words.py`**
 (`spoken_word_for_beat_position`, shared with the talking metronome and
-re-exported by `audio/position_announcer.py`), and **`models/section_span.py`**
-(`SectionSpan(label, start_measure, end_measure)`, published through
-`models/timeline_build.py` like every other side-channel list).
+re-exported by `audio/position_announcer.py`), and **`models/jump_point.py`**
+(`JumpPoint(label, start_measure, end_measure)` plus `build_jump_points()`,
+shared by UgTimelineBuilder and GpTimelineBuilder, published through
+`models/timeline_build.py` like every other side-channel list). Named "jump
+point" rather than "section" specifically to stay distinct from the
+unrelated multi-section MusicXML feature (`NavigationController.
+select_section`/`step_section`, `models/score_section.py`) - the two shared
+nothing but the word.
 
 ---
 
@@ -1113,7 +1118,7 @@ the user, unlike Region 5's own Ctrl+Home/Ctrl+End.
 
 Both methods now live in **`models/performance_rows.py`** (`PerformanceRows`, a
 `MusicData` collaborator — S17), reached through one-line delegators. They read
-everything (`section_spans`/`repeat_spans`/`hairpin_spans`/`direction_marks`/…
+everything (`jump_points`/`repeat_spans`/`hairpin_spans`/`direction_marks`/…
 and the `_bar_beat_label` / `_marking_part_prefix` / `_tempo_change_at` /
 `get_region_1_data` helpers) off `self.data`.
 

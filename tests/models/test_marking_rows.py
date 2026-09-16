@@ -7,7 +7,7 @@ from models.music_data import MusicData
 from models.note_data import NoteData
 from models.region3_row import MarkingRow, NoteRow
 from models.repeat_span import RepeatSpan
-from models.section_span import SectionSpan
+from models.jump_point import JumpPoint
 
 
 def _note(measure, quarters, part_id="P1"):
@@ -59,12 +59,12 @@ def test_ending_row_wording_and_position():
     assert [r.text for r in rows if isinstance(r, MarkingRow)] == ["Ending 1, end"]
 
 
-def test_section_row_survives_region_2_filtering_to_no_visible_notes():
-    md = _md(section_spans=[SectionSpan(label="Verse", start_measure=1, end_measure=2)])
+def test_jump_point_row_survives_region_2_filtering_to_no_visible_notes():
+    md = _md(jump_points=[JumpPoint(label="Verse", start_measure=1, end_measure=2)])
     md.active_event_index = 0
     md.set_active_voice_filter(set())  # every voice hidden
     rows = md.get_region_3_rows()
-    assert [r.text for r in rows] == ["Section Verse, start"]
+    assert [r.text for r in rows] == ["Jump Point Verse, start"]
 
 
 def test_note_rows_keep_their_visible_notes_index_after_marking_rows_prepended():
@@ -109,11 +109,11 @@ def test_one_bar_repeat_with_a_single_event_gets_one_bare_row():
     assert [r.text for r in rows if isinstance(r, MarkingRow)] == ["Repeat"]
 
 
-def test_one_bar_section_with_a_single_event_gets_one_bare_row():
-    md = _md(section_spans=[SectionSpan(label="A", start_measure=2, end_measure=2)])
+def test_one_bar_jump_point_with_a_single_event_gets_one_bare_row():
+    md = _md(jump_points=[JumpPoint(label="A", start_measure=2, end_measure=2)])
     md.active_event_index = 1
     rows = md.get_region_3_rows()
-    assert [r.text for r in rows if isinstance(r, MarkingRow)] == ["Section A"]
+    assert [r.text for r in rows if isinstance(r, MarkingRow)] == ["Jump Point A"]
 
 
 def test_one_bar_span_with_two_events_keeps_separate_start_and_end_rows():

@@ -21,7 +21,7 @@ class NoteRow:
 @dataclass
 class MarkingRow:
     """A Region 3 row that is not a note. `marking` is whatever object the
-    row describes - a span object (RepeatSpan/EndingSpan/SectionSpan/...), a
+    row describes - a span object (RepeatSpan/EndingSpan/JumpPoint/...), a
     DirectionMark, a NoteData a fermata row was derived from, or None for
     the placeholder "None"/"Click" rows.
 

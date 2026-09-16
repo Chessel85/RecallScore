@@ -1,19 +1,19 @@
 # tests/test_region_presenter_region5.py
-"""P2: Region 5's live Section/Chord/Lyric context rows (UG "Tab" import).
+"""P2: Region 5's live Jump Point/Chord/Lyric context rows (UG "Tab" import).
 
-An intra-section chord or lyric change relabels the context rows in place;
-crossing a section boundary rebuilds the whole list. Neither one fires the
-performance cue any more (PerformanceMarkingsImplementationPlan.md stage 6):
-a section is not one of the three structural changes (key/time/tempo) the
-cue was narrowed to - see tests/models/test_structural_change_cue.py for
-that behaviour.
+An intra-jump-point chord or lyric change relabels the context rows in
+place; crossing a jump point boundary rebuilds the whole list. Neither one
+fires the performance cue any more (PerformanceMarkingsImplementationPlan.md
+stage 6): a jump point is not one of the three structural changes
+(key/time/tempo) the cue was narrowed to - see
+tests/models/test_structural_change_cue.py for that behaviour.
 """
 from controllers.region_presenter import RegionPresenter
 from models.event_slice import EventSlice
 from models.music_data import MusicData
 from models.note_data import NoteData
 from models.parts_structure import PartStructureInfo
-from models.section_span import SectionSpan
+from models.jump_point import JumpPoint
 from models.synthetic_parts import CHORDS_PART_ID, LYRICS_PART_ID
 from widgets.region5_list_widget import Region5ListWidget
 
@@ -52,9 +52,9 @@ def _music_data():
             _chord_slice(2, 4.0, "G", "two"),
             _chord_slice(3, 8.0, "A", "three"),
         ],
-        section_spans=[
-            SectionSpan(label="Verse 1", start_measure=1, end_measure=2),
-            SectionSpan(label="Chorus", start_measure=3, end_measure=3),
+        jump_points=[
+            JumpPoint(label="Verse 1", start_measure=1, end_measure=2),
+            JumpPoint(label="Chorus", start_measure=3, end_measure=3),
         ],
     )
 
@@ -74,7 +74,7 @@ def _row_texts(region_5):
     return [region_5.item(i).text() for i in range(region_5.count())]
 
 
-def test_intra_section_chord_change_relabels_in_place_with_no_cue(qtbot, null_synth):
+def test_intra_jump_point_chord_change_relabels_in_place_with_no_cue(qtbot, null_synth):
     presenter, md, region_5 = _presenter(qtbot, null_synth)
 
     md.active_event_index = 0
@@ -91,8 +91,8 @@ def test_intra_section_chord_change_relabels_in_place_with_no_cue(qtbot, null_sy
     assert "Chord: D" not in texts
 
 
-def test_crossing_a_section_boundary_rebuilds_without_a_cue(qtbot, null_synth):
-    """A section is not one of the three structural changes the cue was
+def test_crossing_a_jump_point_boundary_rebuilds_without_a_cue(qtbot, null_synth):
+    """A jump point is not one of the three structural changes the cue was
     narrowed to (stage 6) - the list still rebuilds, but nothing sounds."""
     presenter, md, region_5 = _presenter(qtbot, null_synth)
 
@@ -105,5 +105,5 @@ def test_crossing_a_section_boundary_rebuilds_without_a_cue(qtbot, null_synth):
 
     assert null_synth.performance_cues == []
     texts = _row_texts(region_5)
-    assert "Section: Chorus" in texts
-    assert any(t.startswith("* Section Chorus") for t in texts)
+    assert "Jump Point: Chorus" in texts
+    assert any(t.startswith("* Jump Point Chorus") for t in texts)

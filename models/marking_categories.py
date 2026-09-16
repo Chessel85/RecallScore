@@ -24,7 +24,7 @@ from typing import Dict, Optional, Tuple
 
 ALL_CATEGORIES: Tuple[str, ...] = (
     "repeats_endings",
-    "sections",
+    "jump_points",
     "hairpins",
     "jump_instructions",
     "lines",
@@ -54,7 +54,7 @@ ALL_CATEGORIES: Tuple[str, ...] = (
 # can be a long range description.
 CATEGORY_NAMES: Dict[str, str] = {
     "repeats_endings": "Repeats and endings",
-    "sections": "Sections",
+    "jump_points": "Jump points",
     "hairpins": "Hairpins",
     "jump_instructions": "Jump instructions",
     "lines": "Lines",

@@ -36,7 +36,7 @@ whatever they already held that isn't classification-routable.
 Not routed through level_of() - these have no part_id/staff of their own at
 all, so there is nothing for ground rules 1/3/4 to key off, and they stay
 exactly where they always were (score level, in score_level_rows):
-RepeatSpan/EndingSpan/SectionSpan, BarlineMark, SegnoMark/CodaMark/
+RepeatSpan/EndingSpan/JumpPoint, BarlineMark, SegnoMark/CodaMark/
 ToCodaMark/FineMark/NavigationJump, and the tempo "structural change" label
 (structural_change_labels). Ground rule 2 (score when the majority of
 parts agree, else part for each differing part - PerformanceMarkings
@@ -249,8 +249,8 @@ class MarkingRows:
             _add(span, "Repeat", "repeats_endings")
         for span in data.ending_spans:
             _add(span, f"Ending {span.number}", "repeats_endings")
-        for span in data.section_spans:
-            _add(span, f"Section {span.label}" if span.label else "Section", "sections")
+        for span in data.jump_points:
+            _add(span, f"Jump Point {span.label}" if span.label else "Jump Point", "jump_points")
         # Stage 10: a barline wavy-line, the same bare start/end/one-bar
         # rendering as the three spans above - it too is scanned score-wide
         # (first part only), never per-part.

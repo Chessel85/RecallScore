@@ -141,7 +141,7 @@ def test_bar_counter_increments_once_per_chord_event():
     assert builder.total_measures == 4
 
 
-def test_section_spans_are_built_from_section_labels():
+def test_jump_points_are_built_from_section_labels():
     content = (
         "[Intro]\n\n[ch]C[/ch]  [ch]G[/ch]\n"
         "[Verse 1]\n\n[tab][ch]Am[/ch]  [ch]F[/ch]\nHi there[/tab]\n"
@@ -150,7 +150,7 @@ def test_section_spans_are_built_from_section_labels():
     builder = UgTimelineBuilder("ultimate-guitar-1.ug", [], source=_source(content))
     builder.build()
 
-    spans = builder.section_spans
+    spans = builder.jump_points
     assert [(s.label, s.start_measure, s.end_measure) for s in spans] == [
         ("Intro", 1, 2),
         ("Verse 1", 3, 5),
@@ -278,7 +278,7 @@ def test_bare_plaintext_chord_line_over_lyric_line():
     assert [n.step_name for n in chords] == ["D", "F# minor"]
     assert [n.chord_symbol for n in chords] == ["D", "F# minor"]
     assert lyrics[0].step_name.startswith("I know")
-    assert [sp.label for sp in b.section_spans] == ["Verse 1"]
+    assert [sp.label for sp in b.jump_points] == ["Verse 1"]
 
 
 def test_lyric_line_with_no_chord_above_is_a_lyrics_only_bar():
@@ -341,5 +341,5 @@ def test_section_less_tab_block_gets_a_picking_library_label():
     )
     b = UgTimelineBuilder("x.ug", [], source=_source(content))
     b.build()
-    labels = [sp.label for sp in b.section_spans]
+    labels = [sp.label for sp in b.jump_points]
     assert labels == ["Intro", "Picking: D \u2192 F#m"]

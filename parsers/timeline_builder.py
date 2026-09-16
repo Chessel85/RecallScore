@@ -868,9 +868,13 @@ class TimelineBuilder:
         self.to_coda_marks: List[ToCodaMark] = []
         self.fine_marks: List[FineMark] = []
         self.navigation_jumps: List[NavigationJump] = []
-        # P2: song sections. Only UgTimelineBuilder populates this so far
-        # (MusicXML rehearsal marks could feed it later); stubbed empty here.
-        self.section_spans: List = []
+        # P2: song jump points. MusicXML's own equivalent, <rehearsal>
+        # marks, is already a first-class DirectionMark kind with its own
+        # Region 3/5 rows, Find target and Performance Report line -
+        # NavigationController's Ctrl+Alt+Left/Right reads those directly
+        # rather than duplicating them here (invariant 8). Stubbed empty,
+        # like MidiTimelineBuilder.
+        self.jump_points: List = []
         # From measure_start_quarters, which exists regardless of note
         # content - deriving it from timeline_slices would undercount a
         # trailing all-rest measure, since rests are skipped from there.

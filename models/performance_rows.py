@@ -127,16 +127,16 @@ class PerformanceRows:
                     jump_target_quarters=jump_q,
                 )))
 
-        # P2 / section 6: the song section(s) containing the cursor come
+        # P2 / section 6: the song jump point(s) containing the cursor come
         # first, one row stating the full range (Ctrl+Home -> first bar,
         # Ctrl+End -> last bar). The label only changes when the cursor
-        # crosses a section boundary, so _refresh_region_5's diff means one
-        # change cue per section.
+        # crosses a jump point boundary, so _refresh_region_5's diff means
+        # one change cue per jump point.
         _span_row(
-            data.section_spans, _in_measure,
-            lambda s: f"Section {s.label}, "
+            data.jump_points, _in_measure,
+            lambda s: f"Jump Point {s.label}, "
                       f"{marking_labels.range_label(bar_word, s.start_measure, 1.0, s.end_measure, 1.0)}",
-            category="sections",
+            category="jump_points",
         )
 
         # Repeat / ending spans: a measure-number range check (barlines fall
@@ -626,7 +626,7 @@ class PerformanceRows:
             rows.extend(ReportRow(level=1, **row_fn(it)) for it in items)
 
         _tally(
-            "Sections", data.section_spans,
+            "Jump Points", data.jump_points,
             lambda s: {"text": f"{s.label}: {bar_word} {s.start_measure} to {bar_word} {s.end_measure}"},
         )
 

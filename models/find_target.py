@@ -59,9 +59,9 @@ def occurrence_label(count: int) -> str:
 # philosophy Options > Reorder Attributes... already established for
 # attribute keys.
 MARKING_KINDS: List[Tuple[str, str]] = [
-    # P2: song sections (Intro/Verse/Chorus/...). UG-only today; presence-
+    # P2: song jump points (Intro/Verse/Chorus/...). UG/GP today; presence-
     # filtered like every other kind, so nothing shows for a score without.
-    ("section", "Section"),
+    ("jump_point", "Jump Point"),
     ("repeat_any", "Repeat (any)"),
     ("repeat_start", "Repeat, start"),
     ("repeat_end", "Repeat, end"),

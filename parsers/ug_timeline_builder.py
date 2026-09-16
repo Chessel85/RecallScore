@@ -37,7 +37,7 @@ from models.event_slice import EventSlice
 from models.note_data import NoteData
 from models.parts_structure import PartStructureInfo
 from models.pitch_spelling import spell_pitch
-from models.section_span import SectionSpan
+from models.jump_point import JumpPoint, build_jump_points
 from models.synthetic_parts import (
     CHORDS_PART_ID,
     LYRICS_PART_ID,
@@ -553,9 +553,9 @@ class UgTimelineBuilder:
         self.to_coda_marks: List = []
         self.fine_marks: List = []
         self.navigation_jumps: List = []
-        # P2: [Intro]/[Verse 1]/[Chorus]/... labels, as spans of the
+        # P2: [Intro]/[Verse 1]/[Chorus]/... labels, as jump points over the
         # fabricated bars.
-        self.section_spans: List[SectionSpan] = []
+        self.jump_points: List[JumpPoint] = []
         self.total_measures: int = 0
 
     def build(self) -> List[EventSlice]:
@@ -586,7 +586,7 @@ class UgTimelineBuilder:
             quarters += 4.0  # uniform bar advance, chord bar or tab bar alike
 
         self.total_measures = measure
-        self.section_spans = _section_spans(measure_sections, self.total_measures)
+        self.jump_points = build_jump_points(measure_sections, self.total_measures)
         return slices
 
     def _chord_slice(self, event: _ChordEvent, measure: int, quarters: float) -> EventSlice:
@@ -678,25 +678,3 @@ class UgTimelineBuilder:
                 quarters_from_start=quarters + k * 0.5,
             ))
         return slices
-
-
-def _section_spans(measure_sections: List[str], total_measures: int) -> List[SectionSpan]:
-    """One SectionSpan per run of consecutive bars sharing a [Section] label.
-    end_measure is the bar before the next section starts (or total_measures
-    for the last). Bars before the first [Section] label carry "" and are
-    not given a span."""
-    spans: List[SectionSpan] = []
-    current: Optional[str] = None
-    for idx, label in enumerate(measure_sections):
-        measure = idx + 1
-        if not label:
-            continue
-        if current is not None and label == current:
-            continue
-        if spans:
-            spans[-1].end_measure = measure - 1
-        spans.append(SectionSpan(label=label, start_measure=measure, end_measure=measure))
-        current = label
-    if spans:
-        spans[-1].end_measure = max(spans[-1].start_measure, total_measures)
-    return spans

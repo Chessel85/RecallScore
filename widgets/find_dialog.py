@@ -68,9 +68,9 @@ class FindDialog(QDialog):
         for target in self._targets:
             # "marking" is a shared umbrella over ~46 structural kinds, so it
             # normally prefixes the row ("Marking: Repeat start"). A song
-            # section is the one kind users think of by name, not as a
-            # "marking", so it drops the prefix and reads just "Section".
-            if target.category == "marking" and target.key == "section":
+            # jump point is the one kind users think of by name, not as a
+            # "marking", so it drops the prefix and reads just "Jump Point".
+            if target.category == "marking" and target.key == "jump_point":
                 label_text = target.label
             else:
                 prefix = _CATEGORY_PREFIX.get(target.category, target.category.capitalize())

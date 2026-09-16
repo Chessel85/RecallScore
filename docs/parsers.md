@@ -319,6 +319,14 @@ full chord sounds.
 direction — never inferred, even though the real strike rhythm is far denser than
 the marked beats (the user's explicit "leave unstated" decision).
 
+**Jump points.** `gp_source.py`'s `_parse_master_bars` reads each
+`<MasterBar>`'s own `<Section><Text>` rehearsal mark (GP's UI feature for
+exactly the same "jump around the song" purpose as our own
+`Ctrl+Alt+Left/Right`) into `GpMasterBar.section_text`; `GpTimelineBuilder`
+feeds that list to `build_jump_points()`, the same helper `UgTimelineBuilder`
+uses for `[Section]` labels — see "Jump points (P2)" above. Untested against
+a real sample (none available with one placed).
+
 `GpReader.load()` defaults the Chords voice's `voice_display_attributes` to
 `{"step", "beat position", "strum"}`. `pitch_sort_key` treats the chord note's
 representative pitch as a tie-break only — it always sorts after every real
@@ -405,17 +413,33 @@ flat one-row-per-slot list (`StrumPattern.slot_rows()`, `"Bar 1, 1 e: pause"`),
 and an `Alt+P` looped demo routing through `SynthEngine.play_strum_pattern`.
 Disabled unless `MusicData.ug_strum_patterns` is non-empty.
 
-### Sections (P2)
+### Jump points (P2)
 
 `[Intro]`/`[Verse 1]`/`[Chorus]` labels become
-`UgTimelineBuilder.section_spans: List[SectionSpan]` — label verbatim (homoglyphs
-and all), `end_measure` = bar before the next section's start (or
-`total_measures`). Surfaced as a Region 5 row pair, a Find marking kind, a
-Performance Report block, and `Ctrl+Alt+Left/Right` section stepping
-(`NavigationController.next_section`/`previous_section` — a positional jump that
-cues `boundary_hit` at the ends and never wraps, unlike Find). Written
-generically against `section_spans`, so feeding it from GP section text or
-MusicXML rehearsal marks later needs no navigation changes.
+`UgTimelineBuilder.jump_points: List[JumpPoint]` (`models/jump_point.py`,
+`build_jump_points()`) — label verbatim (homoglyphs and all), `end_measure` =
+bar before the next jump point's start (or `total_measures`). Surfaced as a
+Region 5 row pair, a Find marking kind, a Performance Report block, and
+`Ctrl+Alt+Left/Right` jump-point stepping
+(`NavigationController.next_jump_point`/`previous_jump_point` — a positional
+jump that cues `boundary_hit` at the ends and never wraps, unlike Find).
+Named "jump point" rather than "section" so it can't be confused with the
+unrelated multi-section MusicXML feature (`NavigationController.
+select_section`/`step_section`, below) — the two share nothing but the word.
+Written generically against `build_jump_points()`, so GpTimelineBuilder feeds
+it from GP's own `<Section>` rehearsal marks (`gp_source.py`'s
+`GpMasterBar.section_text` — untested against a real sample, none available
+with one set) the same way.
+
+MusicXML does **not** feed this: its equivalent, `<rehearsal>` marks, is
+already a first-class `DirectionMark` kind (`kind="rehearsal"`) with its own
+Region 3 row ("Rehearsal mark A"), Region 5 row, Find target and Performance
+Report line — modelling it as a `JumpPoint` too would duplicate all four
+(invariant 8: two copies of the same fact will diverge). Instead,
+`NavigationController._step_jump_point` reads `MusicData.direction_marks`
+directly for `kind == "rehearsal"` alongside `jump_points`, so
+`Ctrl+Alt+Left/Right` steps through rehearsal marks for MusicXML with no
+second representation of them.
 
 ### Tablature blocks (P4)
 
