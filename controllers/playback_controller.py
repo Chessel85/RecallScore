@@ -536,6 +536,27 @@ class PlaybackController(QObject):
                 self.refresh_gate.flush()
             self.playback_state_changed.emit()
 
+    def revert_pause_on_move(self) -> None:
+        """Called by NavigationController on every real cursor move (never
+        on a boundary_hit no-op, and never for Region 3's Up/Down note
+        browsing, which isn't a navigate_requested move at all).
+
+        A paused playback resuming from where it was paused only makes
+        sense if the cursor is still sitting there. Once the user has moved
+        - by any means - that position is stale, so this drops straight to
+        Stopped rather than leaving Space poised to jump back to the old
+        paused note. Deliberately NOT the ordinary stop(): that syncs
+        active_event_index from the Sequencer's own reverted position
+        (Ref 10 AC5), which would stomp the navigation move that just
+        landed. Silencing/resetting the Sequencer only, leaving
+        active_event_index exactly where navigation put it, is what makes
+        the next Space behave like an ordinary stopped-state start."""
+        if self.sequencer is None or not self.sequencer.is_paused:
+            return
+        self.cancel_play_run()
+        self.sequencer.stop()
+        self.playback_state_changed.emit()
+
     def stop(self) -> None:
         """Stops whatever is running before anything new starts. Only a
         cursor-tracking run syncs active_event_index and the regions back

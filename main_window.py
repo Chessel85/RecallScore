@@ -434,6 +434,11 @@ class MainWindow(QMainWindow):
         )
         self.live_midi.start()
         self.navigation = NavigationController(self.session, parent=self)
+        # A paused playback is dropped to Stopped on any real cursor move -
+        # see NavigationController.playback / PlaybackController.
+        # revert_pause_on_move. playback already exists at this point
+        # (constructed above), unlike presenter below.
+        self.navigation.playback = self.playback
         # Hands-free voice control (Ref 19): recognized commands call
         # straight into navigation/playback, so it's constructed once both
         # exist. Global like live_midi above, for the same reasoning -

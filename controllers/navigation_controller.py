@@ -62,6 +62,13 @@ class NavigationController(QObject):
         # resets Region 5's diff state as well as moving the cursor, more
         # than the position_changed signal alone conveys.
         self.presenter = None
+        # Set by MainWindow alongside presenter above (playback already
+        # exists by the time navigation is constructed, so this could be
+        # passed into __init__ instead - kept as a deferred attribute purely
+        # for symmetry with presenter). Every method that actually moves the
+        # cursor calls PlaybackController.revert_pause_on_move through this -
+        # see _emit_position_changed and select_section.
+        self.playback = None
 
     @property
     def music_data(self):
@@ -69,9 +76,23 @@ class NavigationController(QObject):
 
     def _moved(self, ok: bool, announce_measure: bool = False) -> None:
         if ok:
-            self.position_changed.emit(True, announce_measure)
+            self._emit_position_changed(announce_measure)
         else:
             self.boundary_hit.emit()
+
+    def _emit_position_changed(self, announce_measure: bool = False) -> None:
+        """Every entry point that actually moves the cursor - whether
+        through _moved's ok branch or directly (timeline_home/end, the
+        Region 5 jumps, jump points, Find) - funnels through here rather
+        than emitting position_changed itself, so a paused playback is
+        dropped to Stopped on any of them (revert_pause_on_move) without
+        duplicating that check at every call site. Browsing Region 3's note
+        list with Up/Down never reaches here - it's plain QListWidget
+        selection, not a navigate_requested move - so it deliberately does
+        NOT cancel a pause, per the user's ask."""
+        if self.playback is not None:
+            self.playback.revert_pause_on_move()
+        self.position_changed.emit(True, announce_measure)
 
     # --- typed bar number (Ref 6) -----------------------------------------
 
@@ -154,7 +175,7 @@ class NavigationController(QObject):
         if not self.music_data:
             return
         self.music_data.move_timeline_home()
-        self.position_changed.emit(True, True)
+        self._emit_position_changed(True)
 
     def timeline_end(self) -> None:
         """End (Ref 5) - see timeline_home."""
@@ -162,7 +183,7 @@ class NavigationController(QObject):
         if not self.music_data:
             return
         self.music_data.move_timeline_end()
-        self.position_changed.emit(True, True)
+        self._emit_position_changed(True)
 
     def to_typed_measure(self, digits: str) -> None:
         """Ref 6: Enter with pending digits jumps to that bar's first active
@@ -217,7 +238,7 @@ class NavigationController(QObject):
             return
 
         self.music_data.active_event_index = index
-        self.position_changed.emit(True, False)
+        self._emit_position_changed(False)
 
     def jump_to_report_row(self, row) -> bool:
         """Edit > Performance Report... (PITweaksImplementationPlan.md
@@ -253,7 +274,7 @@ class NavigationController(QObject):
             return False
 
         self.music_data.active_event_index = index
-        self.position_changed.emit(True, False)
+        self._emit_position_changed(False)
         return True
 
     def next_jump_point(self) -> None:
@@ -297,7 +318,7 @@ class NavigationController(QObject):
             self.boundary_hit.emit()
             return
         data.active_event_index = target
-        self.position_changed.emit(True, False)
+        self._emit_position_changed(False)
 
     # --- score sections (multi-section MusicXML) -------------------------
     #
@@ -326,6 +347,8 @@ class NavigationController(QObject):
         data = self.music_data
         if data is None or not data.set_active_section(index):
             return False
+        if self.playback is not None:
+            self.playback.revert_pause_on_move()
         if self.presenter is not None:
             # Reset FIRST: Region 5 must not be diffed against the previous
             # section's rows, or its "None" placeholder fails to render.
@@ -394,6 +417,6 @@ class NavigationController(QObject):
         # silence the cue almost immediately, the same bug already fixed
         # for Region 5's own change cue (see MainWindow._update_timeline_
         # views's ordering comment).
-        self.position_changed.emit(True, False)
+        self._emit_position_changed(False)
         if wrapped:
             self.boundary_hit.emit()
