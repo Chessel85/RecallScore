@@ -62,8 +62,16 @@ def test_attribute_label_stave_is_excluded_by_d15_and_never_translated():
     assert attribute_label("stave", uk_terms=True) == "stave"
 
 
+def test_attribute_label_shortens_beat_position_key():
+    """The attribute key stays "beat position" (dict lookups, .rsc
+    persistence) - only the rendered label shortens, same shape as
+    "measure"/"grace", and dialect-independent unlike "measure"."""
+    assert attribute_label("beat position", uk_terms=False) == "beat"
+    assert attribute_label("beat position", uk_terms=True) == "beat"
+
+
 def test_attribute_label_passes_through_unmapped_keys():
-    for key in ("step", "octave", "midi", "beat position", "duration", "part", "voice", "string", "fret"):
+    for key in ("step", "octave", "midi", "duration", "part", "voice", "string", "fret"):
         assert attribute_label(key, uk_terms=False) == key
         assert attribute_label(key, uk_terms=True) == key
 

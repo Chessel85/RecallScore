@@ -302,6 +302,12 @@ def attribute_label(attribute_key: str, uk_terms: bool) -> str:
     wiring, this only affects rendered text."""
     if attribute_key == "measure":
         return bar_word(uk_terms)
+    # The attribute key stays the two-word "beat position" (dict lookups,
+    # .rsc persistence, Find's CORE_ATTRIBUTE_KEYS exclusion) - only the
+    # rendered label shortens to "beat", since it's always heard right next
+    # to the bar/measure number it's a position within.
+    if attribute_key == "beat position":
+        return "beat"
     # P1: the attribute key is "grace" (one token),
     # but it reads as "grace note" everywhere it's shown. Every other new
     # P1 key ("tie", "slur", "tuplet", "fermata", "arpeggio", "accidental",
