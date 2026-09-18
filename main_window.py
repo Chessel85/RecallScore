@@ -1043,7 +1043,12 @@ class MainWindow(QMainWindow):
         self.presenter.announce_play_mode(mode)
 
     def toggle_lead_in(self):
-        self._actions.lead_in_toggle.setChecked(self.playback.toggle_lead_in())
+        enabled = self.playback.toggle_lead_in()
+        self._actions.lead_in_toggle.setChecked(enabled)
+        accessible_announcer.announce(
+            self.region_3,
+            f"Lead in {'on' if enabled else 'off'}",
+        )
 
     def toggle_refresh_on_playback(self):
         """Ctrl+H: flips the Delay Refresh gate's on/off setting for the
@@ -1126,9 +1131,14 @@ class MainWindow(QMainWindow):
             )
 
     def toggle_position_announcer(self):
-        self._actions.position_announcer.setChecked(
-            self.playback.toggle_position_announcer()
-        )
+        enabled = self.playback.toggle_position_announcer()
+        self._actions.position_announcer.setChecked(enabled)
+        sequencer = self.playback.sequencer
+        if sequencer is None or not sequencer.is_playing:
+            accessible_announcer.announce(
+                self.region_3,
+                f"Position announcer {'on' if enabled else 'off'}",
+            )
 
     def toggle_bar_line_indicator(self):
         """Ctrl+B: on/off for the bar-line-crossing beep. Spoken aloud
@@ -1162,7 +1172,12 @@ class MainWindow(QMainWindow):
         )
 
     def toggle_live_midi_input(self):
-        self._actions.live_midi_input.setChecked(self.live_midi.toggle_enabled())
+        enabled = self.live_midi.toggle_enabled()
+        self._actions.live_midi_input.setChecked(enabled)
+        accessible_announcer.announce(
+            self.region_3,
+            f"Live MIDI {'on' if enabled else 'off'}",
+        )
 
     def toggle_voice_control(self):
         self._actions.voice_control.setChecked(self.voice_control.toggle_enabled())
