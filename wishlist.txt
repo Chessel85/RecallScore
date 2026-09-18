@@ -1,3 +1,4 @@
+!.venv/scripts/python main.py
 Need to write the user guide better. 
 stripping announcement of attribute name during playback
 If a stave has only one voice, then no point opening it in the parts view and no point having "Add attribute to voice" etc.

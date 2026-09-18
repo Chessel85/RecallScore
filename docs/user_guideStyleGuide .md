@@ -114,7 +114,7 @@ Pressing control+N or bringing up the context menu on a line adds and removes th
 
 ### Status Bar
 
-Six individually focusable fields: 
+The status bar is made up of six individually focusable fields: 
 
 * Measure and beat position,
 *  Key signature
@@ -128,45 +128,63 @@ Access the status bar with F6 and use tab to move through each element.
 
 Tempo shows the current playback tempo.  Key and time signature reflect the current values based on the current position.  Don't ask me what happens if different parts have different values.  I have only just thought about this.
 
-## 5. Navigating the Timeline
+## Orientation
 
-Everything in this section only takes effect while focus is in the Note
-region (Region 3). The same keys do nothing in the other regions - each
-of those uses its own native navigation instead.
+It is important to keep a sense of the current position within a score.  There are several ways Recall Score helps with this:
 
-Moving the cursor with the keys in this section always steps through the
-score's notated notes in written order, from start to end - it never
-follows a repeat barline, ending, Segno, Coda or Da Capo/Dal Segno
-instruction. Those markings are only actually followed during real
-playback (section 7); section 8 covers seeing and jumping
-to them directly.
+### Bar and beat position in the status bar
 
-### 5.1 Stepping Note by Note (Left / Right Arrow)
+Press the screen reader keystroke to read the  status bar.  This is NVDA+End for NVDA and Jaws+Page Down for Jaws.  [What is narrator?]
 
-Moves to the next or previous active event - a position in the score
-where at least one currently-visible note sounds. All notes at the new
-position are selected and played together.
+The bar and beat position are the first two pieces of information announced.
 
-### 5.2 Jumping by Measure (Ctrl+Left / Ctrl+Right)
+### Bar Line Indicator
 
-`Ctrl+Right Arrow` jumps to the first active event of the next bar.
-`Ctrl+Left Arrow` jumps to the first active event of the current bar, or
-to the previous bar's first active event if you're already sitting on
-it. If the piece has a pickup bar, it's numbered 0 and comes before bar
-1. A short "Measure `<number>`" announcement is spoken just before the
-notes at the new bar are read, so you always know which bar you've
-landed on - the same announcement is heard when jumping by Home/End,
-typing a bar number, using Go to Measure..., or navigating by voice
-command.
+The bar line indicator plays a short beep whenever a barline is crossed.  Toggle this feature on/off with control+B.
 
-Bar numbers come straight from the file's own notation for a MusicXML or
-Guitar Pro score. A MIDI file has no real bar markers - measure
-boundaries are reconstructed from its tempo and time-signature timing, so
-a missing or incorrect time signature can shift them - and an Ultimate
-Guitar import fabricates exactly one bar per chord change rather than
-reading any real rhythm (section 10.5). Treat bar numbers from either of
-those two sources as a close approximation, not a musically exact fact.
+There are different sounds for repeat barlines, double bar lines and thick bar lines.
 
+#### Metronome
+
+Toggle the metronome  on/off with control+M.  The metronome sounds during playback.  It also sounds when moving through the time line and acts as a position to land on even if there are no notes present.
+
+### Position Announcer
+
+A talking metronome toggled on/off with control+P.
+This speaks the beat position plus a matching 'e', 'and' and 'a' sound.  
+It only announces when a note is present at the position.
+
+### Position Attribute 
+
+All notes have the bar and position attribute.  Select any note from the notes list and tab to the attribute list.  Arrow down to 'position' and bring up the context menu.  Arrow down the popup menu.
+The attribute can be added to notes just in the same voice, same stave, same part or all parts in the score.
+
+# Setting Up A MIDI Keyboard
+
+If there is a MIDI keyboard /  controller attached to the computer, Recall Score can link to it and notes played on the keyboard come through the same sound engine as the score playback.  
+
+Toggle live input with control+D.  Setting it up is via the Live MIDI Input Settings menu item, or control+shift+L.
+
+The settings dialogue lists the available input devices.  The associated general MIDI instrument, pan and volume are also set here.
+
+# Learning A Score
+
+## Familiarisation
+
+When learning a new piece, play it through several times in its entireity.  It is valuable to have a feel of the general shape of the piece.  
+
+Load the score file and press space to play.  If the instruments do not sound correct, use the Instruments dialogue  in the Parts menu (control+shift+I) which allows each part of the score to have a new general MIDI instrument associated with it.
+
+These instruments are stored and will be the same the next time the score is loaded.
+
+## Performance Report
+
+The Performance Report in the Tools menu (control+shift+F) gives an overview of the score.  title, composer etc but also structural innformation such as repeats, endings and codas.
+
+## Filtering Parts
+
+It is useful  xxxx
+## General Score
 ### 5.3 Jumping to the Start and End of the Piece (Home / End)
 
 `Home` moves to the very first active note (the pickup bar, if there is

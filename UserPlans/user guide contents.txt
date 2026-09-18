@@ -8,13 +8,11 @@ Notes - moving up and down and left and right
 Attributes
 Performance information
 The status bar 
-xxx
-Adding and removing attributes to the note listand reordering attributes 
-Adding and removing performance information to the note list
 Orientation - metronomes, bar indicator, status bar  
 Setting up a keyboard 
 Learning a score. 
 Filtering parts
+<got up to here>
 Learning notes in a bar and adding attributes 
 Playing one bar with lead in, metronome, talking metronome, changing speed
 Managing screen reader output - refresh off and on, shifting refresh 

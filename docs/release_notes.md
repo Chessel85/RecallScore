@@ -7,6 +7,9 @@
 * Control left/right are now global, and alt home/end are performance info specific moving to start and end of selected spanning item
 * control+number to announce attribute and loop length alt+page up and down are now also global
 * Improved wording for quick nav keystrokes in navigation menu
+* Moving position when paused reverts playback state to stopped so replay starts from the new moved to position 
+* Changed attribute 'bar position' to just 'beat'.
+* Added accessibility announcements for play lead in, position announcer and live midi.
 
 ## 2026.1.61
 
