@@ -40,6 +40,11 @@ from controllers.voice_control_controller import VoiceControlController
 from models import marking_categories
 from models.metronome_pattern import default_pattern, snap_time_signature
 from models.music_data import MusicData
+from models.performance_indicator_mode import (
+    PERFORMANCE_INDICATOR_ALWAYS_ON,
+    PERFORMANCE_INDICATOR_OFF,
+    PERFORMANCE_INDICATOR_ON_EXCEPT_WHEN_PLAYING,
+)
 from models.score_formats import SCORE_FORMATS
 from models.vocabulary import bar_word
 from parsers.file_signature import precheck as precheck_score_file
@@ -460,6 +465,19 @@ class MainWindow(QMainWindow):
             self.region_4, self.region_5, self.status_bar,
             playback_status_fields=self.playback.status_fields,
             region_1_section_tabs=self.region_1_section_tabs,
+            # is_play_run_active alone misses a plain "play to end" run with
+            # both lead-in and looping off - _start_from_cursor only builds
+            # a _PlayRun (what is_play_run_active checks) when either is on;
+            # otherwise it calls sequencer.play_from() directly and
+            # is_play_run_active stays False for the run's entire duration.
+            # Same combined check as PlaybackController.end_mixer_edit, and
+            # for the same reason: is_play_run_active alone catches a
+            # pending count-in/loop-restart sequencer.is_playing can't see,
+            # sequencer.is_playing alone catches the plain-run case
+            # is_play_run_active can't see - the cue needs both covered.
+            is_playing=lambda: self.playback.is_play_run_active or (
+                self.playback.sequencer is not None and self.playback.sequencer.is_playing
+            ),
             parent=self,
         )
         # While it is visible the section tab bar joins the Tab/Shift+Tab
@@ -490,7 +508,10 @@ class MainWindow(QMainWindow):
         # The menu's QActions are reached as self._actions.<name> everywhere
         # (production and tests). MenuBuilder.Actions is the one list of them;
         # the window keeps no per-action aliases of its own.
-        self._actions = MenuBuilder(self, self, self.session.uk_terms).build()
+        self._actions = MenuBuilder(
+            self, self, self.session.uk_terms,
+            performance_indicator_mode=app_settings.load().performance_indicator_mode,
+        ).build()
 
         # Global (AppSettings.play), not per-score - the lead-in toggle is
         # checkable and set once here from the loaded settings, kept in sync
@@ -1140,6 +1161,41 @@ class MainWindow(QMainWindow):
                 self.region_3,
                 f"Position announcer {'on' if enabled else 'off'}",
             )
+
+    def _select_performance_indicator_off(self, checked: bool = False):
+        self._set_performance_indicator_mode(PERFORMANCE_INDICATOR_OFF)
+
+    def _select_performance_indicator_on_except_when_playing(self, checked: bool = False):
+        self._set_performance_indicator_mode(PERFORMANCE_INDICATOR_ON_EXCEPT_WHEN_PLAYING)
+
+    def _select_performance_indicator_always_on(self, checked: bool = False):
+        self._set_performance_indicator_mode(PERFORMANCE_INDICATOR_ALWAYS_ON)
+
+    def _set_performance_indicator_mode(self, mode: str):
+        """Options > Performance Indicator submenu: picking an item directly
+        (as opposed to cycling with Ctrl+C) sets the mode, persists it, and
+        keeps the three checkable items in sync - the same shape as
+        set_uk_terms. Not spoken aloud: unlike Ctrl+C, this is reached via
+        the menu, so the checkable item's own state change is what NVDA
+        announces."""
+        self.presenter.performance_indicator_mode = mode
+        app_settings.set_performance_indicator_mode(mode)
+        self._sync_performance_indicator_actions(mode)
+
+    def _sync_performance_indicator_actions(self, mode: str):
+        self._actions.performance_indicator_off.setChecked(mode == PERFORMANCE_INDICATOR_OFF)
+        self._actions.performance_indicator_on_except_when_playing.setChecked(
+            mode == PERFORMANCE_INDICATOR_ON_EXCEPT_WHEN_PLAYING
+        )
+        self._actions.performance_indicator_always_on.setChecked(mode == PERFORMANCE_INDICATOR_ALWAYS_ON)
+
+    def cycle_performance_indicator_mode(self):
+        """Ctrl+C: rotate Off -> On except when playing -> Always on -> Off.
+        Non-checkable (three states), so the new mode is spoken aloud - the
+        only other trace is the Options submenu, which isn't open."""
+        mode = self.presenter.cycle_performance_indicator_mode()
+        self._sync_performance_indicator_actions(mode)
+        self.presenter.announce_performance_indicator_mode(mode)
 
     def toggle_bar_line_indicator(self):
         """Ctrl+B: on/off for the bar-line-crossing beep. Spoken aloud

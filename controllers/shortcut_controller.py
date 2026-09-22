@@ -220,6 +220,7 @@ _CATEGORY_OVERRIDES: Dict[str, str] = {
     "UK": "Language",
     "US": "Language",
     "Toggle Bar Line Indicator": "Orientation",
+    "Cycle Performance Indicator": "Orientation",
     "Toggle Metronome": "Orientation",
     "Toggle Position Announcer": "Orientation",
     "Toggle Live MIDI Input": "Options",

@@ -12,7 +12,6 @@ Orientation - metronomes, bar indicator, status bar
 Setting up a keyboard 
 Learning a score. 
 Filtering parts
-<got up to here>
 Learning notes in a bar and adding attributes 
 Playing one bar with lead in, metronome, talking metronome, changing speed
 Managing screen reader output - refresh off and on, shifting refresh 

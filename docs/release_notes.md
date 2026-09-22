@@ -1,5 +1,9 @@
 # Recall Score Release Notes
 
+## 2026.1.63
+
+* Fixed a bug where, due to presence of anacrusis and an al capo, the bar containing the finish point was played incorrectly first time through.
+
 ## 2026.1.62
 
 * Changed sections in Ultimate Guitar which indicated intro, verse, chorus etc. to jump points and extended this to Guitar Pro and MusicXML rehearsal points.

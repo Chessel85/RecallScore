@@ -9,6 +9,10 @@ from PySide6.QtCore import QStandardPaths
 
 from models import marking_categories
 from models.live_midi_input_settings import LiveMidiInputSettings
+from models.performance_indicator_mode import (
+    DEFAULT_PERFORMANCE_INDICATOR_MODE,
+    PERFORMANCE_INDICATOR_MODES,
+)
 from models.play_settings import PlaySettings
 from models.tuner_settings import TunerSettings
 from models.voice_control_settings import VoiceControlSettings
@@ -70,7 +74,13 @@ class AppSettings:
     Ctrl+V) is global only, with no per-score override - a user-wide
     preference for whether octave-shift/clef-change rows are worth
     surfacing at all (e.g. when collaborating with a sighted musician),
-    not a property of any one score. Off by default."""
+    not a property of any one score. Off by default.
+
+    performance_indicator_mode (Options > Performance Indicator / Ctrl+C,
+    models/performance_indicator_mode.py) is global only, for the same
+    reasoning as show_engraving_details_enabled - whether the performance
+    cue sounds is a personal audio preference, not a property of any one
+    score. Off by default (PerformanceIndicatorCue.md decision 1)."""
 
     uk_terms: Optional[bool] = None
     recent_files: List[str] = field(default_factory=list)
@@ -85,6 +95,7 @@ class AppSettings:
         default_factory=lambda: list(marking_categories.ALL_CATEGORIES)
     )
     show_engraving_details_enabled: bool = False
+    performance_indicator_mode: str = DEFAULT_PERFORMANCE_INDICATOR_MODE
 
 
 def settings_path() -> Path:
@@ -122,6 +133,11 @@ def load() -> AppSettings:
                 data.get("marking_categories_off", list(marking_categories.ALL_CATEGORIES))
             ),
             show_engraving_details_enabled=bool(data.get("show_engraving_details_enabled", False)),
+            performance_indicator_mode=(
+                data.get("performance_indicator_mode")
+                if data.get("performance_indicator_mode") in PERFORMANCE_INDICATOR_MODES
+                else DEFAULT_PERFORMANCE_INDICATOR_MODE
+            ),
         )
     except FileNotFoundError:
         return AppSettings()
@@ -231,4 +247,16 @@ def set_show_engraving_details_enabled(enabled: bool) -> None:
     set_play_settings above."""
     current = load()
     current.show_engraving_details_enabled = enabled
+    save(current)
+
+
+def set_performance_indicator_mode(mode: str) -> None:
+    """Records the Options > Performance Indicator (Ctrl+C) preference,
+    load-mutate-save for the same reason as add_recent_file/
+    set_play_settings above. An invalid mode falls back to the default,
+    matching load()'s own validation."""
+    current = load()
+    current.performance_indicator_mode = (
+        mode if mode in PERFORMANCE_INDICATOR_MODES else DEFAULT_PERFORMANCE_INDICATOR_MODE
+    )
     save(current)

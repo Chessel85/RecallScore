@@ -6,6 +6,13 @@ from PySide6.QtWidgets import QListWidgetItem
 
 from audio.performance_cue import performance_cue_event
 from models import marking_categories
+from models.performance_indicator_mode import (
+    PERFORMANCE_INDICATOR_ALWAYS_ON,
+    PERFORMANCE_INDICATOR_OFF,
+    PERFORMANCE_INDICATOR_ON_EXCEPT_WHEN_PLAYING,
+)
+from models.performance_indicator_mode import cycle as cycle_performance_indicator_mode
+from models.region3_row import MarkingRow
 from models.vocabulary import bar_word
 from persistence import app_settings
 from widgets import accessible_announcer
@@ -29,7 +36,7 @@ class RegionPresenter(QObject):
 
     def __init__(self, session, region_1, region_2, region_3, region_4, region_5,
                  status_bar, playback_status_fields, region_1_section_tabs=None,
-                 parent=None):
+                 is_playing=None, parent=None):
         super().__init__(parent)
         self.session = session
         self.region_1 = region_1
@@ -45,6 +52,20 @@ class RegionPresenter(QObject):
         # rather than importing PlaybackController, so the dependency runs
         # one way only.
         self._playback_status_fields = playback_status_fields
+        # Callable returning True from the first tick of a play run's
+        # count-in until it stops (PlaybackController.is_play_run_active) -
+        # injected the same way, so "Always on" can tell a real playback
+        # step apart from a same-position refresh (see the fire= comment in
+        # update_timeline_views). None in the Region 5 unit tests, which
+        # build a bare presenter and never exercise Always on during
+        # playback.
+        self._is_playing = is_playing if is_playing is not None else (lambda: False)
+
+        # Options > Performance Indicator / Ctrl+C (PerformanceIndicatorCue.
+        # md) - global, seeded once here from AppSettings like show_
+        # engraving_details_enabled, since it never changes what a score's
+        # own rows say, only whether the cue sounds.
+        self.performance_indicator_mode = app_settings.load().performance_indicator_mode
 
         # Region 5's current labels, diffed by refresh_region_5 so only a
         # real change rebuilds the list and fires the cue. Must start as
@@ -137,7 +158,8 @@ class RegionPresenter(QObject):
         self.region_3.blockSignals(True)
         self.region_3.clear()
 
-        for row in self.music_data.get_region_3_rows():
+        rows = self.music_data.get_region_3_rows()
+        for row in rows:
             self.region_3.addItem(QListWidgetItem(row.text))
 
         self.region_3.selectAll()
@@ -168,7 +190,28 @@ class RegionPresenter(QObject):
         if play_all:
             self.audition_requested.emit()
 
-        self.refresh_region_5(allow_cue=play_all)
+        # PerformanceIndicatorCue.md: the ONE place that decides whether the
+        # performance-indicator cue plays, replacing the old narrow
+        # structural-change trigger refresh_region_5 used to own. Fires when
+        # the mode is not Off AND the new cursor position carries at least
+        # one MarkingRow (a marking whose category is on in the note list -
+        # a category the user switched off never produces a MarkingRow here
+        # in the first place, so that gate needs no separate check) AND
+        # either this is a real manual-navigation move (play_all, exactly
+        # today's allow_cue semantics) or the mode is Always-on and a play
+        # run is actually in progress - play_all alone can't tell a genuine
+        # playback step apart from a same-position refresh (a Region 2
+        # filter toggle, Ctrl+N, ...), which must never fire the cue.
+        fire = self.performance_indicator_mode != PERFORMANCE_INDICATOR_OFF and any(
+            isinstance(r, MarkingRow) for r in rows
+        ) and (
+            play_all
+            or (self.performance_indicator_mode == PERFORMANCE_INDICATOR_ALWAYS_ON and self._is_playing())
+        )
+        if fire:
+            self.session.synth.play_performance_cue(*performance_cue_event())
+
+        self.refresh_region_5()
 
     def _announce_measure_change(self) -> None:
         """Speaks just the new bar number - "Measure 6." - via Qt's
@@ -259,6 +302,30 @@ class RegionPresenter(QObject):
             self.region_3, phrases.get(mode, phrases["to_end"])
         )
 
+    def cycle_performance_indicator_mode(self) -> str:
+        """Ctrl+C (main_window.cycle_performance_indicator_mode): Off -> On
+        except when playing -> Always on -> Off. Persists to AppSettings
+        right away, like set_uk_terms - a preference like this should
+        survive a crash, not wait for closeEvent."""
+        self.performance_indicator_mode = cycle_performance_indicator_mode(
+            self.performance_indicator_mode
+        )
+        app_settings.set_performance_indicator_mode(self.performance_indicator_mode)
+        return self.performance_indicator_mode
+
+    def announce_performance_indicator_mode(self, mode: str) -> None:
+        """Speaks the new Performance Indicator mode aloud - Ctrl+C is a
+        bare shortcut, so the submenu's own checked-item change isn't heard
+        (same reasoning as announce_play_mode)."""
+        phrases = {
+            PERFORMANCE_INDICATOR_OFF: "Performance indicator off.",
+            PERFORMANCE_INDICATOR_ON_EXCEPT_WHEN_PLAYING: "Performance indicator on except when playing.",
+            PERFORMANCE_INDICATOR_ALWAYS_ON: "Performance indicator always on.",
+        }
+        accessible_announcer.announce(
+            self.region_3, phrases.get(mode, phrases[PERFORMANCE_INDICATOR_OFF])
+        )
+
     def announce_refresh_on_playback(self, enabled: bool) -> None:
         """Ctrl+H (main_window.toggle_refresh_on_playback) is pressed with
         focus in the Note region, so the menu tick and the status bar are
@@ -268,7 +335,7 @@ class RegionPresenter(QObject):
         heard on every press."""
         accessible_announcer.announce(
             self.region_3,
-            "Text refresh on." if enabled else "Text refresh off.",
+            "Region refresh on." if enabled else "Region refresh off.",
         )
 
     def announce_loop_repeat_mode(self, mode: str) -> None:
@@ -316,26 +383,16 @@ class RegionPresenter(QObject):
         message = f"{label}, {position}." if label else f"{position.capitalize()}."
         accessible_announcer.announce(self.region_3, message)
 
-    def refresh_region_5(self, allow_cue: bool = True) -> None:
+    def refresh_region_5(self) -> None:
         """Ref 29 / PerformanceMarkingsStrategy.md section 7: recomputes
         Region 5's rows for the current position.
 
         Skips the rebuild entirely when the label set is unchanged, so
         Region 5's focus and selection survive navigation within the same
-        span. The change cue no longer fires on every list rebuild - that
-        generic "Region 5 changed" trigger was retired (section 7) - it
-        fires whenever the cursor's CURRENT position carries a structural
-        change - a key signature or time signature change
-        (MusicData.has_key_or_time_change_at, stage 10) or an immediate
-        tempo change (MusicData.structural_change_labels, which already
-        suppresses index 0) - independent of whether the row list itself
-        needed rebuilding - landing back on a structural-change event via a
-        repeat re-fires it, same as any other landing.
-
-        `allow_cue=False` (update_timeline_views passes play_all through
-        here) is for a refresh that isn't a real navigation - a Region 2
-        filter toggle at the SAME cursor position must not replay the cue
-        it never actually re-triggered."""
+        span. The performance-indicator cue no longer has anything to do
+        with this method - PerformanceIndicatorCue.md retired the old
+        narrow structural-change trigger here in favour of one mechanism in
+        update_timeline_views, driven by the note list's own MarkingRows."""
         if not self.music_data:
             return
         md = self.music_data
@@ -355,9 +412,6 @@ class RegionPresenter(QObject):
                 if not self.region_5.update_context_rows(context):
                     self.region_5.refresh_list(context, structural)
                 self.last_context_labels = ctx_labels
-
-        if allow_cue and (md.structural_change_labels() or md.has_key_or_time_change_at()):
-            self.session.synth.play_performance_cue(*performance_cue_event())
 
     def select_all_region_3(self) -> None:
         self.region_3.selectAll()

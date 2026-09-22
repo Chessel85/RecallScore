@@ -49,7 +49,7 @@ def test_toggle_refresh_on_playback_flips_the_gate_persists_and_announces(
 
     assert window.refresh_gate.settings.refresh_during_playback is False
     assert window._actions.refresh_on_playback.isChecked() is False
-    assert announced == ["Text refresh off."]
+    assert announced == ["Region refresh off."]
 
     window._save_current_score_config()
     assert score_config.load_for(minimal_score).refresh_settings.refresh_during_playback is False
@@ -58,7 +58,7 @@ def test_toggle_refresh_on_playback_flips_the_gate_persists_and_announces(
 
     assert window.refresh_gate.settings.refresh_during_playback is True
     assert window._actions.refresh_on_playback.isChecked() is True
-    assert announced[-1] == "Text refresh on."
+    assert announced[-1] == "Region refresh on."
 
 
 def test_toggle_refresh_on_playback_is_a_noop_with_no_score(window, monkeypatch):
@@ -75,7 +75,7 @@ def test_toggle_refresh_on_playback_is_a_noop_with_no_score(window, monkeypatch)
 
     assert window.refresh_gate.settings.refresh_during_playback is True
     assert window._actions.refresh_on_playback.isChecked() is True
-    assert announced == ["Text refresh on."]
+    assert announced == ["Region refresh on."]
 
 
 def test_delay_refresh_action_has_ctrl_shift_d(window):

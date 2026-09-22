@@ -283,3 +283,15 @@ Both are expected and are read as a pair.
 Stage 1 and stage 4 can start immediately and in either order. Stage 2 gates 3, 5, 6
 and 7. Stage 8 waits for a quiet moment and ships alone. Stage 9 comes after whatever
 categories exist. Stage 10 whenever.
+
+User decisions:
+Q1. Default value — Off (matches every other audio toggle in the app) vs. "On except when playing" (preserves today's    
+narrow structural-change behavior almost exactly, since that already never plays during playback).                      
+A1. Correct. Default is off.
+Q2. Submenu + separate Ctrl+C cycle action, as you described, vs. the simpler single flat "Cycle Performance Indicator"  
+item the codebase otherwise uses for this exact shape of setting (Cycle Play Mode, Cycle Loop Repeat Handling).         
+A2. We do not have a dialogue for this option so cycling with control+C gets around this.  Additionally, the menu items do allow the user to browse and discover the options.
+Q3. Menu/label wording as you wrote it, or adjustments.                                                                  
+A3. Stick with my wording for now. Easy to change.
+Q4. Confirming placement grouped with Bar Line Indicator/Metronome/Position Announcer.                                   
+ A4.  Place it immediately below the bar line indicator menu item.

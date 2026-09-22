@@ -3,10 +3,9 @@
 
 An intra-jump-point chord or lyric change relabels the context rows in
 place; crossing a jump point boundary rebuilds the whole list. Neither one
-fires the performance cue any more (PerformanceMarkingsImplementationPlan.md
-stage 6): a jump point is not one of the three structural changes
-(key/time/tempo) the cue was narrowed to - see
-tests/models/test_structural_change_cue.py for that behaviour.
+touches the performance-indicator cue, which moved off refresh_region_5
+entirely and onto RegionPresenter.update_timeline_views (PerformanceIndicator
+Cue.md) - see tests/test_performance_indicator_cue.py for that behaviour.
 """
 from controllers.region_presenter import RegionPresenter
 from models.event_slice import EventSlice

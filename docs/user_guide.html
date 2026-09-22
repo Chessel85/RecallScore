@@ -833,6 +833,19 @@ for a score you haven’t set it on before. It has no effect while the
 metronome (section 7.7) is switched on, since the metronome already
 accents the first beat of every bar; it works normally alongside the
 position announcer.</p>
+<p><strong>Performance Indicator.</strong> Options &gt; Performance
+Indicator is a submenu of three choices - Off, On except when playing, and
+Always on - for a short “ding” that plays when the cursor arrives on a
+performance marking (a key, time or tempo change; a repeat or ending; a
+hairpin; and every other row category the note list can show). It only
+sounds for a category you’ve switched on with <code>Ctrl+N</code> (section
+8.4); a category you’ve turned off in the note list stays silent here
+too. <code>Ctrl+C</code> cycles the three choices without opening the
+menu, speaking the new one aloud - “Performance indicator off”, “…on
+except when playing”, “…always on”. On except when playing dings for
+arrow-key/measure-number navigation but stays quiet during Play; Always
+on dings during Play as well. It’s off by default and is a global
+preference, not saved per score.</p>
 <p><strong>Show Engraving Details.</strong> Options &gt; Show Engraving
 Details, or <code>Ctrl+V</code>, is off by default. Octave-shift and
 clef-change markings are engraving-only information - the printed note
@@ -1782,6 +1795,18 @@ instrument, the metronome and the position announcer (section 7.9).</td>
 arrow-key navigation crosses a bar line (section 7.8).</td>
 </tr>
 <tr>
+<td style="text-align: left;">Performance Indicator</td>
+<td style="text-align: left;">-</td>
+<td style="text-align: left;">Submenu to choose Off, On except when
+playing, or Always on for the performance-marking cue (section 7.8).</td>
+</tr>
+<tr>
+<td style="text-align: left;">Cycle Performance Indicator</td>
+<td style="text-align: left;">Ctrl+C</td>
+<td style="text-align: left;">Rotates the Performance Indicator setting
+through its three choices (section 7.8).</td>
+</tr>
+<tr>
 <td style="text-align: left;">Toggle Metronome</td>
 <td style="text-align: left;">Ctrl+M</td>
 <td style="text-align: left;">Turns the beat click on or off (section
@@ -2125,6 +2150,11 @@ the current tempo, without moving the timeline</td>
 <tr>
 <td style="text-align: left;">Toggle the bar line indicator on/off</td>
 <td style="text-align: left;">Ctrl+B</td>
+</tr>
+<tr>
+<td style="text-align: left;">Cycle the Performance Indicator setting:
+off, on except when playing, always on, spoken aloud</td>
+<td style="text-align: left;">Ctrl+C</td>
 </tr>
 <tr>
 <td style="text-align: left;">Toggle live MIDI input on/off</td>

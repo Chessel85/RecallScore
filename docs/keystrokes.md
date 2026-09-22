@@ -72,6 +72,7 @@ not rebindable through Tools > Keyboard Shortcuts.
 | Action | Keystroke |
 |---|---|
 | Toggle Bar Line Indicator | Ctrl+B |
+| Cycle Performance Indicator | Ctrl+C |
 | Toggle Metronome | Ctrl+M |
 | Toggle Position Announcer | Ctrl+P |
 

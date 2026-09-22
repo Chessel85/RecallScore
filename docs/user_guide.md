@@ -686,6 +686,19 @@ before. It has no effect while the metronome (section 7.7) is switched
 on, since the metronome already accents the first beat of every bar; it
 works normally alongside the position announcer.
 
+**Performance Indicator.** Options > Performance Indicator is a submenu of
+three choices - Off, On except when playing, and Always on - for a short
+"ding" that plays when the cursor arrives on a performance marking (a key,
+time or tempo change; a repeat or ending; a hairpin; and every other row
+category the note list can show). It only sounds for a category you've
+switched on with `Ctrl+N` (section 8.4); a category you've turned off in
+the note list stays silent here too. `Ctrl+C` cycles the three choices
+without opening the menu, speaking the new one aloud - "Performance
+indicator off", "...on except when playing", "...always on". On except
+when playing dings for arrow-key/measure-number navigation but stays quiet
+during Play; Always on dings during Play as well. It's off by default and
+is a global preference, not saved per score.
+
 **Show Engraving Details.** Options > Show Engraving Details, or `Ctrl+V`,
 is off by default. Octave-shift and clef-change markings are
 engraving-only information - the printed note already sounds at its
@@ -1439,6 +1452,8 @@ directly (see also section 16.3).
 | :--- | :--- | :--- |
 | Terminology (UK/US) | - | Submenu to choose UK or US wording (section 12.2). |
 | Toggle Bar Line Indicator | Ctrl+B | Turns on a high metronome beep when arrow-key navigation crosses a bar line (section 7.8). |
+| Performance Indicator | - | Submenu to choose Off, On except when playing, or Always on for the performance-marking cue (section 7.8). |
+| Cycle Performance Indicator | Ctrl+C | Rotates the Performance Indicator setting through its three choices (section 7.8). |
 | Toggle Metronome | Ctrl+M | Turns the beat click on or off (section 7.7). |
 | Toggle Position Announcer | Ctrl+P | Turns the spoken beat-position announcer on or off (section 7.8). |
 | Toggle Live MIDI Input | Ctrl+D | Turns a connected MIDI keyboard's live playback through Recall Score on or off (section 7.11). |
@@ -1510,6 +1525,7 @@ directly (see also section 16.3).
 | Start / stop a free-running click track at the current tempo, without moving the timeline | Ctrl+Alt+Space |
 | Toggle the position announcer on/off | Ctrl+P |
 | Toggle the bar line indicator on/off | Ctrl+B |
+| Cycle the Performance Indicator setting: off, on except when playing, always on, spoken aloud | Ctrl+C |
 | Toggle live MIDI input on/off | Ctrl+D |
 | Open the Live MIDI Input Settings dialog | Ctrl+Shift+L |
 | Toggle voice control on/off | Alt+Enter |

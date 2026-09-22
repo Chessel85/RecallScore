@@ -183,17 +183,99 @@ The Performance Report in the Tools menu (control+shift+F) gives an overview of 
 
 ## Filtering Parts
 
-It is useful  xxxx
-## General Score
-### 5.3 Jumping to the Start and End of the Piece (Home / End)
+For scores with many parts, the note list can become very busy.  Recall Score can filter notes at the part, stave and voice level to reduce the note list down to the notes of particular interest.  Usually those that need memorising or give context.
 
-`Home` moves to the very first active note (the pickup bar, if there is
-one); `End` moves to the very last. Trailing bars that are nothing but
-rests padding out the final printed system don't count - `End` lands on
-the last note actually played, not on empty bars after it. `Home` and
-`End` never play the boundary sound (section 5.6) even if you're already
-at that position, since they're jumping to a known place rather than
-attempting to move past a limit.
+Jump to the parts region with the X uick nav keystroke.  use the mute and solo options from the Parts menu, or use the F8 keystroke for mute and F9 keystroke for solo, to filter what notes are listed.  
+
+These keystrokes apply at the part, stave and voice levels of the Parts tree.  
+
+Notes from a muted item do not appear in the notes list.
+
+Notes in a soloed item always appear in the note list, superseding mutes at the same and lower levels.
+
+Alt+F8 unmutes all and alt+F9 unsoloes all.
+
+## Learning a bar
+
+With the parts filtered to show the desired notes, press tab or C to move to the notes list.  
+
+Check the status bar to confirm the time signature that applies to this bar.  
+
+Use the right and left arrow keys to move along the time line.  All notes at a time position are selected and all notes are sounded.
+
+Use up and down arrow keys to identify each note at the current time position.  Each note is sounded as it is selected.  Use the screen reader "read current line" to repeat the current row.
+
+The bar line  indicator, toggled with control+B, makes a noise when a bar line is crossed.  This is useful to help stay within one bar.  Trying to move beyond the first and last available notes causes a bump noise to be sounded indicating the limits of the timeline.
+
+By default, just the note name is displayed. Extra information about notes can be added from the attributes region such as octave, duration and beat position.  
+
+To do this tab to the attributes region or press the V quick nav shortcut.  Arrow to the attribute to be added and bring up the context menu by pressing the right-hand alt key or shift+F10.  Arrow down through the options to select the scope and hit enter.
+
+Return to the note list and, if the attribute is available for the note, it is displayed on the same line as the note.  
+
+The order of attributes can be changed using the Rearrange Attributes dialogue from the Options menu.  This dialogue lists the available attributes and they can be moved up and down the list with the up button, shortcut alt U, and down button, shortcut alt+D.  Hit enter to close the dialogue and apply the changes.  The attributes now appear in the specified order in both the note list and the attributes region.
+
+
+## Playing One Bar
+
+Recall Score can be set up to play just one bar, to repeat the playback non-stop, and to play a lead in metronome click for each repeat.  This allows playing along with the music to embed the learnt notes.
+
+Playback Settings, from the Playback menu or control+shift+P, contains the following:
+
+* Tempo for playback.  Playback tempo can also be changed with S and F on the keyboard.
+*  Lead in tickbox.  Can also be toggled with control+I from any region.
+* Number of lead in bars 
+* Lead in beats
+* Play mode.  
+
+** Play End.  Starts playback from the current position until the end of the score respecting any repeats, endings and codas.
+** Play loop once.  Plays the score for the length of the loop from the start of the current bar.
+** Play loop until stopped.  Plays the length of the loop repeatedly from the start of the current bar.
+
+* Loop length.  Number of bars for the loop.  Can be changed when in a region with alt+page up and alt+page down. Or set a specific length by typing a number and pressing control+enter. 
+       * Repeat mode. Defines how repeats and endings are handled if the playback of the loop encounters these.
+
+A metronome can be toggled on with control+M.  A position announcer, a talking metronome, can be toggled using control+P or from the Options menu.
+
+## Note Refresh On, Off and Offset
+
+By default, the notes, attributes and performance indicator regions are updated on playback as each note is played.  If focus is on one of these regions, the screen reader will read out the new text as playback progresses.  
+
+This can be useful if the note list is showing just one note e.g. a monophonic part, as the note to be played is announced.  Changing the playback speed, or the speed of the screen reader voice may help with clarity.
+
+If screen reader feedbback is not wanted, refresh can be toggled from the Playback menu or with control+H.  
+
+Alternatively, the refresh can be set to occur with a time offset from playback. Use the Delay Playback dialogue available from the Playback menu or with control+shift+D. A positive or negative offset can be set.  This means the screen reader announces the new text at a different time to the note playback either to say what the upcoming note is or what the just played note is.  
+ 
+## Extending To More Bars
+
+Once a single bar has been learned, move to the next bar with just the right arrow key or with the next bar shortcut of control+right arrow.  Repeat the learning process for this bar.
+
+Once the second bar has been learned, move back to the first bar with the left arrow key, or the move bar shortcut control+left arrow.
+
+with the playback mode on looping, set the length of the loop to two bars:
+
+* Press alt+page up
+
+or
+
+* Press 2 on the keyboard and press control+enter 
+
+or
+
+* Change the loop length in the playback settings dialogue (control+shift+P)
+
+Pressing spacebar to play now plays back two bars.  Accompany playback to embed the two bars into memory.
+
+There are several strategies for memorising bars:
+
+* Learn one new bar at a time adding the new bar onto the end of what has already been learned. e.g. Learn bar 1, then bar 2,  Embed bars 1 and 2.  Learn bar 3.  Embed bars 1, 2 and 3 and so on.
+* Doubling up.  Learn bar 1, then bar 2.  Embed this by doubling up to both bars 1 and 2.  Then learn bar 3, then bar 4.  embed bars 3 and 4 together.  Then embed bars 1, 2, 3 and 4 together.
+* Reverse.  Learn the bars in reverse order.  As you embed each new  bar, you are repeating already familiar bars as you play to the end.
+
+# voice Control
+
+
 
 ### 5.4 Jumping to a Specific Bar Number
 

@@ -18,12 +18,12 @@ def test_region_5_shows_none_outside_any_span(window, qtbot, repeats_and_endings
     assert _region_5_labels(window) == ["None"]
 
 
-def test_navigating_into_a_repeated_section_updates_region_5_without_the_cue(
+def test_navigating_into_a_repeated_section_updates_region_5_with_the_cue_off_by_default(
     window, qtbot, null_synth, repeats_and_endings_score
 ):
-    """PerformanceMarkingsImplementationPlan.md stage 6: the cue was
-    narrowed to key/time/immediate-tempo changes only - a repeat span is
-    not one of the three, so Region 5 still updates but nothing sounds."""
+    """PerformanceIndicatorCue.md: the Performance Indicator (Ctrl+C) is Off
+    by default, so Region 5 updates but nothing sounds - see
+    tests/test_performance_indicator_cue.py for what fires once it's on."""
     load_and_wait(window, qtbot, repeats_and_endings_score)
     null_synth.performance_cues.clear()
 
@@ -33,7 +33,7 @@ def test_navigating_into_a_repeated_section_updates_region_5_without_the_cue(
     assert null_synth.performance_cues == []
 
 
-def test_performance_cue_fires_again_when_leaving_a_repeated_section(
+def test_region_5_updates_when_leaving_a_repeated_section(
     window, qtbot, null_synth, repeats_and_endings_score
 ):
     load_and_wait(window, qtbot, repeats_and_endings_score)
@@ -73,13 +73,12 @@ def test_alt_end_on_region_5_jumps_to_the_last_note_of_the_end_bar(
     assert current.notes[0].step_name == "E"
 
 
-def test_arrowing_back_onto_a_beginning_repeat_target_no_longer_cues(
+def test_arrowing_back_onto_a_beginning_repeat_target_does_not_cue_by_default(
     window, qtbot, null_synth, unmatched_backward_repeat_score
 ):
-    """Stage 6 retires the old "landing back on a repeat's start re-dings
-    even with an unchanged row set" special case along with the generic
-    cue it was patched onto - a repeat is not a structural change, so
-    arrowing back onto one is silent now, same as any other repeat move."""
+    """Performance Indicator defaults to Off, so arrowing back onto a
+    repeat's start target is silent - see tests/test_performance_indicator_
+    cue.py for the cue's own coverage once it's turned on."""
     load_and_wait(window, qtbot, unmatched_backward_repeat_score)  # starts on measure 1, span already active
     assert _region_5_labels(window) == ["Repeat measures 1 to 2"]
 
@@ -91,7 +90,7 @@ def test_arrowing_back_onto_a_beginning_repeat_target_no_longer_cues(
     assert null_synth.performance_cues == []
 
 
-def test_playback_starting_from_a_beginning_repeat_target_no_longer_cues(
+def test_playback_starting_from_a_beginning_repeat_target_does_not_cue_by_default(
     window, qtbot, null_synth, unmatched_backward_repeat_score
 ):
     load_and_wait(window, qtbot, unmatched_backward_repeat_score)
@@ -105,11 +104,14 @@ def test_playback_starting_from_a_beginning_repeat_target_no_longer_cues(
     window.toggle_play_stop()  # stop, so no timer keeps running into the next test
 
 
-def test_navigating_into_a_time_signature_change_updates_region_5_and_plays_the_cue(
+def test_navigating_into_a_time_signature_change_updates_region_5(
     window, qtbot, null_synth, ts_change_score
 ):
     """S7: ts_change_score is 4/4 (bar 1, 4 slices) -> 6/8 (bar 2) -> 4/4
-    (bar 3) - four Right presses land on the first slice of bar 2."""
+    (bar 3) - four Right presses land on the first slice of bar 2. Region 5
+    updates regardless of the Performance Indicator setting - see
+    tests/test_performance_indicator_cue.py for the cue's own coverage,
+    default Off here so nothing sounds."""
     load_and_wait(window, qtbot, ts_change_score)
     null_synth.performance_cues.clear()
 
@@ -117,7 +119,7 @@ def test_navigating_into_a_time_signature_change_updates_region_5_and_plays_the_
         qtbot.keyClick(window.region_3, Qt.Key.Key_Right)
 
     assert _region_5_labels(window) == ["Time signature change: 6/8"]
-    assert len(null_synth.performance_cues) == 1
+    assert null_synth.performance_cues == []
 
     # One-shot: moving on within the same new signature clears the row
     # again (no further span to still be "inside").

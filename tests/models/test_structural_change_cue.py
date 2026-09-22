@@ -1,17 +1,15 @@
 # tests/models/test_structural_change_cue.py
 """PerformanceMarkingsImplementationPlan.md stage 6: key/time/tempo changes
-become note-list rows, and the change cue is narrowed to exactly those three
-(strategy section 7) - one source (MusicData.structural_change_labels) feeds
-Region 5's own row, the note list's row, and the cue's own decision."""
-from audio.performance_cue import performance_cue_event
-from controllers.region_presenter import RegionPresenter
+become note-list rows - one source (MusicData.structural_change_labels) feeds
+both Region 5's own row and the note list's row. The performance-indicator
+cue itself moved off this trigger entirely (PerformanceIndicatorCue.md) - see
+tests/test_performance_indicator_cue.py for its own coverage."""
 from models.direction_mark import DirectionMark
 from models.event_slice import EventSlice
 from models.music_data import MusicData
 from models.note_data import NoteData
 from models.region3_row import MarkingRow
 from models.tempo_change import TempoChange
-from widgets.region5_list_widget import Region5ListWidget
 
 
 def _note(measure, quarters):
@@ -105,52 +103,3 @@ def test_a_words_only_tempo_instruction_produces_no_structural_row_or_cue():
     assert md.structural_change_labels() == []
     rows = md.get_region_3_rows()
     assert not any(isinstance(r, MarkingRow) and r.text.startswith("Tempo change") for r in rows)
-
-
-class _FakeSession:
-    def __init__(self, music_data, synth):
-        self.music_data = music_data
-        self.synth = synth
-        self.uk_terms = False
-
-
-def _presenter(qtbot, null_synth, md):
-    region_5 = Region5ListWidget()
-    qtbot.addWidget(region_5)
-    presenter = RegionPresenter(
-        _FakeSession(md, null_synth),
-        None, None, None, None, region_5, None, lambda: ("", "", ""),
-    )
-    return presenter
-
-
-def test_cue_fires_on_landing_on_a_structural_change(qtbot, null_synth):
-    md = _md_with_time_sig_change()
-    presenter = _presenter(qtbot, null_synth, md)
-
-    md.active_event_index = 1
-    presenter.refresh_region_5()
-
-    assert len(null_synth.performance_cues) == 1
-
-
-def test_cue_does_not_fire_at_index_zero(qtbot, null_synth):
-    md = _md_with_time_sig_change()
-    presenter = _presenter(qtbot, null_synth, md)
-
-    md.active_event_index = 0
-    presenter.refresh_region_5()
-
-    assert null_synth.performance_cues == []
-
-
-def test_cue_suppressed_when_allow_cue_is_false(qtbot, null_synth):
-    """A Region 2 filter toggle at the same cursor position must not replay
-    the cue - it isn't a real navigation."""
-    md = _md_with_time_sig_change()
-    presenter = _presenter(qtbot, null_synth, md)
-
-    md.active_event_index = 1
-    presenter.refresh_region_5(allow_cue=False)
-
-    assert null_synth.performance_cues == []

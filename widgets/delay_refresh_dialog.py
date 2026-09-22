@@ -31,7 +31,7 @@ class DelayRefreshDialog(QDialog):
 
         layout = QVBoxLayout(self)
 
-        self.refresh_check = QCheckBox("&Refresh text on playback", self)
+        self.refresh_check = QCheckBox("&Refresh regions on playback", self)
         self.refresh_check.setChecked(settings.refresh_during_playback)
         layout.addWidget(self.refresh_check)
 

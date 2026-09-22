@@ -7,6 +7,11 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QActionGroup, QKeySequence
 from PySide6.QtWidgets import QMenu
 
+from models.performance_indicator_mode import (
+    PERFORMANCE_INDICATOR_ALWAYS_ON,
+    PERFORMANCE_INDICATOR_OFF,
+    PERFORMANCE_INDICATOR_ON_EXCEPT_WHEN_PLAYING,
+)
 from models.vocabulary import bar_word
 
 
@@ -72,6 +77,11 @@ class Actions:
     metronome: Optional[QAction] = None
     position_announcer: Optional[QAction] = None
     bar_line_indicator: Optional[QAction] = None
+    performance_indicator_off: Optional[QAction] = None
+    performance_indicator_on_except_when_playing: Optional[QAction] = None
+    performance_indicator_always_on: Optional[QAction] = None
+    performance_indicator_group: Optional[QActionGroup] = None
+    performance_indicator_cycle: Optional[QAction] = None
     show_engraving_details: Optional[QAction] = None
     live_midi_input: Optional[QAction] = None
     live_midi_input_settings: Optional[QAction] = None
@@ -119,10 +129,12 @@ class MenuBuilder:
     one file rather than to the window class.
     """
 
-    def __init__(self, window, slots, uk_terms: bool):
+    def __init__(self, window, slots, uk_terms: bool,
+                 performance_indicator_mode: str = PERFORMANCE_INDICATOR_OFF):
         self.window = window
         self.slots = slots
         self.uk_terms = uk_terms
+        self.performance_indicator_mode = performance_indicator_mode
 
     def build(self) -> Actions:
         a = Actions()
@@ -647,6 +659,59 @@ class MenuBuilder:
             status_tip="Play a high metronome beep when arrow-key navigation crosses a bar line",
         )
         options_menu.addAction(a.bar_line_indicator)
+
+        # Ref 29 / PerformanceIndicatorCue.md: the "ding" that fires when the
+        # cursor arrives on a row Region 3's note list marks as a
+        # MarkingRow. Three mutually exclusive checkable items, same
+        # QActionGroup-exclusive pattern as Terminology (UK/US) above, so
+        # the current choice can be browsed/discovered by name; Ctrl+C
+        # (below, a separate non-checkable action) is how it's actually
+        # changed day to day - there's no dialog for this setting.
+        # Mnemonic on In&dicator, not &Performance Indicator - P collides
+        # with Toggle &Position Announcer below in this same menu (same
+        # "moved mnemonic, unchanged display text" fix as voice_control_
+        # settings' own comment further down).
+        performance_indicator_menu = options_menu.addMenu("Performance In&dicator")
+        a.performance_indicator_group = QActionGroup(self.window)
+        a.performance_indicator_group.setExclusive(True)
+
+        a.performance_indicator_off = self._action(
+            "Off", self.slots._select_performance_indicator_off, checkable=True,
+        )
+        a.performance_indicator_off.setChecked(
+            self.performance_indicator_mode == PERFORMANCE_INDICATOR_OFF
+        )
+        a.performance_indicator_group.addAction(a.performance_indicator_off)
+        performance_indicator_menu.addAction(a.performance_indicator_off)
+
+        a.performance_indicator_on_except_when_playing = self._action(
+            "On except when playing", self.slots._select_performance_indicator_on_except_when_playing,
+            checkable=True,
+        )
+        a.performance_indicator_on_except_when_playing.setChecked(
+            self.performance_indicator_mode == PERFORMANCE_INDICATOR_ON_EXCEPT_WHEN_PLAYING
+        )
+        a.performance_indicator_group.addAction(a.performance_indicator_on_except_when_playing)
+        performance_indicator_menu.addAction(a.performance_indicator_on_except_when_playing)
+
+        a.performance_indicator_always_on = self._action(
+            "Always on", self.slots._select_performance_indicator_always_on, checkable=True,
+        )
+        a.performance_indicator_always_on.setChecked(
+            self.performance_indicator_mode == PERFORMANCE_INDICATOR_ALWAYS_ON
+        )
+        a.performance_indicator_group.addAction(a.performance_indicator_always_on)
+        performance_indicator_menu.addAction(a.performance_indicator_always_on)
+
+        # Mnemonic on C&ycle, not &Cycle - C collides with Toggle Voice
+        # &Control below in this same menu.
+        a.performance_indicator_cycle = self._action(
+            "C&ycle Performance Indicator", self.slots.cycle_performance_indicator_mode,
+            QKeySequence("Ctrl+C"),
+            status_tip="Rotate the Performance Indicator setting: off, on except when "
+                       "playing, always on",
+        )
+        options_menu.addAction(a.performance_indicator_cycle)
 
         # Octave-shift/clef-change rows are engraving detail a blind
         # musician doesn't need - both are already realised by playing the
