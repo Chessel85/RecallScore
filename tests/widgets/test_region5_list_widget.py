@@ -57,13 +57,21 @@ def test_ctrl_n_emits_toggle_for_the_focused_rows_category(qtbot):
     assert calls == ["repeats_endings"]
 
 
-def test_menu_key_and_shift_f10_also_toggle(qtbot):
-    widget, calls = _widget_on_row(qtbot, "repeats_endings")
+def test_menu_key_and_shift_f10_open_the_context_menu_instead(qtbot):
+    """Reported: these two used to fire the same immediate toggle as
+    Ctrl+N, silently from the screen reader's point of view (no popup, no
+    click - nothing for NVDA to read). They now request an actual one-item
+    popup instead, same S6 pattern as Region 2/4's context_menu_requested;
+    Ctrl+N alone keeps doing the immediate toggle."""
+    widget, toggle_calls = _widget_on_row(qtbot, "repeats_endings")
+    menu_calls = []
+    widget.context_menu_requested.connect(lambda category, pos: menu_calls.append(category))
 
     _press(widget, Qt.Key.Key_Menu)
     _press(widget, Qt.Key.Key_F10, Qt.KeyboardModifier.ShiftModifier)
 
-    assert calls == ["repeats_endings", "repeats_endings"]
+    assert toggle_calls == []
+    assert menu_calls == ["repeats_endings", "repeats_endings"]
 
 
 def test_ctrl_n_is_a_noop_on_a_row_with_no_category(qtbot):

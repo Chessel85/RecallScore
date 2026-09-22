@@ -1,5 +1,5 @@
 # controllers/attribute_controller.py
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QMenu
 
 from models.vocabulary import attribute_label
@@ -142,14 +142,25 @@ class AttributeController:
     def show_menu(self, row: int, global_pos) -> None:
         """Called by Region4ListWidget on right-click or the Menu key.
 
-        Plain exec(), deliberately: pre-highlighting the first action (via
-        exec(at=...), with or without a synthetic Key_Down) does move the
-        highlight but NVDA still reads "blank" rather than the item text. It
-        costs the user one arrow press. Don't re-attempt without a way to
-        verify against real NVDA."""
+        Reported: NVDA announces nothing when the menu first appears - the
+        screen reader still treats Region 4's list item as focused (NVDA+Tab
+        confirms this) until an arrow key is pressed, costing the user one
+        keypress just to hear the first item.
+
+        A prior attempt highlighted the first action via exec(at=...), with
+        or without a synthetic Key_Down, both applied *before* the menu
+        became visible - NVDA still read "blank". This one instead defers
+        setActiveAction() to a zero-delay QTimer queued just before exec()
+        blocks, so it actually fires after the menu's own event loop has
+        started and the menu is on screen - the same ordering a real arrow
+        press has, just automatic. QMenu.exec() pumps the event loop it
+        blocks in, so the queued timer still runs."""
         menu = self.build_menu(row)
         if menu is None:
             return
+        actions = menu.actions()
+        if actions:
+            QTimer.singleShot(0, lambda: menu.setActiveAction(actions[0]))
         menu.exec(global_pos)
         self.restore_focus_after_menu(row)
 

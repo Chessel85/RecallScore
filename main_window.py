@@ -632,6 +632,7 @@ class MainWindow(QMainWindow):
         self.region_5.category_toggle_requested.connect(
             self.presenter.toggle_marking_category_in_note_list
         )
+        self.region_5.context_menu_requested.connect(self.show_region_5_context_menu)
 
     # --- state exposed for the widgets and tests ----------------------
 
@@ -1265,11 +1266,44 @@ class MainWindow(QMainWindow):
         if node is None or node.node_type != "part" or node.link_group is None:
             return
         menu = QMenu(self)
-        menu.addAction("Unlink").triggered.connect(
+        action = menu.addAction("Unlink")
+        action.triggered.connect(
             lambda checked=False: self.score_edit.unlink_part(node.part_id)
         )
+        # Same NVDA fix as AttributeController.show_menu / Region 5's menu
+        # below - see that docstring for why it's a queued timer rather
+        # than pre-highlighting before exec().
+        QTimer.singleShot(0, lambda: menu.setActiveAction(action))
         menu.exec(global_pos)
         self.region_2.setFocus()
+
+    def show_region_5_context_menu(self, category: str, global_pos):
+        """Region 5's own context menu (Menu key/Shift+F10) - Reported: this
+        used to fire the same immediate toggle as Ctrl+N, which meant the
+        Menu key/Shift+F10 announced nothing and did the toggle silently
+        from the screen reader's point of view (Ctrl+N speaks the new
+        state itself - see toggle_marking_category_in_note_list - but a
+        plain keypress with no popup and no click gives NVDA nothing to
+        read). One item, worded by current state, same pattern as Region
+        2's Unlink menu."""
+        if not self._music_data:
+            return
+        already_present = category not in self._music_data.marking_categories_off
+        name = marking_categories.CATEGORY_NAMES.get(category, category)
+        label = f"Remove {name} from note list" if already_present else f"Add {name} to note list"
+        menu = QMenu(self)
+        action = menu.addAction(label)
+        action.triggered.connect(
+            lambda checked=False: self.presenter.toggle_marking_category_in_note_list(category)
+        )
+        # Same NVDA fix as AttributeController.show_menu: pre-highlighting
+        # before the menu is visible (exec(at=...)) still read "blank" to
+        # NVDA. Queuing setActiveAction on a zero-delay timer instead fires
+        # it after exec()'s own event loop has the menu on screen already -
+        # same ordering a real arrow press has, just automatic.
+        QTimer.singleShot(0, lambda: menu.setActiveAction(action))
+        menu.exec(global_pos)
+        self.region_5.setFocus()
 
     def _show_attribute_order_dialog(self):
         """Ref 15 AC4: scoped to whichever part/staff/voice Region 2 has

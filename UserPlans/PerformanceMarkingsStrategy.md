@@ -217,8 +217,11 @@ signature or immediate tempo change.
 * Every category is on by default, per score.
 * Categories are per marking family, not per marking.
 * Ctrl+N on a region 5 row toggles that row's category in the note list and speaks
-  the new state ("Crescendo, not in note list"). The same action is on region 5's
-  context menu (Menu key, Shift+F10) and in the Keyboard Shortcuts reference.
+  the new state ("Crescendo, not in note list"). The Menu key/Shift+F10 do the
+  same toggle but through an actual one-item popup (worded "Add"/"Remove ... from
+  note list") rather than firing it immediately - a silent immediate toggle gave
+  NVDA nothing to announce on those two keys. All three are in the Keyboard
+  Shortcuts reference.
 * A category currently in the note list is prefixed "* " in region 5.
 * Persistence: per score in the `.rsc` via `ScoreConfig`, global default in
   `AppSettings`.

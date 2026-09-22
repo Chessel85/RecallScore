@@ -32,8 +32,15 @@ class Region5ListWidget(RegionFocusCycleMixin, QListWidget):
     # False for Alt+End.
     span_jump_requested = Signal(bool)
     # Stage 9 (PerformanceMarkingsStrategy.md section 8): the focused row's
-    # marking_categories id, emitted by Ctrl+N or the Menu key/Shift+F10.
+    # marking_categories id, emitted by Ctrl+N - toggles immediately, no menu.
     category_toggle_requested = Signal(str)
+    # Reported: the Menu key/Shift+F10 used to fire the same immediate
+    # toggle as Ctrl+N - a real keystroke shortcut, but not what "context
+    # menu" means for those two keys everywhere else in the app (Region 2's
+    # single-item Unlink menu, Region 4's Add/Remove scope menu). They now
+    # open an actual one-item popup instead; category + anchor position, S6-
+    # style like Region 2/4's own context_menu_requested.
+    context_menu_requested = Signal(str, object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -104,10 +111,19 @@ class Region5ListWidget(RegionFocusCycleMixin, QListWidget):
         elif key == Qt.Key.Key_End and alt:
             self.span_jump_requested.emit(False)
             return
-        elif (key == Qt.Key.Key_N and ctrl) or key == Qt.Key.Key_Menu or shift_f10:
+        elif key == Qt.Key.Key_N and ctrl:
             row = self.current_row_data()
             if row is not None and row.category is not None:
                 self.category_toggle_requested.emit(row.category)
+                return
+        elif key == Qt.Key.Key_Menu or shift_f10:
+            row = self.current_row_data()
+            item = self.currentItem()
+            if row is not None and row.category is not None and item is not None:
+                anchor = self.visualItemRect(item).center()
+                self.context_menu_requested.emit(
+                    row.category, self.viewport().mapToGlobal(anchor)
+                )
                 return
 
         super().keyPressEvent(event)
