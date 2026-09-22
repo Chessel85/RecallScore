@@ -38,7 +38,9 @@ def test_save_then_load_round_trips_all_fields():
         metronome_enabled=True,
         position_announcer_enabled=True,
         voice_display_attributes={("P1", 1, 1): {"step", "string", "fret"}},
-        attribute_order=["step", "string", "fret", "octave"],
+        attribute_order_by_part={"P1": ["step", "string", "fret", "octave"]},
+        hidden_attributes_by_part={"P1": {"fret"}},
+        hidden_attributes_for_all={"pluck"},
     )
     score_config.save("Chessel Duet.mxl", config)
 
@@ -52,7 +54,35 @@ def test_save_then_load_round_trips_all_fields():
     assert loaded.metronome_enabled is True
     assert loaded.position_announcer_enabled is True
     assert loaded.voice_display_attributes == {("P1", 1, 1): {"step", "string", "fret"}}
-    assert loaded.attribute_order == ["step", "string", "fret", "octave"]
+    assert loaded.attribute_order_by_part == {"P1": ["step", "string", "fret", "octave"]}
+    assert loaded.hidden_attributes_by_part == {"P1": {"fret"}}
+    assert loaded.hidden_attributes_for_all == {"pluck"}
+
+
+def test_save_never_writes_the_old_flat_attribute_order_field():
+    """hideAttributes.md: attribute_order is read on load only, for
+    migrating a pre-existing .rsc - a fresh save must never write it back."""
+    score_config.save("Chessel Duet.mxl", ScoreConfig())
+    path = score_config.path_for("Chessel Duet.mxl")
+    assert '"attribute_order"' not in path.read_text(encoding="utf-8")
+
+
+def test_load_migrates_an_old_flat_attribute_order_field():
+    """A pre-migration .rsc has "attribute_order" but no
+    "attribute_order_by_part" - load_for must still surface the old value so
+    MusicData.apply_config can seed every part with it."""
+    path = score_config.path_for("Chessel Duet.mxl")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        '{"schema_version": 3, "parts_muted": [], "metronome_enabled": false, '
+        '"voice_display_attributes": {}, "attribute_order": ["step", "fret"]}',
+        encoding="utf-8",
+    )
+
+    loaded = score_config.load_for("Chessel Duet.mxl")
+
+    assert loaded.attribute_order == ["step", "fret"]
+    assert loaded.attribute_order_by_part == {}
 
 
 def test_save_then_load_round_trips_part_link_groups():

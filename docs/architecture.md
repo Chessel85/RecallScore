@@ -1241,7 +1241,9 @@ note in it" into "only the first note sounds". Always pass the flag explicitly.
 ### The attribute system (Ref 15 AC4)
 
 Region 3's row text and Region 4's rows both go through an attribute system
-beyond the bare note name, split into a WHICH half and an ORDER half.
+beyond the bare note name: a WHICH half, an ORDER half (per-part since
+UserPlans/hideAttributes.md), and a HIDDEN half (Attribute Management, same
+plan) that gates Region 4/Find only.
 
 **WHICH:** `voice_display_attributes` (keyed by `(part_id, staff, voice)`) is
 which optional keys (`string`, `fret`, `dynamic`, `articulation`, `fingering`,
@@ -1250,29 +1252,70 @@ which optional keys (`string`, `fret`, `dynamic`, `articulation`, `fingering`,
 value for, so a key renders **only when it is both toggled on for that voice and
 present on the note**; absence isn't a bug, it's the mechanism.
 `set_display_attribute(key, scope, notes, add)` fans a toggle out across
-`"voice"/"stave"/"part"/"score"` scope, driven by Region 4's context menu.
+`"voice"/"stave"/"part"/"score"` scope, driven by Region 4's context menu. A
+key present in `voice_display_attributes` for at least one voice anywhere is
+what the HIDDEN half below calls **elevated**; hiding an elevated attribute
+is refused (see below).
 
-**ORDER:** `MusicData.attribute_order` is the live, mutable, per-instance
-rendering order both `_format_note_for_region_3` and `_region_4_rows` iterate.
-`DISPLAY_ATTRIBUTE_ORDER` is only the fixed *default* every fresh `MusicData`
-starts from, **not what actually renders**. `move_attribute_order(key, up,
-within=...)` reorders it; `attribute_keys_for_voices(voice_tuples)` scans the
-whole score (not just the current slice) for which keys are relevant to a scope.
+**ORDER:** `MusicData.attribute_order_by_part` (keyed by `part_id`) is the
+live, mutable, per-part rendering order both `_format_note_for_region_3` and
+`_region_4_rows` iterate — `_format_note_for_region_3` reads the note's own
+part's list, `_region_4_rows` reads each note's own part's list too (so a
+chord spanning two parts renders each note's block per its own part's
+order). `DISPLAY_ATTRIBUTE_ORDER` is only the fixed *default* every part is
+lazily seeded from (`NoteRenderer.attribute_order_for_part`, on first
+access) — **not what actually renders**, and never pre-populated for every
+part up front. `move_attribute_order_for_part(part_id, key, up, within=...)`
+reorders one part's list; `attribute_keys_for_part(part_id)` scans the whole
+score (not just the current slice) for which keys are present anywhere in
+that part.
 
-`attribute_order`, unlike `uk_terms`, is **per-score** — persisted via
+Ordering is **always per part, never per score/stave/voice** — a user
+decision (UserPlans/hideAttributes.md): whatever Region 2 node was current
+when the Attribute Management dialog opened is resolved to that node's own
+`part_id` once, and everything in the dialog (list, Move Up/Down, Hide, Hide
+for All) acts at that granularity. The Add/&Remove... button is the one
+exception — it keeps fanning out from the original Region 2 node
+(voice/stave/part/score), since that's the WHICH half, unaffected by this
+per-part collapse.
+
+**HIDDEN (Attribute Management):** two more fields, `hidden_attributes_by_part`
+(per `part_id`) and `hidden_attributes_for_all` (score-wide), gate Region 4
+and Find only — **never** Region 3, which stays gated by WHICH alone.
+`is_attribute_hidden(key, part_id)` is true if `key` is in either set (for
+all takes precedence). `set_attribute_hidden_for_part`/`_for_all` both
+*refuse* (return `False`, no state change) to hide a key that's elevated
+anywhere the check looks — the model enforces this itself, not just the
+dialog's own button disablement — and hiding for all also clears that key
+from every part's own per-part hidden set (stale otherwise). The three
+states (visible / hidden-for-part / hidden-for-all) are mutually exclusive
+by construction.
+
+`attribute_order_by_part`/`hidden_attributes_by_part`/`hidden_attributes_
+for_all`, unlike `uk_terms`, are **per-score** — persisted via
 `persistence/score_config.py` and restored in `_on_score_loaded` through
-`apply_config`; a fresh `MusicData` with no saved config falls back to
-`DISPLAY_ATTRIBUTE_ORDER`.
+`apply_config`; a fresh `MusicData` with no saved config leaves every part to
+lazily seed from `DISPLAY_ATTRIBUTE_ORDER` on first access. An older `.rsc`'s
+flat `attribute_order` (pre-migration) is read once on load and used to seed
+every part in the freshly loaded score with a copy of it — never written
+back out; a fresh save only ever emits the new per-part field.
 
-Options > Reorder Attributes... (`widgets/attribute_order_dialog.py`) is the UI:
-scoped to whichever part/staff/voice is selected in Region 2, Move Up/Move Down
-(Alt+U/Alt+D) move the selected attribute live. It deliberately doesn't duplicate
-the add/remove menu.
+Options > Attribute Management... (`widgets/attribute_order_dialog.py`,
+`Ctrl+Shift+A`) is the UI: part-scoped per above, Move Up/Move Down
+(Alt+U/Alt+D) move the selected attribute live within the dialog's own
+working copy (committed on OK), and `&Hide`/`Hide for &All` (Alt+H/Alt+A,
+labels flip to Unhide/"Unhide for All" when already in that state) apply
+immediately, like Add/&Remove. A row elevated anywhere in the dialog's own
+part is prefixed `*`; a hidden row is suffixed `(hidden)` or
+`(hidden for all)`. Pressing Hide while blocked by elevation pops a message
+rather than being unreachable — both Hide buttons stay enabled (except Hide
+is disabled outright once a row is already hidden-for-all, which is
+redundant rather than an error).
 
 **Adding a new optional per-note attribute needs no UI work at all** — append it
 to `DISPLAY_ATTRIBUTE_ORDER` and `_note_attribute_pairs`, and the toggle menu,
-scope fan-out, ordering, and omit-if-absent rendering all pick it up
-automatically.
+scope fan-out, per-part ordering, hiding and omit-if-absent rendering all pick
+it up automatically.
 
 ---
 
@@ -1333,6 +1376,15 @@ what `find_next`/`find_previous` can land on; if the armed target has no
 occurrences left at all, `find_occurrence` returns `None` and
 `NavigationController._find` sounds the boundary cue instead of moving.
 Documented in the user guide 5.7.
+
+**Attribute Management hiding also filters Find, per-occurrence** — an
+occurrence's candidacy is checked against `is_attribute_hidden(key,
+note.part_id)` for the note that occurrence actually belongs to (both in
+`candidate_indices_for_target` and `_scan_attribute_candidates`), so
+hidden-for-all excludes an attribute target everywhere and hidden-for-one-
+part excludes only that part's occurrences, leaving the same key findable
+via a different, non-hidden part's occurrence. See "The attribute system"
+above.
 
 **Two catch-alls are the completeness guarantee.** `_read_notations` keeps a
 `_RECOGNISED_NOTATION_TAGS` frozenset; any other `<notations>` child becomes

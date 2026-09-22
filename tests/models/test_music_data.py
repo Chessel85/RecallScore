@@ -1437,83 +1437,102 @@ def test_set_display_attribute_can_remove_step():
 
 
 # F2/Ref 15 AC4: attribute ORDERING (as opposed to F1's add/remove above).
+# hideAttributes.md: attribute_order is now per-part, never score/stave/
+# voice - every test below acts on one explicit part_id.
 
-def test_move_attribute_order_swaps_adjacent_entries():
+def test_move_attribute_order_for_part_swaps_adjacent_entries():
     md = MusicData(parts_info=[PartStructureInfo(part_id="P1", staves_voices={1: [1]})])
 
-    assert md.move_attribute_order("octave", up=True) is True
-    assert md.attribute_order[:2] == ["octave", "step"]
+    assert md.move_attribute_order_for_part("P1", "octave", up=True) is True
+    assert md.attribute_order_for_part("P1")[:2] == ["octave", "step"]
 
-    assert md.move_attribute_order("octave", up=False) is True
-    assert md.attribute_order[:2] == ["step", "octave"]
+    assert md.move_attribute_order_for_part("P1", "octave", up=False) is True
+    assert md.attribute_order_for_part("P1")[:2] == ["step", "octave"]
 
 
-def test_move_attribute_order_boundary_and_unknown_key_are_no_ops():
+def test_move_attribute_order_for_part_boundary_and_unknown_key_are_no_ops():
     md = MusicData(parts_info=[PartStructureInfo(part_id="P1", staves_voices={1: [1]})])
-    original = list(md.attribute_order)
+    original = list(md.attribute_order_for_part("P1"))
 
-    assert md.move_attribute_order("step", up=True) is False, "step is already first"
-    assert md.move_attribute_order("chord diagram", up=False) is False, (
+    assert md.move_attribute_order_for_part("P1", "step", up=True) is False, "step is already first"
+    assert md.move_attribute_order_for_part("P1", "chord diagram", up=False) is False, (
         "'chord diagram' is the last attribute (P2)"
     )
-    assert md.move_attribute_order("not-a-real-attribute", up=True) is False
-    assert md.attribute_order == original
+    assert md.move_attribute_order_for_part("P1", "not-a-real-attribute", up=True) is False
+    assert md.attribute_order_for_part("P1") == original
 
 
-def test_move_attribute_order_within_scope_skips_hidden_neighbours():
-    """A dialog filtered to attributes present for one Region 2 node
-    (`within`) still moves the visible list by exactly one row per click -
-    any attribute_order entries not in `within` sitting between the moved
-    key and its visible neighbour are displaced, but their order among
-    themselves is untouched."""
+def test_move_attribute_order_for_part_is_independent_per_part():
+    """Proves the per-part split is real, not accidentally shared - moving
+    P1's own order must not touch P2's."""
+    md = MusicData(parts_info=[
+        PartStructureInfo(part_id="P1", staves_voices={1: [1]}),
+        PartStructureInfo(part_id="P2", staves_voices={1: [1]}),
+    ])
+    p2_original = list(md.attribute_order_for_part("P2"))
+
+    md.move_attribute_order_for_part("P1", "octave", up=True)
+
+    assert md.attribute_order_for_part("P1")[:2] == ["octave", "step"]
+    assert md.attribute_order_for_part("P2") == p2_original
+
+
+def test_move_attribute_order_for_part_within_scope_skips_hidden_neighbours():
+    """A dialog filtered to attributes present for one part (`within`)
+    still moves the visible list by exactly one row per click - any order
+    entries not in `within` sitting between the moved key and its visible
+    neighbour are displaced, but their order among themselves is
+    untouched."""
     md = MusicData(parts_info=[PartStructureInfo(part_id="P1", staves_voices={1: [1]})])
 
-    md.attribute_order = ["A", "B", "C", "D", "E"]
-    assert md.move_attribute_order("E", up=True, within=["A", "C", "E"]) is True
-    assert md.attribute_order == ["A", "B", "E", "C", "D"]
+    md.attribute_order_by_part["P1"] = ["A", "B", "C", "D", "E"]
+    assert md.move_attribute_order_for_part("P1", "E", up=True, within=["A", "C", "E"]) is True
+    assert md.attribute_order_for_part("P1") == ["A", "B", "E", "C", "D"]
 
-    md.attribute_order = ["A", "B", "C", "D", "E"]
-    assert md.move_attribute_order("A", up=False, within=["A", "C", "E"]) is True
-    assert md.attribute_order == ["B", "C", "A", "D", "E"]
+    md.attribute_order_by_part["P1"] = ["A", "B", "C", "D", "E"]
+    assert md.move_attribute_order_for_part("P1", "A", up=False, within=["A", "C", "E"]) is True
+    assert md.attribute_order_for_part("P1") == ["B", "C", "A", "D", "E"]
 
 
-def test_move_attribute_order_within_scope_boundary_is_a_no_op():
+def test_move_attribute_order_for_part_within_scope_boundary_is_a_no_op():
     md = MusicData(parts_info=[PartStructureInfo(part_id="P1", staves_voices={1: [1]})])
-    md.attribute_order = ["A", "B", "C", "D", "E"]
+    md.attribute_order_by_part["P1"] = ["A", "B", "C", "D", "E"]
 
-    assert md.move_attribute_order("A", up=True, within=["A", "C", "E"]) is False
-    assert md.move_attribute_order("E", up=False, within=["A", "C", "E"]) is False
-    assert md.attribute_order == ["A", "B", "C", "D", "E"]
+    assert md.move_attribute_order_for_part("P1", "A", up=True, within=["A", "C", "E"]) is False
+    assert md.move_attribute_order_for_part("P1", "E", up=False, within=["A", "C", "E"]) is False
+    assert md.attribute_order_for_part("P1") == ["A", "B", "C", "D", "E"]
 
 
-def test_attribute_keys_for_voices_filters_by_voice_and_unions_across_notes(
+def test_attribute_keys_for_part_unions_across_the_whole_part(
     timeline, dynamics_articulation_fingering_score
 ):
+    """attribute_keys_for_part scans the whole part, not a single voice -
+    P1's bass-clef voice's "fingering" and its treble voice's "dynamic"/
+    "articulation" all show up together, since the Attribute Management
+    dialog is part-scoped, not voice-scoped (hideAttributes.md)."""
     md = timeline(dynamics_articulation_fingering_score)
 
-    piano_bass = md.attribute_keys_for_voices({("P1", 2, 2)})
-    assert "fingering" in piano_bass
-    assert "dynamic" not in piano_bass
-    assert "articulation" not in piano_bass
-    assert "pluck" not in piano_bass
+    piano = md.attribute_keys_for_part("P1")
+    assert "dynamic" in piano
+    assert "articulation" in piano
+    assert "fingering" in piano
+    assert "pluck" not in piano, "pluck only appears on the guitar part"
 
-    guitar = md.attribute_keys_for_voices({("P2", 1, 1)})
+    guitar = md.attribute_keys_for_part("P2")
     assert "fingering" in guitar
     assert "pluck" in guitar
     assert "dynamic" not in guitar
 
-    piano_treble = md.attribute_keys_for_voices({("P1", 1, 1)})
-    assert "dynamic" in piano_treble
-    assert "articulation" in piano_treble
 
-
-def test_attribute_keys_for_voices_orders_by_attribute_order(
+def test_attribute_keys_for_part_orders_by_that_parts_own_order(
     timeline, dynamics_articulation_fingering_score
 ):
     md = timeline(dynamics_articulation_fingering_score)
-    md.move_attribute_order("fingering", up=True, within=["dynamic", "articulation", "fingering"])
+    md.move_attribute_order_for_part(
+        "P1", "fingering", up=True, within=["dynamic", "articulation", "fingering"]
+    )
 
-    keys = md.attribute_keys_for_voices({("P1", 1, 1)})
+    keys = md.attribute_keys_for_part("P1")
 
     assert keys.index("fingering") < keys.index("articulation")
 
@@ -1523,19 +1542,129 @@ def test_region_3_extra_attributes_follow_a_mutated_attribute_order(timeline, mi
     note = md.timeline_slices[0].notes[0]  # C, octave 4, a quarter note
     voice_key = (note.part_id, note.staff, note.voice)
     md.voice_display_attributes[voice_key] = {"duration", "step", "octave"}
-    md.move_attribute_order("duration", up=True, within=["step", "octave", "duration"])
+    md.move_attribute_order_for_part(
+        note.part_id, "duration", up=True, within=["step", "octave", "duration"]
+    )
 
     assert md.get_region_3_data() == ["C, quarter, octave 4"]
 
 
+def test_region_3_order_for_one_part_is_unaffected_by_another_parts_order(
+    timeline, flute_crotchets_viola_semibreves_score
+):
+    """Proves the per-part split is real for Region 3 too: reordering P1's
+    own attributes must not affect how P2's notes render."""
+    md = timeline(flute_crotchets_viola_semibreves_score)
+    p2_note = next(
+        n for s in md.timeline_slices for n in s.notes if n.part_id == "P2"
+    )
+    md.voice_display_attributes[(p2_note.part_id, p2_note.staff, p2_note.voice)] = {
+        "step", "octave"
+    }
+    before = md._format_note_for_region_3(p2_note)
+
+    md.move_attribute_order_for_part("P1", "octave", up=True)
+
+    assert md._format_note_for_region_3(p2_note) == before
+
+
 def test_region_4_rows_follow_a_mutated_attribute_order(timeline, minimal_score):
     md = timeline(minimal_score)
-    md.move_attribute_order("octave", up=True)  # now sits before "step"
+    part_id = md.timeline_slices[0].notes[0].part_id
+    md.move_attribute_order_for_part(part_id, "octave", up=True)  # now sits before "step"
 
     data_keys = list(md.get_region_4_data_for_indices([0]).keys())
 
     assert data_keys[0] == attribute_label("octave", md.uk_terms)
     assert data_keys[1] == attribute_label("step", md.uk_terms)
+
+
+# --- Attribute Management: hiding (hideAttributes.md) -----------------
+
+def test_set_attribute_hidden_for_part_hides_from_region_4_only_for_that_part(
+    timeline, flute_crotchets_viola_semibreves_score
+):
+    md = timeline(flute_crotchets_viola_semibreves_score)
+    flute_note = next(n for s in md.timeline_slices for n in s.notes if n.part_id == "P1")
+    viola_note = next(n for s in md.timeline_slices for n in s.notes if n.part_id == "P2")
+
+    assert md.set_attribute_hidden_for_part("midi", "P1", True) is True
+    assert md.is_attribute_hidden("midi", "P1") is True
+    assert md.is_attribute_hidden("midi", "P2") is False
+
+    flute_keys = [key for _, key, _, _ in md._region_4_rows([flute_note])]
+    viola_keys = [key for _, key, _, _ in md._region_4_rows([viola_note])]
+    assert "midi" not in flute_keys
+    assert "midi" in viola_keys
+
+
+def test_set_attribute_hidden_for_all_hides_from_region_4_for_every_part(
+    timeline, flute_crotchets_viola_semibreves_score
+):
+    md = timeline(flute_crotchets_viola_semibreves_score)
+    assert md.set_attribute_hidden_for_all("midi", True) is True
+
+    for event_slice in md.timeline_slices:
+        for note in event_slice.notes:
+            keys = [key for _, key, _, _ in md._region_4_rows([note])]
+            assert "midi" not in keys
+
+
+def test_set_attribute_hidden_for_part_refuses_while_elevated():
+    md = MusicData(parts_info=[PartStructureInfo(part_id="P1", staves_voices={1: [1]})])
+    md.voice_display_attributes[("P1", 1, 1)] = {"step", "octave"}
+
+    assert md.set_attribute_hidden_for_part("octave", "P1", True) is False
+    assert md.is_attribute_hidden("octave", "P1") is False
+
+
+def test_set_attribute_hidden_for_all_refuses_while_elevated_anywhere():
+    md = MusicData(parts_info=[
+        PartStructureInfo(part_id="P1", staves_voices={1: [1]}),
+        PartStructureInfo(part_id="P2", staves_voices={1: [1]}),
+    ])
+    md.voice_display_attributes[("P2", 1, 1)] = {"step", "octave"}
+
+    assert md.set_attribute_hidden_for_all("octave", True) is False
+    assert md.attribute_elevated_parts("octave") == ["P2"]
+
+
+def test_set_attribute_hidden_for_part_refuses_when_already_hidden_for_all():
+    """The model itself refuses this, not just the dialog's own button
+    disablement (user: "good coding should mean it isn't permitted in the
+    data model")."""
+    md = MusicData(parts_info=[PartStructureInfo(part_id="P1", staves_voices={1: [1]})])
+    assert md.set_attribute_hidden_for_all("octave", True) is True
+
+    assert md.set_attribute_hidden_for_part("octave", "P1", True) is False
+    assert md.hidden_attributes_by_part.get("P1", set()) == set()
+
+
+def test_set_attribute_hidden_for_all_clears_stale_per_part_hides():
+    md = MusicData(parts_info=[PartStructureInfo(part_id="P1", staves_voices={1: [1]})])
+    assert md.set_attribute_hidden_for_part("octave", "P1", True) is True
+
+    assert md.set_attribute_hidden_for_all("octave", True) is True
+
+    assert md.hidden_attributes_by_part.get("P1", set()) == set()
+    assert md.is_attribute_hidden("octave", "P1") is True
+
+
+def test_unhiding_at_either_tier_restores_the_region_4_row(
+    timeline, minimal_score
+):
+    md = timeline(minimal_score)
+    part_id = md.timeline_slices[0].notes[0].part_id
+
+    md.set_attribute_hidden_for_part("octave", part_id, True)
+    assert "octave" not in [key for _, key, _ in md.get_region_4_rows_for_indices([0])]
+    md.set_attribute_hidden_for_part("octave", part_id, False)
+    assert "octave" in [key for _, key, _ in md.get_region_4_rows_for_indices([0])]
+
+    md.set_attribute_hidden_for_all("octave", True)
+    assert "octave" not in [key for _, key, _ in md.get_region_4_rows_for_indices([0])]
+    md.set_attribute_hidden_for_all("octave", False)
+    assert "octave" in [key for _, key, _ in md.get_region_4_rows_for_indices([0])]
 
 
 # --- Ref 27: export_config/apply_config -------------------------------------
@@ -1553,7 +1682,9 @@ def test_export_config_defaults_to_an_all_visible_empty_config(timeline, minimal
     assert config.metronome_enabled is False
     assert config.position_announcer_enabled is False
     assert config.voice_display_attributes == {}
-    assert config.attribute_order == md.DISPLAY_ATTRIBUTE_ORDER
+    assert config.attribute_order_by_part == {}
+    assert config.hidden_attributes_by_part == {}
+    assert config.hidden_attributes_for_all == set()
     assert config.refresh_settings == RefreshSettings()
 
 
@@ -1563,7 +1694,9 @@ def test_export_then_apply_config_round_trips_full_state(
     md = timeline(flute_crotchets_viola_semibreves_score)
     md.set_active_voice_filter({("P2", 1, 1)})  # viola only, flute off
     md.voice_display_attributes[("P2", 1, 1)] = {"step", "octave"}
-    md.move_attribute_order("octave", up=True)
+    md.move_attribute_order_for_part("P2", "octave", up=True)
+    md.set_attribute_hidden_for_part("midi", "P2", True)
+    md.set_attribute_hidden_for_all("string", True)
     md.toggle_metronome()
     md.toggle_position_announcer()
     md.mixer.set_volume("P1", 86)
@@ -1577,7 +1710,9 @@ def test_export_then_apply_config_round_trips_full_state(
 
     assert fresh.active_voice_filter == {("P2", 1, 1)}
     assert fresh.voice_display_attributes == {("P2", 1, 1): {"step", "octave"}}
-    assert fresh.attribute_order == md.attribute_order
+    assert fresh.attribute_order_by_part["P2"] == md.attribute_order_by_part["P2"]
+    assert fresh.hidden_attributes_by_part.get("P2") == {"midi"}
+    assert fresh.hidden_attributes_for_all == {"string"}
     assert fresh.metronome_enabled is True
     assert fresh.position_announcer_enabled is True
     assert fresh.mixer.volume_for("P1") == 86
@@ -1634,10 +1769,12 @@ def test_apply_config_is_best_effort_against_a_mismatched_score(timeline, minima
     assert target.voice_display_attributes == {}
     # The unknown attribute key is dropped but the rest of the saved order
     # survives, and every valid key still ends up present (nothing vanishes
-    # from rendering just because it wasn't in the saved list).
-    assert "not-a-real-attribute" not in target.attribute_order
-    assert target.attribute_order[:2] == ["octave", "step"]
-    assert set(target.attribute_order) == set(target.DISPLAY_ATTRIBUTE_ORDER)
+    # from rendering just because it wasn't in the saved list) - migrated
+    # (the old flat attribute_order field) into the one real part this
+    # score has.
+    assert "not-a-real-attribute" not in target.attribute_order_by_part["P1"]
+    assert target.attribute_order_by_part["P1"][:2] == ["octave", "step"]
+    assert set(target.attribute_order_by_part["P1"]) == set(target.DISPLAY_ATTRIBUTE_ORDER)
     # metronome_enabled has no notion of "matching the score", so it always
     # applies as-is.
     assert target.metronome_enabled is True
@@ -2111,6 +2248,42 @@ def test_available_find_targets_attributes_respect_the_active_voice_filter(
     keys = {t.key for t in md.available_find_targets() if t.category == "attribute"}
 
     assert keys == {"dynamic", "articulation", "ornament", "fingering"}
+
+
+def test_find_excludes_an_attribute_hidden_for_all_parts(
+    timeline, dynamics_articulation_fingering_score
+):
+    """Attribute Management (hideAttributes.md): "a hidden attribute cannot
+    be found" - hidden-for-all excludes every occurrence, so the target
+    disappears from the catalog entirely."""
+    md = timeline(dynamics_articulation_fingering_score)
+    assert "dynamic" in {t.key for t in md.available_find_targets() if t.category == "attribute"}
+
+    md.set_attribute_hidden_for_all("dynamic", True)
+
+    assert "dynamic" not in {
+        t.key for t in md.available_find_targets() if t.category == "attribute"
+    }
+
+
+def test_find_excludes_an_attribute_hidden_for_just_one_part(
+    timeline, dynamics_articulation_fingering_score
+):
+    """Hidden-for-just-one-part excludes only that part's occurrences,
+    leaving the same attribute findable via a different, non-hidden part's
+    occurrence - "respects the currently selected part" per the user."""
+    md = timeline(dynamics_articulation_fingering_score)
+    md.set_attribute_hidden_for_part("fingering", "P1", True)
+
+    target = FindTarget("attribute", "fingering", "fingering")
+    index = md.find_occurrence(target, from_index=-1, direction=1)
+
+    assert index is not None
+    landed_notes = md.timeline_slices[index].notes
+    assert any(
+        n.part_id == "P2" and "fingering" in md._note_attribute_pairs(n)
+        for n in landed_notes
+    ), "fingering is still findable via the guitar part, just not the piano"
 
 
 def test_available_find_targets_lists_only_marking_kinds_actually_present(

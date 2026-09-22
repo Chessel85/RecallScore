@@ -4,6 +4,7 @@ from PySide6.QtWidgets import QMenu
 
 from models.vocabulary import attribute_label
 from widgets.region2_manager import voice_tuples_for_node
+from widgets.user_notification import notify_user
 
 
 class AttributeController:
@@ -181,19 +182,60 @@ class AttributeController:
         self.music_data.set_display_attribute(attribute_key, scope, notes, add)
         self.presenter.refresh_region_3_labels()
 
-    # --- reorder dialog -----------------------------------------------
+    # --- Attribute Management dialog (order + hide, always part-scoped) --
+    # UserPlans/hideAttributes.md: "The Hide and reorder dialogue needs to
+    # be part specific... Attribute ordering is always per part. never
+    # score, stave or voice level." Whatever Region 2 node was current when
+    # the dialog opens, it is resolved to that node's own part once
+    # (scope_node/_show_attribute_order_dialog) and everything below - the
+    # list, Up/Down, Hide, Hide for All - acts at that part's granularity.
+    # Add/&Remove keeps its own node-based scope fan-out (order_menu_actions
+    # below), untouched by this collapse.
 
-    def order_pairs_for_node(self, node) -> list:
-        """(attribute_key, label) pairs in current order, for every
-        attribute present anywhere in the score within `node`'s scope.
-        Labels arrive already dialect-translated so the dialog itself stays
-        dialect-agnostic."""
-        voice_tuples = voice_tuples_for_node(node)
-        keys = self.music_data.attribute_keys_for_voices(voice_tuples)
-        return [(key, attribute_label(key, self.music_data.uk_terms)) for key in keys]
+    def order_pairs_for_part(self, part_id: str) -> list:
+        """(attribute_key, label, elevated, hidden_state) rows in current
+        order, for every attribute present anywhere in `part_id`. Labels
+        arrive already dialect-translated so the dialog itself stays
+        dialect-agnostic. `elevated` is part-local (any of the four
+        add/remove scopes, anywhere under this part - user decision:
+        "because the dialogue is scoped to the part, it must prefix with an
+        asterisk regardless of the level"). `hidden_state` is "all" / "part"
+        / "visible" - see AttributeOrderDialog._row_text."""
+        md = self.music_data
+        keys = md.attribute_keys_for_part(part_id)
+        rows = []
+        for key in keys:
+            rows.append((
+                key,
+                attribute_label(key, md.uk_terms),
+                md.attribute_elevated_for_part(key, part_id),
+                self._hidden_state(part_id, key),
+            ))
+        return rows
+
+    def _hidden_state(self, part_id: str, attribute_key: str) -> str:
+        md = self.music_data
+        if attribute_key in md.hidden_attributes_for_all:
+            return "all"
+        if attribute_key in md.hidden_attributes_by_part.get(part_id, set()):
+            return "part"
+        return "visible"
+
+    def _part_name(self, part_id: str) -> str:
+        for p in self.music_data.parts_info:
+            if p.part_id == part_id:
+                return p.name
+        return part_id
+
+    def part_scope_description(self, part_id: str) -> str:
+        """The Attribute Management dialog's own scope label - just the
+        part's name, since the dialog is always part-scoped regardless of
+        which Region 2 node (voice/stave/part) it was opened from."""
+        return self._part_name(part_id)
 
     def scope_node(self):
-        """The Region 2 node the reorder dialog scopes itself to, or None."""
+        """The Region 2 node the Attribute Management dialog resolves to a
+        part from, or None."""
         if not self.music_data:
             return None
         return self.presenter.region_2.current_node()
@@ -211,19 +253,72 @@ class AttributeController:
             return None
         return item.data(Qt.ItemDataRole.UserRole)
 
-    def apply_order(self, node, new_order: list) -> None:
-        """Commits the Reorder Attributes dialog's staged order (read via
-        dialog.ordered_keys() after exec() returns Accepted) into the real
-        attribute_order and pushes the result to Region 3/4. `within` is
-        recomputed the same way order_pairs_for_node did when the dialog
+    def apply_order(self, part_id: str, new_order: list) -> None:
+        """Commits the Attribute Management dialog's staged order (read via
+        dialog.ordered_keys() after exec() returns Accepted) into `part_id`'s
+        own live order and pushes the result to Region 3/4. `within` is
+        recomputed the same way order_pairs_for_part did when the dialog
         was opened, so the commit lands on the same subset of slots."""
         if not self.music_data:
             return
-        voice_tuples = voice_tuples_for_node(node)
-        within = self.music_data.attribute_keys_for_voices(voice_tuples)
-        self.music_data.set_attribute_order_within(new_order, within)
+        within = self.music_data.attribute_keys_for_part(part_id)
+        self.music_data.set_attribute_order_within_part(part_id, new_order, within)
         self.presenter.refresh_region_3_labels()
         self.presenter.on_region_3_selection_changed()
+
+    # --- Hide / Hide for All (Attribute Management) --------------------
+
+    def toggle_hidden_for_part(self, dialog, part_id: str, attribute_key: str) -> None:
+        """&Hide/Un&hide button: toggles `attribute_key`'s hidden-for-
+        `part_id` state, immediate-apply like Add/Remove. Direction (hide
+        vs unhide) is read off MusicData's own live state, not the
+        dialog's button label, so this can never drift out of sync with it.
+        A blocked hide (elevated in this part, or already hidden for all -
+        though the dialog disables the button outright for that second
+        case) pops the confirmed message and leaves the model untouched."""
+        md = self.music_data
+        if md is None:
+            return
+        currently_hidden = attribute_key in md.hidden_attributes_by_part.get(part_id, set())
+        if currently_hidden:
+            md.set_attribute_hidden_for_part(attribute_key, part_id, False)
+        elif not md.set_attribute_hidden_for_part(attribute_key, part_id, True):
+            label = attribute_label(attribute_key, md.uk_terms)
+            notify_user(
+                "error",
+                f"{label} can't be hidden while it's shown in the note list.",
+            )
+            return
+        self._refresh_dialog_row(dialog, part_id, attribute_key)
+        self.presenter.refresh_region_3_labels()
+
+    def toggle_hidden_for_all(self, dialog, part_id: str, attribute_key: str) -> None:
+        """Hide for &All/Unhide for &All button: toggles `attribute_key`'s
+        score-wide hidden state - see toggle_hidden_for_part, same shape. A
+        blocked hide names every part it's elevated in."""
+        md = self.music_data
+        if md is None:
+            return
+        currently_hidden = attribute_key in md.hidden_attributes_for_all
+        if currently_hidden:
+            md.set_attribute_hidden_for_all(attribute_key, False)
+        elif not md.set_attribute_hidden_for_all(attribute_key, True):
+            label = attribute_label(attribute_key, md.uk_terms)
+            part_names = ", ".join(
+                self._part_name(p) for p in md.attribute_elevated_parts(attribute_key)
+            )
+            notify_user(
+                "error",
+                f"{label} can't be hidden for the whole score while it's "
+                f"shown in the note list for: {part_names}.",
+            )
+            return
+        self._refresh_dialog_row(dialog, part_id, attribute_key)
+        self.presenter.refresh_region_3_labels()
+
+    def _refresh_dialog_row(self, dialog, part_id: str, attribute_key: str) -> None:
+        elevated = self.music_data.attribute_elevated_for_part(attribute_key, part_id)
+        dialog.set_row_state(attribute_key, elevated, self._hidden_state(part_id, attribute_key))
 
     # --- reorder dialog's Add/Remove button ----------------------------
     # User-requested: Reorder Attributes already lists every attribute

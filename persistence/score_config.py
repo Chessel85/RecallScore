@@ -89,7 +89,17 @@ def load_for(file_path: str) -> Optional[ScoreConfig]:
                 _decode_voice_key(k): set(v)
                 for k, v in data.get("voice_display_attributes", {}).items()
             },
+            # Read for migration only (MusicData.apply_config) - a save from
+            # this or a later schema never writes this key back, so it's
+            # absent from data on every .rsc but a pre-migration one.
             attribute_order=list(data.get("attribute_order", [])),
+            attribute_order_by_part={
+                str(k): list(v) for k, v in (data.get("attribute_order_by_part") or {}).items()
+            },
+            hidden_attributes_by_part={
+                str(k): set(v) for k, v in (data.get("hidden_attributes_by_part") or {}).items()
+            },
+            hidden_attributes_for_all=set(data.get("hidden_attributes_for_all", [])),
             mixer=MixerSettings.from_dict(data.get("mixer")),
             refresh_settings=RefreshSettings.from_dict(data.get("refresh_settings")),
             part_name_overrides={
@@ -151,7 +161,17 @@ def save(file_path: str, config: ScoreConfig) -> None:
             _encode_voice_key(k): sorted(v)
             for k, v in config.voice_display_attributes.items()
         },
-        "attribute_order": list(config.attribute_order),
+        # Old flat "attribute_order" is deliberately never written any more
+        # - only attribute_order_by_part is a real save target now
+        # (hideAttributes.md); ScoreConfig.attribute_order exists purely to
+        # receive an older file's value on load.
+        "attribute_order_by_part": {
+            k: list(v) for k, v in config.attribute_order_by_part.items()
+        },
+        "hidden_attributes_by_part": {
+            k: sorted(v) for k, v in config.hidden_attributes_by_part.items()
+        },
+        "hidden_attributes_for_all": sorted(config.hidden_attributes_for_all),
         "mixer": config.mixer.to_dict(),
         "refresh_settings": config.refresh_settings.to_dict(),
         "part_name_overrides": dict(config.part_name_overrides),

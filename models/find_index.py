@@ -133,6 +133,13 @@ class FindIndex:
             result: List[Optional[int]] = []
             for i in range(len(data.timeline_slices)):
                 for n in data._visible_notes(index=i):
+                    # Attribute Management: a hidden attribute cannot be
+                    # found, per-occurrence, against that occurrence's OWN
+                    # part - hidden-for-all excludes it everywhere,
+                    # hidden-for-just-one-part excludes only that part's
+                    # occurrences (UserPlans/hideAttributes.md).
+                    if data.is_attribute_hidden(key, n.part_id):
+                        continue
                     pairs = data._note_attribute_pairs(n)
                     raw = pairs.get(key)
                     if raw is None:
@@ -338,6 +345,11 @@ class FindIndex:
             for note in data._visible_notes(index=i):
                 pairs = data._note_attribute_pairs(note)
                 for key, raw in pairs.items():
+                    # Attribute Management: a hidden attribute contributes no
+                    # occurrence for THIS note's own part - see the same
+                    # per-occurrence rule in candidate_indices_for_target.
+                    if data.is_attribute_hidden(key, note.part_id):
+                        continue
                     if key not in seen_keys:
                         seen_keys.add(key)
                         any_by_key.setdefault(key, []).append(i)
@@ -358,8 +370,13 @@ class FindIndex:
         for pair, indices in by_key_value.items():
             cache[pair] = indices
 
+        # present_keys ordering: attribute_order is now per-part, so there is
+        # no longer one single score-wide order to sort by - present keys are
+        # DISPLAY_ATTRIBUTE_ORDER-ordered instead (the fixed default every
+        # part's own order starts from), which is a stable, deterministic
+        # dialog order regardless of any part's own customisation.
         present_keys = [
-            key for key in data.attribute_order
+            key for key in data.DISPLAY_ATTRIBUTE_ORDER
             if key in any_by_key and key not in data.CORE_ATTRIBUTE_KEYS
         ]
         distinct_values = {key: sorted(values) for key, values in values_by_key.items()}

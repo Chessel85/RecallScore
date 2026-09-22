@@ -117,11 +117,22 @@ class MusicData:
     # and must keep showing the plain note name.
     voice_display_attributes: Dict[Tuple[str, int, int], Set[str]] = field(default_factory=dict)
 
-    # F2/Ref 15 AC4: the live, mutable rendering order Region 3/4 both read.
-    # Defaults empty rather than to DISPLAY_ATTRIBUTE_ORDER because that
-    # constant is defined further down the class body and isn't bound yet
-    # here; __post_init__ fills it in, so "empty" never escapes.
-    attribute_order: List[str] = field(default_factory=list)
+    # F2/Ref 15 AC4: the live, mutable rendering order Region 3/4 both read -
+    # one list per part_id (hideAttributes.md; was a single score-global
+    # list before). A part absent from this dict is lazily seeded with a
+    # fresh copy of DISPLAY_ATTRIBUTE_ORDER on first access
+    # (NoteRenderer.attribute_order_for_part), not pre-populated here.
+    attribute_order_by_part: Dict[str, List[str]] = field(default_factory=dict)
+
+    # Attribute Management (hideAttributes.md): which attributes are hidden
+    # from Region 4 and Find. Two tiers, mutually exclusive by construction
+    # (NoteRenderer.set_attribute_hidden_for_part/_for_all both refuse to
+    # hide an attribute that's elevated anywhere the check looks) -
+    # hidden_attributes_for_all takes precedence wherever the two might
+    # otherwise disagree. Neither tier touches Region 3 - that stays gated
+    # by voice_display_attributes/WHICH alone.
+    hidden_attributes_by_part: Dict[str, Set[str]] = field(default_factory=dict)
+    hidden_attributes_for_all: Set[str] = field(default_factory=set)
 
     # Ref 14: gates both whether a beat sounds a click and whether a beat
     # with no note counts as a navigable event at all (_slice_is_navigable,
@@ -362,11 +373,9 @@ class MusicData:
         self.performance_rows = PerformanceRows(self)
         self.marking_rows = MarkingRows(self)
         self.part_links = PartLinks(self)
-        # DISPLAY_ATTRIBUTE_ORDER is the fixed default; attribute_order is
-        # the live copy the reorder dialog mutates. A caller-supplied order
-        # is honoured as-is.
-        if not self.attribute_order:
-            self.attribute_order = list(self.DISPLAY_ATTRIBUTE_ORDER)
+        # DISPLAY_ATTRIBUTE_ORDER is the fixed default; attribute_order_by_
+        # part's per-part copies are seeded lazily on first access
+        # (NoteRenderer.attribute_order_for_part) - nothing to do here.
         if self.file_path:
             # S2: imported HERE, not at module scope, and deliberately so.
             # models/ owns the data; parsers/ owns which builder a file
@@ -806,9 +815,10 @@ class MusicData:
         ]
 
     # Ref 15 AC4: the fixed DEFAULT rendering order for Region 3's optional
-    # extra attributes and Region 4's rows - every fresh MusicData starts
-    # attribute_order (see __post_init__) as a copy of this. F2's
-    # attribute-order dialog mutates that live copy, never this constant.
+    # extra attributes and Region 4's rows - every part's entry in
+    # attribute_order_by_part is lazily seeded (NoteRenderer.
+    # attribute_order_for_part) as a copy of this. The Attribute Management
+    # dialog mutates a part's own live copy, never this constant.
     # "text" sits right beside "step"/"octave" rather than beside "measure" -
     # it and "step"/"octave"/"midi" are mutually exclusive per note (an
     # ordinary note never has "text", a stave text event never has
@@ -864,11 +874,12 @@ class MusicData:
     # --- Region 3/4 rendering + attribute system (Ref 15 AC4) ---------
     #
     # S1: the logic lives in models/note_renderer.py (NoteRenderer, built
-    # in __post_init__). voice_display_attributes and attribute_order stay
-    # fields here - export_config()/apply_config() persist them - so only
-    # the reading and mutating moved. The three display constants below
-    # stay here too, beside DISPLAY_ATTRIBUTE_ORDER/
-    # DEFAULT_DISPLAY_ATTRIBUTES which apply_config also reads.
+    # in __post_init__). voice_display_attributes, attribute_order_by_part
+    # and the hidden_attributes_* fields stay here - export_config()/
+    # apply_config() persist them - so only the reading and mutating moved.
+    # The three display constants below stay here too, beside
+    # DISPLAY_ATTRIBUTE_ORDER/DEFAULT_DISPLAY_ATTRIBUTES which apply_config
+    # also reads.
 
     # Attribute keys whose value alone is self-explanatory in Region 3's
     # comma-joined note text, so the "<Label> " prefix
@@ -987,20 +998,48 @@ class MusicData:
             attribute_key, scope, part_id, staff, voice, add
         )
 
-    def move_attribute_order(self, attribute_key: str, up: bool, within: Optional[List[str]] = None) -> bool:
-        """F2/Ref 15 AC4: move an attribute one step in the live rendering
-        order - see NoteRenderer.move_attribute_order."""
-        return self.renderer.move_attribute_order(attribute_key, up, within)
+    def attribute_order_for_part(self, part_id: str) -> List[str]:
+        """The live, mutable rendering order for `part_id` - see
+        NoteRenderer.attribute_order_for_part."""
+        return self.renderer.attribute_order_for_part(part_id)
 
-    def attribute_keys_for_voices(self, voice_tuples: Set[Tuple[str, int, int]]) -> List[str]:
-        """Every attribute key present on a note in these voices, ordered
-        per attribute_order - see NoteRenderer.attribute_keys_for_voices."""
-        return self.renderer.attribute_keys_for_voices(voice_tuples)
+    def move_attribute_order_for_part(
+        self, part_id: str, attribute_key: str, up: bool, within: Optional[List[str]] = None
+    ) -> bool:
+        """F2/Ref 15 AC4: move an attribute one step in `part_id`'s own live
+        rendering order - see NoteRenderer.move_attribute_order_for_part."""
+        return self.renderer.move_attribute_order_for_part(part_id, attribute_key, up, within)
 
-    def set_attribute_order_within(self, new_order: List[str], within: List[str]) -> None:
-        """Commits the Reorder Attributes dialog's staged order on OK - see
-        NoteRenderer.set_attribute_order_within."""
-        self.renderer.set_attribute_order_within(new_order, within)
+    def attribute_keys_for_part(self, part_id: str) -> List[str]:
+        """Every attribute key present on a note in `part_id`, ordered per
+        that part's own order - see NoteRenderer.attribute_keys_for_part."""
+        return self.renderer.attribute_keys_for_part(part_id)
+
+    def set_attribute_order_within_part(self, part_id: str, new_order: List[str], within: List[str]) -> None:
+        """Commits the Attribute Management dialog's staged order on OK -
+        see NoteRenderer.set_attribute_order_within_part."""
+        self.renderer.set_attribute_order_within_part(part_id, new_order, within)
+
+    def is_attribute_hidden(self, attribute_key: str, part_id: str) -> bool:
+        """Whether `attribute_key` is hidden from Region 4/Find, for
+        `part_id` or the whole score - see NoteRenderer.is_attribute_hidden."""
+        return self.renderer.is_attribute_hidden(attribute_key, part_id)
+
+    def attribute_elevated_for_part(self, attribute_key: str, part_id: str) -> bool:
+        """See NoteRenderer.attribute_elevated_for_part."""
+        return self.renderer.attribute_elevated_for_part(attribute_key, part_id)
+
+    def attribute_elevated_parts(self, attribute_key: str) -> List[str]:
+        """See NoteRenderer.attribute_elevated_parts."""
+        return self.renderer.attribute_elevated_parts(attribute_key)
+
+    def set_attribute_hidden_for_part(self, attribute_key: str, part_id: str, hidden: bool) -> bool:
+        """See NoteRenderer.set_attribute_hidden_for_part."""
+        return self.renderer.set_attribute_hidden_for_part(attribute_key, part_id, hidden)
+
+    def set_attribute_hidden_for_all(self, attribute_key: str, hidden: bool) -> bool:
+        """See NoteRenderer.set_attribute_hidden_for_all."""
+        return self.renderer.set_attribute_hidden_for_all(attribute_key, hidden)
 
     def reorder_parts(self, part_id_order: List[str]) -> None:
         """Options > Reorder Parts... - the order parts_info lists parts
@@ -1084,7 +1123,16 @@ class MusicData:
             voice_display_attributes={
                 k: set(v) for k, v in self.voice_display_attributes.items()
             },
-            attribute_order=list(self.attribute_order),
+            # attribute_order (the old flat field) is deliberately never
+            # written here - ScoreConfig keeps it only so apply_config can
+            # migrate an older .rsc's flat order on the way in (see there).
+            attribute_order_by_part={
+                part_id: list(order) for part_id, order in self.attribute_order_by_part.items()
+            },
+            hidden_attributes_by_part={
+                part_id: set(keys) for part_id, keys in self.hidden_attributes_by_part.items()
+            },
+            hidden_attributes_for_all=set(self.hidden_attributes_for_all),
             mixer=self.mixer.copy(),
             refresh_settings=self.refresh_settings.copy(),
             part_name_overrides=dict(self.part_name_overrides),
@@ -1120,9 +1168,43 @@ class MusicData:
         }
 
         known_attribute_keys = set(self.DISPLAY_ATTRIBUTE_ORDER)
-        ordered = [key for key in config.attribute_order if key in known_attribute_keys]
-        ordered += [key for key in self.DISPLAY_ATTRIBUTE_ORDER if key not in ordered]
-        self.attribute_order = ordered
+        # Union of parts_info (populated only by MusicXMLReader.load()) and
+        # the notes themselves (always populated, even for a directly-built
+        # MusicData(file_path=...) - see _all_voice_tuples' own reasoning)
+        # so this is correct in both cases.
+        known_part_ids = {p.part_id for p in self.parts_info} | {
+            voice_key[0] for voice_key in known_voices
+        }
+
+        if config.attribute_order_by_part:
+            self.attribute_order_by_part = {}
+            for part_id, order in config.attribute_order_by_part.items():
+                if part_id not in known_part_ids:
+                    continue
+                ordered = [key for key in order if key in known_attribute_keys]
+                ordered += [key for key in self.DISPLAY_ATTRIBUTE_ORDER if key not in ordered]
+                self.attribute_order_by_part[part_id] = ordered
+        elif config.attribute_order:
+            # Migration: an old .rsc has a flat attribute_order and no
+            # attribute_order_by_part - seed every part currently in the
+            # score with a copy of it, the closest available approximation
+            # of "what the user already had" (there is no way to know
+            # whether the old flat order was customised with one particular
+            # part in mind). Never written back out - export_config() only
+            # ever emits the new per-part field, so this only ever fires
+            # once, on the first load of a pre-migration .rsc.
+            ordered = [key for key in config.attribute_order if key in known_attribute_keys]
+            ordered += [key for key in self.DISPLAY_ATTRIBUTE_ORDER if key not in ordered]
+            self.attribute_order_by_part = {part_id: list(ordered) for part_id in known_part_ids}
+        else:
+            self.attribute_order_by_part = {}
+
+        self.hidden_attributes_by_part = {
+            part_id: set(keys) & known_attribute_keys
+            for part_id, keys in config.hidden_attributes_by_part.items()
+            if part_id in known_part_ids
+        }
+        self.hidden_attributes_for_all = set(config.hidden_attributes_for_all) & known_attribute_keys
 
         self.set_metronome_enabled(config.metronome_enabled)
         self.set_position_announcer_enabled(config.position_announcer_enabled)
@@ -1130,7 +1212,6 @@ class MusicData:
         self.mixer = config.mixer.copy()
         self.refresh_settings = config.refresh_settings.copy()
 
-        known_part_ids = {p.part_id for p in self.parts_info}
         self.apply_part_overrides(
             {k: v for k, v in config.part_name_overrides.items() if k in known_part_ids},
             {k: v for k, v in config.part_program_overrides.items() if k in known_part_ids},

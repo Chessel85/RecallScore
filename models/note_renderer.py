@@ -5,11 +5,15 @@ NoteData into the text Region 3 and Region 4 show, plus the per-voice
 Reorder Attributes dialog drive.
 
 The WHICH half (voice_display_attributes) and the ORDER half
-(attribute_order) both still live as fields on MusicData, because
-export_config()/apply_config() persist them per score. Only the logic that
-reads and mutates them moved here. MusicData keeps a delegator for every
-method, including the two private ones tests drive directly
-(_note_attribute_pairs, _format_note_for_region_3).
+(attribute_order_by_part, one list per part) both still live as fields on
+MusicData, because export_config()/apply_config() persist them per score.
+Only the logic that reads and mutates them moved here. MusicData keeps a
+delegator for every method, including the two private ones tests drive
+directly (_note_attribute_pairs, _format_note_for_region_3).
+
+A third mechanism, HIDDEN (hidden_attributes_by_part/hidden_attributes_
+for_all - Attribute Management), gates Region 4 and Find only, never Region
+3 - see is_attribute_hidden.
 
 The single rule worth restating: an attribute renders only when it is BOTH
 switched on for that voice AND present on that note. Absence is the
@@ -138,7 +142,7 @@ class NoteRenderer:
         data = self.data
         wanted = self.attributes_for_voice(note.part_id, note.staff, note.voice)
         pairs = self.note_attribute_pairs(note)
-        order = data.attribute_order
+        order = self.attribute_order_for_part(note.part_id)
         parts = []
         skip_next_octave = False
         for i, key in enumerate(order):
@@ -230,17 +234,23 @@ class NoteRenderer:
         display_key carries the "note N " prefix used for a chord;
         attribute_key never does. Shared by all three public Region 4
         accessors below, which differ only in which of these four fields
-        they keep. Order follows attribute_order - the same live order
-        Region 3 uses - not note_attribute_pairs' insertion order, so the
-        two regions can't disagree on sequence."""
+        they keep. Order follows each note's OWN part's attribute_order_
+        for_part - the same live per-part order Region 3 uses - not
+        note_attribute_pairs' insertion order, so the two regions can't
+        disagree on sequence. A key hidden for this note's part (Attribute
+        Management, either tier) is skipped - Region 4 and Find are the
+        only two things hiding gates; Region 3 is untouched (see
+        format_note_for_region_3)."""
         data = self.data
         is_chord = len(selected_notes) > 1
         rows = []
         for idx, n in enumerate(selected_notes, start=1):
             prefix = f"note {idx} " if is_chord else ""
             pairs = self.note_attribute_pairs(n)
-            for attribute_key in data.attribute_order:
+            for attribute_key in self.attribute_order_for_part(n.part_id):
                 if attribute_key not in pairs:
+                    continue
+                if self.is_attribute_hidden(attribute_key, n.part_id):
                     continue
                 label = vocabulary.attribute_label(attribute_key, data.uk_terms)
                 rows.append((f"{prefix}{label}", attribute_key, n, pairs[attribute_key]))
@@ -434,27 +444,42 @@ class NoteRenderer:
         voice_keys = self.voice_tuples_for_scope(part_id, staff, voice, scope)
         self.apply_display_attribute(attribute_key, voice_keys, add)
 
-    # --- rendering order (F2) -----------------------------------------
+    # --- rendering order (F2, now per-part - hideAttributes.md) --------
 
-    def move_attribute_order(
-        self, attribute_key: str, up: bool, within: Optional[List[str]] = None
+    def attribute_order_for_part(self, part_id: str) -> List[str]:
+        """The live, mutable rendering order for `part_id` - both
+        format_note_for_region_3 and region_4_rows iterate their note's own
+        part's copy. Lazily seeded with a fresh copy of
+        DISPLAY_ATTRIBUTE_ORDER on first access rather than pre-populated
+        for every part up front, so a score gaining a part later needs no
+        special-casing."""
+        data = self.data
+        order = data.attribute_order_by_part.get(part_id)
+        if order is None:
+            order = list(data.DISPLAY_ATTRIBUTE_ORDER)
+            data.attribute_order_by_part[part_id] = order
+        return order
+
+    def move_attribute_order_for_part(
+        self, part_id: str, attribute_key: str, up: bool, within: Optional[List[str]] = None
     ) -> bool:
-        """F2/Ref 15 AC4: move `attribute_key` one step earlier (up) or later
-        in attribute_order, the single global order Region 3 and 4 both
-        render from. Returns False at a boundary or for an unknown key,
-        matching move_timeline_left/right's convention.
+        """Per-part counterpart of the old (score-global)
+        move_attribute_order: same pop/insert-relative-to-neighbour logic,
+        against attribute_order_for_part(part_id). Returns False at a
+        boundary or for an unknown key, matching move_timeline_left/right's
+        convention.
 
-        `within`, if given, is a subset of attribute_order (the dialog's
-        per-node filtered list) and the move is relative to the nearest
-        neighbour IN THAT SUBSET. Entries not in `within` that sit between
-        the two are carried along, keeping their order relative to each
-        other. That is what lets a filtered dialog move its visible list by
+        `within`, if given, is a subset of this part's order (the dialog's
+        own present-in-this-part filtered list) and the move is relative to
+        the nearest neighbour IN THAT SUBSET. Entries not in `within` that
+        sit between the two are carried along, keeping their order relative
+        to each other - what lets a filtered dialog move its visible list by
         exactly one row per click without knowing about hidden attributes.
 
         Taking the neighbour's index BEFORE popping attribute_key, then
         inserting at that same index, is what makes one pop/insert pair
         correct in both directions with no branching."""
-        order = self.data.attribute_order
+        order = self.attribute_order_for_part(part_id)
         if attribute_key not in order:
             return False
         sequence = within if within is not None else order
@@ -471,33 +496,145 @@ class NoteRenderer:
         order.insert(target_index, attribute_key)
         return True
 
-    def set_attribute_order_within(self, new_order: List[str], within: List[str]) -> None:
-        """Commits the Reorder Attributes dialog's staged local reordering
-        of `within` (a subset of attribute_order the dialog scoped itself
-        to) back into the single global attribute_order in one shot, on OK.
+    def set_attribute_order_within_part(
+        self, part_id: str, new_order: List[str], within: List[str]
+    ) -> None:
+        """Commits the Attribute Management dialog's staged local reordering
+        of `within` (a subset of `part_id`'s own order the dialog scoped
+        itself to) back into that part's live order in one shot, on OK.
 
-        `within`'s keys occupy some subset of positions in attribute_order,
+        `within`'s keys occupy some subset of positions in the part's order,
         interleaved with keys outside the dialog's scope. Those slots are
         filled, in ascending order, with `new_order` - the same "hidden
-        entries in between keep their place" contract move_attribute_order
-        maintains one step at a time, done here as a single bulk replace
-        since the dialog no longer applies moves live."""
-        order = self.data.attribute_order
+        entries in between keep their place" contract
+        move_attribute_order_for_part maintains one step at a time, done
+        here as a single bulk replace since the dialog no longer applies
+        moves live."""
+        order = self.attribute_order_for_part(part_id)
         positions = sorted(order.index(key) for key in within if key in order)
         for pos, key in zip(positions, new_order):
             order[pos] = key
 
-    def attribute_keys_for_voices(self, voice_tuples: Set[Tuple[str, int, int]]) -> List[str]:
+    def attribute_keys_for_part(self, part_id: str) -> List[str]:
         """Every attribute key that has a value on at least one note
-        belonging to one of `voice_tuples`, anywhere in the score (not just
-        the current slice), ordered per attribute_order. Powers the F2
-        attribute-order dialog's per-Region-2-node list - scans
+        belonging to `part_id`, anywhere in the score (not just the current
+        slice), ordered per that part's own attribute_order_for_part.
+        Powers the Attribute Management dialog's list - scans
         _real_timeline_slices (the stable, marker-free timeline) rather than
         timeline_slices, since the metronome can temporarily replace the
-        latter with a merged view that includes marker-only slices."""
+        latter with a merged view that includes marker-only slices.
+
+        Filters on note.part_id directly rather than going through
+        voice_tuples_for_scope/parts_info - parts_info is only populated by
+        MusicXMLReader.load() and stays empty for a directly-built
+        MusicData(file_path=...) (see MusicData._all_voice_tuples), so this
+        must work from the notes themselves like that method does."""
         present: Set[str] = set()
         for event_slice in self.data._real_timeline_slices:
             for note in event_slice.notes:
-                if (note.part_id, note.staff, note.voice) in voice_tuples:
+                if note.part_id == part_id:
                     present |= self.note_attribute_pairs(note).keys()
-        return [key for key in self.data.attribute_order if key in present]
+        return [key for key in self.attribute_order_for_part(part_id) if key in present]
+
+    # --- hiding (Attribute Management, hideAttributes.md) --------------
+
+    def is_attribute_hidden(self, attribute_key: str, part_id: str) -> bool:
+        """Whether `attribute_key` is hidden - for `part_id` specifically or
+        for the whole score - and so must be skipped by Region 4 and Find.
+        Region 3 never calls this: it is gated by voice_display_attributes/
+        WHICH instead, and a hidden attribute is never elevated there by
+        construction (set_attribute_hidden_for_part/_for_all both refuse to
+        hide an elevated attribute)."""
+        data = self.data
+        return (
+            attribute_key in data.hidden_attributes_for_all
+            or attribute_key in data.hidden_attributes_by_part.get(part_id, set())
+        )
+
+    def _voice_tuples_in_part(self, part_id: str) -> Set[Tuple[str, int, int]]:
+        """Every (part_id, staff, voice) belonging to `part_id` - the union
+        of what the notes themselves carry (see attribute_keys_for_part for
+        why this reads notes rather than parts_info) and whatever
+        voice_display_attributes already has an explicit entry for, so a
+        voice that is elevated but has (in a unit test, or an edited score)
+        no note of its own is still found."""
+        data = self.data
+        from_notes = {
+            (n.part_id, n.staff, n.voice)
+            for s in data._real_timeline_slices
+            for n in s.notes
+            if n.part_id == part_id
+        }
+        from_display_attrs = {vt for vt in data.voice_display_attributes if vt[0] == part_id}
+        return from_notes | from_display_attrs
+
+    def attribute_elevated_for_part(self, attribute_key: str, part_id: str) -> bool:
+        """True when `attribute_key` is elevated (present in
+        voice_display_attributes) for at least one voice under `part_id` -
+        regardless of which of the four add/remove scopes put it there, per
+        the user ("if it is elevated at all, prefix with an asterisk").
+        Drives the Attribute Management dialog's own part-local asterisk and
+        the per-part Hide button's block."""
+        data = self.data
+        return any(
+            attribute_key in data.voice_display_attributes.get(vt, data.DEFAULT_DISPLAY_ATTRIBUTES)
+            for vt in self._voice_tuples_in_part(part_id)
+        )
+
+    def attribute_elevated_parts(self, attribute_key: str) -> List[str]:
+        """Every part_id in the whole score where `attribute_key` is
+        elevated for at least one voice - empty means not elevated anywhere.
+        Used only for the "Hide for All" block's message, which must name
+        every part standing in its way - not for the dialog's own row
+        asterisk (attribute_elevated_for_part, part-local by design)."""
+        all_part_ids: List[str] = []
+        seen: Set[str] = set()
+        for event_slice in self.data._real_timeline_slices:
+            for note in event_slice.notes:
+                if note.part_id not in seen:
+                    seen.add(note.part_id)
+                    all_part_ids.append(note.part_id)
+        # Union in any part_id voice_display_attributes already names but no
+        # note carries (a unit test, or an edited score) - same reasoning as
+        # _voice_tuples_in_part.
+        for vt in self.data.voice_display_attributes:
+            if vt[0] not in seen:
+                seen.add(vt[0])
+                all_part_ids.append(vt[0])
+        return [p for p in all_part_ids if self.attribute_elevated_for_part(attribute_key, p)]
+
+    def set_attribute_hidden_for_part(self, attribute_key: str, part_id: str, hidden: bool) -> bool:
+        """Refuses (returns False, no state change) a hide while
+        `attribute_key` is elevated anywhere in `part_id`, or already hidden
+        for the whole score - the model enforces this itself rather than
+        leaning on the dialog's own button disablement, so it isn't
+        possible to reach an "elevated and hidden" or "hidden-for-part while
+        also hidden-for-all" state through any caller."""
+        data = self.data
+        if hidden:
+            if self.attribute_elevated_for_part(attribute_key, part_id):
+                return False
+            if attribute_key in data.hidden_attributes_for_all:
+                return False
+            data.hidden_attributes_by_part.setdefault(part_id, set()).add(attribute_key)
+        else:
+            data.hidden_attributes_by_part.get(part_id, set()).discard(attribute_key)
+        return True
+
+    def set_attribute_hidden_for_all(self, attribute_key: str, hidden: bool) -> bool:
+        """Refuses (returns False, no state change) a hide while
+        `attribute_key` is elevated in any part. On a successful hide, also
+        clears that key from every part's own hidden_attributes_by_part
+        entry - now redundant/stale, and would otherwise reappear as a
+        surprising leftover per-part hide if the score-wide hide is later
+        undone."""
+        data = self.data
+        if hidden:
+            if self.attribute_elevated_parts(attribute_key):
+                return False
+            data.hidden_attributes_for_all.add(attribute_key)
+            for hidden_set in data.hidden_attributes_by_part.values():
+                hidden_set.discard(attribute_key)
+        else:
+            data.hidden_attributes_for_all.discard(attribute_key)
+        return True

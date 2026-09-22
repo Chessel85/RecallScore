@@ -8,36 +8,37 @@ from widgets.attribute_order_dialog import AttributeOrderDialog
 from tests.support.main_window_helpers import load_and_wait
 
 
-# --- F2: Attribute order dialog (Ref 15 AC4) ------------------------------
+# --- F2/Attribute Management: order dialog (Ref 15 AC4) -------------------
+# hideAttributes.md: the dialog is always part-scoped now, regardless of
+# which Region 2 node (voice/stave/part) it was opened from - "voice_P1_1_1"
+# resolves to part_id "P1" throughout.
 
-def test_attribute_order_pairs_scope_to_the_selected_region_2_node(
+def test_attribute_order_pairs_scope_to_the_selected_part(
     window, qtbot, dynamics_articulation_fingering_score
 ):
     load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
-    node = window.region_2.model_manager.node("voice_P1_1_1")
 
-    keys = [key for key, _ in window.attributes.order_pairs_for_node(node)]
+    keys = [key for key, *_ in window.attributes.order_pairs_for_part("P1")]
 
     assert "dynamic" in keys
     assert "articulation" in keys
-    assert "pluck" not in keys, "pluck only appears on the guitar part, not this piano voice"
+    assert "pluck" not in keys, "pluck only appears on the guitar part, not the piano"
 
 
 def _stage_octave_move_up(window, qtbot):
-    """Builds the real Reorder Attributes dialog for voice_P1_1_1, stages a
+    """Builds the real Attribute Management dialog for part "P1", stages a
     Move Up on "octave" (a plain adjacent-item reorder in the dialog's own
     local list - the same thing clicking the button does), and patches
     exec() to return Accepted so window._show_attribute_order_dialog()'s
     post-exec commit (AttributeController.apply_order, via
     dialog.ordered_keys()) runs without a real modal loop - same injection
-    convention as GotoMeasureDialog/TempoOffsetDialog. Returns the global
-    attribute_order index "octave" should land on: its within-neighbour's
-    original slot, since the dialog only ever swaps two adjacent within-
-    scope items and set_attribute_order_within writes the new order back
-    into exactly those items' original global slots."""
-    node = window.region_2.model_manager.node("voice_P1_1_1")
-    pairs = window.attributes.order_pairs_for_node(node)
-    dialog = AttributeOrderDialog(window, pairs=pairs, scope_description="")
+    convention as GotoMeasureDialog/TempoOffsetDialog. Returns the part's
+    own attribute_order_for_part("P1") index "octave" should land on: its
+    within-neighbour's original slot, since the dialog only ever swaps two
+    adjacent within-scope items and set_attribute_order_within_part writes
+    the new order back into exactly those items' original slots."""
+    rows = window.attributes.order_pairs_for_part("P1")
+    dialog = AttributeOrderDialog(window, rows=rows, scope_description="")
 
     octave_row = next(
         i for i in range(dialog.attribute_list.count())
@@ -45,12 +46,12 @@ def _stage_octave_move_up(window, qtbot):
     )
     assert octave_row > 0, "fixture assumption: something in scope sorts before octave"
     neighbor_key = dialog.attribute_list.item(octave_row - 1).data(Qt.ItemDataRole.UserRole)
-    neighbor_global_index = list(window._music_data.attribute_order).index(neighbor_key)
+    neighbor_index = list(window._music_data.attribute_order_for_part("P1")).index(neighbor_key)
 
     dialog.attribute_list.setCurrentRow(octave_row)
     dialog._move(-1)
 
-    return dialog, neighbor_global_index
+    return dialog, neighbor_index
 
 
 def test_attribute_order_move_updates_music_data_and_restores_prior_focus(
@@ -62,18 +63,18 @@ def test_attribute_order_move_updates_music_data_and_restores_prior_focus(
     that's how the dialog is normally opened, via _preserving_focus) -
     not hardcoded to any particular region."""
     load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
-    dialog, neighbor_global_index = _stage_octave_move_up(window, qtbot)
+    dialog, neighbor_index = _stage_octave_move_up(window, qtbot)
     window.region_2.setFocus()
 
     monkeypatch.setattr(dialog, "exec", lambda: QDialog.DialogCode.Accepted)
     monkeypatch.setattr(
         "main_window.AttributeOrderDialog",
-        lambda parent, pairs, scope_description, initial_attribute_key=None: dialog,
+        lambda parent, rows, scope_description, initial_attribute_key=None: dialog,
     )
 
     window._show_attribute_order_dialog()
 
-    assert window._music_data.attribute_order[neighbor_global_index] == "octave"
+    assert window._music_data.attribute_order_for_part("P1")[neighbor_index] == "octave"
     assert window.focusWidget() is window.region_2
 
 
@@ -83,18 +84,18 @@ def test_attribute_order_cancel_leaves_the_order_unchanged(
     """Cancel (Rejected) must discard the staged move entirely - the whole
     point of switching this dialog from live-apply to OK/Cancel."""
     load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
-    original_order = list(window._music_data.attribute_order)
+    original_order = list(window._music_data.attribute_order_for_part("P1"))
     dialog, _ = _stage_octave_move_up(window, qtbot)
 
     monkeypatch.setattr(dialog, "exec", lambda: QDialog.DialogCode.Rejected)
     monkeypatch.setattr(
         "main_window.AttributeOrderDialog",
-        lambda parent, pairs, scope_description, initial_attribute_key=None: dialog,
+        lambda parent, rows, scope_description, initial_attribute_key=None: dialog,
     )
 
     window._show_attribute_order_dialog()
 
-    assert window._music_data.attribute_order == original_order
+    assert window._music_data.attribute_order_for_part("P1") == original_order
 
 
 def test_attribute_order_persists_per_file_not_across_different_files(
@@ -106,27 +107,30 @@ def test_attribute_order_persists_per_file_not_across_different_files(
     must be there again when that same file is reloaded (load_score_from_file
     saves the outgoing file's config before swapping in the new one)."""
     load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
-    dialog, neighbor_global_index = _stage_octave_move_up(window, qtbot)
+    dialog, neighbor_index = _stage_octave_move_up(window, qtbot)
 
     monkeypatch.setattr(dialog, "exec", lambda: QDialog.DialogCode.Accepted)
     monkeypatch.setattr(
         "main_window.AttributeOrderDialog",
-        lambda parent, pairs, scope_description, initial_attribute_key=None: dialog,
+        lambda parent, rows, scope_description, initial_attribute_key=None: dialog,
     )
     window._show_attribute_order_dialog()
-    assert window._music_data.attribute_order[neighbor_global_index] == "octave"
+    assert window._music_data.attribute_order_for_part("P1")[neighbor_index] == "octave"
 
     load_and_wait(window, qtbot, minimal_score)
-    assert window._music_data.attribute_order[neighbor_global_index] != "octave"
+    assert window._music_data.attribute_order_for_part("P1")[neighbor_index] != "octave"
 
     load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
-    assert window._music_data.attribute_order[neighbor_global_index] == "octave"
+    assert window._music_data.attribute_order_for_part("P1")[neighbor_index] == "octave"
 
 
 def test_attribute_order_dialog_preselects_the_given_initial_attribute_key(window):
     dialog = AttributeOrderDialog(
         window,
-        pairs=[("dynamic", "dynamic"), ("articulation", "articulation")],
+        rows=[
+            ("dynamic", "dynamic", False, "visible"),
+            ("articulation", "articulation", False, "visible"),
+        ],
         scope_description="",
         initial_attribute_key="articulation",
     )
@@ -138,13 +142,16 @@ def test_attribute_order_dialog_falls_back_to_first_row_when_key_not_found(windo
     """Covers both fallback cases: no key given, and a key that isn't in
     this dialog's own scope (e.g. Region 4's selection came from a
     different voice than the one Region 2 is scoped to)."""
-    pairs = [("dynamic", "dynamic"), ("articulation", "articulation")]
+    rows = [
+        ("dynamic", "dynamic", False, "visible"),
+        ("articulation", "articulation", False, "visible"),
+    ]
 
-    dialog_no_key = AttributeOrderDialog(window, pairs=pairs, scope_description="")
+    dialog_no_key = AttributeOrderDialog(window, rows=rows, scope_description="")
     assert dialog_no_key.attribute_list.currentRow() == 0
 
     dialog_missing_key = AttributeOrderDialog(
-        window, pairs=pairs, scope_description="", initial_attribute_key="pluck",
+        window, rows=rows, scope_description="", initial_attribute_key="pluck",
     )
     assert dialog_missing_key.attribute_list.currentRow() == 0
 
@@ -153,8 +160,8 @@ def test_show_attribute_order_dialog_preselects_region_4s_current_attribute(
     window, qtbot, dynamics_articulation_fingering_score, monkeypatch
 ):
     """End-to-end: whatever attribute Region 4's current row carries when
-    Options > Reorder Attributes... is invoked is the row the dialog opens
-    on."""
+    Options > Attribute Management... is invoked is the row the dialog
+    opens on."""
     load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
     node = window.region_2.model_manager.node("voice_P1_1_1")
     monkeypatch.setattr(window.attributes, "scope_node", lambda: node)
@@ -176,10 +183,10 @@ def test_show_attribute_order_dialog_preselects_region_4s_current_attribute(
 
     captured = {}
 
-    def fake_dialog(parent, pairs, scope_description, initial_attribute_key=None):
+    def fake_dialog(parent, rows, scope_description, initial_attribute_key=None):
         captured["initial_attribute_key"] = initial_attribute_key
         dialog = AttributeOrderDialog(
-            parent, pairs=pairs, scope_description=scope_description,
+            parent, rows=rows, scope_description=scope_description,
             initial_attribute_key=initial_attribute_key,
         )
         monkeypatch.setattr(dialog, "exec", lambda: QDialog.DialogCode.Rejected)
@@ -294,14 +301,18 @@ def test_order_menu_actions_omits_voice_and_stave_scopes_for_a_collapsed_part(
 
 
 def test_attribute_order_dialog_add_remove_button_disabled_with_no_selection(window):
-    dialog = AttributeOrderDialog(window, pairs=[], scope_description="")
+    dialog = AttributeOrderDialog(window, rows=[], scope_description="")
 
     assert dialog.add_remove_button.isEnabled() is False
 
 
 def test_attribute_order_dialog_add_remove_button_enabled_once_a_row_is_current(window):
     dialog = AttributeOrderDialog(
-        window, pairs=[("dynamic", "dynamic"), ("articulation", "articulation")],
+        window,
+        rows=[
+            ("dynamic", "dynamic", False, "visible"),
+            ("articulation", "articulation", False, "visible"),
+        ],
         scope_description="",
     )
 
@@ -312,7 +323,11 @@ def test_attribute_order_dialog_add_remove_button_enabled_once_a_row_is_current(
 
 def test_attribute_order_dialog_add_remove_button_emits_the_current_rows_key(window, qtbot):
     dialog = AttributeOrderDialog(
-        window, pairs=[("dynamic", "dynamic"), ("articulation", "articulation")],
+        window,
+        rows=[
+            ("dynamic", "dynamic", False, "visible"),
+            ("articulation", "articulation", False, "visible"),
+        ],
         scope_description="",
     )
     dialog.attribute_list.setCurrentRow(1)
@@ -339,7 +354,7 @@ def test_add_remove_requested_is_wired_to_show_order_menu(
     load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
     node = window.region_2.model_manager.node("voice_P1_1_1")
 
-    dialog = AttributeOrderDialog(window, pairs=[], scope_description="")
+    dialog = AttributeOrderDialog(window, rows=[], scope_description="")
     calls = []
     monkeypatch.setattr(
         window.attributes, "show_order_menu",
@@ -353,13 +368,106 @@ def test_add_remove_requested_is_wired_to_show_order_menu(
     monkeypatch.setattr(dialog, "exec", fake_exec)
     monkeypatch.setattr(
         "main_window.AttributeOrderDialog",
-        lambda parent, pairs, scope_description, initial_attribute_key=None: dialog,
+        lambda parent, rows, scope_description, initial_attribute_key=None: dialog,
     )
     monkeypatch.setattr(window.attributes, "scope_node", lambda: node)
 
     window._show_attribute_order_dialog()
 
     assert calls == [(dialog, node, "dynamic")]
+
+
+# --- Attribute Management: Hide / Hide for All (hideAttributes.md) -------
+
+def test_hide_button_hides_the_row_for_this_part_only(
+    window, qtbot, dynamics_articulation_fingering_score
+):
+    load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
+    dialog = AttributeOrderDialog(
+        window, rows=window.attributes.order_pairs_for_part("P1"), scope_description="",
+        initial_attribute_key="fingering",
+    )
+
+    window.attributes.toggle_hidden_for_part(dialog, "P1", "fingering")
+
+    assert window._music_data.is_attribute_hidden("fingering", "P1") is True
+    row = dialog.attribute_list.currentItem()
+    assert row.text() == "fingering (hidden)"
+    assert dialog.hide_button.text() == "Un&hide"
+
+
+def test_hide_button_refuses_and_notifies_while_elevated(
+    window, qtbot, dynamics_articulation_fingering_score, monkeypatch
+):
+    load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
+    window._music_data.set_display_attribute_for_voice(
+        "dynamic", "voice", "P1", 1, 1, add=True
+    )
+    dialog = AttributeOrderDialog(
+        window, rows=window.attributes.order_pairs_for_part("P1"), scope_description="",
+        initial_attribute_key="dynamic",
+    )
+    messages = []
+    monkeypatch.setattr(
+        "controllers.attribute_controller.notify_user",
+        lambda level, message: messages.append((level, message)),
+    )
+
+    window.attributes.toggle_hidden_for_part(dialog, "P1", "dynamic")
+
+    assert window._music_data.is_attribute_hidden("dynamic", "P1") is False
+    assert messages == [
+        ("error", "dynamic can't be hidden while it's shown in the note list.")
+    ]
+
+
+def test_hide_for_all_button_hides_for_every_part_and_names_blocking_parts_when_refused(
+    window, qtbot, dynamics_articulation_fingering_score, monkeypatch
+):
+    load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
+    window._music_data.set_display_attribute_for_voice(
+        "dynamic", "voice", "P1", 1, 1, add=True
+    )
+    dialog = AttributeOrderDialog(
+        window, rows=window.attributes.order_pairs_for_part("P1"), scope_description="",
+        initial_attribute_key="dynamic",
+    )
+    messages = []
+    monkeypatch.setattr(
+        "controllers.attribute_controller.notify_user",
+        lambda level, message: messages.append((level, message)),
+    )
+
+    window.attributes.toggle_hidden_for_all(dialog, "P1", "dynamic")
+
+    assert window._music_data.hidden_attributes_for_all == set()
+    assert messages == [(
+        "error",
+        "dynamic can't be hidden for the whole score while it's shown in "
+        "the note list for: Piano.",
+    )]
+
+    window._music_data.set_display_attribute_for_voice(
+        "dynamic", "voice", "P1", 1, 1, add=False
+    )
+    window.attributes.toggle_hidden_for_all(dialog, "P1", "dynamic")
+
+    assert window._music_data.hidden_attributes_for_all == {"dynamic"}
+    assert dialog.attribute_list.currentItem().text() == "dynamic (hidden for all)"
+    assert dialog.hide_for_all_button.text() == "Unhide for &All"
+
+
+def test_hide_button_is_disabled_when_already_hidden_for_all(
+    window, qtbot, dynamics_articulation_fingering_score
+):
+    load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
+    window._music_data.set_attribute_hidden_for_all("fingering", True)
+    dialog = AttributeOrderDialog(
+        window, rows=window.attributes.order_pairs_for_part("P1"), scope_description="",
+        initial_attribute_key="fingering",
+    )
+
+    assert dialog.hide_button.isEnabled() is False
 
 
 def _region_3_labels(window):

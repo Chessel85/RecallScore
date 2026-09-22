@@ -230,7 +230,7 @@ _CATEGORY_OVERRIDES: Dict[str, str] = {
     "Live MIDI Input Settings": "Options",
     "Toggle Voice Control": "Voice control",
     "Voice Control Settings": "Voice control",
-    "Reorder Attributes": "Options",
+    "Attribute Management": "Options",
     "Set MuseScore Location": "Options",
     "Tuner": "Tools",
     "Performance Report": "Tools",

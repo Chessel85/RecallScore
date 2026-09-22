@@ -3,6 +3,10 @@
 ## 2026.1.63
 
 * Fixed a bug where, due to presence of anacrusis and an al capo, the bar containing the finish point was played incorrectly first time through.
+* Corrected a clipping sound on the bump indicator 
+* Context menus on attribute and performance information regions now gives focus to screen reader without user having to press an arrow key 
+* Performance indicator (clap sound) now can be cycled through different options from options menu or via control+C. Note performance indicators require refresh regions (used to be refresh text) is on to be heard.
+* Added ability to hide attributes so attribute  region can be decluttered.  Reorder attributes dialogue renamed to Reorder and hide attributes.
 
 ## 2026.1.62
 

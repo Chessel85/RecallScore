@@ -76,7 +76,6 @@ from widgets.play_settings_dialog import PlaySettingsDialog
 from widgets.region1_list_widget import Region1ListWidget
 from widgets.region1_section_tab_bar import Region1SectionTabBar
 from widgets.region2_list_widget import Region2ListWidget
-from widgets.region2_manager import node_breadcrumb
 from widgets.region4_list_widget import Region4ListWidget
 from widgets.region5_list_widget import Region5ListWidget
 from widgets.status_bar_widget import StatusBarWidget
@@ -1362,23 +1361,35 @@ class MainWindow(QMainWindow):
         self.region_5.setFocus()
 
     def _show_attribute_order_dialog(self):
-        """Ref 15 AC4: scoped to whichever part/staff/voice Region 2 has
-        selected."""
+        """Options > Attribute Management... (Ref 15 AC4). Whichever Region 2
+        node (voice/stave/part) is currently selected is resolved to that
+        node's own part_id ONCE here - the list, Up/Down, Hide and Hide for
+        All all act at that part's granularity (user decision,
+        UserPlans/hideAttributes.md). Add/&Remove keeps fanning out from the
+        original `node` (voice/stave/part/score), unaffected by this
+        collapse."""
         node = self.attributes.scope_node()
         if node is None:
             return
+        part_id = node.part_id
         with self._preserving_focus():
             dialog = AttributeOrderDialog(
                 self,
-                pairs=self.attributes.order_pairs_for_node(node),
-                scope_description=node_breadcrumb(node),
+                rows=self.attributes.order_pairs_for_part(part_id),
+                scope_description=self.attributes.part_scope_description(part_id),
                 initial_attribute_key=self.attributes.current_region_4_attribute_key(),
             )
             dialog.add_remove_requested.connect(
                 lambda attribute_key: self.attributes.show_order_menu(dialog, node, attribute_key)
             )
+            dialog.hide_requested.connect(
+                lambda attribute_key: self.attributes.toggle_hidden_for_part(dialog, part_id, attribute_key)
+            )
+            dialog.hide_for_all_requested.connect(
+                lambda attribute_key: self.attributes.toggle_hidden_for_all(dialog, part_id, attribute_key)
+            )
             if dialog.exec() == QDialog.DialogCode.Accepted:
-                self.attributes.apply_order(node, dialog.ordered_keys())
+                self.attributes.apply_order(part_id, dialog.ordered_keys())
 
     def _show_part_order_dialog(self):
         """Reported: NVDA reads whichever part's row Region 3 lands on

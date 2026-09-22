@@ -821,7 +821,7 @@ class MenuBuilder:
         # Removing the "&" stops that misleading announcement; the visible
         # "Ctrl+Shift+A" Qt now appends automatically is the real thing.
         a.attribute_order = self._action(
-            "Reorder Attributes...", self.slots._show_attribute_order_dialog,
+            "Attribute Management...", self.slots._show_attribute_order_dialog,
             QKeySequence("Ctrl+Shift+A"),
         )
         options_menu.addAction(a.attribute_order)

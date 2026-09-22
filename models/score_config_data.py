@@ -60,7 +60,18 @@ class ScoreConfig:
     # metronome_enabled above, off by default.
     bar_line_indicator_enabled: bool = False
     voice_display_attributes: Dict[VoiceKey, Set[str]] = field(default_factory=dict)
+    # Superseded by attribute_order_by_part below (hideAttributes.md).
+    # Kept ONLY so MusicData.apply_config can migrate an older .rsc's flat
+    # order into the new per-part shape on the way in - export_config()
+    # never populates this any more, and a fresh save never writes it back.
     attribute_order: List[str] = field(default_factory=list)
+    # F2/Ref 15 AC4: one rendering order per part_id - always per part, never
+    # per score/stave/voice (user decision, hideAttributes.md).
+    attribute_order_by_part: Dict[str, List[str]] = field(default_factory=dict)
+    # Attribute Management: hidden-for-one-part / hidden-for-the-whole-score
+    # attribute keys, gating Region 4 and Find only (never Region 3).
+    hidden_attributes_by_part: Dict[str, Set[str]] = field(default_factory=dict)
+    hidden_attributes_for_all: Set[str] = field(default_factory=set)
     # Wishlist #4/#7: per-instrument volume/pan and the global mute. Empty
     # by default, which means "nothing overridden" - see MixerSettings.
     mixer: MixerSettings = field(default_factory=MixerSettings)
