@@ -664,14 +664,20 @@ class MenuBuilder:
         # cursor arrives on a row Region 3's note list marks as a
         # MarkingRow. Three mutually exclusive checkable items, same
         # QActionGroup-exclusive pattern as Terminology (UK/US) above, so
-        # the current choice can be browsed/discovered by name; Ctrl+C
-        # (below, a separate non-checkable action) is how it's actually
-        # changed day to day - there's no dialog for this setting.
-        # Mnemonic on In&dicator, not &Performance Indicator - P collides
-        # with Toggle &Position Announcer below in this same menu (same
-        # "moved mnemonic, unchanged display text" fix as voice_control_
-        # settings' own comment further down).
-        performance_indicator_menu = options_menu.addMenu("Performance In&dicator")
+        # the current choice can be browsed/discovered by name. One menu
+        # entry only (collapsed from a separate "Cycle" item + this submenu,
+        # 2026-09-22, user-requested) - the submenu title itself carries the
+        # Ctrl+C hint text, since a QMenu's own QAction opens the submenu on
+        # click/Enter and can't also fire a triggered() slot; the actual
+        # Ctrl+C shortcut is wired to a.performance_indicator_cycle below,
+        # added to the window as a hidden action (commit_digits pattern
+        # above) so it still works day to day without a second visible item.
+        # Mnemonic on C&ycle, not &Cycle - C collides with Toggle Voice
+        # &Control below in this same menu (same reasoning the old separate
+        # Cycle action used, now inherited by this submenu's title).
+        performance_indicator_menu = options_menu.addMenu(
+            "C&ycle Performance Indicators (Ctrl+C)"
+        )
         a.performance_indicator_group = QActionGroup(self.window)
         a.performance_indicator_group.setExclusive(True)
 
@@ -703,15 +709,16 @@ class MenuBuilder:
         a.performance_indicator_group.addAction(a.performance_indicator_always_on)
         performance_indicator_menu.addAction(a.performance_indicator_always_on)
 
-        # Mnemonic on C&ycle, not &Cycle - C collides with Toggle Voice
-        # &Control below in this same menu.
+        # Hidden window action, not a visible menu item (commit_digits
+        # pattern above) - the submenu's own title is the visible affordance
+        # now; this just keeps the Ctrl+C shortcut firing globally.
         a.performance_indicator_cycle = self._action(
-            "C&ycle Performance Indicator", self.slots.cycle_performance_indicator_mode,
+            "Cycle Performance Indicator", self.slots.cycle_performance_indicator_mode,
             QKeySequence("Ctrl+C"),
             status_tip="Rotate the Performance Indicator setting: off, on except when "
                        "playing, always on",
         )
-        options_menu.addAction(a.performance_indicator_cycle)
+        self.window.addAction(a.performance_indicator_cycle)
 
         # Octave-shift/clef-change rows are engraving detail a blind
         # musician doesn't need - both are already realised by playing the

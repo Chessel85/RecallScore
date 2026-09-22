@@ -28,9 +28,13 @@ from widgets.menu_builder import Actions
 _PortableFormat = QKeySequence.SequenceFormat.PortableText
 _NativeFormat = QKeySequence.SequenceFormat.NativeText
 
-# Hidden window action for the typed-bar-number family (main_window.py's
-# setup_menu / _playback_menu) - not a menu item, so nothing to rebind.
-EXCLUDED_ACTION_IDS = {"commit_digits"}
+# Hidden window actions - not menu items, so nothing to rebind:
+# commit_digits (main_window.py's setup_menu / _playback_menu, typed-bar-
+# number family) and performance_indicator_cycle (widgets/menu_builder.py -
+# the Ctrl+C hint lives on the "Cycle Performance Indicators" submenu title
+# instead, since a submenu's own QAction can't also fire a triggered()
+# slot).
+EXCLUDED_ACTION_IDS = {"commit_digits", "performance_indicator_cycle"}
 
 
 @dataclass
@@ -220,7 +224,6 @@ _CATEGORY_OVERRIDES: Dict[str, str] = {
     "UK": "Language",
     "US": "Language",
     "Toggle Bar Line Indicator": "Orientation",
-    "Cycle Performance Indicator": "Orientation",
     "Toggle Metronome": "Orientation",
     "Toggle Position Announcer": "Orientation",
     "Toggle Live MIDI Input": "Options",
