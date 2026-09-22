@@ -419,6 +419,16 @@ class _FirstPartScan:
     # concept).
     wavy_line_spans: List[WavyLineSpan] = field(default_factory=list)
     open_wavy_line_measure: Optional[int] = None
+    # A mid-piece "split bar": a measure whose written content falls short
+    # of a full bar (e.g. a <barline> for a Fine/repeat forces the engraving
+    # to end the <measure> element early) followed directly by another
+    # measure that completes it. Keyed by the CONTINUING measure's number,
+    # value is how many quarters of the conceptual bar the previous
+    # measure(s) already filled - see beat_position's non-pickup branch and
+    # _scan_first_part's running_total accumulation. Generalises Ref 17's
+    # pickup convention (which positions short content at the END of a
+    # notional bar) to a short measure that isn't the piece's very first.
+    beat_carry_in_quarters: Dict[int, float] = field(default_factory=dict)
 
 
 def _staff_number(elem, default):
@@ -623,6 +633,9 @@ class _PartState:
     part_name: str
     percussion_instruments: Dict[str, Tuple[str, Optional[int]]]
     pickup_filled_quarters: float
+    # Score-wide (from _FirstPartScan.beat_carry_in_quarters), same
+    # convention as pickup_filled_quarters - shared read-only across parts.
+    beat_carry_in_quarters: Dict[int, float] = field(default_factory=dict)
 
     divisions: int = 1
     time_sig_num: int = 4
@@ -728,15 +741,20 @@ class _PartState:
     def beat_position(self, m_num: int, offset_q: float) -> float:
         """Ts-relative beat position (Ref 18) for an offset within a
         measure. A pickup bar's notes sit at the END of a notional full bar
-        (Ref 17), which is what _start_beat computes. Shared by notes and
-        harmony entries - both had their own copy of this two-branch
-        calculation before S3."""
+        (Ref 17), which is what _start_beat computes. A mid-piece short
+        measure (e.g. one ended early by a Fine/repeat <barline>) that is
+        immediately completed by the next measure instead carries its
+        leftover quarters forward, so the continuation's notes number from
+        where the short measure left off rather than restarting at beat 1 -
+        see beat_carry_in_quarters. Shared by notes and harmony entries -
+        both had their own copy of this two-branch calculation before S3."""
         if m_num == 0:
             start_beat = TimelineBuilder._start_beat(
                 self.full_bar_quarters, self.pickup_filled_quarters, self.beat_unit_quarter_len
             )
         else:
-            start_beat = 1.0
+            carry_q = self.beat_carry_in_quarters.get(m_num, 0.0)
+            start_beat = 1.0 + (carry_q / self.beat_unit_quarter_len)
         return round(start_beat + (offset_q / self.beat_unit_quarter_len), 2)
 
 
@@ -958,6 +976,7 @@ class TimelineBuilder:
                 part_name=part_names.get(part_id, default_part_name),
                 percussion_instruments=percussion_instruments,
                 pickup_filled_quarters=pickup_filled_quarters,
+                beat_carry_in_quarters=scan.beat_carry_in_quarters,
             )
 
             for m in part.findall("measure"):
@@ -2302,18 +2321,33 @@ class TimelineBuilder:
         divisions, ts_num, ts_den, fifths = 1, 4, 4, 0
         open_repeat_measure: Optional[int] = None
         open_endings: Dict[int, int] = {}
+        # Split-bar carry (see _FirstPartScan.beat_carry_in_quarters): how
+        # many quarters of the CURRENT conceptual bar earlier, short
+        # measure(s) already filled. 0.0 means the next measure starts a
+        # fresh bar.
+        pending_carry_quarters = 0.0
+        _EPS = 1e-6
 
         for m in first_part.findall("measure"):
             m_num = _measure_number(m, needs_reindex)
             # Set before walking the contents, so the tempo and hairpin
             # handlers can resolve absolute positions as they go.
             scan.measure_start_quarters[m_num] = running_total
+            if m_num != 0 and pending_carry_quarters > _EPS:
+                scan.beat_carry_in_quarters[m_num] = pending_carry_quarters
 
             walker = _MeasureOffsetWalker(divisions, ts_num, ts_den, fifths)
             measure_ts: Optional[Tuple[int, int, int]] = None
+            # How far this measure's own content (notes, and an explicit
+            # <forward> skipping ahead) declares the bar to extend - the
+            # running peak of the walker's offset, not just its final value,
+            # since a <backup> for a later voice can leave it lower than an
+            # earlier voice already reached. Feeds the split-bar carry below.
+            max_offset_divs = 0
 
             for elem in m:
                 walker.step(elem)
+                max_offset_divs = max(max_offset_divs, walker.offset_divs)
 
                 if elem.tag == "attributes":
                     if measure_ts is None:
@@ -2337,7 +2371,28 @@ class TimelineBuilder:
             scan.measure_ts_fifths[m_num] = measure_ts
 
             full_bar_quarters = measure_ts[0] * (4.0 / measure_ts[1])
-            running_total += pickup_filled_quarters if m_num == 0 else full_bar_quarters
+
+            if m_num == 0:
+                running_total += pickup_filled_quarters
+                pending_carry_quarters = 0.0
+            else:
+                carry_in = scan.beat_carry_in_quarters.get(m_num, 0.0)
+                filled_quarters = max_offset_divs / walker.divisions
+                total_in_bar = carry_in + filled_quarters
+                if filled_quarters > _EPS and total_in_bar < full_bar_quarters - _EPS:
+                    # This measure's own content also falls short of a full
+                    # bar (a Fine/repeat barline split it further, or the
+                    # split spans more than one measure) - advance the
+                    # timeline by only what it actually contains, and carry
+                    # the remainder into the next measure.
+                    running_total += filled_quarters
+                    pending_carry_quarters = total_in_bar
+                else:
+                    # A normal full bar (carry_in == 0), or the measure that
+                    # completes a split bar - advance to the conceptual
+                    # bar's end so the next measure starts fresh.
+                    running_total += full_bar_quarters - carry_in
+                    pending_carry_quarters = 0.0
 
             divisions, ts_num, ts_den, fifths = (
                 walker.divisions, walker.ts_num, walker.ts_den, walker.fifths
