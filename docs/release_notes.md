@@ -6,7 +6,7 @@
 * Corrected a clipping sound on the bump indicator 
 * Context menus on attribute and performance information regions now gives focus to screen reader without user having to press an arrow key 
 * Performance indicator (clap sound) now can be cycled through different options from options menu or via control+C. Note performance indicators require refresh regions (used to be refresh text) is on to be heard.
-* Added ability to hide attributes so attribute  region can be decluttered.  Reorder attributes dialogue renamed to Reorder and hide attributes.
+* Added ability to hide attributes so attribute  region can be decluttered.  Reorder attributes dialogue renamed to Attribute Management.
 
 ## 2026.1.62
 
