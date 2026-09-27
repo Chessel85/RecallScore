@@ -96,13 +96,13 @@ class AttributeOrderDialog(QDialog):
         self.down_button = QPushButton("Move &Down", self)
         self.down_button.setAutoDefault(False)
         self.down_button.clicked.connect(lambda: self._move(1))
-        self.add_remove_button = QPushButton("Add/&Remove...", self)
+        self.add_remove_button = QPushButton("&Add/Remove...", self)
         self.add_remove_button.setAutoDefault(False)
         self.add_remove_button.clicked.connect(self._request_add_remove)
         self.hide_button = QPushButton("&Hide", self)
         self.hide_button.setAutoDefault(False)
         self.hide_button.clicked.connect(self._request_hide)
-        self.hide_for_all_button = QPushButton("Hide for &All", self)
+        self.hide_for_all_button = QPushButton("Hide for Al&l", self)
         self.hide_for_all_button.setAutoDefault(False)
         self.hide_for_all_button.clicked.connect(self._request_hide_for_all)
         self._update_button_state()
@@ -192,7 +192,7 @@ class AttributeOrderDialog(QDialog):
         self.hide_button.setEnabled(has_selection and hidden_state != "all")
 
         self.hide_for_all_button.setText(
-            "Unhide for &All" if hidden_state == "all" else "Hide for &All"
+            "Unhide for al&l" if hidden_state == "all" else "Hide for Al&l"
         )
         self.hide_for_all_button.setEnabled(has_selection)
 

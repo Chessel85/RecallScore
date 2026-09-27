@@ -199,6 +199,50 @@ def test_show_attribute_order_dialog_preselects_region_4s_current_attribute(
     assert captured["initial_attribute_key"] == "articulation"
 
 
+def test_attribute_management_cancel_discards_hide_and_add_remove_changes(
+    window, qtbot, dynamics_articulation_fingering_score, monkeypatch
+):
+    """The "biggie": Add/Remove and Hide/Hide for All apply to MusicData
+    live while the dialog is open (for immediate Region 3/dialog-row
+    feedback), but the user wants Cancel to discard the whole dialog
+    session, exactly like it already discards a staged Up/Down reorder -
+    see AttributeController.begin_dialog_session/discard_dialog_session."""
+    load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
+    node = window.region_2.model_manager.node("voice_P1_1_1")
+    monkeypatch.setattr(window.attributes, "scope_node", lambda: node)
+
+    original_hidden = window._music_data.is_attribute_hidden("fingering", "P1")
+    assert original_hidden is False
+    original_present = window._music_data.display_attribute_present_for_voice(
+        "fingering", "P1", 1, 1
+    )
+
+    def fake_dialog(parent, rows, scope_description, initial_attribute_key=None):
+        dialog = AttributeOrderDialog(
+            parent, rows=rows, scope_description=scope_description,
+            initial_attribute_key=initial_attribute_key,
+        )
+
+        def fake_exec():
+            window.attributes.toggle_hidden_for_part(dialog, "P1", "fingering")
+            window.attributes.apply_order_change(
+                dialog, "fingering", "voice", "P1", 1, 1, add=not original_present
+            )
+            return QDialog.DialogCode.Rejected
+
+        monkeypatch.setattr(dialog, "exec", fake_exec)
+        return dialog
+
+    monkeypatch.setattr("main_window.AttributeOrderDialog", fake_dialog)
+
+    window._show_attribute_order_dialog()
+
+    assert window._music_data.is_attribute_hidden("fingering", "P1") is original_hidden
+    assert window._music_data.display_attribute_present_for_voice(
+        "fingering", "P1", 1, 1
+    ) == original_present
+
+
 # --- Reorder Attributes dialog's Add/Remove button (user-requested) -----
 
 def test_order_menu_actions_offers_add_wording_when_not_yet_present(
@@ -212,10 +256,10 @@ def test_order_menu_actions_offers_add_wording_when_not_yet_present(
     actions = window.attributes.order_menu_actions(node, "fingering")
 
     assert [label for label, _ in actions] == [
-        "Add to notes for this voice",
-        "Add to notes in same stave",
-        "Add to notes in the same part",
         "Add to notes in the whole score",
+        "Add to notes in the same part",
+        "Add to notes in same stave",
+        "Add to notes for this voice",
     ]
 
 
@@ -233,9 +277,9 @@ def test_order_menu_actions_omits_voice_scope_for_a_stave_level_dialog(
     actions = window.attributes.order_menu_actions(node, "fingering")
 
     assert [label for label, _ in actions] == [
-        "Add to notes in same stave",
-        "Add to notes in the same part",
         "Add to notes in the whole score",
+        "Add to notes in the same part",
+        "Add to notes in same stave",
     ]
 
 
@@ -248,8 +292,8 @@ def test_order_menu_actions_omits_voice_and_stave_scope_for_a_part_level_dialog(
     actions = window.attributes.order_menu_actions(node, "fingering")
 
     assert [label for label, _ in actions] == [
-        "Add to notes in the same part",
         "Add to notes in the whole score",
+        "Add to notes in the same part",
     ]
 
 
@@ -259,15 +303,15 @@ def test_order_menu_actions_add_actually_applies_and_switches_to_remove_wording(
     load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
     node = window.region_2.model_manager.node("voice_P1_1_1")
 
-    window.attributes.order_menu_actions(node, "fingering")[0][1]()  # "Add ... for this voice"
+    window.attributes.order_menu_actions(node, "fingering")[-1][1]()  # "Add ... for this voice"
 
     assert window._music_data.display_attribute_present_for_voice("fingering", "P1", 1, 1) is True
     actions = window.attributes.order_menu_actions(node, "fingering")
     assert [label for label, _ in actions] == [
-        "Remove for notes in current voice",
-        "Remove for notes in current stave",
-        "Remove for notes in current part",
         "Remove for notes in the whole score",
+        "Remove for notes in current part",
+        "Remove for notes in current stave",
+        "Remove for notes in current voice",
     ]
 
 
@@ -276,10 +320,10 @@ def test_order_menu_actions_remove_actually_applies(
 ):
     load_and_wait(window, qtbot, dynamics_articulation_fingering_score)
     node = window.region_2.model_manager.node("voice_P1_1_1")
-    window.attributes.order_menu_actions(node, "fingering")[0][1]()  # add
+    window.attributes.order_menu_actions(node, "fingering")[-1][1]()  # add
     assert window._music_data.display_attribute_present_for_voice("fingering", "P1", 1, 1) is True
 
-    window.attributes.order_menu_actions(node, "fingering")[0][1]()  # "Remove ... current voice"
+    window.attributes.order_menu_actions(node, "fingering")[-1][1]()  # "Remove ... current voice"
 
     assert window._music_data.display_attribute_present_for_voice("fingering", "P1", 1, 1) is False
 
@@ -295,8 +339,8 @@ def test_order_menu_actions_omits_voice_and_stave_scopes_for_a_collapsed_part(
     actions = window.attributes.order_menu_actions(node, "octave")
 
     assert [label for label, _ in actions] == [
-        "Add to notes in the same part",
         "Add to notes in the whole score",
+        "Add to notes in the same part",
     ]
 
 
@@ -454,7 +498,7 @@ def test_hide_for_all_button_hides_for_every_part_and_names_blocking_parts_when_
 
     assert window._music_data.hidden_attributes_for_all == {"dynamic"}
     assert dialog.attribute_list.currentItem().text() == "dynamic (hidden for all)"
-    assert dialog.hide_for_all_button.text() == "Unhide for &All"
+    assert dialog.hide_for_all_button.text() == "Unhide for al&l"
 
 
 def test_hide_button_is_disabled_when_already_hidden_for_all(
@@ -486,14 +530,14 @@ def test_region_4_attribute_menu_add_updates_region_3_without_reauditioning(
     # D-15: "stave" is NOT translated by F4's uk_terms toggle - deliberate
     # decision, see tasks.txt.
     assert [label for label, _ in actions] == [
-        "Add to notes for this voice",
-        "Add to notes in same stave",
-        "Add to notes in the same part",
         "Add to notes in the whole score",
+        "Add to notes in the same part",
+        "Add to notes in same stave",
+        "Add to notes for this voice",
     ]
 
     null_synth.played.clear()
-    actions[0][1]()  # "Add to notes for this voice"
+    actions[-1][1]()  # "Add to notes for this voice"
 
     # "octave" immediately follows "step" in attribute_order, so it merges
     # onto the step as a bare number ("C4") rather than "C, octave 4".
@@ -503,7 +547,7 @@ def test_region_4_attribute_menu_add_updates_region_3_without_reauditioning(
     assert window.region_4.count() > 0, "Region 4 refreshed alongside Region 3"
 
 
-def test_region_4_attribute_menu_first_action_is_add_to_this_voice(
+def test_region_4_attribute_menu_first_action_is_add_to_whole_score(
     window, qtbot, null_synth, minimal_score
 ):
     """Locks in menu item ordering (via AttributeController.build_menu,
@@ -511,13 +555,14 @@ def test_region_4_attribute_menu_first_action_is_add_to_this_voice(
     monkeypatched around, see that method's docstring). An earlier attempt
     pre-highlighted this first action via exec()'s `at` parameter to help
     screen readers, but that was reverted (live-tested: it didn't produce a
-    real NVDA announcement) - see show_region_4_attribute_menu."""
+    real NVDA announcement) - see show_region_4_attribute_menu. User-requested:
+    broadest scope (whole score) leads, narrowest (this voice) trails."""
     load_and_wait(window, qtbot, minimal_score)
 
     menu = window.attributes.build_menu(1)
 
     assert menu is not None
-    assert menu.actions()[0].text() == "Add to notes for this voice"
+    assert menu.actions()[0].text() == "Add to notes in the whole score"
 
 
 def test_restore_region_4_focus_after_menu_returns_to_the_same_row(
@@ -586,8 +631,8 @@ def test_region_4_attribute_menu_omits_voice_and_stave_scopes_for_a_collapsed_pa
     actions = window.attributes.menu_actions(1)  # row 1 = octave
 
     assert [label for label, _ in actions] == [
-        "Add to notes in the same part",
         "Add to notes in the whole score",
+        "Add to notes in the same part",
     ]
 
 
@@ -595,18 +640,19 @@ def test_region_4_attribute_menu_switches_to_remove_once_present(
     window, qtbot, null_synth, minimal_score
 ):
     load_and_wait(window, qtbot, minimal_score)
-    window.attributes.menu_actions(1)[0][1]()  # add octave to the voice
+    window.attributes.menu_actions(1)[-1][1]()  # add octave to the voice
+
     assert _region_3_labels(window) == ["C4"]
 
     actions = window.attributes.menu_actions(1)
     assert [label for label, _ in actions] == [
-        "Remove for notes in current voice",
-        "Remove for notes in current stave",
-        "Remove for notes in current part",
         "Remove for notes in the whole score",
+        "Remove for notes in current part",
+        "Remove for notes in current stave",
+        "Remove for notes in current voice",
     ]
 
-    actions[0][1]()  # "Remove for notes in current voice"
+    actions[-1][1]()  # "Remove for notes in current voice"
 
     assert _region_3_labels(window) == ["C"]
 

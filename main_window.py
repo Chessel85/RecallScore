@@ -1389,8 +1389,12 @@ class MainWindow(QMainWindow):
             dialog.hide_for_all_requested.connect(
                 lambda attribute_key: self.attributes.toggle_hidden_for_all(dialog, part_id, attribute_key)
             )
+            self.attributes.begin_dialog_session()
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 self.attributes.apply_order(part_id, dialog.ordered_keys())
+                self.attributes.end_dialog_session()
+            else:
+                self.attributes.discard_dialog_session()
 
     def _show_part_order_dialog(self):
         """Reported: NVDA reads whichever part's row Region 3 lands on

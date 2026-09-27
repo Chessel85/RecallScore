@@ -26,6 +26,13 @@ class AttributeController:
         self.presenter = presenter
         # Needed as the parent for QMenu/QDialog, and for focusWidget().
         self._window = window
+        # Undo log for the Attribute Management dialog's session (user
+        # request: Add/Remove and Hide/Hide for All are immediate-apply for
+        # live Region 3/dialog feedback, but Cancel must still discard them
+        # like the staged reorder does). None outside a dialog session;
+        # begin_dialog_session() opens it, end_dialog_session()/
+        # discard_dialog_session() close it - see those methods.
+        self._dialog_undo = None
 
     @property
     def music_data(self):
@@ -42,16 +49,16 @@ class AttributeController:
         drift onto different wording for the same action."""
         if already_present:
             return [
-                ("voice", "Remove for notes in current voice"),
-                ("stave", "Remove for notes in current stave"),
-                ("part", "Remove for notes in current part"),
                 ("score", "Remove for notes in the whole score"),
+                ("part", "Remove for notes in current part"),
+                ("stave", "Remove for notes in current stave"),
+                ("voice", "Remove for notes in current voice"),
             ]
         return [
-            ("voice", "Add to notes for this voice"),
-            ("stave", "Add to notes in same stave"),
-            ("part", "Add to notes in the same part"),
             ("score", "Add to notes in the whole score"),
+            ("part", "Add to notes in the same part"),
+            ("stave", "Add to notes in same stave"),
+            ("voice", "Add to notes for this voice"),
         ]
 
     # Broader-or-equal-to-node-level check for the Reorder Attributes
@@ -282,13 +289,16 @@ class AttributeController:
         currently_hidden = attribute_key in md.hidden_attributes_by_part.get(part_id, set())
         if currently_hidden:
             md.set_attribute_hidden_for_part(attribute_key, part_id, False)
-        elif not md.set_attribute_hidden_for_part(attribute_key, part_id, True):
-            label = attribute_label(attribute_key, md.uk_terms)
-            notify_user(
-                "error",
-                f"{label} can't be hidden while it's shown in the note list.",
-            )
-            return
+            self._record_undo(lambda: md.set_attribute_hidden_for_part(attribute_key, part_id, True))
+        else:
+            if not md.set_attribute_hidden_for_part(attribute_key, part_id, True):
+                label = attribute_label(attribute_key, md.uk_terms)
+                notify_user(
+                    "error",
+                    f"{label} can't be hidden while it's shown in the note list.",
+                )
+                return
+            self._record_undo(lambda: md.set_attribute_hidden_for_part(attribute_key, part_id, False))
         self._refresh_dialog_row(dialog, part_id, attribute_key)
         self.presenter.refresh_region_3_labels()
 
@@ -302,17 +312,20 @@ class AttributeController:
         currently_hidden = attribute_key in md.hidden_attributes_for_all
         if currently_hidden:
             md.set_attribute_hidden_for_all(attribute_key, False)
-        elif not md.set_attribute_hidden_for_all(attribute_key, True):
-            label = attribute_label(attribute_key, md.uk_terms)
-            part_names = ", ".join(
-                self._part_name(p) for p in md.attribute_elevated_parts(attribute_key)
-            )
-            notify_user(
-                "error",
-                f"{label} can't be hidden for the whole score while it's "
-                f"shown in the note list for: {part_names}.",
-            )
-            return
+            self._record_undo(lambda: md.set_attribute_hidden_for_all(attribute_key, True))
+        else:
+            if not md.set_attribute_hidden_for_all(attribute_key, True):
+                label = attribute_label(attribute_key, md.uk_terms)
+                part_names = ", ".join(
+                    self._part_name(p) for p in md.attribute_elevated_parts(attribute_key)
+                )
+                notify_user(
+                    "error",
+                    f"{label} can't be hidden for the whole score while it's "
+                    f"shown in the note list for: {part_names}.",
+                )
+                return
+            self._record_undo(lambda: md.set_attribute_hidden_for_all(attribute_key, False))
         self._refresh_dialog_row(dialog, part_id, attribute_key)
         self.presenter.refresh_region_3_labels()
 
@@ -331,7 +344,7 @@ class AttributeController:
     # one fans out from the dialog's own Region 2 node position instead of
     # a selected note, since the dialog has no note selection of its own.
 
-    def order_menu_actions(self, node, attribute_key: str) -> list:
+    def order_menu_actions(self, node, attribute_key: str, dialog=None) -> list:
         """(label, callback) pairs for the Add/Remove button's dropdown,
         empty if there's nothing to act on. "Already present" is read off
         one representative voice under `node` (the lowest-sorted one) -
@@ -356,7 +369,7 @@ class AttributeController:
             (
                 label,
                 lambda checked=False, scope=scope: self.apply_order_change(
-                    attribute_key, scope, part_id, staff, voice, add=not already_present
+                    dialog, attribute_key, scope, part_id, staff, voice, add=not already_present
                 ),
             )
             for scope, label in scopes
@@ -366,20 +379,68 @@ class AttributeController:
         """Called by MainWindow on the Reorder Attributes dialog's Add/
         Remove button. The dialog stays open throughout - toggling on/off
         changes neither which attributes are listed (presence-based) nor
-        their order, so unlike an OK-committed Up/Down move there's nothing
-        to refresh in the dialog itself, only Region 3."""
-        actions = self.order_menu_actions(node, attribute_key)
+        their order, so this refreshes the row's own star (elevated state
+        can change straightaway - reported) as well as Region 3.
+
+        Same NVDA fix as show_menu: pre-highlighting the first action
+        before the menu is visible reads "blank" to NVDA, so setActiveAction
+        is deferred to a zero-delay timer queued just before the blocking
+        exec() - it fires once the menu's own event loop has it on screen."""
+        actions = self.order_menu_actions(node, attribute_key, dialog)
         if not actions:
             return
         menu = QMenu(self._window)
         for label, callback in actions:
             menu.addAction(label).triggered.connect(callback)
+        menu_actions = menu.actions()
+        if menu_actions:
+            QTimer.singleShot(0, lambda: menu.setActiveAction(menu_actions[0]))
         button = dialog.add_remove_button
         menu.exec(button.mapToGlobal(button.rect().bottomLeft()))
         dialog.attribute_list.setFocus()
 
     def apply_order_change(
-        self, attribute_key: str, scope: str, part_id: str, staff: int, voice: int, add: bool
+        self, dialog, attribute_key: str, scope: str, part_id: str, staff: int, voice: int, add: bool
     ) -> None:
-        self.music_data.set_display_attribute_for_voice(attribute_key, scope, part_id, staff, voice, add)
+        md = self.music_data
+        md.set_display_attribute_for_voice(attribute_key, scope, part_id, staff, voice, add)
+        self._record_undo(
+            lambda: md.set_display_attribute_for_voice(attribute_key, scope, part_id, staff, voice, not add)
+        )
+        if dialog is not None:
+            self._refresh_dialog_row(dialog, part_id, attribute_key)
         self.presenter.refresh_region_3_labels()
+
+    # --- Attribute Management dialog session (staged Cancel) -----------
+    # Add/Remove and Hide/Hide for All apply to MusicData immediately (for
+    # live Region 3 and dialog-row feedback while the dialog is open, same
+    # as before), but the user wants Cancel to discard them exactly like it
+    # already discards a staged Up/Down reorder. Rather than simulate
+    # MusicData state to defer every mutation to OK, each mutating call
+    # below pushes its own inverse onto _dialog_undo; discard_dialog_session
+    # replays that stack back-to-front, so Cancel's net effect is "nothing
+    # happened" without touching the many read-live-state checks (already-
+    # present, hidden_state, the blocked-hide messages) that assume
+    # MusicData reflects the change as soon as it's made.
+
+    def begin_dialog_session(self) -> None:
+        """Called by MainWindow right before the dialog's exec()."""
+        self._dialog_undo = []
+
+    def _record_undo(self, undo_fn) -> None:
+        if self._dialog_undo is not None:
+            self._dialog_undo.append(undo_fn)
+
+    def end_dialog_session(self) -> None:
+        """Called on Accept: the applied changes stay applied."""
+        self._dialog_undo = None
+
+    def discard_dialog_session(self) -> None:
+        """Called on Cancel/reject: replays every Add/Remove and Hide
+        toggle's inverse, most-recent first, then refreshes Region 3 once."""
+        undo_stack = self._dialog_undo or []
+        self._dialog_undo = None
+        for undo_fn in reversed(undo_stack):
+            undo_fn()
+        if undo_stack:
+            self.presenter.refresh_region_3_labels()
