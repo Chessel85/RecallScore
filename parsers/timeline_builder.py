@@ -1726,6 +1726,18 @@ class TimelineBuilder:
 
         offset_q = _displaced_offset_divs(elem, walker) / walker.divisions
         key = measure_state.key_for(offset_q)
+        # quarter_length is what the Sequencer actually waits out at a
+        # repeat/ending/D.C. jump departing from this slice
+        # (PlaybackEventBuilder.ring_out_ms_for_index takes the max across
+        # every group sounding here). Using full_bar_quarters unconditionally
+        # - as if the symbol always lands on beat 1 - made a harmony placed
+        # late in the bar (e.g. its last beat) claim it was still ringing a
+        # whole extra bar beyond the jump, an audible dead pause reported
+        # live on a 1st/2nd-ending split (tri-martolod bar 8/10). Clamp to
+        # what's actually left in the bar from this offset; duration_name_us
+        # (the spoken label) is unaffected - a chord symbol is still read as
+        # spanning the bar regardless of where in it it's written.
+        remaining_bar_quarters = max(part_state.full_bar_quarters - offset_q, 0.0)
         chord_note = NoteData(
             step_name=chord_label,
             octave=None,
@@ -1733,7 +1745,7 @@ class TimelineBuilder:
             measure=measure_state.m_num,
             beat_position=part_state.beat_position(measure_state.m_num, offset_q),
             ts_duration=float(walker.ts_num),
-            quarter_length=part_state.full_bar_quarters,
+            quarter_length=remaining_bar_quarters,
             duration_name_us=quarter_length_to_display_name(part_state.full_bar_quarters),
             part_id=CHORDS_PART_ID,
             part_name=CHORDS_PART_NAME,
