@@ -18,7 +18,7 @@ from models.tuner_settings import TunerSettings
 from models.voice_control_settings import VoiceControlSettings
 
 # File > Recent Files - most-recent-first, capped at this many entries.
-MAX_RECENT_FILES = 8
+MAX_RECENT_FILES = 20
 
 
 @dataclass

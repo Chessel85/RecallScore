@@ -1,4 +1,13 @@
 !.venv/scripts/python main.py
+
+why is metronome player unavailable?
+Can the attributes popup menu go in reverse order?
+Need the same fix for selecting popup menu from the attributes manager dialogue.
+Attributes added whilst in the dialogue don't get an asterisk.  
+The accerlator key might not work in the attribute manager dialogue for adding attributes.
+and noah found that attributes list not respecting reordering of attributes 
+Want the recents menu to be longer and prefix with a number 
+The attributes management dialogue does not cancel any hide actions. they get commited as soon as you hit the hide or hide all buttons.  could change it to cancel properly and equally for elevation 
 Need to write the user guide better. 
 stripping announcement of attribute name during playback
 If a stave has only one voice, then no point opening it in the parts view and no point having "Add attribute to voice" etc.

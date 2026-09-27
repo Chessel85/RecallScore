@@ -838,13 +838,14 @@ class MainWindow(QMainWindow):
             placeholder.setEnabled(False)
             menu.addAction(placeholder)
             return
-        for file_path in recent_files:
+        for index, file_path in enumerate(recent_files, start=1):
             # Filename first, then its folder in brackets (P5) - the name is
             # what the user recognises. "&" -> "&&" so a real filename
             # containing one isn't eaten as a QAction mnemonic.
             base = os.path.basename(file_path)
             folder = os.path.dirname(file_path)
             label = (f"{base} ({folder})" if folder else base).replace("&", "&&")
+            label = f"{index}. {label}"
             action = QAction(label, self)
             action.triggered.connect(lambda checked=False, p=file_path: self.load_score_from_file(p))
             menu.addAction(action)
