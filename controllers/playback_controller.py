@@ -28,6 +28,7 @@ from models.play_settings import (
     PlaySettings,
 )
 from models.playback_jump_state import PlaybackJumpState
+from models.synthetic_parts import LYRICS_PART_ID
 from models.vocabulary import bar_word
 
 
@@ -312,10 +313,13 @@ class PlaybackController(QObject):
         """(key, label, channel) for every mixer-controllable channel: each
         real instrument part, in parts_info order, plus the click, position
         announcer and performance-cue channels. The Mixer dialog's list is
-        built from this."""
+        built from this. The synthetic Lyrics part is left out: it never
+        sounds, so volume/pan on it would do nothing."""
         rows: List[Tuple[str, str, int]] = []
         if self.music_data:
             for part in self.music_data.parts_info:
+                if part.part_id == LYRICS_PART_ID:
+                    continue
                 rows.append((part.part_id, part.name, self.music_data.get_channel_for_part(part.part_id)))
         rows.append((mixer_settings.CLICK, "Metronome", METRONOME_CHANNEL))
         rows.append((mixer_settings.ANNOUNCER, "Position Announcer", POSITION_ANNOUNCER_CHANNEL))

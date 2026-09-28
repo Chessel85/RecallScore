@@ -48,6 +48,18 @@ def test_mixer_dialog_rows_cover_every_part_plus_click_announcer_and_cue(
     assert [pan for _, _, _, pan in rows] == [0, 0, 100, -100, 0]
 
 
+def test_mixer_dialog_omits_the_silent_lyrics_part(window, qtbot, chords_and_lyrics_score):
+    """Lyrics never sound, so volume/pan on them would do nothing; the
+    Chords part does sound and stays listed."""
+    load_and_wait(window, qtbot, chords_and_lyrics_score)
+    assert "Lyrics" in [p.name for p in window._music_data.parts_info]
+
+    labels = [label for _, label, _, _ in window.playback.begin_mixer_edit()]
+
+    assert "Lyrics" not in labels
+    assert "Chords" in labels
+
+
 def test_mixer_dialog_ok_commits_and_persists_the_change(window, qtbot, minimal_score, monkeypatch):
     load_and_wait(window, qtbot, minimal_score)
     part_id = window._music_data.parts_info[0].part_id
