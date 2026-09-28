@@ -2,12 +2,14 @@
 
 These are the spoken commands recognized when voice control is on. Turn
 voice control on or off with Alt+Enter, or Options > Toggle Voice
-Control. Options > Voice Control Settings... (Ctrl+Shift+R) chooses the
-microphone and how confident a command must be before it is acted on.
+Control. 
+
+Voice Control settings are in Options > Voice Control Settings... (Ctrl+Shift+R) to set the microphone and how confident a command must be before it is acted on.
 
 A short confirmation sound plays whenever a command is recognized and
-acted on. Only the phrases listed here are recognized - anything else
-is ignored.
+acted on. 
+
+Commands are limited to the those listed here.
 
 ## Playback
 

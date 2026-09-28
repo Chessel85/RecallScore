@@ -1,5 +1,10 @@
 # Recall Score Release Notes
 
+## 2026.1.65
+
+* Removed lyrics from mixer 
+* Added a voice control commands list from the help menu 
+
 ## 2026.1.64
 
 * Tidied attribute manager dialogue 
