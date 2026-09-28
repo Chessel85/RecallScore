@@ -218,6 +218,7 @@ def test_items_with_no_menu_mnemonic_have_no_ampersand(window):
         window._actions.user_guide,
         window._actions.quick_start,
         window._actions.keystrokes,
+        window._actions.voice_commands,
         window._actions.about,
     ]
     for action in no_mnemonic_actions:
@@ -376,3 +377,41 @@ def test_missing_keystrokes_reports_an_error_instead_of_doing_nothing(window, mo
     window._show_keystrokes()
 
     assert len(calls) == 1 and calls[0][0] == "error"
+
+
+def test_missing_voice_commands_reports_an_error_instead_of_doing_nothing(window, monkeypatch):
+    monkeypatch.setattr("main_window.voice_commands_html_path", lambda: "/no/such/guide.html")
+    monkeypatch.setattr("main_window.QDesktopServices.openUrl",
+                        lambda *_: pytest.fail("must not try to open a missing guide"))
+    calls = []
+    monkeypatch.setattr("main_window.notify_user", lambda level, message: calls.append((level, message)))
+
+    window._show_voice_commands()
+
+    assert len(calls) == 1 and calls[0][0] == "error"
+
+
+def test_voice_commands_reference_opens_the_bundled_page(window, monkeypatch):
+    opened = []
+    monkeypatch.setattr("main_window.QDesktopServices.openUrl", lambda url: opened.append(url))
+
+    window._actions.voice_commands.trigger()
+
+    assert len(opened) == 1
+    assert opened[0].toLocalFile().endswith("docs/voice_commands.html")
+
+
+def test_voice_commands_reference_lists_every_phrase():
+    """The page is hand-maintained, so guard it against drifting from the
+    grammar in audio/voice_commands.py - a new phrase must be documented."""
+    import main_window
+    from audio import voice_commands
+
+    with open(main_window.voice_commands_html_path(), encoding="utf-8") as f:
+        page = f.read().lower()
+    phrases = list(voice_commands.COMMAND_PHRASES) + voice_commands.GO_TO_BAR_PREFIXES + [
+        voice_commands.LOOP_LENGTH_PREFIX,
+        voice_commands.ATTRIBUTE_PREFIX,
+    ]
+    missing = [p for p in phrases if p not in page]
+    assert not missing, f"docs/voice_commands.md lacks {missing} - regenerate the .html too"

@@ -95,6 +95,7 @@ class Actions:
     user_guide: Optional[QAction] = None
     quick_start: Optional[QAction] = None
     keystrokes: Optional[QAction] = None
+    voice_commands: Optional[QAction] = None
     sound_icon_dictionary: Optional[QAction] = None
     about: Optional[QAction] = None
 
@@ -929,6 +930,14 @@ class MenuBuilder:
             status_tip="Open a document listing every default keyboard shortcut",
         )
         help_menu.addAction(a.keystrokes)
+
+        # Every phrase voice control recognizes (audio/voice_commands.py),
+        # as a page to read before switching voice control on.
+        a.voice_commands = self._action(
+            "Voice Commands Reference...", self.slots._show_voice_commands,
+            status_tip="Open a document listing every voice control command",
+        )
+        help_menu.addAction(a.voice_commands)
 
         # Tutorial aid: press F12, then any key, to hear what it does instead
         # of doing it - so a new/visually-impaired user can safely check a

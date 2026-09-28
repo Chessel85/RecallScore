@@ -129,6 +129,10 @@ def keystrokes_html_path() -> str:
     return os.path.join(_app_base_dir(), "docs", "keystrokes.html")
 
 
+def voice_commands_html_path() -> str:
+    return os.path.join(_app_base_dir(), "docs", "voice_commands.html")
+
+
 class MainWindow(QMainWindow):
     """The window shell: builds the widgets, owns the controllers, and wires
     them together. Deliberately holds almost no logic of its own.
@@ -2080,6 +2084,17 @@ class MainWindow(QMainWindow):
             notify_user(
                 "error",
                 "The keyboard shortcuts reference could not be found, so "
+                f"Help could not open it.\n\nExpected it at: {guide_path}",
+            )
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(guide_path))
+
+    def _show_voice_commands(self):
+        guide_path = voice_commands_html_path()
+        if not os.path.exists(guide_path):
+            notify_user(
+                "error",
+                "The voice commands reference could not be found, so "
                 f"Help could not open it.\n\nExpected it at: {guide_path}",
             )
             return

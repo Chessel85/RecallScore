@@ -22,6 +22,7 @@ through Tools > Keyboard Shortcuts.
 | User Guide | *(none)* |
 | Quick Start | *(none)* |
 | Keyboard Shortcuts Reference | Ctrl+/ |
+| Voice Commands Reference | *(none)* |
 | Keyboard Echo Mode | F12 |
 | About Recall Score | *(none)* |
 

@@ -90,7 +90,7 @@ the three with sanity checks; none of the steps depend on it.
   Program Files. Uninstalling deliberately does not delete that config; Edit >
   "Open Local Folder" exposes it if the user wants to clear it by hand.
 * **Every Help-menu `.md`/`.html` pair** (`docs/user_guide.md`,
-  `docs/quick_start.md`, `docs/keystrokes.md`) follows the same pattern: the
+  `docs/quick_start.md`, `docs/keystrokes.md`, `docs/voice_commands.md`) follows the same pattern: the
   `.md` is the maintained source, the `.html` is a **checked-in, manually
   regenerated** artifact (deliberately not a build step, to avoid making
   `pandoc` a build dependency). Regenerate with `pandoc docs/<name>.md -s
@@ -117,6 +117,11 @@ the three with sanity checks; none of the steps depend on it.
     defaults built in `widgets/menu_builder.py` and `main_window.py`'s
     `setup_shortcuts` — none of that is read programmatically, so a shortcut
     changed in either place must be updated here by hand too.
+  - `docs/voice_commands.md` → `pandoc docs/voice_commands.md -s --metadata
+    pagetitle="Recall Score Voice Commands" -o docs/voice_commands.html`.
+    Its phrases mirror `audio/voice_commands.py`; a test
+    (`test_voice_commands_reference_lists_every_phrase`) fails if a fixed
+    phrase or number-command prefix is missing from the page.
 * **`examples/`** — git-tracked (unlike `bin/`/`soundfonts/`), bundled example
   scores for end users. Distinct from `files/` at the repo root, which holds
   developer/test fixtures. Drop `.xml`/`.musicxml`/`.mxl` in and the next build
