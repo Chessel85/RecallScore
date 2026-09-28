@@ -1,5 +1,10 @@
 # Recall Score Release Notes
 
+## 2026.1.64
+
+* Tidied attribute manager dialogue 
+* \increased length of recent files to 20 and prefix with a number
+
 ## 2026.1.63
 
 * Fixed a bug where, due to presence of anacrusis and an al capo, the bar containing the finish point was played incorrectly first time through.
