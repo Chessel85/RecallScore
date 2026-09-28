@@ -9,7 +9,7 @@ Voice Control settings are in Options > Voice Control Settings... (Ctrl+Shift+R)
 A short confirmation sound plays whenever a command is recognized and
 acted on. 
 
-Commands are limited to the those listed here.
+Commands are limited to those listed here.
 
 ## Playback
 
