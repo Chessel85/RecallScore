@@ -1,7 +1,5 @@
 !.venv/scripts/python main.py
 
-The mixer lists lyrics but this needs removing.
-Need to write the user guide better. 
 If a stave has only one voice, then no point opening it in the parts view and no point having "Add attribute to voice" etc.
 Possible ducking of midi when speech recognition is on.
 * Think the glitch i hear at start up is a real problem. is very noticeable when on speakers. and sometimes the quality of the midi rendering is crackly. or is this only when running from command prompt?

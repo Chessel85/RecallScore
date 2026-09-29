@@ -170,1775 +170,184 @@
 </head>
 <body>
 <h1 id="recall-score-user-guide">Recall Score — User Guide</h1>
-<p><em>Written against version 2026.1.50</em></p>
-<p><em>This guide describes Recall Score, a screen-reader-first music
-score and guitar-tab viewer for visually impaired musicians, for
-Windows.</em></p>
+<p><em>Written for version 2026.1.65</em></p>
 <h2 id="introduction">1. Introduction</h2>
-<h3 id="what-recall-score-is-for">1.1 What Recall Score Is For</h3>
-<p>Recall Score lets you explore, study and memorise a piece of music by
-ear, using a screen reader and the keyboard, without needing to see the
-page. Every move you make through a score is spoken by your screen
-reader and heard as MIDI playback, so you always know exactly where you
-are and what’s sounding.</p>
-<p>The app is built around a simple idea: visually impaired musicians
-usually can’t read notation and play an instrument at the same time, so
-memorising a piece well enough to play it from memory matters more than
-it does for a sighted player. Recall Score is designed to make that
-memorising process as efficient as possible.</p>
-<h3 id="who-this-guide-is-for">1.2 Who This Guide Is For</h3>
-<p>This guide is written for anyone using Recall Score to read, listen
-to and study a score - opening files, navigating and filtering what you
-hear, and configuring how notes and performance markings are spoken. If
-you’re setting the app up for your own workflow (choosing UK or US
-terminology, which details are spoken, which attributes appear), the
-same sections apply to you too.</p>
-<h3 id="how-to-read-this-guide-with-a-screen-reader">1.3 How to Read
-This Guide with a Screen Reader</h3>
-<p>This document is one long page. Use your screen reader’s heading
-navigation (for example, the <code>H</code> key in NVDA) to jump between
-the numbered sections and subsections below, or search the page directly
-for a keystroke or menu name. Section 15 is a single reference table of
-every keyboard shortcut in the app - worth bookmarking or returning to
-directly rather than reading top to bottom.</p>
-<p>Keystrokes are always written out in full, for example
-<code>Ctrl+Left Arrow</code> means: hold Ctrl and press the Left Arrow
-key.</p>
+<p>Recall Score is a Windows desktop application designed to make
+learning new music faster and more intuitive for visually impaired
+musicians.</p>
+<p>Because reading notation while playing an instrument is often not
+feasible, memorising a piece is essential. Recall Score provides tools
+to navigate scores, inspect details, and build muscle memory through
+structured practice features.</p>
+<h3 id="document-navigation">Document Navigation</h3>
+<p>This guide is formatted as a single document. Screen reader users can
+use heading navigation keys (such as “H” or “1”–“3”) to move between
+sections, or use the search function to find specific topics.</p>
 <h2 id="getting-started">2. Getting Started</h2>
-<h3 id="installing-recall-score-windows">2.1 Installing Recall Score
-(Windows)</h3>
-<p>Recall Score ships as a standard Windows installer,
-<code>RecallScore-Setup-&lt;version&gt;.exe</code>. Run it and follow
-the wizard (Welcome, Components, Install Location, Start Menu shortcut,
-Install, Finish). Because it installs into Program Files, Windows will
-ask for administrator permission during setup - this is expected.</p>
-<p>Once installed, Recall Score appears in your Start Menu and in
-Add/Remove Programs like any other Windows application, with a normal
-uninstaller. Uninstalling does not delete any preferences you’ve saved
-for individual scores (section 13) - those live separately under your
-own Windows user profile and are covered in section 16.3 if you ever
-want to clear them by hand.</p>
-<h3 id="opening-a-score-file">2.2 Opening a Score File</h3>
-<p>Choose File &gt; Open… (or press <code>Ctrl+O</code>). A standard
-file-open dialog titled “Open Score” appears. Choose your file and
-select Open. Once the file has finished loading, the five regions and
-status bar (section 3) populate automatically - Region 1 with the
-score’s title, composer, key, time signature and tempo, Region 2 with
-its parts and staves, and so on. The window’s title bar always shows
-“Recall Score - <code>&lt;filename&gt;</code>” once a file is loaded, so
-you can confirm which piece is open at any time.</p>
-<p>Recall Score also remembers where you were in a piece: reopening a
-file you’ve already worked with picks up right where you left off, at
-the same note, rather than starting back at the beginning.</p>
-<h3 id="supported-file-types">2.3 Supported File Types</h3>
-<p>Recall Score opens MusicXML files - <code>.xml</code>,
-<code>.musicxml</code>, and the compressed <code>.mxl</code> format that
-many notation programs (including MuseScore) export by default -
-Standard MIDI Files - <code>.mid</code> and <code>.midi</code> - and
-Guitar Pro files - <code>.gp</code>. A Guitar Pro file’s parts show up
-in Region 2 as tab staves rather than the usual clef labels (section
-3.3).</p>
-<p>MIDI files carry far less information than a real MusicXML score: no
-part/instrument names beyond whatever the file itself declares (Region 2
-shows one row per track rather than the usual part/stave/voice detail,
-since a MIDI track has no real staff or voice concept), and often no -
-or wrong - key signature. Edit &gt; Instruments… and Edit &gt; Key
-Signature… (section 14.2) correct either.</p>
-<p>Recall Score can also import a song directly from an Ultimate Guitar
-tab page - its chords and lyrics from a chords page, or its guitar
-tablature (with real string and fret numbers) from an ASCII-tablature
-“Tab” page - see section 10. If a MusicXML file already carries its own
-chord symbols and/or lyrics (for example a lead-sheet-style score
-exported from MuseScore), those are picked up automatically as extra
-Chords and Lyrics parts too - see section 10.6.</p>
-<h3 id="a-five-minute-first-walkthrough">2.4 A Five-Minute First
-Walkthrough</h3>
-<p>A short first run-through, once you have a MusicXML file to open:</p>
+<h3 id="installation-and-running">2.1 Installation and Running</h3>
 <ol type="1">
-<li>Open a file. <code>Ctrl+O</code>, choose your file. Region 1 now
-describes the piece - title, composer, key, time signature, starting
-tempo.</li>
-<li>Get to the notes. Press <code>C</code> from anywhere to jump
-straight to the Note region (Region 3, section 3.4).</li>
-<li>Step through it. Press <code>Right Arrow</code> a few times. Each
-press moves to the next note or chord and plays it.
-<code>Left Arrow</code> goes back.</li>
-<li>Listen to a chord’s individual notes. If you land on a chord
-(several notes at once), press <code>Down Arrow</code> to hear each note
-in it one at a time, <code>Up Arrow</code> to go back up.</li>
-<li>Try muting a part. Press <code>Tab</code> twice to reach Region 2
-(Parts, Staves and Voices), which opens fully collapsed. Press
-<code>Right Arrow</code> on a part to expand it, <code>Down Arrow</code>
-onto a stave or voice, then <code>F8</code> to mute it. Pressing
-<code>C</code> returns to the Note region - that part is now silent and
-no longer listed. <code>F8</code> again on the same row in Region 2
-restores it.</li>
-<li>Check your position at any time. Press <code>F6</code> to move to
-the status bar and hear the current measure, beat, key and time
-signature; <code>F6</code> again returns you to whichever region you
-were last on.</li>
+<li>Download the installer from the <a
+href="https://chessel85.github.io/RecallScore/web_page">Recall Score
+Download Page</a>.</li>
+<li>Run the executable and grant Windows administrator permissions when
+prompted.</li>
 </ol>
-<p>From here, section 5 onward covers every navigation and playback
-control in detail.</p>
-<h2 id="understanding-the-screen-layout">3. Understanding the Screen
-Layout</h2>
-<h3 id="the-five-regions-at-a-glance">3.1 The Five Regions at a
-Glance</h3>
-<p>The main window is arranged in two rows, plus a status bar below
-them: the top row holds two regions, the bottom row holds three.</p>
+<p>To uninstall, use standard Windows “Add or Remove Programs”.
+Uninstalling preserves saved score settings.</p>
+<p>To run, use the Recall Score icon on the desktop.</p>
+<h3 id="opening-and-closing-files">2.2 Opening and Closing Files</h3>
 <ul>
-<li>Region 1 (top-left): Score Information - the piece’s metadata.</li>
-<li>Region 2 (top-right): Parts, Staves and Voices - what’s muted or
-soloed.</li>
-<li>Region 3 (bottom-left): Note Timeline - the notes at your current
-position; this is where you navigate through the music.</li>
-<li>Region 4 (bottom-middle): Note Attributes - full detail on whatever
-is currently selected in Region 3.</li>
-<li>Region 5 (bottom-right): Performance - repeat barlines, 1st/2nd-time
-endings, dynamics hairpins, and other performance markings active at or
-occurring exactly at your current position (section 8).</li>
-</ul>
-<p><code>Tab</code> moves focus forward through the five regions in this
-order, wrapping back to Region 1 after Region 5; <code>Shift+Tab</code>
-moves backward. Each region also has its own normal Up/Down row
-navigation for moving within it - only Region 3 additionally responds to
-the timeline keys described in section 5, and only moving through Region
-3 triggers audio playback.</p>
-<h3 id="region-1-score-information">3.2 Region 1: Score Information</h3>
-<p>Shows the score’s title, composer or artist, key signature, time
-signature and starting tempo, as read from the file when it was opened.
-These are the piece’s opening values and don’t change as you move
-through the score - for values that track your current position instead
-(useful on a piece whose key or time signature changes partway through),
-see the status bar in section 3.7.</p>
-<h3 id="region-2-parts-staves-and-voices">3.3 Region 2: Parts, Staves
-and Voices</h3>
-<p>A navigable tree mirroring the structure of the opened file: each
-Part (for example “Classical Guitar”) can contain one or more Staves,
-each Stave one or more Voices. Every row starts collapsed;
-<code>Right Arrow</code> on a part or stave reveals its children,
-<code>Left Arrow</code> collapses it again. A row’s name is followed by
-“muted”, “soloed”, or “muted soloed” whenever that state applies to the
-row itself - a bare name means neither. <code>F8</code> mutes or unmutes
-the focused row; <code>F9</code> solos or unsolos it - section 6 covers
-how muting and soloing combine across the hierarchy.</p>
-<p>A percussion part’s “voices” are its individual drum sounds (for
-example “Closed Hi-Hat”, “Snare”) rather than notated voices, so one
-drum in a kit can be muted or soloed without affecting the others;
-section 7.10 covers renaming a drum sound or changing what it plays back
-as. A Guitar Pro file’s stave is labelled “Tab stave” rather than a clef
-name, and a track carrying real chord names or strum markings gains an
-extra Chords voice, shown with the chord name, beat position and stroke
-direction by default - the same treatment a MusicXML score’s embedded
-chord symbols get (section 10.6).</p>
-<p>A stave carrying free-text directions written into the score - a
-guitar’s left-hand position marks, or a tempo/technique instruction some
-notation programs write as plain text - gains an extra Stave Text voice,
-listed first among that stave’s voices; section 9.7 covers what it looks
-and sounds like.</p>
-<p>For a MIDI file, or an imported song’s Chords, Lyrics or Tablature
-rows (section 10), the tree stops at the part level: MIDI has no real
-stave or voice concept, and an imported Chords, Lyrics or Tablature row
-has no notated structure underneath it either, so there’s nothing
-further to expand.</p>
-<h3 id="region-3-note-timeline">3.4 Region 3: Note Timeline</h3>
-<p>The region you’ll spend the most time in. It lists the note or notes
-sounding at your current position in the score.
-<code>Left</code>/<code>Right Arrow</code> move through time;
-<code>Up</code>/<code>Down Arrow</code> move between individual notes
-when several sound together. Every move plays what’s now current through
-MIDI, using each part’s own instrument sound from the file.</p>
-<p>A small ornamental note that decorates the main note (a grace note)
-is included in the reading rather than skipped - for example “A grace B”
-means the main note A is decorated by a grace note on B. It’s also
-briefly sounded before the main note plays, so you hear the ornament,
-not just its name.</p>
-<h3 id="region-4-note-attributes">3.5 Region 4: Note Attributes</h3>
-<p>Shows full detail for whichever note(s) are currently selected in
-Region 3 - by default step, octave, measure number, beat position and
-duration, plus dynamics, articulation, fingering, string, fret and other
-details when the source file provides them and they’ve been switched on
-(section 9). This region updates automatically to always match Region
-3’s current selection.</p>
-<h3 id="region-5-performance">3.6 Region 5: Performance</h3>
-<p>Lists whichever repeat barlines, 1st/2nd-time endings and dynamics
-hairpins (crescendo/diminuendo) are active at your current position, and
-any Segno, Coda, “To Coda”, Fine, Da Capo or Dal Segno mark, or key/time
-signature/tempo change, that occurs exactly there - a start line and an
-end line for each of the first three, or a single “None” row when
-nothing applies. A short sound plays whenever this list changes as you
-navigate, so you know to check it. See section 8 for the full detail,
-including jumping straight to a marking’s start or end and the separate
-whole-score Performance Report.</p>
-<h3 id="the-status-bar">3.7 The Status Bar</h3>
-<p>Six individually focusable fields, in order: measure and beat
-position, key signature, time signature, playback tempo, playback status
-(Playing/Paused/Stopped) and metronome state (On/Off). Once focus is in
-the status bar, <code>Tab</code>/<code>Shift+Tab</code> cycle only
-between these six fields and wrap around, rather than leaving the pane -
-only <code>F6</code>/<code>Shift+F6</code> (section 4.2) move focus in
-or out of the status bar.</p>
-<p>Unlike Region 1, the status bar tracks your current cursor position -
-if a score changes key or time signature partway through, the status bar
-reflects whatever is in effect where you are right now. It can also be
-read at any time, from any region, using your screen reader’s own
-“report status bar” command (<code>NVDA+End</code> on NVDA).</p>
-<h2 id="moving-between-regions">4. Moving Between Regions</h2>
-<h3 id="cycling-through-the-five-regions-tab-shifttab">4.1 Cycling
-Through the Five Regions (Tab / Shift+Tab)</h3>
-<p><code>Tab</code> moves focus to the next region in the Region 1 to 2
-to 3 to 4 to 5 to 1 cycle; <code>Shift+Tab</code> moves in reverse. This
-is separate from each region’s own internal Up/Down navigation -
-<code>Tab</code> always changes which region has focus, it never scrolls
-within one.</p>
-<h3 id="switching-between-the-regions-area-and-the-status-bar-f6">4.2
-Switching Between the Regions Area and the Status Bar (F6)</h3>
-<p><code>F6</code> toggles focus between the regions area (returning to
-whichever region you last had focus in) and the status bar.
-<code>Shift+F6</code> does the same thing - since there are only two
-panes, there’s no meaningful “reverse” direction. The menu bar is
-reached the normal Windows way (the <code>Alt</code> key), not through
-<code>F6</code>.</p>
-<h3 id="jumping-to-any-region-directly-z-x-c-v-b">4.3 Jumping to Any
-Region Directly (Z / X / C / V / B)</h3>
-<p>Each region also has its own direct-jump key that moves focus
-straight to it from anywhere in the window - another region, the status
-bar, wherever - without changing your timeline position. The five keys
-sit together on the keyboard’s bottom row, left to right, in the same
-order as the five regions:</p>
-<table>
-<thead>
-<tr>
-<th style="text-align: left;">Key</th>
-<th style="text-align: left;">Jumps to</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;"><code>Z</code></td>
-<td style="text-align: left;">Region 1, Score Info</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>X</code></td>
-<td style="text-align: left;">Region 2, Parts List</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>C</code></td>
-<td style="text-align: left;">Region 3, Notes</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>V</code></td>
-<td style="text-align: left;">Region 4, Note Attributes</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>B</code></td>
-<td style="text-align: left;">Region 5, Performance</td>
-</tr>
-</tbody>
-</table>
-<p>This saves repeatedly tabbing all the way around just to reach a
-particular region.</p>
-<h2 id="navigating-the-timeline">5. Navigating the Timeline</h2>
-<p>Everything in this section only takes effect while focus is in the
-Note region (Region 3). The same keys do nothing in the other regions -
-each of those uses its own native navigation instead.</p>
-<p>Moving the cursor with the keys in this section always steps through
-the score’s notated notes in written order, from start to end - it never
-follows a repeat barline, ending, Segno, Coda or Da Capo/Dal Segno
-instruction. Those markings are only actually followed during real
-playback (section 7); section 8 covers seeing and jumping to them
-directly.</p>
-<h3 id="stepping-note-by-note-left-right-arrow">5.1 Stepping Note by
-Note (Left / Right Arrow)</h3>
-<p>Moves to the next or previous active event - a position in the score
-where at least one currently-visible note sounds. All notes at the new
-position are selected and played together.</p>
-<h3 id="jumping-by-measure-ctrlleft-ctrlright">5.2 Jumping by Measure
-(Ctrl+Left / Ctrl+Right)</h3>
-<p><code>Ctrl+Right Arrow</code> jumps to the first active event of the
-next bar. <code>Ctrl+Left Arrow</code> jumps to the first active event
-of the current bar, or to the previous bar’s first active event if
-you’re already sitting on it. If the piece has a pickup bar, it’s
-numbered 0 and comes before bar 1. A short “Measure
-<code>&lt;number&gt;</code>” announcement is spoken just before the
-notes at the new bar are read, so you always know which bar you’ve
-landed on - the same announcement is heard when jumping by Home/End,
-typing a bar number, using Go to Measure…, or navigating by voice
-command.</p>
-<p>Bar numbers come straight from the file’s own notation for a MusicXML
-or Guitar Pro score. A MIDI file has no real bar markers - measure
-boundaries are reconstructed from its tempo and time-signature timing,
-so a missing or incorrect time signature can shift them - and an
-Ultimate Guitar import fabricates exactly one bar per chord change
-rather than reading any real rhythm (section 10.5). Treat bar numbers
-from either of those two sources as a close approximation, not a
-musically exact fact.</p>
-<h3 id="jumping-to-the-start-and-end-of-the-piece-home-end">5.3 Jumping
-to the Start and End of the Piece (Home / End)</h3>
-<p><code>Home</code> moves to the very first active note (the pickup
-bar, if there is one); <code>End</code> moves to the very last. Trailing
-bars that are nothing but rests padding out the final printed system
-don’t count - <code>End</code> lands on the last note actually played,
-not on empty bars after it. <code>Home</code> and <code>End</code> never
-play the boundary sound (section 5.6) even if you’re already at that
-position, since they’re jumping to a known place rather than attempting
-to move past a limit.</p>
-<h3 id="jumping-to-a-specific-bar-number">5.4 Jumping to a Specific Bar
-Number</h3>
-<p>Type a bar number using the digit keys - no dialog needed - then
-press <code>Enter</code> to jump straight to its first active event,
-which plays immediately. This works from anywhere in the window: any of
-the five regions or the status bar, exactly like Play and the tempo
-keys. The number you’re building shows in the status bar’s position
-field as you type. Press <code>Escape</code> at any point before
-<code>Enter</code> to clear what you’ve typed without moving, and any
-ordinary move (an arrow key, a menu jump, Find) also clears a half-typed
-number so a later <code>Enter</code> can’t act on a stale one. Typing a
-bar number that doesn’t exist in the piece plays the boundary sound
-(section 5.6) and leaves your position unchanged.</p>
-<p>You can also reach the same feature through Navigation &gt; Go to
-Measure… (<code>Ctrl+G</code>), a dialog pre-filled with your current
-bar number if you’d rather use a menu.</p>
-<h3 id="moving-between-notes-in-a-chord-up-down-arrow">5.5 Moving
-Between Notes in a Chord (Up / Down Arrow)</h3>
-<p>When several notes sound together at one position,
-<code>Left</code>/<code>Right Arrow</code> selects and plays all of them
-at once. <code>Up</code>/<code>Down Arrow</code> narrows the selection
-down to one note at a time, so you can hear and inspect each note in the
-chord individually. Press <code>Ctrl+A</code>, or choose Edit &gt;
-Select All, at any point to reselect every note at the current position
-again - this is also what makes <code>Shift+Space</code> (section 7.5)
-play the whole chord together rather than just the one note
-<code>Up</code>/<code>Down Arrow</code> last left you on. Select All
-only does anything useful from the Note region, so both the shortcut and
-the Edit &gt; Select All menu item are only active while it has
-focus.</p>
-<h3 id="boundary-sounds-what-the-doh-means">5.6 Boundary Sounds: What
-the “Doh” Means</h3>
-<p>A short, quiet, low note plays whenever you try to move past either
-end of the piece - with <code>Left</code>/<code>Right Arrow</code>,
-<code>Ctrl+Left</code>/<code>Ctrl+Right</code>, by typing a bar number
-that doesn’t exist, or by pressing <code>Space</code> to start playback
-while already sitting on the very last note. It’s a deliberate,
-unobtrusive “you’ve reached the edge” cue, not an error message - your
-position never changes when you hear it. The same sound also plays when
-Find (section 5.7) has nothing further to jump to, or when it has to
-wrap back around to the first or last occurrence of what you’re
-searching for.</p>
-<h3 id="finding-an-attribute-or-performance-marking-ctrlf">5.7 Finding
-an Attribute or Performance Marking (Ctrl+F)</h3>
-<p>Rather than stepping note by note, Find jumps you straight to
-occurrences of a particular thing wherever it occurs in the score. Two
-kinds of thing are findable:</p>
-<ul>
-<li><strong>Note attributes</strong> - anything that hangs off a note:
-string, fret, fingering, pluck, dynamic, articulation, ornament, playing
-technique (hammer-on, harmonic, and the like), tie, slur, tuplet, grace
-note, fermata, arpeggiated chord, a cautionary or editorial accidental,
-glissando, chord symbol and chord diagram.</li>
-<li><strong>Performance markings</strong> - structural events not tied
-to a single note: repeat and ending starts and ends, crescendo and
-diminuendo hairpins, written dynamics instructions (“cresc.”, “dim.”)
-and tempo instructions (“rall.”, “a tempo”), Segno, Coda, To Coda, Fine,
-Da Capo, Dal Segno, key, time and tempo changes, the sustain pedal,
-octave shifts, rehearsal marks, dashed and bracket lines, clef changes,
-double barlines, and multi-measure rests.</li>
-</ul>
-<p>Anything in the score that is not a plain note, a rest or a lyric is
-meant to be findable. Two catch-all rows - “Other notation” and
-“Direction” - make sure that even a marking this list doesn’t name still
-appears as its own findable row, spoken by the name the file gives
-it.</p>
-<ol type="1">
-<li>Press <code>Ctrl+F</code>, or choose Navigation &gt; Find…, to open
-the Find dialog. It lists only attributes and markings that actually
-occur somewhere in the currently loaded score.</li>
-<li>Optionally type in the <strong>Filter</strong> field to narrow the
-list as you go
-<ul>
-<li>it matches the text of the rows, so typing <code>trill</code> leaves
-just the trill rows.</li>
-</ul></li>
-<li>Choose what to find and select OK. Recall Score jumps immediately to
-the nearest occurrence from your current position.</li>
-<li>Press <code>Alt+Right Arrow</code> (Find Next) or
-<code>Alt+Left Arrow</code> (Find Previous) to keep moving between
-further occurrences without reopening the dialog - these two shortcuts
-work from anywhere in the window, not only with focus in the Note
-region.</li>
-</ol>
-<p>If there are no further occurrences in the direction you’re moving,
-Find wraps around to the first or last one in the piece and plays the
-boundary sound (section 5.6) so you know a wrap just happened, rather
-than silently repeating your last stop.</p>
-<h4 id="finding-a-particular-value">Finding a Particular Value</h4>
-<p>For the attributes and markings where the exact value is something a
-player navigates by - articulation, playing technique, dynamic,
-accidental, tie, slur, glissando, tuplet and chord symbol - the dialog
-breaks the single row out into one row per value found in this score. So
-a piece with staccatos, accents and a couple of trills offers
-“articulation (any)” plus “articulation: staccato”, “articulation:
-accent” and “articulation: trill” as separate rows, and Find on the
-trill row visits only the trills. The other attributes - string, fret,
-fingering, pluck, stave text - stay as one “any” row however many
-distinct values they hold, so the list doesn’t fill up with, say, one
-row per fret number.</p>
-<h4 id="the-occurrence-count">The Occurrence Count</h4>
-<p>Every row ends with how many occurrences it has in the score - “12
-occurrences”, or “1 occurrence”. An occurrence is a
-<strong>position</strong>, not a note: a chord whose three notes are all
-staccato counts once, and the number tells you exactly how many times
-<code>Alt+Right Arrow</code> will move before it wraps back to where you
-started.</p>
-<p>For a note attribute, the count follows what you have muted in Region
-2 (section 6) - muting a voice genuinely reduces how many of its
-articulations you can reach, so the number drops to match. For a
-performance marking the count is of the whole score and ignores muting,
-because a repeat or a clef change is structural and doesn’t belong to
-any one voice.</p>
-<h4 id="what-is-not-made-audible">What Is Not Made Audible</h4>
-<p>Find lets you locate ties, arpeggios, ornaments, pedal marks, octave
-shifts and the rest, and your screen reader speaks them, but Recall
-Score does not change the playback to perform them - a trill is spoken
-as “trill” and still plays as the plain written note, and an octave
-shift does not transpose what you hear. Finding and studying these
-markings is the feature; sounding them is not.</p>
-<h2 id="muting-and-soloing-parts-staves-and-voices">6. Muting and
-Soloing Parts, Staves and Voices</h2>
-<h3 id="the-part-stave-voice-hierarchy">6.1 The Part / Stave / Voice
-Hierarchy</h3>
-<p>Region 2 (section 3.3) mirrors the structure of the opened file: each
-Part can contain one or more Staves, and each Stave one or more Voices.
-A guitar-and-piano duet, for example, typically shows two Parts, with
-the piano Part split into two Staves (treble and bass), each with its
-own Voices.</p>
-<h3 id="expanding-and-collapsing-a-row">6.2 Expanding and Collapsing a
-Row</h3>
-<p><code>Right Arrow</code> on a part or stave with an expand indicator
-reveals its children; <code>Left Arrow</code> collapses it again. Every
-row starts collapsed on each score load - collapsing a row also forgets
-whatever was open underneath it, so a re-expanded row always opens
-fresh.</p>
-<h3 id="muting-and-soloing-a-row">6.3 Muting and Soloing a Row</h3>
-<p>With focus on a row in Region 2, <code>F8</code> mutes or unmutes it;
-<code>F9</code> solos or unsolos it. Muting a Part or Stave silences
-everything nested underneath it, in both the Note region and playback -
-but each child keeps its own independent mute state in the background,
-so unmuting the parent restores exactly what was set before, not a
-blanket “everything on” reset.</p>
-<p>Soloing a row overrides muting everywhere else: with anything soloed
-anywhere in the tree, only the soloed row(s) and what’s nested under
-them sound, regardless of any other mute state - muting is set aside,
-not cleared. With nothing soloed, muting works as described above.
-<code>Alt+F8</code> clears every mute in the score without touching solo
-state; <code>Alt+F9</code> clears every solo without touching mute
-state.</p>
-<h3 id="how-muting-and-soloing-affect-navigation-and-playback">6.4 How
-Muting and Soloing Affect Navigation and Playback</h3>
-<p>Muting and soloing change what sounds and what’s listed at each
-timeline position - never which positions exist to move between. The
-current timeline position, and Region 3’s selection, stay exactly where
-they were before and after any change in Region 2.</p>
-<h3 id="linking-parts-to-share-performance-markings">6.5 Linking Parts
-to Share Performance Markings</h3>
-<p>Parts &gt; Link Parts… marks two or more parts as “the same music” -
-for example a doubled melody line, or a part written out twice at
-different transpositions. Once linked, each part’s note list also shows
-the performance markings entered on its partners, instead of only its
-own. Select two or more parts in the dialog and choose Link; select a
-linked part and choose Unlink to remove it from its group (a pair that
-loses one member simply stops being linked, while a group of three or
-more shrinks by one). There is no default keyboard shortcut for Link
-Parts…; assign one through Tools &gt; Keyboard Shortcuts if you use it
-often.</p>
-<h2 id="listening-to-the-score">7. Listening to the Score</h2>
-<h3 id="automatic-playback-during-navigation">7.1 Automatic Playback
-During Navigation</h3>
-<p>Every move within the Note region - stepping with
-<code>Left</code>/<code>Right Arrow</code>, moving within a chord with
-<code>Up</code>/<code>Down Arrow</code>, or muting or soloing a part in
-Region 2 - immediately plays whatever is now current, using each part’s
-own instrument sound from the file. A chord spanning two parts (say,
-piano and guitar) sounds both instruments together, not just one.</p>
-<h3 id="playing-the-whole-piece-play-pause-stop">7.2 Playing the Whole
-Piece (Play / Pause / Stop)</h3>
-<p><code>Space</code> starts playback from your current position, and
-also resumes playback if it’s currently paused. <code>Ctrl+Space</code>
-(Playback &gt; Pause) pauses playback - resume with <code>Space</code>,
-not <code>Ctrl+Space</code> again, which is why the menu item is named
-just “Pause” rather than “Pause/Resume”. Pausing updates the regions to
-reflect wherever playback stopped. Stopping playback - or letting it
-reach the end of the piece naturally - always returns your position to
-wherever playback originally started from, not to the last note
-heard.</p>
-<p>Unlike stepping through the Note region with the arrow keys, real
-playback follows repeat barlines, 1st/2nd-time endings, and Segno/Coda/
-Da Capo/Dal Segno/Fine instructions exactly as notated - so what you
-hear during Play can genuinely revisit or skip bars, even though those
-same bars are simply listed in order when you browse them with
-<code>Left</code>/<code>Right Arrow</code>. Looping playback follows
-repeat barlines and endings within its window too, according to the
-“Repeat handling while looping” choice in Play Settings (section
-7.3).</p>
-<h3 id="play-mode-and-the-lead-in-count-in">7.3 Play Mode and the
-Lead-in Count-in</h3>
-<p><code>Space</code> is the single play control. What it does depends
-on the <strong>play mode</strong> and on whether the lead-in is on:</p>
-<ul>
-<li><strong>Play to end</strong>: <code>Space</code> plays from your
-cursor to the end of the piece and stops, with your cursor following
-along - the ordinary transport.</li>
-<li><strong>Play loop once</strong>: <code>Space</code> plays a fixed
-window of bars once, starting from the bar your cursor is in, then stops
-and returns your cursor to where it was. The window length is the “Loop
-length in bars” setting.</li>
-<li><strong>Play loop until stopped</strong>: the same window, but it
-repeats over and over until you press <code>Space</code> again. Your
-cursor does not move while it loops.</li>
-<li><strong>Lead-in on</strong>: a metronome count-in plays first,
-giving you a moment to get your hands back onto your instrument before
-the notes start.</li>
-</ul>
-<p>Cycle the play mode with <code>Ctrl+L</code> (Playback &gt; Cycle
-Play Mode) - it steps through play to end, play loop once, and play loop
-until stopped, speaking the new mode aloud. Toggle the lead-in with
-<code>Ctrl+I</code> (Playback &gt; Toggle Lead-in). Both are shown in
-the status bar.</p>
-<p><strong>Repeat handling while looping.</strong> In either loop mode,
-when your loop window clips a repeat barline - the repeat sign is inside
-the window but the bar it jumps back to is not - Recall Score has to
-choose which way through those bars to loop. <code>Ctrl+R</code>
-(Playback &gt; Cycle Loop Repeat Handling) cycles between three
-readings, spoken aloud each press:</p>
-<ul>
-<li><strong>Repeat the first play-through</strong> - the repeat is taken
-and its first-time ending played, so the loop keeps going round the
-repeated path.</li>
-<li><strong>Repeat the second play-through</strong> - the first-time
-ending is skipped and the final ending played, so the loop is the “last
-time through” version.</li>
-<li><strong>Alternate the first and second play-throughs</strong> - the
-two versions alternate on successive loop passes, the way a real repeat
-is performed once each way.</li>
-</ul>
-<p>When the loop is long enough that the repeat’s target bar <em>is</em>
-inside the window, repeats and endings just play as they normally would
-- the choice only matters for a clipped repeat. If a loop pass runs off
-the end of the piece before its bar count is met, it stops at the last
-bar and the loop restarts from the top. <code>Ctrl+R</code> says
-“Looping is off” or “This score has no repeats” when it cannot
-apply.</p>
-<p>While focus is in the Note region, <code>Alt+PageUp</code> and
-<code>Alt+PageDown</code> increase or decrease the loop length by one
-bar at a time, and <code>Ctrl+Enter</code> sets it directly from a
-number you have just typed (section 5.4) - if the play mode is “Play to
-end”, <code>Ctrl+Enter</code> says “Looping is off” instead. Each change
-speaks the new length aloud (“Loop length 3 bars” or “Loop length 3
-measures”, depending on your Terminology (UK/US) setting).</p>
-<p><code>Enter</code> on its own no longer starts playback - it only
-completes a half-typed bar number.</p>
-<h3 id="play-settings-playback-play-settings">7.4 Play Settings
-(Playback &gt; Play Settings…)</h3>
-<p>Playback &gt; Play Settings… (<code>Ctrl+Shift+P</code>) is the one
-dialog for how playback behaves:</p>
-<ul>
-<li><strong>Playback tempo</strong> - an exact tempo in beats per minute
-(see section 7.6). Saved with this score.</li>
-<li><strong>Play a lead-in metronome click</strong> - the master switch
-for the count-in. When on, the “Lead-in bars” and “Extra lead-in beats”
-fields set its length.</li>
-<li><strong>Play mode</strong> - a dropdown with “Play to end”, “Play
-loop once” and “Play loop until stopped” (section 7.3). It sits just
-after the lead-in fields, and <code>Ctrl+L</code> cycles the same three
-values from anywhere in the app. It replaces the old “Repeat (loop)
-until stopped” tickbox.</li>
-<li><strong>Loop length in bars</strong> - the window length for both
-loop modes. Greyed out for “Play to end”.</li>
-<li><strong>Repeat handling while looping</strong> - how a repeat
-barline clipped by the loop window is played (section 7.3). Enabled for
-either loop mode on a score that actually has repeat barlines. Like the
-other looping settings, it is a global practice habit, not saved per
+<li>Open File: Press “Control+O”.</li>
+<li>Recent Files: Go to “File &gt; Recent Files” to view the last 20
+opened files.</li>
+<li>Close File: Go to “File &gt; Close” to save settings and close the
 score.</li>
-<li><strong>Play the lead-in again on every repeat</strong> - only
-meaningful with “Play loop until stopped” and the lead-in both switched
-on, and greyed out otherwise.</li>
 </ul>
-<p>The play mode, lead-in and looping settings are global practice
-habits that follow you between pieces; only the playback tempo is saved
-per score.</p>
-<h3 id="auditioning-the-current-chord-shiftspace">7.5 Auditioning the
-Current Chord (Shift+Space)</h3>
-<p>Plays every note sounding at your current position together, each
-held for its own written duration. Press <code>Shift+Space</code> again
-at any point to re-trigger it.</p>
-<h3 id="changing-playback-tempo">7.6 Changing Playback Tempo</h3>
-<p><code>F</code> speeds playback up by 10, <code>S</code> slows it down
-by 10, and <code>D</code> resets to the score’s own written tempo. These
-are global shortcuts - they work regardless of which region has focus,
-since tempo is a playback-wide setting. For an exact value, open Play
-Settings… (<code>Ctrl+Shift+P</code>) and type into the “Playback tempo”
-field.</p>
-<p>The tempo you set is an <strong>absolute</strong> value between 5 and
-300, where a beat is the time-signature denominator (a quarter in 4/4,
-an eighth in 6/8). Recall Score keeps it inside that range - a value
-outside is brought back in rather than rejected. Your setting is saved
-with the score, so reopening the piece restores it.</p>
-<p>Playback is always <strong>flat</strong>: any rall./accel./section
-tempo changes written into the score are still described in the
-Performance region and Performance Report, but they are not sounded -
-playback holds one steady tempo throughout.</p>
-<p>The status bar’s “Playback tempo” field shows the current tempo in
-time-signature-denominator beats per minute, and reads “(score default)”
-while no tempo has been set. Because Region 1 shows the score’s own
-<em>written</em> marking (which may be in a different note value), the
-two numbers can legitimately differ.</p>
-<h3 id="using-the-metronome">7.7 Using the Metronome</h3>
-<p>Options &gt; Toggle Metronome, or <code>Ctrl+M</code>, turns a click
-on: one per beat, with a distinctly louder, accented click on beat 1 of
-every bar. With the metronome switched on, beat positions that have no
-note or rest of their own become reachable, audible stops in the
-timeline too, so you can navigate through - and hear the pulse of - even
-entirely silent passages.</p>
-<p>Playback &gt; Play Metronome, or <code>Ctrl+Alt+Space</code>, is a
-separate free-running click, for playing along by ear rather than
-following the score. It starts clicking straight away at the current
-playback tempo (the <code>F</code> / <code>S</code> / <code>D</code>
-tempo keys still adjust it while it runs) and in the time signature at
-your current position, with the accented click on beat 1, and it keeps
-going until you switch it off again. It never moves the timeline.
-<code>Ctrl+Alt+Space</code> toggles it off, and so does pressing
-<code>Space</code> or loading another score.</p>
-<h3 id="using-the-position-announcer">7.8 Using the Position
-Announcer</h3>
-<p>Options &gt; Toggle Position Announcer, or <code>Ctrl+P</code>, turns
-on a spoken “talking metronome”: at each beat position it speaks a word
-for where you are in the bar - “one” through “seven” for whole beats,
-and “e”, “and” or “a” for the subdivisions in between, the standard way
-musicians count subdivided beats aloud. It’s independent of the
-metronome switch (section 7.7) - you can have either, both, or neither
-running at once, and each is remembered separately.</p>
-<p><strong>Bar Line Indicator.</strong> Options &gt; Toggle Bar Line
-Indicator, or <code>Ctrl+B</code>, turns on a single high metronome beep
-that plays whenever you step across a bar line with the Left or Right
-arrow key (or the “forward”/“back” voice command) - moving from the last
-note of one bar to the first note of the next, or back the other way.
-It’s a quick way to hear where the bars fall while you arrow through the
-notes, without switching the full metronome on. Pressing
-<code>Ctrl+B</code> speaks “Bar line indicator on” or “Bar line
-indicator off”. Stepping a whole bar at a time with
-<code>Ctrl+Left</code>/ <code>Ctrl+Right</code> doesn’t trigger it -
-those moves already announce the new bar number. The setting is saved
-per score (in that score’s preferences file, section 13) and starts off
-for a score you haven’t set it on before. It has no effect while the
-metronome (section 7.7) is switched on, since the metronome already
-accents the first beat of every bar; it works normally alongside the
-position announcer.</p>
-<p><strong>Performance Indicator.</strong> Options &gt; Performance
-Indicator is a submenu of three choices - Off, On except when playing, and
-Always on - for a short “ding” that plays when the cursor arrives on a
-performance marking (a key, time or tempo change; a repeat or ending; a
-hairpin; and every other row category the note list can show). It only
-sounds for a category you’ve switched on with <code>Ctrl+N</code> (section
-8.4); a category you’ve turned off in the note list stays silent here
-too. <code>Ctrl+C</code> cycles the three choices without opening the
-menu, speaking the new one aloud - “Performance indicator off”, “…on
-except when playing”, “…always on”. On except when playing dings for
-arrow-key/measure-number navigation but stays quiet during Play; Always
-on dings during Play as well. It’s off by default and is a global
-preference, not saved per score.</p>
-<p><strong>Show Engraving Details.</strong> Options &gt; Show Engraving
-Details, or <code>Ctrl+V</code>, is off by default. Octave-shift and
-clef-change markings are engraving-only information - the printed note
-already sounds at its correct pitch, so nothing about playback changes
-whether this is on or off. With it off, those two kinds of rows are
-dropped outright from the note list, the Performance region and Find;
-switching it on surfaces them everywhere, mainly useful when you’re
-collaborating with a sighted musician who needs to see that detail
-discussed. This is a global preference, not saved per score.</p>
-<h3 id="adjusting-volume-and-pan-the-mixer">7.9 Adjusting Volume and Pan
-(the Mixer)</h3>
-<p>Playback &gt; Mixer… (<code>Ctrl+Shift+X</code>) opens a dialog
-listing every instrument in the score, plus the metronome and the
-position announcer. Select an entry, then use the Volume (0-100%) and
-Pan (-100% left to +100% right) fields to adjust it - type an exact
-value, or use <code>Home</code>/<code>End</code> to jump straight to
-that field’s highest/lowest value and <code>Insert</code> to reset it to
-a sensible starting point (centre for Pan, 50% for Volume). Volume is
-scaled to roughly match natural loudness: 100% is the instrument’s
-normal level, 50% sounds about half as loud, and 0% is silent. Muting an
-instrument entirely is a separate control, in Region 2 (section 6.3),
-not part of this dialog.</p>
-<p>Changes take effect immediately, so different settings can be
-compared before committing to them. Preview (<code>Alt+W</code>) starts
-or stops ordinary playback (honouring your current loop and lead-in
-settings) so you can hear whatever’s been changed so far. OK keeps the
-changes and saves them with the score (see section 13.1); Cancel puts
-everything back exactly as it was before the dialog opened.</p>
-<h3 id="renaming-a-part-or-changing-its-instrument">7.10 Renaming a Part
-or Changing Its Instrument</h3>
-<p>Edit &gt; Instruments… (<code>Ctrl+Shift+I</code>) lists every part
-in the score. Selecting one shows its name in an editable field and its
-GM instrument in a searchable combo box (typing a few letters of an
-instrument’s name jumps to it) - changing either and selecting OK
-applies both to the score. Especially useful for a MIDI file, where a
-track may have no name, or an unhelpful one, and defaults to Acoustic
-Grand Piano when it declares no instrument of its own.</p>
-<p>A percussion part’s own row has no single instrument to choose, since
-a kit is several sounds at once - only its name can be changed there.
-Underneath it, one row per drum sound (for example “Closed Hi-Hat”)
-allows that sound’s own name and its GM percussion sound to be changed
-independently. When the score has at least one percussion part, a
-checkbox, “Apply MusicXML offset for percussion”, also appears: some
-notation programs export a percussion part’s key numbers one step away
-from the correct General MIDI sound, and checking it detects a
-consistent shift from whichever items already match a real GM sound name
-and applies the same correction across the whole part, including items
-with no exact match of their own.</p>
-<h3 id="playing-a-connected-midi-keyboard-live-midi-input">7.11 Playing
-a Connected MIDI Keyboard (Live MIDI Input)</h3>
-<p>If you have a MIDI keyboard or controller plugged in, Recall Score
-can play it live through its own sound engine - useful for trying out a
-part by ear, or simply having a familiar instrument sound while you
-work.</p>
-<p>Options &gt; Toggle Live MIDI Input, or <code>Ctrl+D</code>, turns it
-on or off. Options &gt; Live MIDI Input Settings…
-(<code>Ctrl+Shift+L</code>) chooses which device to listen on (with a
-Refresh button, since devices can be plugged in or removed while the
-dialog is open), what instrument it should sound as, and its volume and
-pan - each heard immediately as you adjust it. Notes you play live are
-entirely separate from the score’s own playback: navigating, muting or
-stopping playback in Recall Score never silences a note you’re still
-physically holding down on your keyboard.</p>
-<h3 id="hands-free-voice-control">7.12 Hands-Free Voice Control</h3>
-<p>For anyone whose hands are busy holding an instrument, spoken
-commands can control playback and navigation instead of the keyboard.
-Toggle it on or off with <code>Alt+Enter</code>, or Options &gt; Toggle
-Voice Control - a distinct tone confirms whether listening actually
-started or stopped.</p>
-<p>Options &gt; Voice Control Settings… (<code>Ctrl+Shift+R</code>)
-chooses which microphone to listen on and how confident a spoken command
-must be before it is acted on (the Confidence Threshold), plus the
-volume and pan of the confirmation sound described below - both are
-heard immediately as you adjust them. Its Test… button opens a practice
-session that shows what was heard and whether it would have been
-accepted, without controlling the app for real - useful for checking
-your microphone and finding a threshold that suits your room. A word
-that isn’t one of the recognized commands is reported there as “Word not
-in dictionary - rejected”.</p>
-<p>A short confirmation sound plays whenever a spoken command is
-recognized and acted on.</p>
-<p>The full list of recognized commands:</p>
+<p>When a file has been loaded, Recall Score automatically plays the
+notes at the current position.</p>
+<h4 id="supported-file-formats">Supported File Formats</h4>
 <ul>
-<li>play - starts or resumes playback</li>
-<li>stop - stops playback</li>
-<li>pause - pauses playback</li>
-<li>forward / right - moves right one note, like the Right Arrow
-key</li>
-<li>back / left - moves left one note, like the Left Arrow key</li>
-<li>next bar / next measure - moves to the start of the next bar</li>
-<li>previous bar / previous measure - moves to the start of the previous
-bar</li>
-<li>home - moves to the first note</li>
-<li>end - moves to the last note</li>
-<li>slower / faster / default speed - adjusts the playback tempo, like
-<code>S</code> / <code>F</code> / <code>D</code></li>
-<li>looping on / looping off (or loop on / loop off) - turns looping on
-or off</li>
-<li>lead in on / lead in off - turns the lead-in count-in on or off</li>
-<li>go to bar <code>&lt;number&gt;</code> / go to measure
-<code>&lt;number&gt;</code> - jumps to a bar (only recognizes bar
-numbers that actually exist in the loaded score)</li>
-<li>loop length <code>&lt;number&gt;</code> - sets the loop length in
-bars (the same value as Playback &gt; Play Settings…’s “Loop length in
-bars” field, or <code>Alt+PageUp</code>/<code>Alt+PageDown</code>),
-recognizing 1 through 64 bars</li>
-<li>attribute <code>&lt;number&gt;</code> - speaks the Nth row of the
-Note Attributes region for the currently selected note(s) without moving
-focus (the same lookup as <code>Ctrl+1</code> through
-<code>Ctrl+9</code> in the Note region - see section 9.6), recognizing 1
-through 9</li>
-<li>slower - reduces playback tempo</li>
-<li>faster - increases playback tempo</li>
-<li>default speed - resets playback tempo to the score’s own tempo</li>
+<li>MusicXML: “.musicxml” and “.mxl”.</li>
+<li>MuseScore: “.mscz” and “.mscx”. Requires MuseScore 4.</li>
+<li>MIDI: “.mid” and “.midi” (Type 0 and 1).</li>
+<li>Guitar Pro: “.gp” (Guitar Pro 7 and 8).</li>
+<li>Ultimate Guitar Imports: Saved “.ug” files.</li>
 </ul>
-<p>Recognition only ever matches this fixed list of phrases - nothing
-else is interpreted as a command, which keeps background noise or music
-from accidentally triggering something.</p>
-<h2 id="performance-markings-repeats-endings-codas-and-dynamics">8.
-Performance Markings: Repeats, Endings, Codas and Dynamics</h2>
-<h3 id="what-appears-in-the-performance-region">8.1 What Appears in the
-Performance Region</h3>
-<p>Region 5 (section 3.6) shows two lines for every repeat barline,
-1st/2nd-time ending, or dynamics hairpin (crescendo/diminuendo) that
-covers your current position - one for where it starts, one for where it
-ends - for example:</p>
-<pre><code>Repeat start: bar 2
-Repeat end: bar 9</code></pre>
-<p>or, for a hairpin that doesn’t begin or end exactly on the first beat
-of a bar:</p>
-<pre><code>Crescendo start: bar 12 beat 3, to bar 13
-Crescendo end: bar 13, from bar 12 beat 3</code></pre>
-<p>Each hairpin row states its full range, so one row read on its own
-tells you where the marking begins and ends. A beat position is only
-shown when an endpoint doesn’t fall on beat 1 of its bar - repeats and
-endings never show one, since barlines only ever occur at the start of a
-bar. When your current position isn’t covered by any marking, Region 5
-shows a single “None” row.</p>
-<p>Hairpins are gathered from every part in the score, not just the
-first. Where more than one part has a hairpin, each row names its part,
-for example “Cello: Crescendo start: bar 12, to bar 14”. If the file
-gives a hairpin a start with no matching end (or an end with no start),
-the row says so plainly - “Diminuendo start: bar 23, no end marked in
-the file” - rather than guessing or dropping it.</p>
-<p>A written instruction such as “cresc.”, “dim.” or “rall.” also shows
-as its own one-off Region 5 row when you land on the bar it sits in -
-for example <code>Crescendo (marked "cresc.")</code> or
-<code>Tempo instruction: rall.</code>.</p>
-<p>Region 5 also shows a one-off row - with no start/end pair - the
-moment you land exactly where the time signature or tempo changes, or
-exactly on a Segno, Coda, “To Coda”, Fine, Da Capo or Dal Segno mark,
-for example:</p>
-<pre><code>Time signature change: 3/4
-Tempo change: 96 quarter notes per minute
-Segno
-Coda</code></pre>
-<p>Unlike the repeat/ending/hairpin rows above, this disappears again as
-soon as you move to the next note - it’s a “something changed here” flag
-for that one position, not a range you’re inside. The score’s opening
-time signature and tempo are never flagged this way, since Region 1 and
-the status bar already show those the moment a file loads.</p>
-<p>For an imported Ultimate Guitar song (section 10), Region 5 also
-carries up to three “what’s in effect here” rows at the top -
-<code>Section:</code>, <code>Chord:</code> and <code>Lyric:</code> -
-naming the current song section, the chord sounding now, and the lyric
-being sung. These update quietly as you move through the song: stepping
-to a new chord within the same section relabels the <code>Chord:</code>
-row without re-sounding the change cue, while crossing into a new
-section (or a new repeat/ending/hairpin) still sounds it.
-<code>Ctrl+Home</code> / <code>Ctrl+End</code> on one of these rows
-jumps to where that section, chord or lyric began.</p>
-<h3 id="the-something-changed-cue">8.2 The “Something Changed” Cue</h3>
-<p>A short, distinct sound plays whenever the set of entries showing in
-Region 5 changes as you navigate - for example the moment you step into
-or out of a repeated section. It doesn’t repeat on every move while
-you’re still inside the same passage, only when what’s showing actually
-changes, so it’s a reliable signal to check Region 5 rather than
-background noise.</p>
-<h3 id="jumping-to-a-markings-start-or-end-ctrlhome-ctrlend">8.3 Jumping
-to a Marking’s Start or End (Ctrl+Home / Ctrl+End)</h3>
-<p>With focus on an entry in the Performance region,
-<code>Ctrl+Home</code> moves your timeline position to that marking’s
-start; <code>Ctrl+End</code> moves it to the last sounding note of the
-marking’s end bar. Either jump plays the notes at the new position
-immediately, the same as any other timeline move.</p>
-<h3 id="hiding-a-marking-category-ctrln">8.4 Hiding a Marking Category
-(Ctrl+N)</h3>
-<p>With focus on a Performance region entry, <code>Ctrl+N</code> (or the
-Menu key, or <code>Shift+F10</code>) toggles that entry’s category out
-of - or back into - the note list, the Performance region and Find. A
-category currently hidden this way is prefixed with <code>*</code> on
-its Performance region row so you can tell at a glance which ones are
-switched off. This is saved per score, with a global default in Options
-that every toggle also updates. Pedal, octave-shift and stave-text
-markings can’t be hidden this way (section 7.8 covers octave-shift
-specifically, via Show Engraving Details).</p>
-<h3 id="the-performance-report-tools-performance-report">8.5 The
-Performance Report (Tools &gt; Performance Report…)</h3>
-<p>Tools &gt; Performance Report… (<code>Ctrl+Shift+F</code>) opens a
-read-only summary of the whole piece, independent of whatever’s
-currently filtered in Region 2: title, composer, key, time signature and
-tempo (the same details Region 1 shows), whether the piece has a pickup
-bar, its total number of bars, a note count for each instrument, and a
-list of every repeat, ending, Segno, Coda, “To Coda” and Fine mark and
-Da Capo/Dal Segno instruction in the score by bar number.</p>
-<p>The report’s <strong>Dynamics</strong> section is one list, in bar
-order, of every way the piece marks a change of volume:
-crescendo/diminuendo hairpins (named by part where more than one part
-has them), written words such as “cresc.” or “dim.”, and single dynamic
-marks like “mf” or “p”. A hairpin with a missing start or end is listed
-with that stated. Written tempo instructions (“rall.”, “a tempo”) get
-their own <strong>Tempo instructions</strong> section. A dashed or
-bracketed line drawn under a word like “cresc.” is listed separately
-under “Dashed lines” or “Bracket lines” - it and the word are two things
-in the file, so the report shows both.</p>
-<p>The whole report is a single flat list you can read top to bottom
-with Up/Down Arrow. Like the Performance region, it describes the whole
-piece and ignores whatever is currently filtered in Region 2. Close it
-with the Close button or <code>Escape</code>; focus returns to wherever
-it was before you opened it.</p>
-<h2 id="understanding-note-attributes">9. Understanding Note
-Attributes</h2>
-<h3 id="whats-shown-by-default">9.1 What’s Shown by Default</h3>
-<p>By default, the Note region (Region 3) speaks only each note’s plain
-name - for example “C”, “F sharp”, “B double flat”. Accidentals are
-always spelled out in full for clear pronunciation, and octave numbers
-are left out to keep things brief. A rest is simply announced as
-“rest”.</p>
-<p>Region 4 always shows a fuller picture of whatever is currently
-selected - step, octave, measure number, beat position and duration -
-plus whichever of the extra details in section 9.2 the file provides and
-you’ve chosen to show.</p>
-<h3
-id="adding-more-detail-dynamics-articulation-fingering-string-fret">9.2
-Adding More Detail (Dynamics, Articulation, Fingering, String,
-Fret)</h3>
-<p>Depending on what the source file contains, additional details may be
-available: dynamics markings (forte, piano, and so on), articulation
-(staccato, accent, trill, and similar), fingering, string and fret
-numbers, and plucking-hand markings for guitar. A Guitar Pro file
-provides string and fret the same way a MusicXML tab score does. An
-attribute only appears on a note when it’s both switched on for that
-voice and actually present on that specific note - if a key is simply
-missing from one note’s row, that’s expected, not a fault.</p>
-<p>To switch an attribute on or off, open the context menu on the
-relevant row in Region 4: right-click it, or press the <code>Menu</code>
-key (or <code>Shift+F10</code>) while focused on it. The menu offers
-“Add to notes for this voice”, “Add to notes in same stave”, “Add to
-notes in the same part” and “Add to notes in the whole score” for an
-attribute that isn’t showing yet - or the matching “Remove for notes
-in…” options once it already is.</p>
-<h3 id="choosing-where-an-attribute-applies-voice-stave-part-score">9.3
-Choosing Where an Attribute Applies (Voice / Stave / Part / Score)</h3>
-<p>The scope you choose from that context menu decides how far the
-change reaches: just the one voice you’re on, everything sharing its
-stave, everything in its part, or the entire score. If you open the menu
-while several notes across different voices are selected (a chord), the
-scope you pick applies across every voice represented in that selection,
-not only the note you happened to open the menu from.</p>
-<h3 id="changing-the-order-attributes-are-read">9.4 Changing the Order
-Attributes Are Read</h3>
-<p>Options &gt; Reorder Attributes… (<code>Ctrl+Shift+A</code>) opens a
-dialog scoped to whatever part, stave or voice is currently selected in
-Region 2, listing every attribute relevant there, whether it’s currently
-switched on or not. Use Move Up (<code>Alt+U</code>) and Move Down
-(<code>Alt+D</code>) to reorder them live. This order is a single
-setting that applies everywhere - both Region 3’s note labels and Region
-4’s rows follow it - it isn’t a separate ordering per voice.</p>
-<p>The Add/Remove… button switches the currently selected attribute on
-or off, offering the same voice/stave/part/score scope choice as the
-context menu in section 9.2 - a quicker way to switch on an attribute
-that occurs only rarely in the score, without first having to find a
-note in Region 3/4 that already shows it.</p>
-<h3 id="grace-notes-and-ornaments">9.5 Grace Notes and Ornaments</h3>
-<p>A grace note - a small ornamental note attached to a main note, such
-as an acciaccatura or appoggiatura - is read and sounded along with the
-note it decorates, rather than skipped. Region 3 reads it as, for
-example, “A grace B”: the main note’s name, the word “grace”, then the
-grace note’s own name. It’s briefly sounded just before the main note
-plays, so the ornament itself is audible, not only described.</p>
-<h3 id="quick-lookup-by-number-ctrl1-through-ctrl9">9.6 Quick Lookup by
-Number (Ctrl+1 through Ctrl+9)</h3>
-<p>While focus is on a note in Region 3, pressing <code>Ctrl+1</code>
-through <code>Ctrl+9</code> speaks that numbered row from Region 4 - “1”
-for the first row, “5” for the fifth, and so on - without moving focus
-away from the Note region. It’s a fast way to check one detail (say, the
-fret number or a dynamic marking) mid-navigation, rather than tabbing
-over to Region 4 and back. The number always matches Region 4’s rows as
-currently displayed, so it reflects whichever attributes are switched on
-and in whatever order section 9.4 has them in. Pressing a number beyond
-how many rows are currently showing does nothing - there’s simply
-nothing there to read. The “attribute <code>&lt;number&gt;</code>” voice
-command (section 7.12) does the same thing hands-free.</p>
-<h3 id="position-marks-and-other-stave-text">9.7 Position Marks and
-Other Stave Text</h3>
-<p>Some scores carry free-text directions written directly into the file
-alongside the real notes - a guitar’s left-hand position marks (Roman
-numerals), or a tempo or technique instruction some notation programs
-write as plain text rather than a proper marking. Recall Score surfaces
-this as its own event in the Note region, on whichever stave it’s
-actually written against, rather than leaving it out. It reads as just
-the text itself, with nothing sounded - a position mark is a label to
-read, not a note to hear - and it always comes first among that stave’s
-items, in both the Note region and Region 2, matching where a mark like
-this sits above the stave on a printed page.</p>
-<p>Region 4 shows a shorter set of detail for one of these than for an
-ordinary note: the text itself, its measure, beat position, part and
-stave - never a duration or a voice number, since a direction like
-“Allegro” has no length of its own, and there’s only ever one Stave Text
-item per stave, so a voice number wouldn’t distinguish anything. This
-appears automatically wherever the source file includes it; there’s no
-setting to turn it on or off.</p>
-<h2 id="chords-and-lyrics">10. Chords and Lyrics</h2>
-<h3 id="what-this-feature-is-for">10.1 What This Feature Is For</h3>
-<p>Alongside notated scores (section 2.3), Recall Score can import a
-song directly from Ultimate Guitar (ultimate-guitar.com). Two kinds of
-page are supported:</p>
+<h3 id="importing-from-ultimate-guitar">2.3 Importing from Ultimate
+Guitar</h3>
+<p>Tabs and chord sheets can be imported directly from the web:</p>
+<ol type="1">
+<li>Copy the web address of an Ultimate Guitar Chords or ASCII Tab
+page.</li>
+<li>Select “File &gt; Import from Ultimate Guitar” and paste the address
+(including “https://”).</li>
+<li>Use “File &gt; Save Ultimate Guitar Import As” to save a local “.ug”
+copy for offline use.</li>
+</ol>
+<p><em>Note: Guitar Pro, Bass Tab, and Ukulele web pages on Ultimate
+Guitar are not supported via direct URL import. Download these files
+locally and open them via “File &gt; Open”.</em></p>
+<h3 id="saved-preferences">2.4 Saved Preferences</h3>
+<p>Recall Score automatically saves score-specific settings when a file
+is closed.</p>
 <ul>
-<li>A <strong>chords page</strong> - chord names positioned above the
-lyric words they go with, rather than full sheet music. This is a
-different, simpler kind of material than a MusicXML or MIDI score:
-there’s no notated rhythm or real bar structure, just chord changes and
-the words that go with them.</li>
-<li>An <strong>ASCII-tablature “Tab” page</strong> - the rows of dashes
-and fret numbers that spell out exactly which string and fret to play.
-Recall Score reads these into a Tablature part whose notes carry real
-string and fret numbers and play back (section 10.3), plus any
-plain-text chords and lyrics printed alongside the tab.</li>
+<li>Saved Per Score: Last cursor position, mute/solo states, visible
+attributes, metronome/announcer states, tempo adjustments, mixer
+volume/pan, renamed parts/instruments, and key signature overrides.</li>
+<li>Saved Globally: Terminology (UK/US), play mode, lead-in/loop
+defaults, live MIDI input setup, and voice control settings.</li>
 </ul>
-<p>A MusicXML file can carry the same kind of information too - chord
-symbols and/or lyric text written directly into the score alongside its
-real notated notes. Recall Score picks these up automatically, with no
-importing step needed - see section 10.6.</p>
-<h3 id="importing-a-song">10.2 Importing a Song</h3>
-<p>Choose File &gt; Import from Ultimate Guitar…. A dialog asks for the
-page’s web address - paste the full URL of an Ultimate Guitar chords
-page (for example
-<code>https://tabs.ultimate-guitar.com/tab/&lt;artist&gt;/&lt;song&gt;-chords-&lt;id&gt;</code>)
-or ASCII-tablature “Tab” page and select OK. Only “Chords” and “Tab”
-pages are supported - a Guitar Pro tab, bass tab or ukulele-chords page
-on the same site will be rejected with an explanation. The import runs
-in the background, the same way opening a file does, so the rest of the
-app stays responsive while it fetches the page.</p>
-<p>Once imported, Region 1 shows the song’s title, artist, key, tuning,
-difficulty and tempo the same way any other score does. When the page
-carries the extra information, Region 1 also shows:</p>
+<p>To reset saved settings for a score, select “File &gt; Clear
+Preferences for [filename]”. To view raw settings files, select “File
+&gt; Open Local Folder”.</p>
+<h2 id="screen-layout-navigation">3. Screen Layout &amp; Navigation</h2>
+<p>The interface is structured into five main screen regions and a
+Status Bar.</p>
 <ul>
-<li><strong>Source</strong> - shown for a “Tab” page, noting that the
-material came from an Ultimate Guitar tablature page rather than a plain
-chords page.</li>
-<li><strong>Capo</strong> - the fret a capo is placed at, for example
-“2nd fret”.</li>
-<li><strong>Strumming Pattern</strong> - for a single pattern, the
-sequence of strokes (down, up, muted, palm mute, pause) as written; for
-a song with more than one pattern, the names of the patterns. See Tools
-&gt; Strumming Patterns… (section 10.7) for the full slot-by-slot
-detail.</li>
-<li><strong>Tablature</strong> - for a “Tab” page, the number of
-tablature bars that were read in. (On a chords page this instead reads
-“Tablature blocks” with a count of any raw tablature riffs that were
-left out, so “there was nothing there” and “we didn’t import that part”
-stay distinguishable.)</li>
-<li><strong>Ultimate Guitar ID</strong> - the numeric ID of the tab on
-ultimate-guitar.com, shown as the last row.</li>
+<li>Cycle through Regions: Press “Tab” or “Shift+Tab”.</li>
+<li>Jump to Region: Use keys “Z”, “X”, “C”, “V”, and “B” (the bottom row
+of the keyboard, left to right).</li>
+<li>Move to Status Bar: Press “F6” and press again to return to
+regions.</li>
 </ul>
-<h3 id="chords-lyrics-and-tablature-as-parts">10.3 Chords, Lyrics and
-Tablature as Parts</h3>
-<p>An imported song shows up in Region 2 as two parts, Chords and Lyrics
-- or three, when the page is an ASCII-tablature “Tab” page, which adds a
-Tablature part. Each is a single flat row with nothing further to expand
-underneath - the same simplified display a MIDI track gets (section
-3.3), since none has real staves or voices. Mute any of them with
-<code>F8</code> exactly like any other part.</p>
-<p>Moving through the Note region works the same as any other score:
-each step forward is one chord change. The Chords row names the chord
-(for example “Fmaj7”) and plays it as a plain chord. The Lyrics row
-shows the words sung during that chord, or “No lyrics” for instrumental
-passages such as an intro with nothing sung yet.</p>
-<p>The Tablature row, when present, carries the actual notes read from
-the tab: each shows its note name, the string and fret it’s played on,
-and a duration, and plays back on a steel-string guitar sound. Because
-an ASCII tab has no written rhythm, the notes are laid out on a plain
-even-eighth-note grid - a reading aid for stepping through the riff, not
-a claim about how it’s actually timed. String and fret numbers are shown
-by default for this part without your having to add them (section 9.2).
-Where a tab page also prints chord names and lyric lines, those still
-feed the Chords and Lyrics parts as usual.</p>
-<p>(Earlier versions played the chords as an arpeggiated strum. That is
-gone: the strum audio was almost impossible to follow by ear, and a song
-with more than one pattern had no way to know which one applied to a
-given bar. The pattern is now shown as readable text in a dialog instead
-- section 10.7.)</p>
-<p>Most chord names are shown exactly as written (“Fmaj7”, “C7”,
-“Dsus4”, a bare “G” for G major) since a screen reader already reads
-those clearly. A minor chord is the one exception: rather than show it
-as a bare “Am” or “Am7” - which a screen reader reads as the letter “m”,
-not the word “minor” - Recall Score spells it out as “A minor” or “A
-minor 7”. This applies everywhere a chord name is shown, including the
-embedded-MusicXML chords in section 10.6.</p>
-<p>Because Region 3’s currently-selected row is always the first one
-shown, whichever part is listed first in Region 2 is the one announced
-by default on every move. To hear the lyric first and the chord name
-second, or vice versa, use Options &gt; Reorder Parts…
-(<code>Ctrl+Shift+O</code>): a dialog listing Chords and Lyrics with
-Move Up (<code>Alt+U</code>) and Move Down (<code>Alt+D</code>) buttons,
-plus OK and Cancel. Moving Lyrics above Chords and selecting OK swaps
-which one is read first from then on, without affecting anything already
-muted or soloed in Region 2. This dialog works the same way for any
-multi-part score, not just an Ultimate Guitar import.</p>
-<h3 id="saving-and-reopening-an-import">10.4 Saving and Reopening an
-Import</h3>
-<p>An imported song only exists for the current session until you save
-it. File &gt; Save Ultimate Guitar Import As… writes it to a file on
-disk (a <code>.ug</code> file) that you can reopen later with the
-ordinary File &gt; Open… dialog or from File &gt; Recent Files - both
-treat it exactly like any other score file from then on, including
-remembering its own settings (section 13.1).</p>
-<h3 id="things-to-be-aware-of">10.5 Things to Be Aware Of</h3>
-<p>Because a chord-tab page has no real notated bar structure, Recall
-Score treats every chord change as one bar - this is a simplification
-for navigation purposes, not a claim about the song’s actual notated
-rhythm. Occasionally a lyric line’s timing in the source page is
-imprecise (the original contributor’s own spacing), which can very
-occasionally show a lyric fragment split slightly oddly - this reflects
-the source page, not a fault in the import.</p>
-<p>For a “Tab” page, the same caveats apply to the Tablature part. An
-ASCII tab names only the string letters and fret numbers, never octaves,
-so which octave each string sounds in is inferred from a standard
-low-string-up layout - right for standard tuning and the common “drop”
-and step-down variants, but not for unusual tunings. Rhythm is the even
-grid described in section 10.3, and any lead-in text, technique markers
-(hammer-ons, slides and the like) or spacing quirks in the original tab
-are read as faithfully as possible but can occasionally group a note
-slightly oddly.</p>
-<h3 id="chords-and-lyrics-embedded-in-an-ordinary-musicxml-score">10.6
-Chords and Lyrics Embedded in an Ordinary MusicXML Score</h3>
-<p>Some MusicXML files carry chord symbols and/or lyric text written
-directly into the score alongside its real notated notes - typically a
-lead-sheet-style piece exported from a program like MuseScore, with
-chord names printed above the staff and words printed underneath it.
-Opening such a file with File &gt; Open… shows this content
-automatically, with no separate import step: Region 2 gains a Chords
-part, a Lyrics part, or both, alongside the score’s own instrument parts
-- each shown as a single flat row with nothing further to expand
-underneath (section 10.3), the same as an Ultimate Guitar import’s
-Chords/Lyrics parts, since neither has any real staves or voices of its
-own. The score’s own real instrument keeps its normal part/stave/voice
-detail untouched.</p>
-<p>Unlike an Ultimate Guitar import (section 10.3), these two parts line
-up with the score’s own real notated timing rather than one fabricated
-bar per chord change - a chord symbol or lyric shows up at exactly the
-beat it was written against, right alongside the notated note sounding
-at that same moment. Mute either part with <code>F8</code> exactly like
-any other part, and use Options &gt; Reorder Parts… (section 10.3) to
-have the lyric announced before the chord name, or the other way round.
-A bar with a chord symbol but no note underneath it, or a note with no
-lyric under it, simply has no Chords or Lyrics entry there - there’s no
-“No lyrics” placeholder the way an Ultimate Guitar import uses for a
-wordless bar, since with real notated timing there’s no ambiguity about
-whether something is missing.</p>
-<p>If the score also marks individual notes with an up- or down-stroke
-indicator (some notation programs let you add this to guide a strummed
-accompaniment), the Chords row shows it too - for example “A minor, beat
-position 2.0, strum down stroke” - since a stroke direction is something
-the chord accompaniment does, not something the notated melody note
-does. A bar can show more than one Chords row when it has more than one
-marked stroke in it, one per stroke, each still following the score’s
-own real timing.</p>
-<h3 id="the-strumming-patterns-dialog">10.7 The Strumming Patterns
-Dialog</h3>
-<p>Tools &gt; Strumming Patterns… (<code>Ctrl+Shift+U</code>) opens a
-read-only view of an Ultimate Guitar import’s strum pattern (or
-patterns). It is disabled unless the loaded song actually has one.</p>
-<p>If the song has more than one pattern, a Pattern list at the top lets
-you choose which to view; each entry names the pattern (“Verse”,
-“Chorus”), its tempo, its note subdivision and how many bars it spans.
-Below that, a list has one row per slot of the pattern, each row giving
-the slot’s time position and its stroke - for example “Bar 1, 1: down”,
-“Bar 1, 1 e: pause”, “Bar 1, 1 and: up muted”. Time positions use the
-same “1”, “1 e”, “1 and”, “1 a” wording as the position announcer
-(section 7.9).</p>
-<p>A Tempo box sets the speed of the demo playback. It starts at the
-tempo you have already chosen for the score, and the same
-<code>S</code>, <code>F</code> and <code>D</code> keys that change tempo
-in the main window (slower, faster, reset) work here too; changing it
-here changes the score’s playback tempo. Tick <strong>Include metronome
-click</strong> to hear a click on each beat under the demo.</p>
-<p>A Play pattern button (<code>Alt+P</code>) plays the pattern as
-audio, looping until you press it again (it then reads Stop) or close
-the dialog. It plays on whichever chord is currently selected in the
-Note region, or a plain C major chord if none is. The dialog does not
-let you edit the pattern - it is there to be read.</p>
-<h3 id="jumping-between-song-sections">10.8 Jumping Between Song
-Sections</h3>
-<p>An Ultimate Guitar page marks its structure with section labels -
-<code>[Intro]</code>, <code>[Verse 1]</code>, <code>[Chorus]</code>,
-<code>[Bridge]</code>, <code>[Outro]</code> and so on. Recall Score
-records these as spans of bars. Two shortcuts jump straight to a section
-boundary, from anywhere in the window:</p>
+<h3 id="region-reference">3.1 Region Reference</h3>
+<ol type="1">
+<li>Score Information (“Z”): Displays information such as title,
+composer, key, time signature, and initial tempo.</li>
+<li>Parts (“X”): Displays the score structure in a hierarchical tree
+(Part &gt; Stave &gt; Voice).
 <ul>
-<li><strong><code>Ctrl+Alt+Right</code></strong> - jump to the start of
-the next section.</li>
-<li><strong><code>Ctrl+Alt+Left</code></strong> - jump to the start of
-the previous section.</li>
-</ul>
-<p>At the last section, <code>Ctrl+Alt+Right</code> plays the boundary
-sound (section 5.6) and stays put rather than wrapping. On a score with
-no section information (anything that is not an Ultimate Guitar import,
-so far), both shortcuts just play the boundary sound.</p>
-<p>While the cursor is inside a section, the Performance region (Region
-5, section 8) shows it: a <code>Section:</code> context row at the top
-naming the current section, plus a “Section start” and a “Section end”
-row giving its bar range. <code>Ctrl+Home</code> / <code>Ctrl+End</code>
-on any of them jumps to the section’s first or last bar. The section is
-also a Find target (section 5.7) - “Section” in the Find list steps
-between section starts.</p>
-<h2 id="tuning-your-instrument-the-tuner">11. Tuning Your Instrument
-(the Tuner)</h2>
-<h3 id="opening-the-tuner">11.1 Opening the Tuner</h3>
-<p>Tools &gt; Tuner… (<code>Ctrl+Shift+T</code>) opens a chromatic tuner
-that listens through your microphone - useful for tuning a guitar, bass,
-violin, viola, cello, double bass, ukulele or mandolin before or during
-a practice session, entirely independent of whichever score, if any, is
-currently loaded.</p>
-<p>There’s no separate Start/Stop Listening control: the tuner listens
-continuously for as long as the dialog is open, the same way a physical
-clip-on tuner behaves once switched on, and stops the moment you close
-the dialog (the Close button or <code>Escape</code>).</p>
-<h3 id="reading-the-tuner">11.2 Reading the Tuner</h3>
-<p>There’s no Instrument or String list to choose from first - the tuner
-auto-detects whatever note is currently sounding, the nearest of the 12
-chromatic notes (always named with “sharp”, e.g. “D sharp”, never a flat
-or a symbol), so you just play the string you want to tune and it tells
-you what it heard. Play a note. Once a clear, sustained pluck or bow
-stroke is detected, the tuner speaks the result once - for example
-“signal 50 percent. D sharp. 5 cents sharp” or “signal 62 percent. A. in
-tune” - then goes quiet again until you play another note. It doesn’t
-talk continuously while a note rings, and it won’t react to background
-noise or a note that’s too quiet: the Signal Threshold setting (section
-11.3) controls how loud a pluck needs to be before it’s trusted as a
-real reading at all.</p>
-<p>The Current Reading field alongside the spoken result always shows
-the same information as plain text, so you can confirm what was detected
-independently of speech - useful for checking your microphone is picking
-up sound at all, even before you’ve settled on a threshold that suits
-your room.</p>
-<p>If you’re tuning to an interval other than a plain note - for example
-a deliberately dropped string - just aim for 50 cents off the natural
-neighbour on whichever side you expect; the tuner will name the actual
-nearest chromatic note once you’re close enough to it.</p>
-<h3 id="settings-reference-pitch-microphone-and-sensitivity">11.3
-Settings: Reference Pitch, Microphone and Sensitivity</h3>
-<p>The Settings… button opens a second dialog for the values you’re
-unlikely to change mid-session:</p>
+<li>Use “Up Arrow” and “Down Arrow” to navigate parts.</li>
+<li>Use “Right Arrow” to expand a part into staves or voices; “Left
+Arrow” to collapse.</li>
+</ul></li>
+<li>Notes (“C”): Lists the musical content at the selected score
+position.
 <ul>
-<li>Reference Pitch (A4), in Hz - shifts the whole pitch standard,
-useful for Baroque pitch (commonly 415Hz) or a slightly sharper
-orchestral pitch (commonly around 442-443Hz), rather than the usual
-440Hz concert pitch.</li>
-<li>Signal Threshold, as a percentage - sets how loud a pluck must be
-before a reading is trusted; raise it in a noisy room, or lower it if
-the tuner isn’t reacting to quiet playing.</li>
-<li>Device - chooses which microphone to listen on, with a Refresh
-button to re-scan for devices that were plugged in after the dialog
-opened. Unlike the other two fields, a device change here takes effect
-immediately, since the main Tuner dialog keeps listening the whole time
-this Settings dialog is open.</li>
-</ul>
-<p>For best results, make sure any microphone enhancement features (echo
-cancellation, noise suppression and similar effects, usually configured
-through your microphone’s own control panel or Windows’ sound settings)
-are switched off - they can distort the signal enough that the tuner
-can’t lock onto a clear pitch.</p>
-<h2 id="terminology-uk-and-us-music-vocabulary">12. Terminology: UK and
-US Music Vocabulary</h2>
-<h3 id="what-changes-between-uk-and-us-wording">12.1 What Changes
-Between UK and US Wording</h3>
-<p>Recall Score can speak either UK or US musical terminology: bar
-versus measure, and the crotchet/quaver/semiquaver family versus quarter
-note/eighth note/sixteenth note. This is purely a matter of wording on
-screen and in speech - nothing about how the score is stored, counted or
-played changes underneath it.</p>
-<p>One family is deliberately left out of this toggle: stave/staff
-naming (Region 2’s clef labels, and Region 4’s “stave” attribute) always
-reads the same way regardless of which terminology language is
-selected.</p>
-<h3 id="switching-terminology-language">12.2 Switching Terminology
-Language</h3>
-<p>Options &gt; Terminology (UK/US) offers UK and US as two mutually
-exclusive choices - exactly one is always selected at a time. This is a
-single preference that applies across the whole application, not tied to
-any individual score, so opening a different file mid-session never
-changes which wording you’re hearing.</p>
-<h2 id="settings-are-remembered">13. Settings Are Remembered</h2>
-<h3 id="whats-saved-per-score">13.1 What’s Saved Per Score</h3>
-<p>For each individual score file, Recall Score remembers, and restores
-the next time that file is opened:</p>
+<li>Move horizontally across time using “Left Arrow” and “Right
+Arrow”.</li>
+<li>Move vertically through notes at the current time position using “Up
+Arrow” and “Down Arrow”.</li>
+<li>Press “Control+A” to reselect all notes at the current
+position.</li>
+</ul></li>
+<li>Attributes (“V”): Displays note-level details (pitch, step, octave,
+bar, beat, dynamics, fingering, string/fret).
 <ul>
-<li>Your last position in the timeline, so you pick up where you left
-off.</li>
-<li>Which parts, staves and voices are muted or soloed.</li>
-<li>Whether the metronome is switched on.</li>
-<li>Whether the position announcer is switched on.</li>
-<li>Whether the bar line indicator is switched on (section 7.8).</li>
-<li>Which note attributes are shown for each voice (section 9.2).</li>
-<li>The order those attributes are read in (section 9.4).</li>
-<li>Volume and pan set for each instrument, the metronome and the
-position announcer, via the Mixer (section 7.9).</li>
-<li>Renamed parts, instrument-sound overrides, and any percussion sound
-renames, reassignments or offset correction (section 7.10).</li>
-<li>A key signature override, if one was set (Edit &gt; Key Signature…,
-section 14.2).</li>
-<li>A custom part order, if one was set (Options &gt; Reorder
-Parts…).</li>
+<li>Press “Control+1” through “Control+9” while in the Notes region to
+quickly speak the corresponding attribute line without moving
+focus.</li>
+</ul></li>
+<li>Performance Information (“B”): Displays global markings (repeats,
+endings, crescendos, key changes).
+<ul>
+<li>Press “Alt+Home” or “Alt+End” on a marking to jump to its start or
+end position.</li>
+<li>Press “Control+N” on a marking type to toggle its visibility in the
+Notes region. (Items marked with an asterisk “*” are currently visible
+in the Notes list).</li>
+</ul></li>
+</ol>
+<h3 id="status-bar-fields">3.2 Status Bar Fields</h3>
+<p>Recall Score has a status bar which can be read with the standard
+screen reader keystroke for reading the status bar.</p>
+<p>For finer control navigate to the status bar with “F6” and use “Tab”
+to move through the following information:</p>
+<ol type="1">
+<li>Bar and Beat Position</li>
+<li>Current Key Signature</li>
+<li>Current Time Signature</li>
+<li>Playback Tempo</li>
+<li>Playback Status (Playing/Paused/Stopped)</li>
+<li>Metronome (On/Off)</li>
+<li>Position Announcer (On/Off)</li>
+<li>Loop Length</li>
+</ol>
+<h2 id="playback">4. Playback</h2>
+<h3 id="playback-controls">4.1 Playback Controls</h3>
+<ul>
+<li>Play / Stop: Press “Spacebar”. When stopped, the cursor returns to
+the start position.</li>
+<li>Pause / Resume: Press “Control+Spacebar” to pause; “Spacebar” to
+resume; “Escape” to stop.</li>
+<li>Play Selection: Press “Shift+Spacebar” to play all selected notes at
+the current position.</li>
+<li>Tempo Controls:
+<ul>
+<li>Press “F” to increase tempo (+10 BPM).</li>
+<li>Press “S” to decrease tempo (-10 BPM).</li>
+<li>Press “D” to reset to score default tempo.</li>
+</ul></li>
 </ul>
-<p>Files are matched by their own filename, so moving a file to a
-different folder doesn’t lose its saved settings. If a saved setting no
-longer matches the file - for example a part that’s since been renamed
-or removed - it’s simply left out rather than causing an error or a
-dialog.</p>
-<h3 id="whats-saved-across-all-scores">13.2 What’s Saved Across All
-Scores</h3>
-<p>Your UK/US terminology choice (section 12) and your Tuner, Live MIDI
-Input and Voice Control settings are preferences that apply to every
-score, not just one - they stay as you last set them no matter which
-file you open next.</p>
-<h3 id="clearing-saved-preferences-for-a-score">13.3 Clearing Saved
-Preferences for a Score</h3>
-<p>File &gt; Clear Preferences for <code>&lt;filename&gt;</code> deletes
-just that one file’s saved settings, so it reverts to defaults the next
-time it’s opened. This menu item is disabled when no file is currently
-loaded.</p>
-<p>File &gt; Open Local Folder opens the folder on disk where these
-saved settings actually live, in case you ever want to inspect or back
-them up directly (see also section 16.3).</p>
-<h2 id="menu-reference">14. Menu Reference</h2>
-<h3 id="file-menu">14.1 File Menu</h3>
-<table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
-<thead>
-<tr>
-<th style="text-align: left;">Item</th>
-<th style="text-align: left;">Shortcut</th>
-<th style="text-align: left;">What it does</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;">Open…</td>
-<td style="text-align: left;">Ctrl+O</td>
-<td style="text-align: left;">Opens a MusicXML, MIDI or Guitar Pro file,
-or a previously saved Ultimate Guitar import (section 10.4).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Recent Files</td>
-<td style="text-align: left;">-</td>
-<td style="text-align: left;">Submenu listing the last 8 files you’ve
-opened, most recent first, for quick reopening.</td>
-</tr>
-<tr>
-<td style="text-align: left;">Import from Ultimate Guitar…</td>
-<td style="text-align: left;">-</td>
-<td style="text-align: left;">Imports a song from an Ultimate Guitar tab
-page URL - chords and lyrics from a chords page, or guitar tablature
-from an ASCII “Tab” page (section 10).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Save Ultimate Guitar Import As…</td>
-<td style="text-align: left;">-</td>
-<td style="text-align: left;">Saves the currently loaded Ultimate Guitar
-import to a file so it can be reopened later (section 10.4). Only
-meaningful when an Ultimate Guitar import is currently loaded.</td>
-</tr>
-<tr>
-<td style="text-align: left;">Open Local Folder</td>
-<td style="text-align: left;">-</td>
-<td style="text-align: left;">Opens the folder where saved preferences
-are stored.</td>
-</tr>
-<tr>
-<td style="text-align: left;">Clear Preferences for
-<code>&lt;filename&gt;</code></td>
-<td style="text-align: left;">-</td>
-<td style="text-align: left;">Deletes the currently loaded file’s saved
-settings. Disabled when no file is loaded.</td>
-</tr>
-<tr>
-<td style="text-align: left;">Exit</td>
-<td style="text-align: left;">-</td>
-<td style="text-align: left;">Closes Recall Score.</td>
-</tr>
-</tbody>
-</table>
-<h3 id="edit-menu">14.2 Edit Menu</h3>
-<table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
-<thead>
-<tr>
-<th style="text-align: left;">Item</th>
-<th style="text-align: left;">Shortcut</th>
-<th style="text-align: left;">What it does</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;">Select All</td>
-<td style="text-align: left;">Ctrl+A</td>
-<td style="text-align: left;">Reselects every note at the current
-position (section 5.5), so <code>Shift+Space</code> plays them all
-together. Only enabled while focus is in the Note region.</td>
-</tr>
-<tr>
-<td style="text-align: left;">Instruments…</td>
-<td style="text-align: left;">Ctrl+Shift+I</td>
-<td style="text-align: left;">Renames a part, changes its instrument, or
-edits individual percussion sounds (section 7.10).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Key Signature…</td>
-<td style="text-align: left;">Ctrl+Shift+K</td>
-<td style="text-align: left;">Overrides the whole piece’s key signature
-- a single choice from a list of all major and minor keys, or “use the
-file’s own key”. Mainly for MIDI files, which often carry no key
-signature at all.</td>
-</tr>
-</tbody>
-</table>
-<h3 id="navigation-menu">14.3 Navigation Menu</h3>
-<table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
-<thead>
-<tr>
-<th style="text-align: left;">Item</th>
-<th style="text-align: left;">Shortcut</th>
-<th style="text-align: left;">What it does</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;">Move to First Note</td>
-<td style="text-align: left;">Home</td>
-<td style="text-align: left;">Jumps to the first active note. Only
-enabled while focus is already in the Note region.</td>
-</tr>
-<tr>
-<td style="text-align: left;">Move to Last Note</td>
-<td style="text-align: left;">End</td>
-<td style="text-align: left;">Jumps to the last active note. Only
-enabled while focus is already in the Note region.</td>
-</tr>
-<tr>
-<td style="text-align: left;">Go to Measure…</td>
-<td style="text-align: left;">Ctrl+G</td>
-<td style="text-align: left;">Opens a dialog, pre-filled with the
-current bar, to jump to a specific bar number.</td>
-</tr>
-<tr>
-<td style="text-align: left;">Find…</td>
-<td style="text-align: left;">Ctrl+F</td>
-<td style="text-align: left;">Opens the Find dialog (section 5.7).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Find Next</td>
-<td style="text-align: left;">Alt+Right Arrow</td>
-<td style="text-align: left;">Jumps to the next occurrence of whatever
-Find last armed (section 5.7).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Find Previous</td>
-<td style="text-align: left;">Alt+Left Arrow</td>
-<td style="text-align: left;">Jumps to the previous occurrence of
-whatever Find last armed (section 5.7).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Next Section</td>
-<td style="text-align: left;">Ctrl+Alt+Right Arrow</td>
-<td style="text-align: left;">Jumps to the start of the next song
-section (section 10.8).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Previous Section</td>
-<td style="text-align: left;">Ctrl+Alt+Left Arrow</td>
-<td style="text-align: left;">Jumps to the start of the previous song
-section (section 10.8).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Move to Info</td>
-<td style="text-align: left;">Z</td>
-<td style="text-align: left;">Jumps focus to the Score Info (metadata)
-region from anywhere.</td>
-</tr>
-<tr>
-<td style="text-align: left;">Move to Parts List</td>
-<td style="text-align: left;">X</td>
-<td style="text-align: left;">Jumps focus to the Parts List region from
-anywhere.</td>
-</tr>
-<tr>
-<td style="text-align: left;">Move to Notes</td>
-<td style="text-align: left;">C</td>
-<td style="text-align: left;">Jumps focus to the Note region from
-anywhere, without moving your timeline position.</td>
-</tr>
-<tr>
-<td style="text-align: left;">Move to Attributes</td>
-<td style="text-align: left;">V</td>
-<td style="text-align: left;">Jumps focus to the Note Attributes region
-from anywhere.</td>
-</tr>
-<tr>
-<td style="text-align: left;">Move to Performance</td>
-<td style="text-align: left;">B</td>
-<td style="text-align: left;">Jumps focus to the Performance region from
-anywhere.</td>
-</tr>
-</tbody>
-</table>
-<h3 id="playback-menu">14.4 Playback Menu</h3>
-<table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
-<thead>
-<tr>
-<th style="text-align: left;">Item</th>
-<th style="text-align: left;">Shortcut</th>
-<th style="text-align: left;">What it does</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;">Play/Stop</td>
-<td style="text-align: left;">Space</td>
-<td style="text-align: left;">Starts playback from the current position
-(per the play mode), resumes from pause, or stops it (sections 7.2,
-7.3).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Pause</td>
-<td style="text-align: left;">Ctrl+Space</td>
-<td style="text-align: left;">Pauses playback; resume with Space, not
-Ctrl+Space again (section 7.2).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Play Metronome</td>
-<td style="text-align: left;">Ctrl+Alt+Space</td>
-<td style="text-align: left;">Starts or stops a free-running click track
-at the current tempo, without moving the timeline, for playing along by
-ear (section 7.7).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Play Settings…</td>
-<td style="text-align: left;">Ctrl+Shift+P</td>
-<td style="text-align: left;">Sets the playback tempo, the lead-in
-count-in, and the play mode (sections 7.4, 7.6).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Cycle Play Mode</td>
-<td style="text-align: left;">Ctrl+L</td>
-<td style="text-align: left;">Cycles the play mode: play to end, play
-loop once, play loop until stopped (section 7.3).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Toggle Lead-in</td>
-<td style="text-align: left;">Ctrl+I</td>
-<td style="text-align: left;">Turns the metronome count-in before
-playback on or off (section 7.3).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Cycle Loop Repeat Handling</td>
-<td style="text-align: left;">Ctrl+R</td>
-<td style="text-align: left;">Cycles how a repeat barline clipped by the
-loop window is played: first play-through, second play-through, or
-alternating (section 7.3).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Mute</td>
-<td style="text-align: left;">F8</td>
-<td style="text-align: left;">Mutes or unmutes the focused row in the
-Parts region (section 6.3).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Solo</td>
-<td style="text-align: left;">F9</td>
-<td style="text-align: left;">Solos or unsolos the focused row in the
-Parts region (section 6.3).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Unmute All</td>
-<td style="text-align: left;">Alt+F8</td>
-<td style="text-align: left;">Clears every mute in the score (section
-6.3).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Unsolo All</td>
-<td style="text-align: left;">Alt+F9</td>
-<td style="text-align: left;">Clears every solo in the score (section
-6.3).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Mixer…</td>
-<td style="text-align: left;">Ctrl+Shift+X</td>
-<td style="text-align: left;">Opens the volume/pan mixer for every
-instrument, the metronome and the position announcer (section 7.9).</td>
-</tr>
-</tbody>
-</table>
-<h3 id="options-menu">14.5 Options Menu</h3>
-<table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
-<thead>
-<tr>
-<th style="text-align: left;">Item</th>
-<th style="text-align: left;">Shortcut</th>
-<th style="text-align: left;">What it does</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;">Terminology (UK/US)</td>
-<td style="text-align: left;">-</td>
-<td style="text-align: left;">Submenu to choose UK or US wording
-(section 12.2).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Toggle Bar Line Indicator</td>
-<td style="text-align: left;">Ctrl+B</td>
-<td style="text-align: left;">Turns on a high metronome beep when
-arrow-key navigation crosses a bar line (section 7.8).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Performance Indicator</td>
-<td style="text-align: left;">-</td>
-<td style="text-align: left;">Submenu to choose Off, On except when
-playing, or Always on for the performance-marking cue (section 7.8).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Cycle Performance Indicator</td>
-<td style="text-align: left;">Ctrl+C</td>
-<td style="text-align: left;">Rotates the Performance Indicator setting
-through its three choices (section 7.8).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Toggle Metronome</td>
-<td style="text-align: left;">Ctrl+M</td>
-<td style="text-align: left;">Turns the beat click on or off (section
-7.7).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Toggle Position Announcer</td>
-<td style="text-align: left;">Ctrl+P</td>
-<td style="text-align: left;">Turns the spoken beat-position announcer
-on or off (section 7.8).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Toggle Live MIDI Input</td>
-<td style="text-align: left;">Ctrl+D</td>
-<td style="text-align: left;">Turns a connected MIDI keyboard’s live
-playback through Recall Score on or off (section 7.11).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Live MIDI Input Settings…</td>
-<td style="text-align: left;">Ctrl+Shift+L</td>
-<td style="text-align: left;">Chooses the MIDI device, instrument,
-volume and pan for live input (section 7.11).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Toggle Voice Control</td>
-<td style="text-align: left;">Alt+Enter</td>
-<td style="text-align: left;">Turns hands-free voice control on or off
-(section 7.12).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Voice Control Settings…</td>
-<td style="text-align: left;">Ctrl+Shift+R</td>
-<td style="text-align: left;">Chooses the microphone and confidence
-threshold for voice control (section 7.12).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Reorder Attributes…</td>
-<td style="text-align: left;">Ctrl+Shift+A</td>
-<td style="text-align: left;">Changes the order note attributes are read
-in, and switches attributes on or off, for the current Region 2 scope
-(section 9.4).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Show Engraving Details</td>
-<td style="text-align: left;">Ctrl+V</td>
-<td style="text-align: left;">Surfaces octave-shift and clef-change rows
-in the note list, Performance region and Find, which are hidden by
-default (section 7.8).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Reorder Parts…</td>
-<td style="text-align: left;">Ctrl+Shift+O</td>
-<td style="text-align: left;">Changes the order parts are listed in
-Region 2, and in turn the order their notes are listed in Region 3
-(section 10.3).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Link Parts…</td>
-<td style="text-align: left;">-</td>
-<td style="text-align: left;">Marks two or more parts as “the same
-music” so each shows the others’ performance markings (section
-6.5).</td>
-</tr>
-</tbody>
-</table>
-<h3 id="tools-menu">14.6 Tools Menu</h3>
-<table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
-<thead>
-<tr>
-<th style="text-align: left;">Item</th>
-<th style="text-align: left;">Shortcut</th>
-<th style="text-align: left;">What it does</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;">Tuner…</td>
-<td style="text-align: left;">Ctrl+Shift+T</td>
-<td style="text-align: left;">Opens the microphone-based chromatic tuner
-(section 11).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Performance Report…</td>
-<td style="text-align: left;">Ctrl+Shift+F</td>
-<td style="text-align: left;">Opens a read-only summary of the whole
-piece (section 8.5).</td>
-</tr>
-<tr>
-<td style="text-align: left;">Strumming Patterns…</td>
-<td style="text-align: left;">Ctrl+Shift+U</td>
-<td style="text-align: left;">Opens a read-only view of an Ultimate
-Guitar import’s strum pattern(s), with a tempo / metronome-click control
-and looped demo playback (section 10.7). Disabled unless such an import
-is loaded.</td>
-</tr>
-</tbody>
-</table>
-<h3 id="help-menu">14.7 Help Menu</h3>
-<table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
-<thead>
-<tr>
-<th style="text-align: left;">Item</th>
-<th style="text-align: left;">Shortcut</th>
-<th style="text-align: left;">What it does</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;">User Guide…</td>
-<td style="text-align: left;">-</td>
-<td style="text-align: left;">Opens this guide.</td>
-</tr>
-<tr>
-<td style="text-align: left;">About Recall Score…</td>
-<td style="text-align: left;">-</td>
-<td style="text-align: left;">Shows the application name, version number
-and a short description.</td>
-</tr>
-</tbody>
-</table>
-<h2 id="keyboard-shortcut-reference">15. Keyboard Shortcut
-Reference</h2>
+<p>Note: Playback automatically follows written repeats, codas, and
+D.C./D.S. markings. Manual step-by-step navigation via arrow keys
+bypasses jumps and simply moves through bars.</p>
+<p>Written tempo changes (e.g., rallentando) are displayed in
+Performance Information but do not alter playback speed.</p>
+<h3 id="audio-orientation-aids">4.2 Audio Orientation Aids</h3>
+<ul>
+<li>Bar Line Indicator (“Control+B”): Plays unique audio tones when
+crossing standard bar lines, double bar lines, or repeat boundaries.
+<em>Automatically mutes when the metronome is active.</em></li>
+<li>Metronome (“Control+M”): Clicks during playback and step
+navigation.</li>
+<li>Standalone Metronome (“Control+Alt+Spacebar”): Plays a continuous
+background metronome at the current tempo without advancing the score
+position.</li>
+<li>Position Announcer (“Control+P”): A spoken metronome that announces
+beat counts (e.g., “1”, “2”, or subdivision counts like “and”, “e”,
+“a”).</li>
+<li>Performance Indicator (“Control+C”): Affects audio cue for
+performance indicators:
+<ul>
+<li>Off</li>
+<li>On during navigation</li>
+<li>Always On</li>
+</ul></li>
+<li>Score Boundaries: Reaching the beginning or end of a score plays a
+boundary sound effect.</li>
+</ul>
+<h2 id="navigation-commands">5. Navigation Commands</h2>
 <table>
 <colgroup>
 <col style="width: 50%" />
@@ -1947,348 +356,188 @@ Reference</h2>
 <thead>
 <tr>
 <th style="text-align: left;">Action</th>
-<th style="text-align: left;">Keystroke</th>
+<th style="text-align: left;">Shortcut</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td style="text-align: left;">Move focus to the next / previous
-region</td>
-<td style="text-align: left;">Tab / Shift+Tab</td>
+<td style="text-align: left;">Move One Position Left / Right</td>
+<td style="text-align: left;">“Left Arrow” / “Right Arrow”</td>
 </tr>
 <tr>
-<td style="text-align: left;">Toggle focus between the regions area and
-the status bar</td>
-<td style="text-align: left;">F6 / Shift+F6</td>
+<td style="text-align: left;">Move One Bar Left / Right</td>
+<td style="text-align: left;">“Control+Left Arrow” / “Control+Right
+Arrow”</td>
 </tr>
 <tr>
-<td style="text-align: left;">Jump focus to the Score Info region from
-anywhere</td>
-<td style="text-align: left;">Z</td>
+<td style="text-align: left;">Jump to First / Last Note</td>
+<td style="text-align: left;">“Control+Home” / “Control+End”</td>
 </tr>
 <tr>
-<td style="text-align: left;">Jump focus to the Parts List region from
-anywhere</td>
-<td style="text-align: left;">X</td>
+<td style="text-align: left;">Go to Specific Bar</td>
+<td style="text-align: left;">Type bar number + “Enter” (or
+“Control+G”)</td>
 </tr>
 <tr>
-<td style="text-align: left;">Jump focus to the Note region from
-anywhere</td>
-<td style="text-align: left;">C</td>
+<td style="text-align: left;">Move to Next / Previous jump point</td>
+<td style="text-align: left;">“Control+Alt+Right Arrow” /
+“Control+Alt+Left Arrow”</td>
 </tr>
 <tr>
-<td style="text-align: left;">Jump focus to the Note Attributes region
-from anywhere</td>
-<td style="text-align: left;">V</td>
+<td style="text-align: left;">Search Score Elements</td>
+<td style="text-align: left;">“Control+F”</td>
 </tr>
 <tr>
-<td style="text-align: left;">Jump focus to the Performance region from
-anywhere</td>
-<td style="text-align: left;">B</td>
-</tr>
-<tr>
-<td style="text-align: left;">Step to the next / previous active event
-<em>(Note region only)</em></td>
-<td style="text-align: left;">Left Arrow / Right Arrow</td>
-</tr>
-<tr>
-<td style="text-align: left;">Jump to the first active event of the next
-/ current-or-previous bar <em>(Note region only)</em></td>
-<td style="text-align: left;">Ctrl+Left Arrow / Ctrl+Right Arrow</td>
-</tr>
-<tr>
-<td style="text-align: left;">Jump to the first / last active note
-<em>(Note region only)</em></td>
-<td style="text-align: left;">Home / End</td>
-</tr>
-<tr>
-<td style="text-align: left;">Type a bar number, then jump to it
-<em>(any region or the status bar)</em></td>
-<td style="text-align: left;">0-9, then Enter</td>
-</tr>
-<tr>
-<td style="text-align: left;">Type a number, then set it as the loop
-length <em>(any region or the status bar)</em></td>
-<td style="text-align: left;">0-9, then Ctrl+Enter</td>
-</tr>
-<tr>
-<td style="text-align: left;">Clear a typed bar number without moving
-<em>(any region or the status bar)</em></td>
-<td style="text-align: left;">Escape</td>
-</tr>
-<tr>
-<td style="text-align: left;">Move between notes within a chord
-<em>(Note region only)</em></td>
-<td style="text-align: left;">Up Arrow / Down Arrow</td>
-</tr>
-<tr>
-<td style="text-align: left;">Reselect every note at the current
-position, so <code>Shift+Space</code> plays them all together <em>(Note
-region only, also Edit &gt; Select All)</em></td>
-<td style="text-align: left;">Ctrl+A</td>
-</tr>
-<tr>
-<td style="text-align: left;">Speak the Nth row of the Note Attributes
-region without moving focus <em>(Note region only)</em></td>
-<td style="text-align: left;">Ctrl+1 - Ctrl+9</td>
-</tr>
-<tr>
-<td style="text-align: left;">Open the Go to Measure dialog</td>
-<td style="text-align: left;">Ctrl+G</td>
-</tr>
-<tr>
-<td style="text-align: left;">Open the Find dialog</td>
-<td style="text-align: left;">Ctrl+F</td>
-</tr>
-<tr>
-<td style="text-align: left;">Jump to the next / previous occurrence of
-the current Find target</td>
-<td style="text-align: left;">Alt+Right Arrow / Alt+Left Arrow</td>
-</tr>
-<tr>
-<td style="text-align: left;">Jump to the start of the next / previous
-song section</td>
-<td style="text-align: left;">Ctrl+Alt+Right Arrow / Ctrl+Alt+Left
-Arrow</td>
-</tr>
-<tr>
-<td style="text-align: left;">Expand / collapse the focused row
-<em>(Parts List region only)</em></td>
-<td style="text-align: left;">Right Arrow / Left Arrow</td>
-</tr>
-<tr>
-<td style="text-align: left;">Mute / unmute the focused row <em>(Parts
-List region only)</em></td>
-<td style="text-align: left;">F8</td>
-</tr>
-<tr>
-<td style="text-align: left;">Solo / unsolo the focused row <em>(Parts
-List region only)</em></td>
-<td style="text-align: left;">F9</td>
-</tr>
-<tr>
-<td style="text-align: left;">Clear every mute in the score <em>(Parts
-List region only)</em></td>
-<td style="text-align: left;">Alt+F8</td>
-</tr>
-<tr>
-<td style="text-align: left;">Clear every solo in the score <em>(Parts
-List region only)</em></td>
-<td style="text-align: left;">Alt+F9</td>
-</tr>
-<tr>
-<td style="text-align: left;">Play / stop playback from the current
-position, per the play mode (also resumes from pause)</td>
-<td style="text-align: left;">Space</td>
-</tr>
-<tr>
-<td style="text-align: left;">Pause playback (resume with Space, not
-Ctrl+Space again)</td>
-<td style="text-align: left;">Ctrl+Space</td>
-</tr>
-<tr>
-<td style="text-align: left;">Complete a pending typed bar number
-<em>(any region or the status bar)</em></td>
-<td style="text-align: left;">Enter</td>
-</tr>
-<tr>
-<td style="text-align: left;">Cycle the play mode: play to end, play
-loop once, play loop until stopped</td>
-<td style="text-align: left;">Ctrl+L</td>
-</tr>
-<tr>
-<td style="text-align: left;">Toggle the lead-in count-in on/off</td>
-<td style="text-align: left;">Ctrl+I</td>
-</tr>
-<tr>
-<td style="text-align: left;">Cycle how a clipped repeat is handled
-while looping</td>
-<td style="text-align: left;">Ctrl+R</td>
-</tr>
-<tr>
-<td style="text-align: left;">Increase / decrease the loop length by one
-bar, spoken aloud <em>(Note region only)</em></td>
-<td style="text-align: left;">Alt+PageUp / Alt+PageDown</td>
-</tr>
-<tr>
-<td style="text-align: left;">Set the loop length from a typed number
-<em>(any region or the status bar)</em></td>
-<td style="text-align: left;">Ctrl+Enter</td>
-</tr>
-<tr>
-<td style="text-align: left;">Play every note at the current position
-together</td>
-<td style="text-align: left;">Shift+Space</td>
-</tr>
-<tr>
-<td style="text-align: left;">Increase / decrease playback tempo by 10
-<em>(works from any region or the status bar)</em></td>
-<td style="text-align: left;">F / S</td>
-</tr>
-<tr>
-<td style="text-align: left;">Reset playback tempo to the score’s own
-tempo <em>(works from any region or the status bar)</em></td>
-<td style="text-align: left;">D</td>
-</tr>
-<tr>
-<td style="text-align: left;">Open the Play Settings dialog</td>
-<td style="text-align: left;">Ctrl+Shift+P</td>
-</tr>
-<tr>
-<td style="text-align: left;">Toggle the metronome on/off</td>
-<td style="text-align: left;">Ctrl+M</td>
-</tr>
-<tr>
-<td style="text-align: left;">Start / stop a free-running click track at
-the current tempo, without moving the timeline</td>
-<td style="text-align: left;">Ctrl+Alt+Space</td>
-</tr>
-<tr>
-<td style="text-align: left;">Toggle the position announcer on/off</td>
-<td style="text-align: left;">Ctrl+P</td>
-</tr>
-<tr>
-<td style="text-align: left;">Toggle the bar line indicator on/off</td>
-<td style="text-align: left;">Ctrl+B</td>
-</tr>
-<tr>
-<td style="text-align: left;">Cycle the Performance Indicator setting:
-off, on except when playing, always on, spoken aloud</td>
-<td style="text-align: left;">Ctrl+C</td>
-</tr>
-<tr>
-<td style="text-align: left;">Toggle live MIDI input on/off</td>
-<td style="text-align: left;">Ctrl+D</td>
-</tr>
-<tr>
-<td style="text-align: left;">Open the Live MIDI Input Settings
-dialog</td>
-<td style="text-align: left;">Ctrl+Shift+L</td>
-</tr>
-<tr>
-<td style="text-align: left;">Toggle voice control on/off</td>
-<td style="text-align: left;">Alt+Enter</td>
-</tr>
-<tr>
-<td style="text-align: left;">Open the Voice Control Settings
-dialog</td>
-<td style="text-align: left;">Ctrl+Shift+R</td>
-</tr>
-<tr>
-<td style="text-align: left;">Open the Mixer dialog</td>
-<td style="text-align: left;">Ctrl+Shift+X</td>
-</tr>
-<tr>
-<td style="text-align: left;">Start / stop playback from the Mixer
-dialog <em>(Mixer dialog only)</em></td>
-<td style="text-align: left;">Alt+W</td>
-</tr>
-<tr>
-<td style="text-align: left;">Open the Instruments dialog</td>
-<td style="text-align: left;">Ctrl+Shift+I</td>
-</tr>
-<tr>
-<td style="text-align: left;">Open the Key Signature dialog</td>
-<td style="text-align: left;">Ctrl+Shift+K</td>
-</tr>
-<tr>
-<td style="text-align: left;">Open the Strumming Patterns dialog</td>
-<td style="text-align: left;">Ctrl+Shift+U</td>
-</tr>
-<tr>
-<td style="text-align: left;">Play / stop the strum pattern demo
-<em>(Strumming Patterns dialog only)</em></td>
-<td style="text-align: left;">Alt+P</td>
-</tr>
-<tr>
-<td style="text-align: left;">Tempo slower / faster / reset
-<em>(Strumming Patterns dialog only)</em></td>
-<td style="text-align: left;">S / F / D</td>
-</tr>
-<tr>
-<td style="text-align: left;">Open the Tuner dialog</td>
-<td style="text-align: left;">Ctrl+Shift+T</td>
-</tr>
-<tr>
-<td style="text-align: left;">Open the Reorder Attributes dialog</td>
-<td style="text-align: left;">Ctrl+Shift+A</td>
-</tr>
-<tr>
-<td style="text-align: left;">Move the selected attribute up / down
-<em>(Reorder Attributes dialog only)</em></td>
-<td style="text-align: left;">Alt+U / Alt+D</td>
-</tr>
-<tr>
-<td style="text-align: left;">Open the Reorder Parts dialog</td>
-<td style="text-align: left;">Ctrl+Shift+O</td>
-</tr>
-<tr>
-<td style="text-align: left;">Move the selected part up / down
-<em>(Reorder Parts dialog only)</em></td>
-<td style="text-align: left;">Alt+U / Alt+D</td>
-</tr>
-<tr>
-<td style="text-align: left;">Jump to the start / end of the focused
-Performance region entry <em>(Performance region only)</em></td>
-<td style="text-align: left;">Ctrl+Home / Ctrl+End</td>
-</tr>
-<tr>
-<td style="text-align: left;">Hide / unhide the focused entry’s marking
-category <em>(Performance region only)</em></td>
-<td style="text-align: left;">Ctrl+N, or Menu key / Shift+F10</td>
-</tr>
-<tr>
-<td style="text-align: left;">Open the Performance Report</td>
-<td style="text-align: left;">Ctrl+Shift+F</td>
-</tr>
-<tr>
-<td style="text-align: left;">Toggle Show Engraving Details on/off</td>
-<td style="text-align: left;">Ctrl+V</td>
-</tr>
-<tr>
-<td style="text-align: left;">Open a note attribute’s context menu
-<em>(Note Attributes region only)</em></td>
-<td style="text-align: left;">right-click, or Menu key / Shift+F10</td>
-</tr>
-<tr>
-<td style="text-align: left;">Open a score file</td>
-<td style="text-align: left;">Ctrl+O</td>
+<td style="text-align: left;">Jump to Next / Previous Search Match</td>
+<td style="text-align: left;">“Alt+Right Arrow” / “Alt+Left Arrow”</td>
 </tr>
 </tbody>
 </table>
-<h2 id="troubleshooting">16. Troubleshooting</h2>
-<h3 id="no-sound">16.1 No Sound</h3>
-<p>Recall Score plays sound through a bundled audio engine and
-instrument library that need to start up successfully when the
-application launches. If your machine has no working audio output, or
-something about the installation is incomplete, Recall Score still runs
-and lets you navigate and use every region normally - it simply won’t
-produce any sound, without announcing that fact on screen. As a first
-check, confirm your system’s normal audio output is working outside
-Recall Score too.</p>
-<h3 id="a-file-wont-open">16.2 A File Won’t Open</h3>
-<p>If a file fails to load, nothing changes on screen. Check the log
-file at <code>%LOCALAPPDATA%\Recall Score\recall_score.log</code> for
-details of what went wrong. The most common cause is a file that isn’t
-valid MusicXML, or isn’t one of the supported extensions (section 2.3):
-<code>.xml</code>, <code>.musicxml</code> or <code>.mxl</code>.</p>
-<h3 id="where-settings-are-stored-on-disk">16.3 Where Settings Are
-Stored on Disk</h3>
-<p>File &gt; Open Local Folder opens the storage location directly. Both
-your per-score settings (section 13.1) and your shared preferences
-(section 13.2) live under your own Windows user profile, entirely
-separate from where Recall Score itself is installed - reinstalling or
-moving the application doesn’t affect them.</p>
-<h2 id="getting-help-and-reporting-problems">17. Getting Help and
-Reporting Problems</h2>
-<p>If you run into a problem, Help &gt; About Recall Score… shows the
-exact version you’re running - worth including if you report an issue.
-Check section 16 (Troubleshooting) first; if that doesn’t resolve it,
-please raise an issue on the project’s GitHub page:</p>
-<p><a href="https://github.com/Chessel85/RecallScore/issues"
-class="uri">https://github.com/Chessel85/RecallScore/issues</a></p>
-<p>Include what you were doing, the version number, and - if the app was
-involved - the contents of <code>recall_score.log</code> (section
-16.2).</p>
+<h2 id="practicing-and-memorising-music">6. Practicing and Memorising
+Music</h2>
+<h3 id="overview-tools">6.1 Overview Tools</h3>
+<ul>
+<li>Performance Report (“Control+Shift+F”): Generates a summary of the
+score, including part names, note counts, dynamics, structural markers,
+and bar arrangements.</li>
+<li>Reorder Parts (“Control+Shift+O”): Rearranges the sequence of parts.
+The top-listed part is spoken first in the Notes list.</li>
+</ul>
+<h3 id="filtering-parts-mute-solo">6.2 Filtering Parts (Mute &amp;
+Solo)</h3>
+<p>Specific parts or voices can be isolated while learning:</p>
+<ol type="1">
+<li>Press “X” to go to the Parts region, or use the “Tab” key.</li>
+<li>Arrow up and down to the desired Part.</li>
+<li>Expand parts with the “Right Arrow” key. Expand parts to expose
+voices.</li>
+<li>Press “F8” to mute a part, stave or voice. Notes in a muted element
+are not shown in the notes list.</li>
+<li>Press “F9” to “Solo” a part, stave or voice. Soloing supersedes
+muting. Soloed elements are always included in the note list.</li>
+<li>Press “Alt+F8” to Unmute All, or “Alt+F9” to Unsolo All.</li>
+</ol>
+<h3 id="managing-visible-note-attributes">6.3 Managing Visible Note
+Attributes</h3>
+<p>To customize what information is spoken when navigating notes:</p>
+<ol type="1">
+<li>Press “V” to enter the Attributes region or press the “Tab”
+key.</li>
+<li>Focus on the attribute to be spoken (e.g., Fingering or
+Octave).</li>
+<li>Press “Applications Key” (or “Shift+F10”) to open the context
+menu.</li>
+<li>Select the scope: “Whole Score”, “Same Part”, “Same Stave”, or “This
+Voice”, then press “Enter”.</li>
+</ol>
+<p>The selected attribute is now shown on the same row as a note in the
+note list which is in the requested scope and where the attribute
+exists.</p>
+<p>The order of attributes in the attribute list and after notes in the
+note list can be changed. Attributes can also be hidden.</p>
+<p>To reorder or hide attributes, select “Options &gt; Attribute
+Management” (“Control+Shift+A”). In this dialogue:</p>
+<ul>
+<li>Move attribute Up / Down: “Alt+U” / “Alt+D”</li>
+<li>Add / Remove Scope: “Alt+A”</li>
+<li>Hide / Hide for All: “Alt+H” / “Alt+L”</li>
+</ul>
+<h3 id="practising-with-looping-and-lead-ins">6.4 Practising With
+Looping and Lead-ins</h3>
+<p>Default playback for Recall Score is to play from the current
+position to the end. It can also be set up to loop a defined number of
+bars. A lead-in metronome count can be defined before each repeat of the
+loop.</p>
+<p>Configure looping and lead-in options in “Playback &gt; Play
+Settings” (“Control+Shift+P”):</p>
+<ul>
+<li>Toggle Play Mode. Select “Play to End”, “Play Loop Once”, and “Play
+Loop Until Stopped”. Cycle through these options in the main app with
+“Control+L”.</li>
+<li>Loop length. Size of the loop in bars. In the main app use “Alt+Page
+Up” and “Alt+Page Down”.</li>
+<li>Toggle lead-in clicks on or off. In the main app, toggle with
+“Control+I”.</li>
+<li>Lead-in. Set length of lead-in clicks in bars and beats.</li>
+<li>Repeat handling. Affects how looping handles repeats with different
+endings. In the main app, cycle through options with “Control+R”.</li>
+</ul>
+<h3 id="screen-reader-speech-during-playback">6.5 Screen Reader Speech
+During Playback</h3>
+<p>Recall Score updates the notes, attributes, performance regions and
+the status bar during playback. If focus is on one of these areas the
+screen reader reads out the new text. Refresh of text can be controlled
+as follows:</p>
+<ul>
+<li>Turn spoken announcements during continuous playback on or off:
+“Control+H”.</li>
+<li>Delay Refresh (“Control+Shift+D”): Adjust speech timing relative to
+audio (-1.0s to +1.0s). Negative values speak notes slightly before
+sounding; positive values speak notes after.</li>
+</ul>
+<h2 id="additional-features">7. Additional Features</h2>
+<h3 id="live-midi-keyboard-input">7.1 Live MIDI Keyboard Input</h3>
+<p>A MIDI keyboard can be connected to play along using Recall Score’s
+sound engine:</p>
+<ul>
+<li>Toggle MIDI Input: Press “Control+D”.</li>
+<li>MIDI Settings: Select “Options &gt; Live MIDI Input Settings”
+(“Control+Shift+L”) to configure devices, instrument voices, volume, and
+pan.</li>
+</ul>
+<h3 id="mixer">7.2 Mixer</h3>
+<p>Open via “Playback &gt; Mixer” (“Control+Shift+X”):</p>
+<ul>
+<li>Adjust Volume (0–100%) and Pan (-100% Left to +100% Right) for
+parts, metronome, announcer, and performance cues.</li>
+<li>Press “Alt+W” to toggle playback preview while making
+adjustments.</li>
+</ul>
+<h3 id="voice-control">7.3 Voice Control</h3>
+<p>Toggle hands-free listening using “Alt+Enter”. Configure microphone
+settings via “Options &gt; Voice Control Settings”
+(“Control+Shift+R”).</p>
+<p>Recall Score responds to the following commands:</p>
+<ul>
+<li>“play”, “stop” and “pause”</li>
+<li>“forward” and “back”, or “right” and “left”</li>
+<li>“next bar” and “previous bar”, or “next measure” and “previous
+measure”</li>
+<li>“home” and “end”</li>
+<li>“slower”, “faster” and “default speed”</li>
+<li>“looping on” and “looping off”</li>
+<li>“lead in on” and “lead in off”</li>
+<li>“go to bar [number]”</li>
+<li>“loop length [number]”</li>
+<li>“attribute [1-9]”</li>
+</ul>
+<h3 id="built-in-utility-tools">7.4 Built-in Utility Tools</h3>
+<ul>
+<li>Instrument Configuration (“Control+Shift+I”): Assign General MIDI
+sound assignments or rename parts.</li>
+<li>Tuner (“Control+Shift+T”): Spoken pitch identification and cent
+offsets via microphone input.</li>
+<li>Metronome Player (“Control+Shift+M”): Standalone metronome with
+configurable beat subdivision patterns.</li>
+<li>Strumming Patterns (“Control+Shift+U”): Preview strumming patterns
+embedded in imported Ultimate Guitar sheets.</li>
+<li>Link Parts (“Control+Shift+N”): Link identical parts (e.g., doubled
+lines) to share performance markings.</li>
+<li>Keyboard Shortcut Customisation (“Control+Shift+Y”): Rebind keyboard
+commands.</li>
+<li>Keyboard Echo Mode (“F12”): Practice keys to hear assigned commands
+without executing them. Press “F12” again to exit.</li>
+</ul>
+<h2 id="reporting-a-bug-or-requesting-a-feature">8. Reporting A Bug or
+Requesting A Feature</h2>
+<ul>
+<li>Issue Reporting: Submit bug reports at the official <a
+href="https://github.com/Chessel85/RecallScore/issues">Recall Score
+Issue Tracker</a>.</li>
+<li>Feature Requests: To suggest a new feature, open a new issue on the
+same <a href="https://github.com/Chessel85/RecallScore/issues">Recall
+Score Issue Tracker</a> and describe what you would like Recall Score to
+do.</li>
+</ul>
 </body>
 </html>
