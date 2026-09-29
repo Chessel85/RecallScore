@@ -1,0 +1,22 @@
+1. What Recall Score is. 
+Open  a file
+play it
+slow it down and speed it up
+arrow through some notes 
+
+Open a score and arrow through a few bars while notes sound and NVDA reads them. This is the   
+hook, so keep it under a minute.                                                                                        
+2. Getting around. The five regions, Tab and Z/X/C/V/B to jump between them, and moving by beat, by bar and by jump     
+point.                                                                                                                  
+3. Learning a part. Solo or mute parts, filter to one staff or voice, then loop a passage.                              
+4. Playback. Play, pause, the lead-in, the position announcer and the metronome.                                        
+5. Reading the detail. What the attributes region tells you about selected notes, and hiding attributes you don't need. 
+6. Performance markings. Dynamics, hairpins, repeats, codas and al capo, as found in region 5.                          
+7. Find. Jump to the next fermata, the next key change or the next time a given note appears.                           
+8. Guitar players. Open a Guitar Pro or Ultimate Guitar tab and hear the strings, frets and sections read out.          
+9. Importing MIDI. Turn a MIDI file into navigable parts.                                                               
+10. The Mixer. Change instruments, volume and pan, and show that the lyrics part stays out of the way.                  
+11. Playing along. Live MIDI input from your keyboard, and the performance indicator sounds.                            
+12. Voice control. A few spoken commands, with Help > Voice Commands Reference as the place to learn more.              
+13. Making it yours. Remapped shortcuts, recent files, and per-score settings being remembered.                         
+ 
