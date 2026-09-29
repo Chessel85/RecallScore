@@ -1,6 +1,6 @@
 # note_data.py
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 
 @dataclass
@@ -77,6 +77,13 @@ class NoteData:
     # override/auto-correction be losslessly reverted - the same role
     # file_key_fifths plays for a MIDI note's spelling.
     percussion_source_key: Optional[int] = None
+    # Set only while the user has flagged this note's PART as percussion
+    # (Instruments dialog's "Percussion part"): what the note looked like
+    # before OverrideManager.apply_part_percussion_overrides rewrote it -
+    # (voice, step_name, octave, file_key_fifths) - so un-flagging is
+    # lossless with no re-parse. None for every note of a part that is
+    # percussion in the file itself, and for every untouched note.
+    pre_percussion: Optional[Tuple[int, str, Optional[int], Optional[int]]] = None
     # One or more grace notes performed immediately before this note (Ref
     # MusicXML <grace> support). Attached here rather than given their own
     # NoteData/EventSlice entry - see GraceNote's own docstring. None for

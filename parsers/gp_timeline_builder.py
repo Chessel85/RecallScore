@@ -22,6 +22,7 @@ from typing import Dict, List, Optional, Tuple
 
 from models.duration_units import beat_unit_display_name, tuplet_word
 from models.event_slice import EventSlice
+from models.gm_percussion_map import gm_percussion_name
 from models.jump_point import JumpPoint, build_jump_points
 from models.note_data import NoteData
 from models.synthetic_parts import GP_CHORD_VOICE_ID
@@ -216,7 +217,14 @@ class GpTimelineBuilder:
                 gp_note = source.notes.get(note_id)
                 if gp_note is None or gp_note.midi_pitch is None:
                     continue
-                step_name = self._spell_note(gp_note)
+                is_percussion = track.is_percussion
+                if is_percussion:
+                    # A drum note's Midi property IS the GM percussion key:
+                    # name it from the key map, not a pitch spelling, and give
+                    # it its own voice (see MidiTimelineBuilder).
+                    step_name = gm_percussion_name(gp_note.midi_pitch)
+                else:
+                    step_name = self._spell_note(gp_note)
                 # P5: GP's `tied` / `slide` flags move
                 # onto the same NoteData keys the MusicXML parser fills, so
                 # "Find tie" / "Find glissando" behave identically on a .gp and
@@ -230,7 +238,7 @@ class GpTimelineBuilder:
 
                 note_obj = NoteData(
                     step_name=step_name,
-                    octave=gp_note.octave,
+                    octave=None if is_percussion else gp_note.octave,
                     midi_pitch=gp_note.midi_pitch,
                     measure=m_num,
                     beat_position=round(beat_pos, 2),
@@ -239,14 +247,15 @@ class GpTimelineBuilder:
                     part_id=part_id,
                     part_name=part_name,
                     staff=1,
-                    voice=voice_slot + 1,
-                    fret=gp_note.fret,
-                    string=gp_note.string,
+                    voice=gp_note.midi_pitch if is_percussion else voice_slot + 1,
+                    fret=None if is_percussion else gp_note.fret,
+                    string=None if is_percussion else gp_note.string,
                     dynamic=dynamic,
                     articulation=articulation,
                     tie=tie,
                     glissando=glissando,
                     duration_name_us=duration_name_us,
+                    percussion_source_key=gp_note.midi_pitch if is_percussion else None,
                 )
                 buckets.setdefault(bucket_key, []).append(note_obj)
 

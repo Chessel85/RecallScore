@@ -120,3 +120,37 @@ def test_mandolin_and_bass_have_no_chord_or_brush_beats(gp_ripple):
             beat = source.beats[beat_id]
             assert beat.chord_index is None
             assert beat.brush_direction is None
+
+
+def _track_xml(instrument_type: str, channel: int) -> str:
+    return f"""<GPIF><Tracks><Track id="0"><Name>Kit</Name>
+        <InstrumentSet><Type>{instrument_type}</Type></InstrumentSet>
+        <MidiConnection><PrimaryChannel>{channel}</PrimaryChannel></MidiConnection>
+        </Track></Tracks></GPIF>"""
+
+
+def test_a_drum_kit_instrument_set_marks_the_track_percussion():
+    from xml.etree import ElementTree as ET
+
+    from parsers.gp_source import _parse_tracks
+
+    track = _parse_tracks(ET.fromstring(_track_xml("drumKit", 0)))[0]
+    assert track.is_percussion is True
+
+
+def test_the_gm_percussion_channel_marks_the_track_percussion_too():
+    from xml.etree import ElementTree as ET
+
+    from parsers.gp_source import _parse_tracks
+
+    track = _parse_tracks(ET.fromstring(_track_xml("electricGuitar", 9)))[0]
+    assert track.is_percussion is True
+
+
+def test_an_ordinary_track_is_not_percussion():
+    from xml.etree import ElementTree as ET
+
+    from parsers.gp_source import _parse_tracks
+
+    track = _parse_tracks(ET.fromstring(_track_xml("electricGuitar", 0)))[0]
+    assert track.is_percussion is False

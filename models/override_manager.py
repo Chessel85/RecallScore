@@ -17,7 +17,7 @@ every method here.
 """
 from typing import Dict, List, Optional, Tuple
 
-from models.gm_percussion_map import detect_percussion_key_shift
+from models.gm_percussion_map import detect_percussion_key_shift, gm_percussion_name
 from models.pitch_spelling import spell_pitch
 
 
@@ -57,6 +57,76 @@ class OverrideManager:
             for n in self._all_notes():
                 if n.part_id in name_overrides:
                     n.part_name = name_overrides[n.part_id]
+
+    # --- part flagged as percussion ------------------------------------
+
+    def apply_part_percussion_overrides(self) -> None:
+        """(Re)applies MusicData.part_percussion_overrides - the parts the
+        user flagged as percussion in Edit > Instruments... because the file
+        didn't (a Guitar Pro / MIDI drum track on the wrong channel, a
+        MusicXML kit with no percussion clef). Idempotent, and lossless in
+        both directions: flagging stashes what each note and the part looked
+        like (NoteData.pre_percussion, PartStructureInfo.
+        pre_percussion_structure), un-flagging puts it back.
+
+        Flagging makes each note's midi_pitch its percussion key - right for
+        a mis-flagged drum track, whose pitches already ARE GM keys - so it
+        gains an item identity (percussion_source_key), its own voice (as
+        every percussion note has) and a percussion name instead of a pitch
+        spelling. Must run BEFORE apply_percussion_overrides, which then
+        layers item name/sound overrides on top.
+
+        Notes carrying chord_pitches (GP's synthetic Chords voice) are left
+        alone - a strum summary is not a drum - and keep their voice row.
+        """
+        data = self.data
+        flagged = data.part_percussion_overrides
+        all_notes = list(self._all_notes())
+        for part in data.parts_info:
+            notes = [n for n in all_notes if n.part_id == part.part_id]
+            if part.part_id in flagged:
+                if part.pre_percussion_structure is not None:
+                    self._unflag_part(part, notes)  # re-derive from pristine
+                self._flag_part(part, notes)
+            elif part.pre_percussion_structure is not None:
+                self._unflag_part(part, notes)
+
+    def _flag_part(self, part, notes) -> None:
+        part.pre_percussion_structure = (
+            {s: list(v) for s, v in part.staves_voices.items()},
+            dict(part.voice_names),
+        )
+        converted = [
+            n for n in notes if n.midi_pitch is not None and n.chord_pitches is None
+        ]
+        for n in converted:
+            n.pre_percussion = (n.voice, n.step_name, n.octave, n.file_key_fifths)
+            n.step_name = gm_percussion_name(n.midi_pitch)
+            n.octave = None
+            n.file_key_fifths = None
+            n.percussion_source_key = n.midi_pitch
+            n.voice = n.midi_pitch
+        kept_voices = sorted({n.voice for n in notes if n.chord_pitches is not None})
+        pitches = sorted({n.midi_pitch for n in converted})
+        part.is_percussion = True
+        part.staves_voices = {1: pitches + kept_voices}
+        part.voice_names = {
+            key: name for key, name in part.voice_names.items() if key[1] in kept_voices
+        }
+        for p in pitches:
+            part.voice_names[(1, p)] = gm_percussion_name(p)
+
+    def _unflag_part(self, part, notes) -> None:
+        for n in notes:
+            if n.pre_percussion is None:
+                continue
+            n.voice, n.step_name, n.octave, n.file_key_fifths = n.pre_percussion
+            n.midi_pitch = n.percussion_source_key
+            n.percussion_source_key = None
+            n.pre_percussion = None
+        part.staves_voices, part.voice_names = part.pre_percussion_structure
+        part.pre_percussion_structure = None
+        part.is_percussion = False
 
     # --- percussion items (wishlist #8) -------------------------------
 

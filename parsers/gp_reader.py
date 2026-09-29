@@ -2,6 +2,7 @@
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+from models.gm_percussion_map import gm_percussion_name
 from models.key_signatures import FIFTHS_MAP, key_signature_display_name
 from models.music_data import MusicData
 from models.parts_structure import PartStructureInfo
@@ -96,7 +97,14 @@ class GpReader:
             # already use), so slot 0 -> voice 1, slot 1 -> voice 2, etc.
             voices = sorted(slot + 1 for slot in voice_slots) or [1]
             voice_names: Dict[Tuple[int, int], str] = {}
-            if qualifies_for_chords:
+            if track.is_percussion:
+                # Same substitution MidiReader makes: one voice per drum
+                # actually struck, keyed by its GM key, so each is its own
+                # mute/soloable Region 2 row. No Chords voice for a kit.
+                pitches = self._percussion_pitches(source, track.index)
+                voices = pitches or [1]
+                voice_names = {(1, p): gm_percussion_name(p) for p in pitches}
+            elif qualifies_for_chords:
                 voices = voices + [GP_CHORD_VOICE_ID]
                 voice_names[(1, GP_CHORD_VOICE_ID)] = CHORD_VOICE_NAME
 
@@ -112,9 +120,24 @@ class GpReader:
                     staves_clefs={1: "Tab stave"},
                     staves_voices={1: voices},
                     voice_names=voice_names,
+                    is_percussion=track.is_percussion,
                 )
             )
         return parts
+
+    @staticmethod
+    def _percussion_pitches(source: GpSource, track_index: int) -> List[int]:
+        """Distinct GM percussion keys struck on a drum-kit track, sorted."""
+        pitches = set()
+        for _measure_index, _voice_slot, beat_id in iter_track_positions(source, track_index):
+            beat = source.beats.get(beat_id)
+            if beat is None:
+                continue
+            for note_id in beat.note_ids:
+                note = source.notes.get(note_id)
+                if note is not None and note.midi_pitch is not None:
+                    pitches.add(note.midi_pitch)
+        return sorted(pitches)
 
     @staticmethod
     def _scan_track(source: GpSource, track_index: int) -> Tuple[set, bool]:

@@ -43,6 +43,16 @@ class ScoreEditController:
     def percussion_part_ids(self) -> List[str]:
         return [p.part_id for p in self.music_data.parts_info if p.is_percussion]
 
+    def percussion_toggle_part_ids(self) -> List[str]:
+        """Parts the Instruments dialog may flag/un-flag as percussion: every
+        part the file itself does not declare percussion (a part the user has
+        flagged already still counts, so it can be un-flagged)."""
+        flagged = self.music_data.part_percussion_overrides
+        return [
+            p.part_id for p in self.music_data.parts_info
+            if not p.is_percussion or p.part_id in flagged
+        ]
+
     def percussion_rows(self) -> Dict[str, list]:
         """Per-item rows for each percussion part, keyed by part_id - a
         percussion part contributes one row per distinct drum/cymbal on top
@@ -59,6 +69,7 @@ class ScoreEditController:
         item_name_overrides: Dict[Tuple[str, int], str],
         item_sound_overrides: Dict[Tuple[str, int], int],
         auto_correct_enabled: bool,
+        part_percussion_changes: Optional[Dict[str, bool]] = None,
     ) -> bool:
         """Apply the Instruments dialog's five results. Returns whether
         anything actually changed, so a dialog dismissed with no edits
@@ -70,7 +81,9 @@ class ScoreEditController:
         toggles and expand state the user had set.
         """
         music_data = self.music_data
-        percussion_changed = bool(
+        part_percussion_changes = part_percussion_changes or {}
+        structure_changed = bool(part_percussion_changes)
+        percussion_changed = structure_changed or bool(
             item_name_overrides
             or item_sound_overrides
             or auto_correct_enabled != music_data.percussion_auto_correct_enabled
@@ -84,6 +97,17 @@ class ScoreEditController:
             for part_id, name in name_overrides.items():
                 self.presenter.rename_part(part_id, name)
 
+        if structure_changed:
+            # Region 2's voice rows change shape (a kit has one voice per
+            # drum), so its tree is rebuilt - with every mute/solo/link the
+            # user had carried across (invariant 11).
+            for part_id, flagged in part_percussion_changes.items():
+                if flagged:
+                    music_data.part_percussion_overrides.add(part_id)
+                else:
+                    music_data.part_percussion_overrides.discard(part_id)
+            music_data.apply_part_percussion_overrides()
+
         if percussion_changed:
             music_data.percussion_item_name_overrides.update(item_name_overrides)
             music_data.percussion_item_overrides.update(item_sound_overrides)
@@ -93,11 +117,17 @@ class ScoreEditController:
             # _set_percussion_voice_names), so the labels read back below
             # are already current.
             music_data.apply_percussion_overrides()
-            for part in music_data.parts_info:
-                if not part.is_percussion:
-                    continue
-                for (staff_id, voice_id), label in part.voice_names.items():
-                    self.presenter.rename_voice(part.part_id, staff_id, voice_id, label)
+            if structure_changed:
+                self.presenter.reload_region_2_structure(
+                    music_data.get_score_structure(), music_data.collapsed_part_ids,
+                    self.link_group_numbers(),
+                )
+            else:
+                for part in music_data.parts_info:
+                    if not part.is_percussion:
+                        continue
+                    for (staff_id, voice_id), label in part.voice_names.items():
+                        self.presenter.rename_voice(part.part_id, staff_id, voice_id, label)
 
         self.presenter.update_timeline_views(play_all=False)
         return True

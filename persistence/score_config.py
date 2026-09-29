@@ -108,6 +108,9 @@ def load_for(file_path: str) -> Optional[ScoreConfig]:
             part_program_overrides={
                 str(k): int(v) for k, v in (data.get("part_program_overrides") or {}).items()
             },
+            part_percussion_overrides={
+                str(v) for v in (data.get("part_percussion_overrides") or [])
+            },
             key_signature_override_fifths=data.get("key_signature_override_fifths"),
             key_signature_override_mode=data.get("key_signature_override_mode"),
             playback_tempo_bpm=data.get("playback_tempo_bpm"),
@@ -176,6 +179,7 @@ def save(file_path: str, config: ScoreConfig) -> None:
         "refresh_settings": config.refresh_settings.to_dict(),
         "part_name_overrides": dict(config.part_name_overrides),
         "part_program_overrides": dict(config.part_program_overrides),
+        "part_percussion_overrides": sorted(config.part_percussion_overrides),
         "key_signature_override_fifths": config.key_signature_override_fifths,
         "key_signature_override_mode": config.key_signature_override_mode,
         "playback_tempo_bpm": config.playback_tempo_bpm,

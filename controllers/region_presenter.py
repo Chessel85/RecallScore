@@ -124,6 +124,20 @@ class RegionPresenter(QObject):
     def rename_voice(self, part_id: str, staff_id: int, voice_id: int, label: str) -> None:
         self.region_2.rename_voice(part_id, staff_id, voice_id, label)
 
+    def reload_region_2_structure(self, parts_data, collapse_to_parts, link_numbers) -> None:
+        """Rebuilds Region 2's tree for a structural change (a part flagged as
+        percussion gains one voice row per drum), carrying every node's own
+        mute/solo state and the link groups across the rebuild, which
+        load_score_structure would otherwise reset. Voice rows that no longer
+        exist simply drop out (best-effort, like ScoreConfig restore)."""
+        model = self.region_2.model_manager
+        muted = model.get_muted_node_keys()
+        soloed = model.get_soloed_node_keys()
+        self.region_2.load_score_structure(parts_data, collapse_to_parts=collapse_to_parts)
+        self.region_2.apply_muted_node_keys(*muted)
+        self.region_2.apply_soloed_node_keys(*soloed)
+        self.region_2.apply_link_groups(link_numbers)
+
     def apply_link_groups(self, numbers) -> None:
         self.region_2.apply_link_groups(numbers)
 

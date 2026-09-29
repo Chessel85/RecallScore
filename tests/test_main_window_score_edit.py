@@ -191,6 +191,7 @@ def _fake_instrument_dialog(monkeypatch, window, *, accept: bool, on_exec=None):
         percussion_part_ids=percussion_part_ids,
         percussion_rows=percussion_rows,
         auto_correct_enabled=window._music_data.percussion_auto_correct_enabled,
+        percussion_toggle_part_ids=window.score_edit.percussion_toggle_part_ids(),
     )
 
     def fake_exec():
@@ -279,6 +280,39 @@ def test_instrument_dialog_rename_does_not_reset_region_2_toggle_state(
 
     assert window.region_2.model_manager.roots[0].muted is True
     assert window.region_2.model_manager.roots[0].display_name == "Renamed"
+
+
+def test_flagging_a_part_as_percussion_rebuilds_region_2_and_keeps_mute_state(
+    window, qtbot, gp_ripple, monkeypatch
+):
+    """The Instruments dialog's "Percussion part" box turns a mis-flagged drum
+    track into a kit: its voices become one row per drum, it plays on the GM
+    percussion bank, and every toggle the user already set survives the
+    Region 2 rebuild."""
+    load_and_wait(window, qtbot, gp_ripple)
+    model = window.region_2.model_manager
+    model.roots[0].muted = True  # P0, the first part
+
+    def flag(dialog):
+        dialog.row_list.setCurrentRow(2)  # electric bass, P2
+        dialog.percussion_checkbox.setChecked(True)
+
+    _fake_instrument_dialog(monkeypatch, window, accept=True, on_exec=flag)
+    window._show_instrument_dialog()
+
+    assert window._music_data.is_percussion_part("P2")
+    bass = next(r for r in model.roots if r.part_id == "P2")
+    voices = [v.voice_id for staff in bass.children for v in staff.children]
+    assert voices == window._music_data.parts_info[2].staves_voices[1]
+    assert len(voices) > 1
+    assert next(r for r in model.roots if r.part_id == "P0").muted is True
+
+    idx = next(
+        i for i, s in enumerate(window._music_data.timeline_slices)
+        if any(n.part_id == "P2" for n in s.notes)
+    )
+    events = window._music_data.get_playback_events_at_index(idx)
+    assert any(len(e) > 4 and e[4] == 128 for e in events)
 
 
 def test_instrument_dialog_percussion_auto_correct_updates_sound_and_voice_label(

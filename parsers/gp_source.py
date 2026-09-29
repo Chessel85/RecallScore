@@ -25,6 +25,9 @@ from models.duration_units import beat_unit_quarter_length
 
 SCORE_GPIF_PATH = "Content/score.gpif"
 
+# GM percussion channel, 0-indexed as GP stores it.
+GP_PERCUSSION_CHANNEL = 9
+
 # GP's <NoteValue> text is already almost identical to
 # models.duration_units's type-name vocabulary; only the four common ones
 # differ by capitalisation. Anything else (rare - 128th/256th) is
@@ -83,6 +86,10 @@ class GpTrack:
     tuning_pitches: List[int] = field(default_factory=list)
     capo_fret: int = 0
     chord_names: Dict[int, str] = field(default_factory=dict)  # diagram id -> name
+    # A drum-kit track (InstrumentSet type "drumKit", or MIDI channel 9 - the
+    # GM percussion channel, 0-indexed). Its notes' Midi property is already
+    # the GM percussion key, so it needs no pitch spelling at all.
+    is_percussion: bool = False
 
 
 @dataclass
@@ -148,6 +155,12 @@ def _parse_tracks(root: ET.Element) -> List[GpTrack]:
         if program_el is not None and program_el.text:
             program = int(program_el.text.strip())
 
+        instrument_type = _cdata_text(track_el.find("InstrumentSet/Type"))
+        channel_el = track_el.find("MidiConnection/PrimaryChannel")
+        is_percussion = instrument_type == "drumKit" or (
+            channel_el is not None and _int_or(channel_el) == GP_PERCUSSION_CHANNEL
+        )
+
         tuning_pitches: List[int] = []
         capo_fret = 0
         chord_names: Dict[int, str] = {}
@@ -173,6 +186,7 @@ def _parse_tracks(root: ET.Element) -> List[GpTrack]:
             tuning_pitches=tuning_pitches,
             capo_fret=capo_fret,
             chord_names=chord_names,
+            is_percussion=is_percussion,
         ))
     return tracks
 

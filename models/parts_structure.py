@@ -1,6 +1,6 @@
 # parts_structure.py
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 
 @dataclass
@@ -21,3 +21,8 @@ class PartStructureInfo:
     # playback for such a part to the GM percussion bank instead of reading
     # gmidi_program at all. See CLAUDE.md's percussion-support entry.
     is_percussion: bool = False
+    # Set only while the user has flagged this part as percussion: the
+    # (staves_voices, voice_names) it had before, restored on un-flagging.
+    pre_percussion_structure: Optional[
+        Tuple[Dict[int, List[int]], Dict[Tuple[int, int], str]]
+    ] = None

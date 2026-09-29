@@ -176,6 +176,10 @@ class MusicData:
     # only" shape as mixer above.
     part_name_overrides: Dict[str, str] = field(default_factory=dict)
     part_program_overrides: Dict[str, int] = field(default_factory=dict)
+    # Parts the user flagged as percussion although the file did not (the
+    # Instruments dialog's "Percussion part") - see
+    # OverrideManager.apply_part_percussion_overrides.
+    part_percussion_overrides: Set[str] = field(default_factory=set)
 
     # Wishlist #8 follow-up: per-percussion-item playback/name overrides,
     # set via widgets/instrument_dialog.py, same "explicit overrides only"
@@ -483,6 +487,7 @@ class MusicData:
         self.active_event_index = 0
 
         self.apply_part_overrides(self.part_name_overrides, self.part_program_overrides)
+        self.apply_part_percussion_overrides()
         self.apply_percussion_overrides()
         self.apply_key_signature_override(
             self.key_signature_override_fifths, self.key_signature_override_mode
@@ -1137,6 +1142,7 @@ class MusicData:
             refresh_settings=self.refresh_settings.copy(),
             part_name_overrides=dict(self.part_name_overrides),
             part_program_overrides=dict(self.part_program_overrides),
+            part_percussion_overrides=set(self.part_percussion_overrides),
             key_signature_override_fifths=self.key_signature_override_fifths,
             key_signature_override_mode=self.key_signature_override_mode,
             playback_tempo_bpm=self.playback_tempo_bpm,
@@ -1248,6 +1254,9 @@ class MusicData:
         # itself drops unknown part_ids, a part repeated across groups, and
         # any group left under two members.
         self.set_part_link_groups(config.part_link_groups)
+
+        self.part_percussion_overrides = set(config.part_percussion_overrides) & known_part_ids
+        self.apply_part_percussion_overrides()
 
         known_percussion_items = {
             (n.part_id, n.percussion_source_key)
@@ -1664,6 +1673,11 @@ class MusicData:
         """S5: rename a part and/or change its instrument - see
         OverrideManager.apply_part_overrides."""
         self.overrides.apply_part_overrides(name_overrides, program_overrides)
+
+    def apply_part_percussion_overrides(self) -> None:
+        """Flag/unflag parts as percussion - see
+        OverrideManager.apply_part_percussion_overrides."""
+        self.overrides.apply_part_percussion_overrides()
 
     def _set_percussion_voice_names(self) -> None:
         """See OverrideManager.set_percussion_voice_names."""

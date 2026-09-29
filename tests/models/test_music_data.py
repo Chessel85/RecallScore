@@ -3872,3 +3872,74 @@ def test_jump_to_report_row_with_out_of_range_index_emits_boundary_hit(
     row = ReportRow(text="bogus", level=1, jump_index=9999)
     assert nav.jump_to_report_row(row) is False
     assert hits == [True]
+
+
+def _gp_data(gp_ripple):
+    from parsers.gp_reader import GpReader
+
+    return GpReader(gp_ripple).load()
+
+
+def test_flagging_a_part_as_percussion_makes_it_a_kit(gp_ripple):
+    md = _gp_data(gp_ripple)
+    part_id = "P2"  # electric bass: single voice, no synthetic Chords voice
+    pitches = sorted({n.midi_pitch for s in md.timeline_slices for n in s.notes if n.part_id == part_id})
+
+    md.part_percussion_overrides.add(part_id)
+    md.apply_part_percussion_overrides()
+
+    part = next(p for p in md.parts_info if p.part_id == part_id)
+    assert part.is_percussion is True
+    assert part.staves_voices == {1: pitches}
+    assert md.is_percussion_part(part_id) is True
+    notes = [n for s in md.timeline_slices for n in s.notes if n.part_id == part_id]
+    assert all(n.percussion_source_key == n.midi_pitch and n.voice == n.midi_pitch for n in notes)
+    assert all(n.octave is None for n in notes)
+    assert sorted(item[0] for item in md.get_percussion_items_for_part(part_id)) == [
+        (part_id, p) for p in pitches
+    ]
+
+
+def test_unflagging_a_part_restores_it_exactly(gp_ripple):
+    md = _gp_data(gp_ripple)
+    part_id = "P2"
+
+    def snapshot():
+        part = next(p for p in md.parts_info if p.part_id == part_id)
+        notes = [
+            (n.voice, n.step_name, n.octave, n.midi_pitch, n.percussion_source_key)
+            for s in md.timeline_slices for n in s.notes if n.part_id == part_id
+        ]
+        return part.is_percussion, part.staves_voices, part.voice_names, notes
+
+    before = snapshot()
+    md.part_percussion_overrides.add(part_id)
+    md.apply_part_percussion_overrides()
+    md.apply_part_percussion_overrides()  # idempotent
+    md.part_percussion_overrides.discard(part_id)
+    md.apply_part_percussion_overrides()
+
+    assert snapshot() == before
+
+
+def test_part_percussion_override_survives_export_then_apply_config(gp_ripple):
+    md = _gp_data(gp_ripple)
+    md.part_percussion_overrides.add("P2")
+    md.apply_part_percussion_overrides()
+    config = md.export_config()
+
+    fresh = _gp_data(gp_ripple)
+    fresh.apply_config(config)
+
+    assert config.part_percussion_overrides == {"P2"}
+    assert fresh.is_percussion_part("P2") is True
+
+
+def test_part_percussion_override_for_an_unknown_part_is_dropped_on_apply_config(gp_ripple):
+    md = _gp_data(gp_ripple)
+    config = md.export_config()
+    config.part_percussion_overrides = {"P2", "nope"}
+
+    md.apply_config(config)
+
+    assert md.part_percussion_overrides == {"P2"}

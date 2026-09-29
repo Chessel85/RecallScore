@@ -601,6 +601,23 @@ whole passage can legitimately be nothing but rests.
 **A MIDI percussion part is not collapsed** in Region 2, unlike every other MIDI
 part — it now has real, independently mute/soloable voices to expand into.
 
+### Guitar Pro and the manual "Percussion part" flag
+
+**Guitar Pro:** `GpTrack.is_percussion` is set from `InstrumentSet/Type == "drumKit"`
+or `MidiConnection/PrimaryChannel == 9`. A drum note's `Midi` property is already
+the GM key, so `GpReader` builds one voice per key struck and `GpTimelineBuilder`
+sets `percussion_source_key`/`voice`/name exactly as `MidiTimelineBuilder` does.
+
+**User flag:** for a part the file did not declare percussion,
+Edit > Instruments... offers a "Percussion part" checkbox
+(`MusicData.part_percussion_overrides`, persisted in `ScoreConfig`).
+`OverrideManager.apply_part_percussion_overrides` rewrites the part's notes so
+`midi_pitch` becomes the key (stashing `NoteData.pre_percussion` and
+`PartStructureInfo.pre_percussion_structure`, so un-flagging is lossless) and must
+run BEFORE `apply_percussion_overrides`. Chord-voice notes (`chord_pitches`) are
+left alone. Flagging rebuilds Region 2 via
+`RegionPresenter.reload_region_2_structure`, which carries mute/solo/link across.
+
 ### Persistence and dialog
 
 Three `ScoreConfig` fields (`percussion_item_overrides`,

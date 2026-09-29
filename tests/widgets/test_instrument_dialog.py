@@ -221,3 +221,48 @@ def test_auto_correct_checkbox_shown_and_returned_when_percussion_present(qtbot)
     dialog.auto_correct_checkbox.setChecked(False)
     *_, auto_correct_enabled = dialog.overrides()
     assert auto_correct_enabled is False
+
+
+def test_a_part_the_file_did_not_call_percussion_can_be_flagged(qtbot):
+    dialog = InstrumentDialog(rows=ROWS, percussion_toggle_part_ids=["P1", "P2"])
+    qtbot.addWidget(dialog)
+
+    assert dialog.percussion_checkbox.isEnabled()
+    assert dialog.instrument_combo.isEnabled()
+
+    dialog.percussion_checkbox.setChecked(True)
+
+    assert not dialog.instrument_combo.isEnabled()
+    assert dialog.part_percussion_changes() == {"P1": True}
+
+    dialog.percussion_checkbox.setChecked(False)
+
+    assert dialog.instrument_combo.isEnabled()
+    assert dialog.instrument_combo.currentText() == "Acoustic Grand Piano"
+    assert dialog.part_percussion_changes() == {}
+
+
+def test_a_flagged_part_reopens_ticked_and_unticking_is_a_change(qtbot):
+    dialog = InstrumentDialog(
+        rows=ROWS, percussion_part_ids=["P2"], percussion_rows={"P2": []},
+        percussion_toggle_part_ids=["P2"],
+    )
+    qtbot.addWidget(dialog)
+    dialog.row_list.setCurrentRow(1)
+
+    assert dialog.percussion_checkbox.isChecked()
+    assert not dialog.instrument_combo.isEnabled()
+
+    dialog.percussion_checkbox.setChecked(False)
+
+    assert dialog.part_percussion_changes() == {"P2": False}
+
+
+def test_a_part_the_file_calls_percussion_shows_a_ticked_greyed_checkbox(qtbot):
+    dialog = InstrumentDialog(rows=ROWS, percussion_part_ids=["P2"], percussion_rows={"P2": []})
+    qtbot.addWidget(dialog)
+    dialog.row_list.setCurrentRow(1)
+
+    assert dialog.percussion_checkbox.isChecked()
+    assert not dialog.percussion_checkbox.isEnabled()
+    assert dialog.part_percussion_changes() == {}

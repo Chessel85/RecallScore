@@ -2012,9 +2012,12 @@ class MainWindow(QMainWindow):
                 percussion_part_ids=self.score_edit.percussion_part_ids(),
                 percussion_rows=self.score_edit.percussion_rows(),
                 auto_correct_enabled=self._music_data.percussion_auto_correct_enabled,
+                percussion_toggle_part_ids=self.score_edit.percussion_toggle_part_ids(),
             )
             if dialog.exec() == QDialog.DialogCode.Accepted:
-                self.score_edit.apply_instrument_overrides(*dialog.overrides())
+                self.score_edit.apply_instrument_overrides(
+                    *dialog.overrides(), dialog.part_percussion_changes()
+                )
 
     def _show_keyboard_shortcuts_dialog(self):
         """Tools > Keyboard Shortcuts... - wiring only, per

@@ -88,11 +88,21 @@ class InstrumentDialog(QDialog):
         percussion_part_ids: Optional[List[str]] = None,
         percussion_rows: Optional[Dict[str, List[PercussionItemRow]]] = None,
         auto_correct_enabled: bool = False,
+        percussion_toggle_part_ids: Optional[List[str]] = None,
     ):
         super().__init__(parent)
         self.setWindowTitle("Instruments")
 
         self._percussion_part_ids = set(percussion_part_ids or [])
+        # Parts the file did NOT declare as percussion, so the user may flag
+        # (or un-flag) them - a part the file itself calls percussion is never
+        # offered the checkbox. Whether each is flagged right now is
+        # `_percussion_part_ids` at open time; `_part_percussion` tracks edits.
+        self._toggle_part_ids = set(percussion_toggle_part_ids or [])
+        self._part_percussion: Dict[str, bool] = {
+            part_id: part_id in self._percussion_part_ids for part_id in self._toggle_part_ids
+        }
+        self._original_part_percussion: Dict[str, bool] = dict(self._part_percussion)
         percussion_rows = percussion_rows or {}
 
         # part_id -> (name, gmidi_program) - unused/ignored for a
@@ -146,6 +156,11 @@ class InstrumentDialog(QDialog):
         form.addRow("&Name:", self.name_edit)
         form.addRow("&Instrument:", self.instrument_combo)
 
+        # Only ever enabled on a part row the file didn't declare percussion.
+        self.percussion_checkbox = QCheckBox("&Percussion part", self)
+        self.percussion_checkbox.toggled.connect(self._on_percussion_toggled)
+        form.addRow(self.percussion_checkbox)
+
         self.auto_correct_checkbox = QCheckBox("Apply MusicXML offset for percussion", self)
         self.auto_correct_checkbox.setChecked(auto_correct_enabled)
         self._auto_correct_available = bool(percussion_rows)
@@ -176,6 +191,30 @@ class InstrumentDialog(QDialog):
         else:
             self.name_edit.setEnabled(False)
             self.instrument_combo.setEnabled(False)
+            self.percussion_checkbox.setEnabled(False)
+
+    def _on_percussion_toggled(self, checked: bool) -> None:
+        """A flagged part plays as a kit, so it has no single instrument to
+        pick - same as a percussion part the file declared. The change only
+        takes effect (and its item rows only appear) after OK."""
+        row_id = self._current_row_id
+        if row_id is None or row_id[0] != self.ROW_PART or row_id[1] not in self._toggle_part_ids:
+            return
+        self._part_percussion[row_id[1]] = checked
+        _, program = self._part_values.get(row_id[1], ("", 25))
+        self._show_part_instrument(program, checked)
+
+    def _show_part_instrument(self, program: int, is_kit: bool) -> None:
+        if is_kit:
+            # A whole kit has no single "instrument" - each of its items
+            # (as their own rows, once the part is one) has its own sound.
+            self._set_combo_mode("none")
+            self.instrument_combo.setEnabled(False)
+            self.instrument_combo.setCurrentText("")
+        else:
+            self._set_combo_mode("pitched")
+            self.instrument_combo.setEnabled(True)
+            self.instrument_combo.setCurrentText(gm_instrument_name(program))
 
     def _set_combo_mode(self, mode: str) -> None:
         """mode: "pitched", "percussion", or "none" (a percussion part's own
@@ -212,21 +251,24 @@ class InstrumentDialog(QDialog):
             part_id = row_id[1]
             name, program = self._part_values.get(part_id, ("", 25))
             self.name_edit.setText(name)
-            if part_id in self._percussion_part_ids:
-                # A whole kit has no single "instrument" - each of its
-                # items (below, as their own rows) has its own sound.
-                self._set_combo_mode("none")
-                self.instrument_combo.setEnabled(False)
-                self.instrument_combo.setCurrentText("")
-            else:
-                self._set_combo_mode("pitched")
-                self.instrument_combo.setEnabled(True)
-                self.instrument_combo.setCurrentText(gm_instrument_name(program))
+            toggleable = part_id in self._toggle_part_ids
+            self.percussion_checkbox.blockSignals(True)
+            # A part the file itself calls percussion shows the box ticked
+            # but greyed: it can't be turned back into a pitched part.
+            is_kit = self._part_percussion[part_id] if toggleable else part_id in self._percussion_part_ids
+            self.percussion_checkbox.setChecked(is_kit)
+            self.percussion_checkbox.blockSignals(False)
+            self.percussion_checkbox.setEnabled(toggleable)
+            self._show_part_instrument(program, is_kit)
         else:
             item_key = row_id[1]
             name, sounding_key = self._item_values.get(item_key, ("", 0))
             self.name_edit.setText(name)
             self._set_combo_mode("percussion")
+            self.percussion_checkbox.blockSignals(True)
+            self.percussion_checkbox.setChecked(False)
+            self.percussion_checkbox.blockSignals(False)
+            self.percussion_checkbox.setEnabled(False)
             self.instrument_combo.setEnabled(True)
             # blockSignals isn't needed here - setCurrentText alone never
             # fires anything this dialog reads at commit time (see
@@ -296,6 +338,16 @@ class InstrumentDialog(QDialog):
             item_sound_overrides,
             self.auto_correct_checkbox.isChecked(),
         )
+
+    def part_percussion_changes(self) -> Dict[str, bool]:
+        """part_id -> flagged, only for parts whose "Percussion part" box
+        differs from how the dialog opened. Call after exec() returns
+        Accepted."""
+        return {
+            part_id: flagged
+            for part_id, flagged in self._part_percussion.items()
+            if flagged != self._original_part_percussion[part_id]
+        }
 
     def showEvent(self, event):
         super().showEvent(event)

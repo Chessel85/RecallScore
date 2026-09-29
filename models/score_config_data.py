@@ -85,6 +85,9 @@ class ScoreConfig:
     # every part keeps showing exactly what the file itself declared.
     part_name_overrides: Dict[str, str] = field(default_factory=dict)
     part_program_overrides: Dict[str, int] = field(default_factory=dict)
+    # Parts the user flagged as percussion - see
+    # MusicData.part_percussion_overrides.
+    part_percussion_overrides: Set[str] = field(default_factory=set)
     # Wishlist #8 follow-up: per-percussion-item sound/name overrides and
     # the "Apply MusicXML offset for percussion" checkbox - see
     # MusicData.percussion_item_overrides/percussion_item_name_overrides/
