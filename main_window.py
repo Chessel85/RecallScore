@@ -420,12 +420,8 @@ class MainWindow(QMainWindow):
         regions = [self.region_1, self.region_2, self.region_3, self.region_4, self.region_5]
 
         self.playback = PlaybackController(self.session, parent=self)
-        # Lead-in/looping is a global preference (all scores), so it is
-        # loaded once here rather than per file load - unlike the absolute
-        # playback tempo, which travels with the score's own .rsc config.
-        self.playback.set_play_settings(app_settings.load().play)
-        # Delay Refresh gate (UserPlans/DelayRefresh.md): per-score, unlike
-        # play settings above - its settings live on music_data.refresh_
+        # Delay Refresh gate (UserPlans/DelayRefresh.md): per-score, like
+        # play settings - its settings live on music_data.refresh_
         # settings (invariant 8), so there is nothing to seed here before a
         # score is loaded. Wired to the playback controller as a plain
         # optional collaborator (invariant 6 - RegionPresenter is the only
@@ -516,13 +512,13 @@ class MainWindow(QMainWindow):
             performance_indicator_mode=app_settings.load().performance_indicator_mode,
         ).build()
 
-        # Global (AppSettings.play), not per-score - the lead-in toggle is
-        # checkable and set once here from the loaded settings, kept in sync
-        # by toggle_lead_in. The play-mode action is a non-checkable cycle
-        # (three states), so it carries no checked state of its own.
+        # Per-score (music_data.play_settings) - set here from PlaySettings'
+        # own defaults (no score loaded yet), re-synced in _update_ui_regions
+        # on every score load and kept in sync by toggle_lead_in. The
+        # play-mode action is a non-checkable cycle (three states), so it
+        # carries no checked state of its own.
         self._actions.lead_in_toggle.setChecked(self.playback.play_settings.lead_in_enabled)
-        # Global (AppSettings.show_engraving_details_enabled), same reasoning
-        # as lead_in_toggle above - set once here so the menu reflects the
+        # Global (AppSettings.show_engraving_details_enabled) - set once here so the menu reflects the
         # user's preference even before any score is loaded.
         self._actions.show_engraving_details.setChecked(
             app_settings.load().show_engraving_details_enabled
@@ -976,6 +972,7 @@ class MainWindow(QMainWindow):
         self._actions.refresh_on_playback.setChecked(
             self._music_data.refresh_settings.refresh_during_playback
         )
+        self._actions.lead_in_toggle.setChecked(self._music_data.play_settings.lead_in_enabled)
         self.presenter.update_timeline_views(play_all=play_all)
 
     # --- navigation (delegators) --------------------------------------
@@ -1104,12 +1101,10 @@ class MainWindow(QMainWindow):
         self.presenter.announce_loop_repeat_mode(mode)
 
     def increase_loop_length(self):
-        """Alt+PageUp, global from any region. Persisted globally right
-        away, like Play Settings' own OK - a bar count set this way is a
-        practice habit, not a per-score value. Announces the new length
+        """Alt+PageUp, from any region. Stored on the current score (saved
+        with its .rsc), like Play Settings' own OK. Announces the new length
         aloud since nothing else does - see RegionPresenter.
-        announce_loop_length. adjust_loop_length_bars persists globally
-        itself now."""
+        announce_loop_length."""
         self.playback.adjust_loop_length_bars(1)
         self.presenter.announce_loop_length(self.playback.play_settings.loop_length_bars)
 
@@ -1727,9 +1722,8 @@ class MainWindow(QMainWindow):
 
     def _show_play_settings_dialog(self):
         """Playback > Play Settings... (Ctrl+Shift+P) - the one
-        settings dialog for playback: the absolute tempo (per-score, saved
-        in the .rsc), and the lead-in / looping habits (global, saved in
-        app_settings like the UK/US dialect). Unlike GotoMeasureDialog
+        settings dialog for playback: the absolute tempo and the lead-in /
+        looping settings, all per-score and saved in the .rsc. Unlike GotoMeasureDialog
         there's no obvious "next place" for focus afterwards, so it returns
         to wherever it was."""
         with self._preserving_focus():
@@ -1746,7 +1740,6 @@ class MainWindow(QMainWindow):
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 settings = dialog.play_settings()
                 self.playback.set_play_settings(settings)
-                app_settings.set_play_settings(settings)
                 self._actions.lead_in_toggle.setChecked(settings.lead_in_enabled)
                 if self._music_data:
                     self.playback.set_playback_tempo(dialog.tempo_display_bpm())

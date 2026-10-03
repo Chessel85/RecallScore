@@ -2,6 +2,7 @@
 """config_dir() is redirected into a per-test tmp_path by conftest's
 autouse _isolate_persistence fixture, so these never touch the real
 developer machine's %LOCALAPPDATA%."""
+from models.play_settings import PlaySettings
 from models.refresh_settings import RefreshSettings
 from persistence import score_config
 from persistence.score_config import ScoreConfig
@@ -110,6 +111,29 @@ def test_save_then_load_round_trips_refresh_settings():
     loaded = score_config.load_for("Chessel Duet.mxl")
     assert loaded.refresh_settings.refresh_during_playback is False
     assert loaded.refresh_settings.delay_ms == -400
+
+
+def test_save_then_load_round_trips_play_settings():
+    """Lead-in / looping are per-score, travelling with this score's .rsc."""
+    config = ScoreConfig(
+        play_settings=PlaySettings(
+            lead_in_enabled=True, lead_in_bars=2, lead_in_beats=1,
+            play_mode="loop_once", loop_length_bars=4, loop_lead_in=True,
+            loop_repeat_mode="alternate",
+        )
+    )
+    score_config.save("Chessel Duet.mxl", config)
+
+    loaded = score_config.load_for("Chessel Duet.mxl")
+    assert loaded.play_settings == config.play_settings
+
+
+def test_load_for_a_file_saved_before_play_settings_existed_gets_defaults():
+    path = score_config.path_for("Chessel Duet.mxl")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text('{"schema_version": 3}', encoding="utf-8")
+
+    assert score_config.load_for("Chessel Duet.mxl").play_settings == PlaySettings()
 
 
 def test_load_for_a_file_saved_before_refresh_settings_existed():

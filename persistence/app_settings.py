@@ -13,7 +13,6 @@ from models.performance_indicator_mode import (
     DEFAULT_PERFORMANCE_INDICATOR_MODE,
     PERFORMANCE_INDICATOR_MODES,
 )
-from models.play_settings import PlaySettings
 from models.tuner_settings import TunerSettings
 from models.voice_control_settings import VoiceControlSettings
 
@@ -24,23 +23,19 @@ MAX_RECENT_FILES = 20
 @dataclass
 class AppSettings:
     """App-wide preferences that are the same regardless of which score is
-    loaded - the UK/US terminology dialect (F4/D-6), the Recent Files list
-    and the Play settings (lead-in/looping). Deliberately separate from
+    loaded - the UK/US terminology dialect (F4/D-6) and the Recent Files
+    list. Deliberately separate from
     ScoreConfig (persistence/score_config.py), which is per-file.
     uk_terms=None means no preference has been saved yet, so the caller
     should fall back to its own default (OS-locale detection).
 
-    play is global rather than per-score on the user's own decision: a
-    lead-in length / looping habit is a practice habit that should follow
-    them from piece to piece. (The absolute playback tempo IS per-score -
-    ScoreConfig.playback_tempo_bpm.) Defaults live on PlaySettings itself,
-    so a settings file written before this field existed simply gets them;
-    load() also reads the pre-rename "preview" key.
+    Play settings (lead-in/looping) are NOT here - they are per-score
+    (ScoreConfig.play_settings). An older settings.json's "play" key is
+    simply ignored on load.
 
     live_midi_input (device/instrument/volume/pan for playing a connected
     MIDI keyboard live, controllers/live_midi_input_controller.py) is global
-    for the same reasoning as play - confirmed with the user: it's the
-    user's hardware setup, not a property of any one score.
+    - confirmed with the user: it's the user's hardware setup, not a property of any one score.
 
     voice_control (device/confidence threshold for hands-free voice
     control, controllers/voice_control_controller.py) is global for the same
@@ -86,7 +81,6 @@ class AppSettings:
     recent_files: List[str] = field(default_factory=list)
     last_open_dir: Optional[str] = None
     musescore_path: Optional[str] = None
-    play: PlaySettings = field(default_factory=PlaySettings)
     live_midi_input: LiveMidiInputSettings = field(default_factory=LiveMidiInputSettings)
     voice_control: VoiceControlSettings = field(default_factory=VoiceControlSettings)
     tuner: TunerSettings = field(default_factory=TunerSettings)
@@ -124,7 +118,6 @@ def load() -> AppSettings:
             recent_files=data.get("recent_files", []),
             last_open_dir=data.get("last_open_dir"),
             musescore_path=data.get("musescore_path"),
-            play=PlaySettings.from_dict(data.get("play") or data.get("preview")),
             live_midi_input=LiveMidiInputSettings.from_dict(data.get("live_midi_input")),
             voice_control=VoiceControlSettings.from_dict(data.get("voice_control")),
             tuner=TunerSettings.from_dict(data.get("tuner")),
@@ -178,18 +171,9 @@ def set_last_open_dir(directory: str) -> None:
     save(settings)
 
 
-def set_play_settings(settings: PlaySettings) -> None:
-    """Records the Play settings, load-mutate-save for exactly the same
-    reason as add_recent_file above: constructing a fresh AppSettings here
-    would silently wipe uk_terms and the Recent Files list."""
-    current = load()
-    current.play = settings.copy()
-    save(current)
-
-
 def set_live_midi_input_settings(settings: LiveMidiInputSettings) -> None:
     """Records the live-MIDI-input settings, load-mutate-save for the same
-    reason as add_recent_file/set_play_settings above."""
+    reason as add_recent_file above."""
     current = load()
     current.live_midi_input = settings.copy()
     save(current)
@@ -197,7 +181,7 @@ def set_live_midi_input_settings(settings: LiveMidiInputSettings) -> None:
 
 def set_voice_control_settings(settings: VoiceControlSettings) -> None:
     """Records the voice-control settings, load-mutate-save for the same
-    reason as add_recent_file/set_play_settings/set_live_midi_input_
+    reason as add_recent_file/set_live_midi_input_
     settings above."""
     current = load()
     current.voice_control = settings.copy()
@@ -207,7 +191,7 @@ def set_voice_control_settings(settings: VoiceControlSettings) -> None:
 def set_musescore_path(path: Optional[str]) -> None:
     """Records the path to the MuseScore 4 executable used to convert
     .mscz/.mscx files on open (parsers/musescore_reader.py). load-mutate-save
-    for the same reason as add_recent_file/set_play_settings above."""
+    for the same reason as add_recent_file above."""
     current = load()
     current.musescore_path = path or None
     save(current)
@@ -215,7 +199,7 @@ def set_musescore_path(path: Optional[str]) -> None:
 
 def set_tuner_settings(settings: TunerSettings) -> None:
     """Records the tuner settings, load-mutate-save for the same reason as
-    add_recent_file/set_play_settings/set_live_midi_input_settings
+    add_recent_file/set_live_midi_input_settings
     above."""
     current = load()
     current.tuner = settings.copy()
@@ -225,7 +209,7 @@ def set_tuner_settings(settings: TunerSettings) -> None:
 def set_shortcut_overrides(overrides: Dict[str, str]) -> None:
     """Records the user's keyboard-shortcut overrides (action id -> chosen
     PortableText sequence, or "" for none), load-mutate-save for the same
-    reason as add_recent_file/set_play_settings above."""
+    reason as add_recent_file above."""
     current = load()
     current.shortcuts = dict(overrides)
     save(current)
@@ -234,8 +218,8 @@ def set_shortcut_overrides(overrides: Dict[str, str]) -> None:
 def set_marking_categories_off(categories_off) -> None:
     """Records the global default for which note-list marking categories
     (Ctrl+N, strategy section 8) start off in a score that has no .rsc of
-    its own yet - load-mutate-save for the same reason as add_recent_file/
-    set_play_settings above."""
+    its own yet - load-mutate-save for the same reason as add_recent_file
+    above."""
     current = load()
     current.marking_categories_off = sorted(categories_off)
     save(current)
@@ -243,8 +227,8 @@ def set_marking_categories_off(categories_off) -> None:
 
 def set_show_engraving_details_enabled(enabled: bool) -> None:
     """Records the Options > Show Engraving Details (Ctrl+V) preference,
-    load-mutate-save for the same reason as add_recent_file/
-    set_play_settings above."""
+    load-mutate-save for the same reason as add_recent_file
+    above."""
     current = load()
     current.show_engraving_details_enabled = enabled
     save(current)
@@ -252,8 +236,8 @@ def set_show_engraving_details_enabled(enabled: bool) -> None:
 
 def set_performance_indicator_mode(mode: str) -> None:
     """Records the Options > Performance Indicator (Ctrl+C) preference,
-    load-mutate-save for the same reason as add_recent_file/
-    set_play_settings above. An invalid mode falls back to the default,
+    load-mutate-save for the same reason as add_recent_file
+    above. An invalid mode falls back to the default,
     matching load()'s own validation."""
     current = load()
     current.performance_indicator_mode = (

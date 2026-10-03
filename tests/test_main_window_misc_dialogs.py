@@ -361,6 +361,8 @@ def test_metronome_player_action_is_disabled_while_a_play_run_is_active(
     w = MainWindow(synth=null_synth, uk_terms=False)
     qtbot.addWidget(w)
     load_and_wait(w, qtbot, minimal_score)
+    # A play RUN (not a plain to-end play) is what disables it.
+    w.playback.set_lead_in_enabled(True)
 
     assert w._actions.metronome_player.isEnabled() is True
 

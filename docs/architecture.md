@@ -423,8 +423,11 @@ single play control, and there is one settings dialog.
   (`ScoreConfig.playback_tempo_bpm`, schema v3).
 * **`PlaySettings`** (`models/play_settings.py`) — `lead_in_enabled` (master
   toggle), `lead_in_bars`/`lead_in_beats`, `loop_enabled`, `loop_length_bars`
-  (cap 64), `loop_lead_in`. Global (`AppSettings.play`); `from_dict` still reads
-  the old `preview` key and field names for back-compat.
+  (cap 64), `loop_lead_in`. **Per-score** (`MusicData.play_settings`, saved as
+  `ScoreConfig.play_settings` in the `.rsc`); `PlaybackController.play_settings`
+  is a property reading/writing the current score per call. A newly opened score
+  gets the defaults: lead-in off (1 bar, 0 beats), play to end, 1-bar loop, no
+  lead-in on every repeat. An old global `settings.json` `"play"` key is ignored.
 * **`_PlayRun`** carries `looping: bool`. Non-looping = lead-in only: starts on
   the exact cursor, `end_index=None`, cursor follows, ends via
   `_on_sequencer_finished`. Looping: snaps to the bar line of the cursor's

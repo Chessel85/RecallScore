@@ -12,19 +12,19 @@ from models.play_settings import (
 )
 
 
-def test_shipped_defaults_are_lead_in_on_one_bar_looping_off():
-    """The user's own choice: lead-in on with enough count-in to get hands
-    to the guitar, looping off until asked for, a two-bar window when it
-    is."""
+def test_shipped_defaults_are_lead_in_off_play_to_end_one_bar_loop():
+    """The user's own choice, applied to every newly opened score: lead-in
+    off (one bar, no beats once switched on), play to end (a one-bar loop
+    window once looping is chosen), no lead-in on every loop repeat."""
     settings = PlaySettings()
 
-    assert settings.lead_in_enabled is True
+    assert settings.lead_in_enabled is False
     assert settings.lead_in_bars == 1
     assert settings.lead_in_beats == 0
     assert settings.play_mode == "to_end"
     assert settings.loop_enabled is False
     assert settings.loop_forever is False
-    assert settings.loop_length_bars == 2
+    assert settings.loop_length_bars == 1
     assert settings.loop_lead_in is False
 
 

@@ -13,6 +13,7 @@ from models.find_target import FindTarget
 from models.music_data import MusicData
 from models.note_data import NoteData
 from models.parts_structure import PartStructureInfo
+from models.play_settings import PlaySettings
 from models.refresh_settings import RefreshSettings
 from models.region3_row import MarkingRow
 from models.vocabulary import attribute_label
@@ -1686,6 +1687,7 @@ def test_export_config_defaults_to_an_all_visible_empty_config(timeline, minimal
     assert config.hidden_attributes_by_part == {}
     assert config.hidden_attributes_for_all == set()
     assert config.refresh_settings == RefreshSettings()
+    assert config.play_settings == PlaySettings()
 
 
 def test_export_then_apply_config_round_trips_full_state(
@@ -1702,6 +1704,7 @@ def test_export_then_apply_config_round_trips_full_state(
     md.mixer.set_volume("P1", 86)
     md.mixer.set_pan("click", 0)
     md.refresh_settings = RefreshSettings(refresh_during_playback=False, delay_ms=-400)
+    md.play_settings = PlaySettings(lead_in_enabled=True, play_mode="loop_once", loop_length_bars=3)
 
     config = md.export_config()
 
@@ -1719,6 +1722,9 @@ def test_export_then_apply_config_round_trips_full_state(
     assert fresh.mixer.pan_for("click") == 0
     assert fresh.refresh_settings == RefreshSettings(
         refresh_during_playback=False, delay_ms=-400
+    )
+    assert fresh.play_settings == PlaySettings(
+        lead_in_enabled=True, play_mode="loop_once", loop_length_bars=3
     )
 
 

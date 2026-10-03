@@ -168,7 +168,7 @@ def test_alt_pageup_pagedown_announce_the_new_loop_length(
     window, qtbot, monkeypatch, minimal_score
 ):
     """Alt+PageUp/PageDown change the loop length without moving focus
-    (global now - see test_main_window_playback.py for the from-any-region
+    (see test_main_window_playback.py for the from-any-region
     keystroke coverage), so the only other trace of the new value is the
     status bar's own text - never heard by someone not focused there. Wording
     follows the UK/US terminology setting; the `window` fixture runs with
@@ -182,9 +182,10 @@ def test_alt_pageup_pagedown_announce_the_new_loop_length(
     load_and_wait(window, qtbot, minimal_score)
     announcements.clear()
 
+    window.increase_loop_length()  # 1 -> 2
     window.increase_loop_length()  # 2 -> 3
 
-    assert announcements == ["Loop length 3 measures."]
+    assert announcements == ["Loop length 2 measures.", "Loop length 3 measures."]
 
     window.decrease_loop_length()  # 3 -> 2
     window.decrease_loop_length()  # 2 -> 1 (MIN_LOOP_LENGTH_BARS)
@@ -456,7 +457,7 @@ def test_status_bar_updates_on_load_and_navigation(window, qtbot, null_synth, ts
     assert [f.text() for f in fields] == [
         "Measure 1 beat 1", "Key: C major / A minor", "Time: 4/4",
         "Playback tempo: 120 quarter notes per minute (score default)", "Playback: Stopped",
-        "Metronome: Off", "Position Announcer: Off", "Loop length: 2 measures",
+        "Metronome: Off", "Position Announcer: Off", "Loop length: 1 measure",
     ]
 
     qtbot.keyClick(window.region_3, Qt.Key.Key_Right, Qt.KeyboardModifier.ControlModifier)
@@ -467,7 +468,7 @@ def test_status_bar_updates_on_load_and_navigation(window, qtbot, null_synth, ts
         # so it reads 240 eighth-note beats per minute in 6/8 (same physical
         # speed as 120 quarter beats).
         "Playback tempo: 240 eighth notes per minute (score default)", "Playback: Stopped",
-        "Metronome: Off", "Position Announcer: Off", "Loop length: 2 measures",
+        "Metronome: Off", "Position Announcer: Off", "Loop length: 1 measure",
     ]
 
 

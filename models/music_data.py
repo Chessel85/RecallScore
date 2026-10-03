@@ -32,6 +32,7 @@ from models.performance_region_row import PerformanceRegionRow
 from models.performance_rows import PerformanceRows
 from models.playback_event_builder import PlaybackEventBuilder
 from models.playback_jump_state import PlaybackJumpState
+from models.play_settings import PlaySettings
 from models.refresh_settings import RefreshSettings
 from models.region3_row import MarkingRow, NoteRow, Region3Row
 from models.repeat_span import RepeatSpan
@@ -167,6 +168,13 @@ class MusicData:
     # ticked/no-delay, unless a saved .rsc says otherwise) - export_config()/
     # apply_config() carry it the same way.
     refresh_settings: RefreshSettings = field(default_factory=RefreshSettings)
+
+    # Play Settings (lead-in / play mode / loop length / loop repeat
+    # handling) - per-score like refresh_settings above, so a newly opened
+    # score always starts from PlaySettings' own defaults unless its .rsc
+    # says otherwise. controllers/playback_controller.py reads and writes
+    # it here per call; export_config()/apply_config() carry it.
+    play_settings: PlaySettings = field(default_factory=PlaySettings)
 
     # S5: per-part display-name/instrument overrides the user set via
     # widgets/instrument_dialog.py, keyed by part_id. Bookkeeping only -
@@ -1140,6 +1148,7 @@ class MusicData:
             hidden_attributes_for_all=set(self.hidden_attributes_for_all),
             mixer=self.mixer.copy(),
             refresh_settings=self.refresh_settings.copy(),
+            play_settings=self.play_settings.copy(),
             part_name_overrides=dict(self.part_name_overrides),
             part_program_overrides=dict(self.part_program_overrides),
             part_percussion_overrides=set(self.part_percussion_overrides),
@@ -1217,6 +1226,7 @@ class MusicData:
         self.set_bar_line_indicator_enabled(config.bar_line_indicator_enabled)
         self.mixer = config.mixer.copy()
         self.refresh_settings = config.refresh_settings.copy()
+        self.play_settings = config.play_settings.copy()
 
         self.apply_part_overrides(
             {k: v for k, v in config.part_name_overrides.items() if k in known_part_ids},

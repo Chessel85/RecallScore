@@ -160,9 +160,10 @@ class PlaybackController(QObject):
         self._mixer_edit_original: Optional[MixerSettings] = None
         self._mixer_edit_working: Optional[MixerSettings] = None
         # Play Settings (Space/Playback > Play Settings): lead-in and
-        # looping. Global settings, pushed in by MainWindow from AppSettings
-        # on startup and again whenever the dialog is accepted.
-        self.play_settings = PlaySettings()
+        # looping. Per-score - they live on music_data.play_settings (see
+        # the play_settings property below); this slot only holds them
+        # while no score is loaded.
+        self._unloaded_play_settings = PlaySettings()
         self._play_run: Optional[_PlayRun] = None
         # Delay Refresh gate (controllers/refresh_delay_controller.py): a
         # plain optional collaborator slot, not an import - this controller
@@ -197,6 +198,24 @@ class PlaybackController(QObject):
     @property
     def music_data(self):
         return self.session.music_data
+
+    @property
+    def play_settings(self) -> PlaySettings:
+        """The current score's Play Settings, read per call (MusicData is
+        replaced wholesale on every load, so this never caches it). No score
+        loaded -> a placeholder holding PlaySettings' defaults."""
+        music_data = self.music_data
+        if music_data is None:
+            return self._unloaded_play_settings
+        return music_data.play_settings
+
+    @play_settings.setter
+    def play_settings(self, settings: PlaySettings) -> None:
+        music_data = self.music_data
+        if music_data is None:
+            self._unloaded_play_settings = settings
+        else:
+            music_data.play_settings = settings
 
     @property
     def synth(self):
@@ -642,21 +661,15 @@ class PlaybackController(QObject):
         self.play_settings = self.play_settings.with_loop_length_bars(
             self.play_settings.loop_length_bars + delta
         )
-        from persistence import app_settings
-
-        app_settings.set_play_settings(self.play_settings)
         self.status_text_changed.emit()
 
     def set_loop_length_bars(self, bars: int) -> None:
         """Typed Ctrl+Enter buffer / the voice command "loop length N" (Ref
         19) - sets the loop length directly, unlike adjust_loop_length_bars'
         relative +/-1 nudge. Clamped by PlaySettings itself, same as every
-        other entry point (the dialog, Alt+PageUp/PageDown). Persists
-        globally in the setter so both entry points (and voice) get it."""
+        other entry point (the dialog, Alt+PageUp/PageDown). Stored on the
+        score, so it is saved with the .rsc like every other entry point."""
         self.play_settings = self.play_settings.with_loop_length_bars(bars)
-        from persistence import app_settings
-
-        app_settings.set_play_settings(self.play_settings)
         self.status_text_changed.emit()
 
     def cycle_play_mode(self) -> str:
@@ -671,16 +684,13 @@ class PlaybackController(QObject):
 
     def set_play_mode(self, mode: str) -> str:
         """The deterministic target for cycle_play_mode and the Play
-        Settings dialog. Persists globally and refreshes the status bar; an
+        Settings dialog. Stored per score and refreshes the status bar; an
         unknown value coerces to "play to end" in PlaySettings.__post_init__.
         Returns the mode actually stored."""
         updated = self.play_settings.copy()
         updated.play_mode = mode
         updated.__post_init__()
         self.play_settings = updated
-        from persistence import app_settings
-
-        app_settings.set_play_settings(self.play_settings)
         self.status_text_changed.emit()
         return self.play_settings.play_mode
 
@@ -702,25 +712,19 @@ class PlaybackController(QObject):
         updated.lead_in_enabled = bool(enabled)
         updated.__post_init__()
         self.play_settings = updated
-        from persistence import app_settings
-
-        app_settings.set_play_settings(self.play_settings)
         self.status_text_changed.emit()
         return self.play_settings.lead_in_enabled
 
     def set_loop_repeat_mode(self, mode: str) -> str:
         """"Repeat handling while looping" - how a repeat barline clipped by
         the loop window is read (see models/play_settings.py's
-        LOOP_REPEAT_MODES). Global, like loop_enabled; an unknown value
+        LOOP_REPEAT_MODES). Per score, like loop_enabled; an unknown value
         coerces to "first" in PlaySettings.__post_init__. Returns the mode
         actually stored."""
         updated = self.play_settings.copy()
         updated.loop_repeat_mode = mode
         updated.__post_init__()
         self.play_settings = updated
-        from persistence import app_settings
-
-        app_settings.set_play_settings(self.play_settings)
         self.status_text_changed.emit()
         return self.play_settings.loop_repeat_mode
 
@@ -1540,4 +1544,6 @@ class PlaybackController(QObject):
         off, unlike a spin box in the dialog - so the count is shown here
         the same way the metronome/announcer toggles are."""
         bar = bar_word(self.session.uk_terms) if self.session else "bar"
-        return f"Loop length: {self.play_settings.loop_length_bars} {bar}s"
+        bars = self.play_settings.loop_length_bars
+        plural = "" if bars == 1 else "s"
+        return f"Loop length: {bars} {bar}{plural}"

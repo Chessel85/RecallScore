@@ -16,6 +16,7 @@ from PySide6.QtCore import QStandardPaths
 
 from models import marking_categories
 from models.mixer_settings import MixerSettings
+from models.play_settings import PlaySettings
 from models.refresh_settings import RefreshSettings
 from models.score_config_data import PercussionItemKey, ScoreConfig, StaffKey, VoiceKey
 
@@ -102,6 +103,7 @@ def load_for(file_path: str) -> Optional[ScoreConfig]:
             hidden_attributes_for_all=set(data.get("hidden_attributes_for_all", [])),
             mixer=MixerSettings.from_dict(data.get("mixer")),
             refresh_settings=RefreshSettings.from_dict(data.get("refresh_settings")),
+            play_settings=PlaySettings.from_dict(data.get("play_settings")),
             part_name_overrides={
                 str(k): str(v) for k, v in (data.get("part_name_overrides") or {}).items()
             },
@@ -177,6 +179,7 @@ def save(file_path: str, config: ScoreConfig) -> None:
         "hidden_attributes_for_all": sorted(config.hidden_attributes_for_all),
         "mixer": config.mixer.to_dict(),
         "refresh_settings": config.refresh_settings.to_dict(),
+        "play_settings": config.play_settings.to_dict(),
         "part_name_overrides": dict(config.part_name_overrides),
         "part_program_overrides": dict(config.part_program_overrides),
         "part_percussion_overrides": sorted(config.part_percussion_overrides),

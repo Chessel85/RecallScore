@@ -8,11 +8,11 @@ These settings are what the Play Settings dialog
 (widgets/play_settings_dialog.py) edits and
 controllers/playback_controller.py's play session reads.
 
-Stored GLOBALLY (persistence/app_settings.py), not per score like the mixer
-- a lead-in length is a practice habit that should follow the user from
-piece to piece, the same reasoning as the UK/US dialect. Confirmed with the
-user. (The absolute playback tempo IS per-score - models/music_data.py's
-playback_tempo_bpm - since that is a property of the piece.)
+Stored PER SCORE (models/music_data.py's play_settings, saved in the
+score's .rsc via ScoreConfig), like the mixer and the absolute playback
+tempo. This reverses an earlier "global practice habit" decision at the
+user's request: every newly opened score starts from the defaults below,
+whatever the last score was set to.
 
 stdlib-only for the same reason as models/mixer_settings.py and
 models/score_config_data.py: models/ must stay Qt-free (guarded by
@@ -68,9 +68,10 @@ def _clamp(value: int, low: int, high: int) -> int:
 
 @dataclass
 class PlaySettings:
-    """Defaults are the shipped ones, chosen with the user: lead-in on with
-    one full bar of clicks to get ready, looping off until it's asked for,
-    a two-bar loop window when it is.
+    """Defaults are what every newly opened score starts with, chosen with
+    the user: lead-in off (but one bar, no extra beats, once switched on),
+    "play to end" (but a one-bar loop window once looping is chosen), and no
+    lead-in on every loop repeat.
 
     lead_in_beats is EXTRA beats on top of lead_in_bars (so 1 bar + 2 beats
     in 4/4 counts six beats), not a total.
@@ -86,11 +87,11 @@ class PlaySettings:
     already uses.
     """
 
-    lead_in_enabled: bool = True
+    lead_in_enabled: bool = False
     lead_in_bars: int = 1
     lead_in_beats: int = 0
     play_mode: str = DEFAULT_PLAY_MODE
-    loop_length_bars: int = 2
+    loop_length_bars: int = 1
     loop_lead_in: bool = False
     # How a repeat barline clipped by the loop window is read while looping
     # (see LOOP_REPEAT_MODES above). Only consulted when looping is on and

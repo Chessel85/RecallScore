@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Tuple
 
 from models.mixer_settings import MixerSettings
+from models.play_settings import PlaySettings
 from models.refresh_settings import RefreshSettings
 
 VoiceKey = Tuple[str, int, int]
@@ -80,6 +81,11 @@ class ScoreConfig:
     # newly opened score always gets RefreshSettings' own defaults (ticked,
     # no delay) unless this .rsc says otherwise.
     refresh_settings: RefreshSettings = field(default_factory=RefreshSettings)
+    # Lead-in / play mode / loop length / loop repeat handling - per-score
+    # like refresh_settings above (formerly global in app_settings.py; the
+    # user changed that). An .rsc without the key gets PlaySettings' own
+    # defaults.
+    play_settings: PlaySettings = field(default_factory=PlaySettings)
     # S5: per-part display-name/instrument overrides, keyed by part_id.
     # Same "explicit overrides only" shape as mixer above - empty means
     # every part keeps showing exactly what the file itself declared.
@@ -103,8 +109,7 @@ class ScoreConfig:
     key_signature_override_mode: Optional[str] = None
     # Ref 12: the absolute playback tempo the user set for this piece, in
     # quarter-note BPM (denominator-independent). None means "use the
-    # score's own opening tempo". Per-score, unlike the global lead-in /
-    # looping habits in persistence/app_settings.py.
+    # score's own opening tempo" (120 when the score declares none).
     playback_tempo_bpm: Optional[float] = None
     # Options > Reorder Parts... - the part_id order the user chose, which
     # in turn controls Region 3's note-row order (most importantly, which

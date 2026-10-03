@@ -338,12 +338,12 @@ def test_play_command_honours_looping_like_space(
     window.toggle_play_stop()  # stop the loop
 
 
-def test_set_loop_length_bars_persists_globally(window, qtbot, minimal_score):
+def test_set_loop_length_bars_is_stored_on_the_score(window, qtbot, minimal_score):
     load_and_wait(window, qtbot, minimal_score)
 
     window.playback.set_loop_length_bars(6)
 
-    assert app_settings.load().play.loop_length_bars == 6
+    assert window._music_data.export_config().play_settings.loop_length_bars == 6
 
 
 def test_sequencer_steps_advance_the_cursor_and_regions_over_real_time(
@@ -742,14 +742,15 @@ def test_looping_pickup_does_not_wait_out_the_beats_it_replaces(
     window.toggle_play_stop()
 
 
-# --- Alt+PageUp/PageDown: adjust loop length (global) ------------------
+# --- Alt+PageUp/PageDown: adjust loop length (per score) ---------------
 
 def test_alt_page_up_and_down_adjust_the_loop_length_by_one_bar(window, qtbot, minimal_score):
     load_and_wait(window, qtbot, minimal_score)
     _show(window, qtbot)
     _focus(window.region_3)
-    assert window.playback.play_settings.loop_length_bars == 2
+    assert window.playback.play_settings.loop_length_bars == 1
 
+    qtbot.keyClick(window, Qt.Key.Key_PageUp, Qt.KeyboardModifier.AltModifier)
     qtbot.keyClick(window, Qt.Key.Key_PageUp, Qt.KeyboardModifier.AltModifier)
 
     assert window.playback.play_settings.loop_length_bars == 3
@@ -759,7 +760,7 @@ def test_alt_page_up_and_down_adjust_the_loop_length_by_one_bar(window, qtbot, m
     qtbot.keyClick(window, Qt.Key.Key_PageDown, Qt.KeyboardModifier.AltModifier)
 
     assert window.playback.play_settings.loop_length_bars == 1
-    assert window.status_bar._fields[7].text() == "Loop length: 1 measures"
+    assert window.status_bar._fields[7].text() == "Loop length: 1 measure"
 
 
 def test_alt_page_up_and_down_work_from_any_region_without_moving_focus(
@@ -808,17 +809,17 @@ def test_bare_page_up_down_leaves_the_loop_length_untouched(window, qtbot, minim
     qtbot.keyClick(window.region_3, Qt.Key.Key_PageUp)
     qtbot.keyClick(window.region_3, Qt.Key.Key_PageDown)
 
-    assert window.playback.play_settings.loop_length_bars == 2
+    assert window.playback.play_settings.loop_length_bars == 1
 
 
-def test_alt_page_up_persists_the_new_length_globally(window, qtbot, minimal_score):
+def test_alt_page_up_stores_the_new_length_on_the_score(window, qtbot, minimal_score):
     load_and_wait(window, qtbot, minimal_score)
     _show(window, qtbot)
     _focus(window.region_3)
 
     qtbot.keyClick(window, Qt.Key.Key_PageUp, Qt.KeyboardModifier.AltModifier)
 
-    assert app_settings.load().play.loop_length_bars == 3
+    assert window._music_data.export_config().play_settings.loop_length_bars == 2
 
 
 # --- Ctrl+Enter: commit a typed number as the loop length ------------
@@ -832,7 +833,7 @@ def test_ctrl_enter_sets_the_loop_length_from_a_typed_number(window, qtbot, mini
 
     assert window.playback.play_settings.loop_length_bars == 8
     assert window.navigation.pending_digits == ""
-    assert app_settings.load().play.loop_length_bars == 8
+    assert window._music_data.export_config().play_settings.loop_length_bars == 8
 
 
 def test_ctrl_enter_with_looping_off_announces_and_clears(window, qtbot, monkeypatch, minimal_score):
@@ -874,7 +875,7 @@ def test_ctrl_l_cycles_the_three_play_modes_and_persists(window, qtbot, monkeypa
 
     window.cycle_play_mode()
     assert window.playback.play_settings.play_mode == "loop_once"
-    assert app_settings.load().play.play_mode == "loop_once"
+    assert window._music_data.export_config().play_settings.play_mode == "loop_once"
     assert spoken[-1] == "loop_once"
 
     window.cycle_play_mode()
@@ -887,13 +888,45 @@ def test_ctrl_l_cycles_the_three_play_modes_and_persists(window, qtbot, monkeypa
 
 def test_ctrl_i_toggles_the_lead_in_and_keeps_the_menu_in_sync(window, qtbot, minimal_score):
     load_and_wait(window, qtbot, minimal_score)
-    assert window.playback.play_settings.lead_in_enabled is True
+    assert window.playback.play_settings.lead_in_enabled is False
+    assert window._actions.lead_in_toggle.isChecked() is False
 
     window.toggle_lead_in()
 
-    assert window.playback.play_settings.lead_in_enabled is False
+    assert window.playback.play_settings.lead_in_enabled is True
+    assert window._actions.lead_in_toggle.isChecked() is True
+    assert window._music_data.export_config().play_settings.lead_in_enabled is True
+
+
+def test_a_newly_opened_score_starts_from_the_default_play_settings(
+    window, qtbot, minimal_score, six_eight_score
+):
+    """Per-score, not global: changing one score's play settings must not
+    carry over to the next score opened (which has no .rsc of its own)."""
+    load_and_wait(window, qtbot, minimal_score)
+    window.playback.set_play_settings(
+        PlaySettings(lead_in_enabled=True, lead_in_bars=2, play_mode="loop_forever",
+                     loop_length_bars=4, loop_lead_in=True)
+    )
+    window._actions.lead_in_toggle.setChecked(True)
+
+    load_and_wait(window, qtbot, six_eight_score)
+
+    assert window.playback.play_settings == PlaySettings()
     assert window._actions.lead_in_toggle.isChecked() is False
-    assert app_settings.load().play.lead_in_enabled is False
+
+
+def test_reopening_a_score_restores_its_own_play_settings(
+    window, qtbot, minimal_score, six_eight_score
+):
+    load_and_wait(window, qtbot, minimal_score)
+    window.playback.set_play_settings(PlaySettings(lead_in_enabled=True, loop_length_bars=4))
+    load_and_wait(window, qtbot, six_eight_score)
+
+    load_and_wait(window, qtbot, minimal_score)
+
+    assert window.playback.play_settings == PlaySettings(lead_in_enabled=True, loop_length_bars=4)
+    assert window._actions.lead_in_toggle.isChecked() is True
 
 
 # --- E7: chord audition retrigger on Shift+Space (Ref 13) --------------

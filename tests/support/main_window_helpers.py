@@ -13,10 +13,10 @@ from models.play_settings import PlaySettings
 def no_lead_in(window, **overrides):
     """Play settings with no count-in and no looping.
 
-    The shipped default is a one-bar lead-in (models/play_settings.py),
-    which is right for practice but means Space no longer sounds anything
-    until the count-in finishes. Tests asserting what playback PLAYS opt
-    out of it; the lead-in has its own tests.
+    The shipped default already has the lead-in off (models/play_settings.py),
+    but tests asserting what playback PLAYS pin it explicitly so they don't
+    depend on that default; the lead-in has its own tests. Play settings are
+    per-score, so call this AFTER loading the score - a load replaces them.
     """
     overrides.setdefault("lead_in_enabled", False)
     # Back-compat shim: callers still pass loop_enabled=True/False; map it to
