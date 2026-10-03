@@ -14,11 +14,6 @@ code in that area:
 | `Product Definition Document.md` | any numbered requirement (Ref N) — the authoritative spec |
 | `docs/sapi_spike_findings.md` | voice control, if classic SAPI is ever reconsidered |
 
-## Notifications
-
-Handled automatically by Stop/Notification hooks in `~/.claude/settings.json`
-(SAPI text-to-speech). No action needed here.
-
 ## Project
 
 "Recall Score" (local folder `SReader`, GitHub repo `RecallScore`) — a
@@ -64,13 +59,13 @@ Windows, Python 3.13, dependencies in the checked-out `.venv` (not tracked):
 .venv\Scripts\Activate.ps1                # then plain `python main.py`
 ```
 
-Dependencies are split: `requirements.txt` (runtime — PySide6 6.11, music21
-10.5, pyfluidsynth 1.4, python-rtmidi 1.5), `requirements-dev.txt` (pytest,
-pytest-qt, pytest-cov), `requirements-build.txt` (pyinstaller, only for the
-installer). `mido` is no longer used or installed. No linter is configured.
+Dependencies are split: `requirements.txt` (runtime, pinned there),
+`requirements-dev.txt` (pytest, pytest-qt, pytest-cov), `requirements-build.txt`
+(pyinstaller, only for the installer). MIDI parsing is hand-rolled — there is
+no `mido`. No linter is configured.
 
 ```powershell
-.venv\Scripts\python.exe -m pytest                    # whole suite (~0.6s)
+.venv\Scripts\python.exe -m pytest                    # whole suite (~1 min)
 .venv\Scripts\python.exe -m pytest -m "not slow"      # skip music21 tests
 .venv\Scripts\python.exe -m pytest tests/models/test_music_data.py::test_name
 .venv\Scripts\python.exe -m pytest --cov=models --cov=parsers --cov=widgets
@@ -114,7 +109,7 @@ music21 at ~460 ms; those tests carry the `slow` marker.
 exist only in the working tree.
 
 **This is load-bearing.** The soundfont exceeds GitHub's 100 MB file limit;
-committing it in August blocked all pushes and cost two days to recover. **Never
+committing it blocks every push until history is rewritten. **Never
 `git add` these paths, never remove those `.gitignore` entries**, and if you need
 to restore them use `git cat-file blob <sha> > <path>` — `git checkout <commit>
 -- bin/` stages the files and reintroduces the problem.
@@ -123,10 +118,10 @@ If the binaries are missing the app still runs: `SynthEngine` sets
 `FLUIDSYNTH_AVAILABLE = False`, prints a warning, and every playback call becomes
 a no-op.
 
-(Airfont_380 replaced the earlier `FluidR3_GM.sf2`, whose piano/viola patches
-bake a hard-left/hard-right zone layer into every note — a common GM soundfont
-"stereo width" trick that a channel's pan CC can only partially offset — which
-defeated the Mixer's pan feature.)
+Don't swap in a soundfont whose patches bake a hard-left/hard-right zone layer
+into every note (FluidR3_GM's piano/viola do — a common GM "stereo width"
+trick): a channel's pan CC can only partially offset it, which defeats the
+Mixer's pan feature.
 
 ## Packaging (Windows installer)
 
@@ -189,8 +184,8 @@ bottom row); Tab/Shift+Tab cycle.
 1. **`models/` stays Qt-free**, guarded by
    `test_models_package_does_not_import_qt` **in a subprocess** (the test session
    loads PySide6 via conftest, so in-process `sys.modules` proves nothing).
-2. **`models/` never imports from `parsers/`.** That inversion cost 461 ms and
-   706 modules to import the data model; it is now 45 ms and 111.
+2. **`models/` never imports from `parsers/`.** Importing the data model must
+   not pull in the parsers' (music21-sized) dependency tree.
    `MusicData.__post_init__`'s function-local factory import is deliberate —
    don't hoist it to module scope.
 3. **`MusicData` is replaced wholesale on every load.** No controller and no
@@ -255,18 +250,16 @@ Everything behind these — why, and what else follows from them — is in
 * **Parsing errors are swallowed** with `print("[ERROR] ...")` and partial state.
   Ref 25 / NFR-06 call for an accessible error dialog; prefer moving that way
   over adding more silent prints.
-* **Not yet built despite being specified:** voice control, edit mode, MIDI
-  export (import is done, Ref 25), Guitar Pro / BME I/O, capo handling, chord
-  naming.
+* **Not yet built despite being specified:** edit mode, MIDI export (import
+  is done, Ref 25), Guitar Pro / BME I/O, capo handling, chord naming.
 * **Metronome click sound** (Ref 14) is functional but not satisfying — two
   synthesis attempts (a sawtooth lead, then GM percussion Claves) were both
   live-tested and found lacking. Functional debt, not a missing feature; see
   tasks.txt E11 / D-14.
 * **Voice control (Ref 19):** the classic SAPI 5.4 approach was built,
   live-tested and abandoned (accuracy, not plumbing). Current path is Vosk
-  (tasks.txt L1). The code is preserved on branch `feature/voice-control`;
-  findings are in `docs/sapi_spike_findings.md`. **None of that code should be
-  revived as-is.**
+  (tasks.txt L1). Findings from the SAPI attempt are in
+  `docs/sapi_spike_findings.md`. **Do not revive the SAPI approach as-is.**
 * **Ornaments and notations are parsed as label-only, findable data — never
   audibly realized.** A trill plays as the plain written note, an
   `<octave-shift>` does not transpose playback, a fermata does not lengthen it.
@@ -313,12 +306,9 @@ Standing authorization to commit and push once the user says "commit" / "push" /
 force-push, `reset --hard`, or other destructive operations.
 
 **Merge a feature branch to `main` only on explicit request.** "Commit and push"
-on a feature branch does not mean merging it. `feature/ug-import` was created
-deliberately off `main` because the whole feature was speculative ("I want to be
-able to roll back... if testing shows this rather experimental endeavour does not
-work well enough"); it was fast-forward merged on 2026-08-16 (`fb98091`) only
-after the user confirmed testing held up. The same reasoning applies to any
-future speculative feature.
+on a feature branch does not mean merging it: speculative features live on their
+own branch so they can be rolled back if testing shows they don't hold up, and
+the user decides when testing has.
 
 ## Git recovery notes
 

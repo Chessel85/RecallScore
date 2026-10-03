@@ -1,7 +1,7 @@
 # Runtime dependencies for Recall Score.
 # Test-only dependencies live in requirements-dev.txt.
 #
-# Native FluidSynth DLLs (bin/) and the FluidR3_GM.sf2 SoundFont
+# Native FluidSynth DLLs (bin/) and the Airfont_380_final.sf2 SoundFont
 # (soundfonts/) are NOT pip-installable and are not tracked in git.
 # See CLAUDE.md - the app runs without them, just silently.
 

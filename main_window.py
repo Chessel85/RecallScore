@@ -171,7 +171,7 @@ class MainWindow(QMainWindow):
         interface (set_callback / set_diagnostic_callback / list_devices /
         start / stop / is_running / rebuild_grammar / set_confidence_
         threshold). Tests pass a NullVoiceRecognizer stand-in so no real
-        SAPI COM recognizer is touched - same reasoning as live_midi_manager.
+        speech recognizer is touched - same reasoning as live_midi_manager.
 
         tuner_manager: any object with the TunerCapture interface
         (set_callback / set_target / list_devices / open / close / is_open /
@@ -451,7 +451,7 @@ class MainWindow(QMainWindow):
         # straight into navigation/playback, so it's constructed once both
         # exist. Global like live_midi above, for the same reasoning -
         # confirmed with the user. .start() auto-starts listening if enabled
-        # and pywin32/SAPI are available; degrades silently otherwise.
+        # and Vosk/sounddevice are available; degrades silently otherwise.
         self.voice_control = VoiceControlController(
             self.session.synth, self.navigation, self.playback, parent=self,
             voice_manager=self._voice_control_manager,

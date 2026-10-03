@@ -127,7 +127,7 @@ class VoiceControlController(QObject):
     def start(self) -> None:
         """Auto-start listening if enabled and a device was saved - called
         once at startup. Silent no-op otherwise (no popup, no exception):
-        the feature never having been enabled, or pywin32/SAPI not being
+        the feature never having been enabled, or Vosk/sounddevice not being
         available, are both ordinary states, not errors."""
         if self.settings.enabled:
             self._connect(self.settings.device_name)

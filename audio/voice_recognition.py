@@ -1,5 +1,5 @@
 # audio/voice_recognition.py
-"""Hands-free voice control (feature/voice-control-vosk, Ref 19): an offline
+"""Hands-free voice control (Ref 19): an offline
 Vosk (Kaldi-based) speech recognizer, capturing the microphone via
 sounddevice (PortAudio) - run in a SEPARATE CHILD PROCESS
 (audio/voice_recognition_worker.py), not in-process.
@@ -20,8 +20,8 @@ sounddevice only, never PySide6/audio.synth_engine) so launching it can
 never itself re-trigger the collision.
 
 This is the second attempt at this feature - the first (SAPI 5.4, via
-pywin32) is preserved on branch feature/voice-control and documented in
-CLAUDE.md's "Known gaps" section. It worked once several undocumented SAPI/
+pywin32) was abandoned and is documented in CLAUDE.md's "Known gaps"
+section and docs/sapi_spike_findings.md. It worked once several undocumented SAPI/
 win32com quirks were fixed, but the underlying engine's own accuracy proved
 inconsistent even for this app's small command vocabulary, and some of the
 bugs found (an empty device-token registry, a broken per-device-selection

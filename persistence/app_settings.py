@@ -42,7 +42,7 @@ class AppSettings:
     for the same reasoning as play - confirmed with the user: it's the
     user's hardware setup, not a property of any one score.
 
-    voice_control (device/confidence threshold for hands-free SAPI voice
+    voice_control (device/confidence threshold for hands-free voice
     control, controllers/voice_control_controller.py) is global for the same
     reasoning as live_midi_input above.
 

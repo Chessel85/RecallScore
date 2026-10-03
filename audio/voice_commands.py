@@ -1,18 +1,16 @@
 # audio/voice_commands.py
-"""Hands-free voice control (feature/voice-control): the fixed command
-vocabulary for the SAPI command-and-control grammar, plus "go to bar N"'s
-number-word generation.
+"""Hands-free voice control (Ref 19): the fixed command vocabulary for the
+Vosk phrase-list grammar, plus "go to bar N"'s number-word generation.
 
-Pure Python, no Qt/COM anywhere in this file - independently unit-testable
-without a real SAPI recognizer. audio/voice_recognition.py (the COM wrapper)
-imports this to build the grammar XML and to resolve recognized text back to
-a command.
+Pure Python, no Qt anywhere in this file - independently unit-testable
+without a real recognizer. audio/voice_recognition.py imports this to build
+the phrase list sent to the Vosk worker and to resolve recognized text back
+to a command.
 
 Restricting the grammar to this fixed vocabulary (no open dictation) is the
 main accuracy lever for this feature: the user's instrument and any
 background speech have nothing phonetically plausible to match against a
-small closed set of commands, so SAPI's own CFG rejection model does most of
-the work.
+small closed set of commands, so the recognizer rejects most of it.
 """
 from typing import Dict, List, Optional, Tuple
 
@@ -119,7 +117,7 @@ def number_to_words(n: int) -> str:
     measure number needs (every score this app has seen tops out in the
     hundreds), not a general-purpose number-to-words library. "And" is
     deliberately omitted ("one hundred five", not "one hundred and five") -
-    a SAPI grammar phrase must match what is actually said, and the shorter
+    a grammar phrase must match what is actually said, and the shorter
     form is unambiguous either way."""
     if n < 0:
         raise ValueError(f"number_to_words does not support negative numbers: {n}")
@@ -184,7 +182,7 @@ def parse_command(
     loop_length_lookup: Optional[Dict[str, int]] = None,
     attribute_lookup: Optional[Dict[str, int]] = None,
 ) -> Optional[Tuple[str, Optional[int]]]:
-    """Resolves SAPI's recognized text to (command_name, number_value).
+    """Resolves the recognizer's text to (command_name, number_value).
     number_value is None for every command except GO_TO_BAR (a measure
     number), LOOP_LENGTH (a bar count) and ATTRIBUTE (a Region 4 row
     number) - the three parameterized commands. Returns None for anything

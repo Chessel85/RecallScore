@@ -174,8 +174,8 @@ def run() -> None:
             })
         # Partial results (current_recognizer.PartialResult()) are
         # deliberately never read here - only a completed utterance is ever
-        # reported, matching the SAPI attempt's own "act only on a final
-        # result, never a hypothesis" choice.
+        # reported, so the app only ever acts on a final result,
+        # never a hypothesis.
 
     stream.stop()
     stream.close()
