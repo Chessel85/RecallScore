@@ -2,7 +2,7 @@
 <!-- Stage 8 (PerformanceMarkingsStrategy.md section 12): a two-note chord
      (C4+E4) where C4 ties into the next chord's C4 but E4 does not tie at
      all (the next chord's note is G4, unrelated). Chains are keyed by
-     pitch (part_id, staff, voice, midi_pitch), so only the C4 pair merges;
+     pitch (part_id, staff, voice, midi_pitch), so only the C4 pair is a tied chain;
      E4 and G4 are untouched, ordinary independent notes. -->
 <score-partwise version="4.0">
   <part-list>

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Stage 8 (PerformanceMarkingsStrategy.md section 12): a tied chain of
-     three C4 quarters where the MIDDLE note carries a fermata - each note
-     reads "start / mid / end tie" regardless of the marking. -->
+<!-- A tied pair of C4 quarters where the SECOND (last) note carries a
+     fermata, so it keeps its own timeline event as the chain's end:
+     "C, start tie" then "C, end tie". -->
 <score-partwise version="4.0">
   <part-list>
     <score-part id="P1"><part-name>Test Part</part-name>
@@ -22,11 +22,7 @@
       </note>
       <note><pitch><step>C</step><octave>4</octave></pitch>
         <duration>1</duration><voice>1</voice><type>quarter</type><staff>1</staff>
-        <notations><tied type="stop"/><tied type="start"/><fermata/></notations>
-      </note>
-      <note><pitch><step>C</step><octave>4</octave></pitch>
-        <duration>1</duration><voice>1</voice><type>quarter</type><staff>1</staff>
-        <notations><tied type="stop"/></notations>
+        <notations><tied type="stop"/><fermata/></notations>
       </note>
     </measure>
   </part>

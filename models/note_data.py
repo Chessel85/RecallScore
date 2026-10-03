@@ -126,16 +126,17 @@ class NoteData:
     # chord_diagram - a spoken chord-shape summary from MusicXML
     #                 harmony/frame ("frets 3 2 0 0 0 1", "x" for a muted
     #                 string, "barre at fret N"/"from fret N" suffixes).
-    # Stage 8 (PerformanceMarkingsStrategy.md section 12): set on a tied
-    # continuation note that carries its own marking and so keeps its own
-    # timeline event instead of being merged into its chain's head (see
-    # parsers/timeline_builder.py TimelineBuilder._merge_tied_chains). Its
-    # ts_duration/quarter_length hold the REMAINING length of the chain
-    # from this point, not this note's own written length - the whole
-    # chain's length is already stated at the head. Never re-attacked in
-    # playback (PlaybackEventBuilder suppresses it there); arrowing onto it
-    # still auditions the pitch, a separate, unaffected path.
-    is_tie_continuation: bool = False
+    # Stage 8 (PerformanceMarkingsStrategy.md section 12): a note's place
+    # in a tied chain, set by parsers/timeline_builder.py
+    # TimelineBuilder._mark_tied_chains - "start" / "mid" / "end".
+    # Every member stays its own timeline event with its own written
+    # duration; rendered as "B, start tie" / "B, mid tie" / "B, end tie"
+    # in the step text. tied_quarter_length is set on the "start" note
+    # only: the whole chain's length, which real playback (the Sequencer)
+    # holds the head for instead of re-attacking the mid/end notes.
+    # Navigation audition ignores it and sounds each note as written.
+    tie_position: Optional[str] = None
+    tied_quarter_length: Optional[float] = None
     tie: Optional[str] = None
     slur: Optional[str] = None
     tuplet: Optional[str] = None
@@ -148,3 +149,11 @@ class NoteData:
     other_notation: Optional[str] = None
     chord_symbol: Optional[str] = None
     chord_diagram: Optional[str] = None
+
+    @property
+    def is_tie_continuation(self) -> bool:
+        """A tied chain's mid/end note - never re-attacked in real playback
+        (PlaybackEventBuilder suppresses it there); arrowing onto it still
+        auditions the pitch. Derived from tie_position so the two can't
+        disagree."""
+        return self.tie_position in ("mid", "end")

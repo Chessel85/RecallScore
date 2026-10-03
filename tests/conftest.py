@@ -443,15 +443,22 @@ def stage7_barline_marker_pickup_score() -> str:
 @pytest.fixture
 def stage8_tied_chain_of_three_score() -> str:
     """Stage 8 (section 12): three tied C4 quarters, no marking on the
-    continuations - one merged attack, quarter_length 3.0."""
+    continuations - start/mid/end tie, held 3.0 quarters in playback."""
     return _require(FIXTURES_DIR / "stage8_tied_chain_of_three.musicxml")
 
 
 @pytest.fixture
 def stage8_tied_chain_with_fermata_middle_score() -> str:
     """Stage 8 (section 12): a tied chain of three C4 whose middle note
-    carries a fermata - kept as its own moment event."""
+    carries a fermata."""
     return _require(FIXTURES_DIR / "stage8_tied_chain_with_fermata_middle.musicxml")
+
+
+@pytest.fixture
+def tied_pair_with_fermata_end_score() -> str:
+    """A tied pair of C4 (the second carrying a fermata) - start then end
+    tie, no mid."""
+    return _require(FIXTURES_DIR / "tied_pair_with_fermata_end.musicxml")
 
 
 @pytest.fixture

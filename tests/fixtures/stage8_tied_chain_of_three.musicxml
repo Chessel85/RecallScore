@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Stage 8 (PerformanceMarkingsStrategy.md section 12): three tied
      quarter notes at the same pitch (C4), all in one 4/4 bar, followed by a
-     plain untied quarter (D4). The chain must merge into ONE attack (the
-     first C4) with quarter_length 3.0 (a dotted half) and the two
-     continuation C4 notes must vanish from the timeline entirely - neither
-     carries any marking beyond the tie. -->
+     plain untied quarter (D4). Every C4 stays its own event at its own
+     written quarter length ("start / mid / end tie"); only real playback
+     folds them into one attack held for 3.0 quarters. -->
 <score-partwise version="4.0">
   <part-list>
     <score-part id="P1"><part-name>Test Part</part-name>

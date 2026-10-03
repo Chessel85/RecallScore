@@ -61,12 +61,13 @@ class PlaybackEventBuilder:
         index: read an explicit slice instead of the cursor (Sequencer).
 
         suppress_tie_continuations (stage 8, strategy section 12): True
-        only on the real Sequencer path (events_at_index) - a tied
-        continuation note is already sounding, held by its chain's head
-        attack, and must not be re-attacked. The navigation-audition path
-        (audition_selection -> get_playback_events_for_indices, this
-        method's direct callers) leaves it False, since arrowing onto such
-        a note must still sound its pitch - a separate, unaffected path.
+        only on the real Sequencer path (events_at_index) - a tied chain's
+        head is held for the whole chain (tied_quarter_length) and its
+        mid/end notes, already sounding, are not re-attacked. The
+        navigation-audition path (audition_selection ->
+        get_playback_events_for_indices, this method's direct callers)
+        leaves it False, so arrowing sounds each tied note at its own
+        written length.
         """
         data = self.data
         pitches_by_part, part_order, quarter_length_by_part = self._group_by_part(
@@ -152,6 +153,11 @@ class PlaybackEventBuilder:
             note = notes[i]
             if suppress_tie_continuations and note.is_tie_continuation:
                 continue
+            # Real playback folds a tied chain into its head: held for the
+            # whole chain's length, not just its own written length.
+            quarter_length = note.quarter_length
+            if suppress_tie_continuations and note.tied_quarter_length is not None:
+                quarter_length = note.tied_quarter_length
             pitches = pitches_of(note)
             if not pitches:
                 continue
@@ -162,7 +168,7 @@ class PlaybackEventBuilder:
             pitches_by_part[note.part_id].extend(pitches)
             if track_quarter_length:
                 quarter_length_by_part[note.part_id] = max(
-                    quarter_length_by_part[note.part_id], note.quarter_length
+                    quarter_length_by_part[note.part_id], quarter_length
                 )
         return pitches_by_part, part_order, quarter_length_by_part
 

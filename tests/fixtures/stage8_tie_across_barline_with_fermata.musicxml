@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Stage 8: a tie across a barline (bar 1's C4 -> bar 2's C4, merging to
-     one attack of quarter_length 8.0) with a fermata on that SAME barline.
-     The two mechanisms are independent: the tied continuation vanishes
-     from the timeline (nothing beyond the tie), and the barline fermata
-     still gets its own moment event at that exact boundary. -->
+<!-- Stage 8: a tie across a barline (bar 1's C4 -> bar 2's C4, held
+     for 8.0 quarters in real playback) with a fermata on that SAME
+     barline. The two mechanisms are independent: both tied notes stay
+     their own events, and the barline fermata gets its own moment event
+     between them. -->
 <score-partwise version="4.0">
   <part-list>
     <score-part id="P1"><part-name>Test Part</part-name>

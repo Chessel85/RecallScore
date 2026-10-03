@@ -231,7 +231,7 @@ bottom row); Tab/Shift+Tab cycle.
     a `<words>` and a `<dashes>` in one `<direction>` are one length marking
     named by the words; two separate `<direction>` elements are two markings.
 15. **Timeline conventions:** rests are skipped (navigation lands only on
-    attacks); a pickup bar makes the pickup measure **0**; beat positions and
+    sounding notes, including each tied note — only real playback folds a tie); a pickup bar makes the pickup measure **0**; beat positions and
     durations are **relative to the time-signature denominator**, not to quarter
     notes; read repeatable `<notations>` children with `.findall()`, never
     `.find()`. A transposing instrument's `<attributes>/<transpose>` shifts
@@ -269,7 +269,9 @@ Everything behind these — why, and what else follows from them — is in
   `<accidental-mark>` — a new inference heuristic in the spirit of
   `spell_pitch`). The user weighed that against grace notes' own "brief pre-note,
   not exact performance practice" simplification and judged the inference risk not
-  worth it. Ties, arpeggios, pedal and octave shift are likewise label-only.
+  worth it. Arpeggios, pedal and octave shift are likewise label-only; ties are
+  folded only in real playback (each tied note stays navigable, labelled
+  "start / mid / end tie").
 
   What **is** read and surfaced (Region 3/4 text plus Find targets): `tied`,
   `slur`, `fermata`, `arpeggiate`/`non-arpeggiate` on chord notes,

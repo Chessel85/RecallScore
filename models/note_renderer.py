@@ -61,12 +61,12 @@ class NoteRenderer:
             # Region 3 and Region 4 since both read this same "step" pair.
             grace_str = ", ".join(g.step_name for g in note.grace_notes)
             step_str = f"{step_str} grace {grace_str}"
-        if note.is_tie_continuation:
-            # Stage 8: "F sharp, tied" - the pitch plus a word placing it
-            # inside the tie; whatever marking made this its own event
-            # (fermata, dynamic, ...) still renders through the ordinary
-            # attribute pipeline below, exactly as it would on any note.
-            step_str = f"{step_str}, tied"
+        if note.tie_position:
+            # Stage 8: "F sharp, start tie" / "mid tie" / "end tie" - the
+            # pitch plus words placing it in its tied chain. Every member
+            # is its own event at its own written duration; only real
+            # playback folds the chain together (PlaybackEventBuilder).
+            step_str = f"{step_str}, {note.tie_position} tie"
 
         pairs = {"step": step_str}
         if note.octave is not None:
@@ -99,9 +99,9 @@ class NoteRenderer:
             # NoteData.grace holds - the grace_notes list still drives the
             # separate "A grace B" step rendering above. `tie` itself is
             # deliberately NOT rendered here (stage 8, strategy section 12)
-            # - a tied chain's duration IS the tie now; note.tie stays a
-            # real field only for TimelineBuilder._merge_tied_chains'
-            # internal chain detection.
+            # - tie_position's "start/mid/end tie" step text says it once;
+            # note.tie stays a real field only for TimelineBuilder.
+            # _mark_tied_chains' internal chain detection.
             ("slur", marking_labels.span_state_word(note.slur)),
             ("tuplet", note.tuplet),
             ("grace", note.grace),

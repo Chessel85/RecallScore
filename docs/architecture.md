@@ -1396,9 +1396,12 @@ above.
 are presence-filtered, so a score with none shows nothing extra; both are covered
 by tests feeding an invented element name.
 
-**Not made audible** (standing decision, unchanged): ties, arpeggios, ornaments,
+**Not made audible** (standing decision, unchanged): arpeggios, ornaments,
 pedal and octave shift stay label-only; `<octave-shift>` does not transpose
-playback. See Known gaps in `CLAUDE.md`.
+playback. See Known gaps in `CLAUDE.md`. Ties are the exception: every tied
+note is its own navigable event labelled "start / mid / end tie" and
+auditioned at its written length, while real playback holds the chain's
+first note for the whole chain (`NoteData.tied_quarter_length`).
 
 **Instrument transposition is the exception** — `<attributes>/<transpose>` for a
 B♭ trumpet, F horn, double bass at `<octave-change>-1`, … *is* applied, but only

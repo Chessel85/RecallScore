@@ -1209,93 +1209,90 @@ def test_tie_and_slur_types_land_on_the_right_notes(timeline, tie_and_slur_score
     assert (f.tie, f.slur) == (None, None), "the plain note carries neither"
 
 
-# --- Stage 8: ties become duration (strategy section 12) --------------
+# --- Stage 8: ties (strategy section 12) ---------------------------------
+#
+# Every tied note stays its own navigable event at its own written length,
+# labelled start/mid/end tie; only real playback folds the chain together.
 
 
-def test_tied_chain_of_three_merges_into_one_attack(
+def test_tied_chain_of_three_keeps_every_note_as_its_own_event(
     timeline, stage8_tied_chain_of_three_score
 ):
     md = timeline(stage8_tied_chain_of_three_score)
     notes = _notes(md, "P1")
-    # The two continuation C4s carry nothing beyond the tie, so they vanish
-    # entirely - only the head C4 (now 3 quarters long) and the plain D4
-    # remain, one navigable stop each.
-    assert [n.step_name for n in notes] == ["C", "D"]
-    head = notes[0]
-    assert head.quarter_length == 3.0
-    assert head.ts_duration == 3.0
-    assert head.duration_name_us == "dotted half"
-    assert head.is_tie_continuation is False
-
-    # One EventSlice per surviving note - the two merged-away continuations
-    # took their slices with them.
-    assert len(md.timeline_slices) == 2
-
-
-def test_tied_continuation_with_a_marking_keeps_its_own_event(
-    timeline, stage8_tied_chain_with_fermata_middle_score
-):
-    md = timeline(stage8_tied_chain_with_fermata_middle_score)
-    notes = _notes(md, "P1")
-    # Head (merged, 3 quarters total) + the fermata-carrying middle (kept,
-    # remaining length from there = 2.0) - the marking-free third note
-    # vanished into the chain.
-    assert len(notes) == 2
-    head, continuation = notes
-
-    assert head.quarter_length == 3.0
-    assert head.is_tie_continuation is False
-
-    assert continuation.is_tie_continuation is True
-    assert continuation.fermata is not None
-    assert continuation.quarter_length == 2.0, "remaining chain length from this point"
-    assert continuation.ts_duration == 2.0
-
-    # Both are real, separately navigable timeline events.
-    assert len(md.timeline_slices) == 2
+    assert [n.step_name for n in notes] == ["C", "C", "C", "D"]
+    assert len(md.timeline_slices) == 4
+    assert [n.tie_position for n in notes] == ["start", "mid", "end", None]
+    assert [md._format_note_for_region_3(n) for n in notes] == [
+        "C, start tie", "C, mid tie", "C, end tie", "D",
+    ]
+    # Each note keeps its own written duration; only the head carries the
+    # whole chain's length, for playback.
+    assert [n.quarter_length for n in notes[:3]] == [1.0, 1.0, 1.0]
+    assert [n.duration_name_us for n in notes[:3]] == ["quarter"] * 3
+    assert notes[0].tied_quarter_length == 3.0
+    assert notes[1].tied_quarter_length is None
+    assert [n.is_tie_continuation for n in notes] == [False, True, True, False]
 
 
-def test_tied_continuation_step_text_reads_pitch_then_tied(
+def test_tied_chain_with_a_marking_mid_chain(
     timeline, stage8_tied_chain_with_fermata_middle_score
 ):
     """"fermata" is deliberately NOT in DEFAULT_DISPLAY_ATTRIBUTES (PI
     tweaks follow-up) - a note-attached fermata is promoted to its own
     part-level note-list row instead of being spoken inline per note (see
     test_fermata_is_a_deduped_part_level_row_not_inline_text below), so
-    this note's own text stays exactly "C, tied"."""
+    these notes' own text stays exactly "C, start/mid/end tie"."""
     md = timeline(stage8_tied_chain_with_fermata_middle_score)
-    continuation = _notes(md, "P1")[1]
-    assert md._format_note_for_region_3(continuation) == "C, tied"
+    head, middle, end = _notes(md, "P1")
+    assert middle.fermata is not None
+    assert [md._format_note_for_region_3(n) for n in (head, middle, end)] == [
+        "C, start tie", "C, mid tie", "C, end tie",
+    ]
 
 
-def test_tied_continuation_is_not_reattacked_in_real_playback(
-    timeline, stage8_tied_chain_with_fermata_middle_score
+def test_tied_pair_reads_start_then_end_tie(timeline, tied_pair_with_fermata_end_score):
+    md = timeline(tied_pair_with_fermata_end_score)
+    head, end = _notes(md, "P1")
+    assert md._format_note_for_region_3(head) == "C, start tie"
+    assert md._format_note_for_region_3(end) == "C, end tie"
+
+
+def test_real_playback_folds_the_chain_navigation_does_not(
+    timeline, stage8_tied_chain_of_three_score
 ):
-    """The Sequencer's own path (get_playback_events_at_index) must not
-    sound the continuation a second time; navigation audition
-    (get_playback_events_for_indices) still does - a separate path."""
-    md = timeline(stage8_tied_chain_with_fermata_middle_score)
-    continuation_index = 1
+    """The Sequencer's path (get_playback_events_at_index) holds the head
+    for the whole chain and never re-attacks the mid/end notes; navigation
+    audition (get_playback_events_for_indices) sounds each tied note at
+    its own written length."""
+    md = timeline(stage8_tied_chain_of_three_score)
+    one_quarter_ms = md.playback_events.quarters_to_ms(1.0, 0)
 
-    assert md.get_playback_events_at_index(continuation_index) == []
-    assert md.get_playback_events_for_indices([0]) != []
+    (head_event,) = md.get_playback_events_at_index(0)
+    assert head_event[3] == md.playback_events.quarters_to_ms(3.0, 0)
+    assert md.get_playback_events_at_index(1) == []
+    assert md.get_playback_events_at_index(2) == []
+
+    md.active_event_index = 0
+    assert md.get_playback_events_for_indices([0])[0][3] == one_quarter_ms
+    md.active_event_index = 1
+    assert md.get_playback_events_for_indices([0])[0][3] == one_quarter_ms
 
 
-def test_chord_with_one_tied_note_only_merges_that_pitch(
+def test_chord_with_one_tied_note_only_ties_that_pitch(
     timeline, stage8_chord_partial_tie_score
 ):
-    """A tie chain is keyed by pitch, not by chord membership - C4 merges
-    into the first chord's attack while E4/G4 (never tied to each other,
-    or to C4) stay exactly where they were. The second chord's own slice
-    survives (G4 is real, untouched content) even though its tied C4 was
-    dropped out of it."""
+    """A tie chain is keyed by pitch, not by chord membership - only C4
+    is labelled and folded for playback; E4/G4 are untouched."""
     md = timeline(stage8_chord_partial_tie_score)
     assert len(md.timeline_slices) == 2
-    by_step = {n.step_name: n for s in md.timeline_slices for n in s.notes}
-    assert set(by_step) == {"C", "E", "G"}
-    assert by_step["C"].quarter_length == 4.0, "the two tied C4 halves summed"
-    assert by_step["E"].quarter_length == 2.0, "untouched - never tied"
-    assert by_step["G"].quarter_length == 2.0, "untouched - the chord's other half"
+    first, second = ({n.step_name: n for n in s.notes} for s in md.timeline_slices)
+    assert first["C"].tie_position == "start"
+    assert first["C"].tied_quarter_length == 4.0, "the two tied C4 halves summed"
+    assert first["E"].tie_position is None
+    assert second["C"].tie_position == "end"
+    assert second["G"].tie_position is None
+    assert {n.quarter_length for n in (*first.values(), *second.values())} == {2.0}
 
 
 # --- Stage 8: a fermata on a barline (strategy section 13) -------------
@@ -1355,19 +1352,22 @@ def test_barline_fermata_on_the_final_barline_needs_no_special_case(
 def test_tie_across_a_barline_with_a_fermata_on_that_barline(
     timeline, stage8_tie_across_barline_with_fermata_score
 ):
-    """The tie merge and the barline fermata are independent mechanisms:
-    the tied continuation vanishes into its chain's head, and the barline
-    fermata still gets its own moment event at that same boundary."""
+    """The tie and the barline fermata are independent mechanisms: both
+    tied notes stay their own events, and the barline fermata still gets
+    its own moment event at that boundary, between them."""
     md = timeline(stage8_tie_across_barline_with_fermata_score)
-    assert len(md.timeline_slices) == 2
+    assert len(md.timeline_slices) == 3
 
-    head = md.timeline_slices[0]
-    assert head.notes[0].step_name == "C"
-    assert head.notes[0].quarter_length == 8.0
+    head, fermata_slice, end = md.timeline_slices
+    assert head.notes[0].tie_position == "start"
+    assert head.notes[0].quarter_length == 4.0
+    assert head.notes[0].tied_quarter_length == 8.0
 
-    fermata_slice = md.timeline_slices[1]
     assert fermata_slice.barline_items == ("fermata",)
     assert fermata_slice.notes == []
+
+    assert end.notes[0].tie_position == "end"
+    assert end.measure == 2
 
 
 def test_tuplet_reads_the_time_modification_word(timeline, triplet_bar_score):
