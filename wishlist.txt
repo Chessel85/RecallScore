@@ -1,5 +1,7 @@
 !.venv/scripts/python main.py
 
+Looping mode should be score specific. it is annoying to load a new file and for it to loop. default is to play to end.
+add a tool called "Add chords" which gets the user to select a part and then an extra stave is added containing just chord names.
 If a stave has only one voice, then no point opening it in the parts view and no point having "Add attribute to voice" etc.
 Possible ducking of midi when speech recognition is on.
 * Think the glitch i hear at start up is a real problem. is very noticeable when on speakers. and sometimes the quality of the midi rendering is crackly. or is this only when running from command prompt?

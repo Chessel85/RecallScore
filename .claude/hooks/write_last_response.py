@@ -1,8 +1,10 @@
-"""Stop hook: write Claude's final response text to stuff.txt at the project root.
+"""Stop hook: write Claude's response text to stuff.txt and taskInfo.txt.
 
 Reads the hook payload (JSON on stdin), walks the session transcript, and dumps
 the text of the last assistant turn to <project>/stuff.txt so it can be opened
 and read directly with a screen reader instead of hunting through the terminal.
+The final message alone (the end-of-task summary) also goes to
+<project>/taskInfo.txt, so the summary can be read without scrolling up to it.
 
 The text is lightly reformatted for screen-reader comfort on the way out: bold
 markers (**) are stripped, and hyphen bullet markers are swapped for asterisks.
@@ -12,6 +14,7 @@ import json
 import os
 import re
 import sys
+import time
 
 
 def _screen_reader_friendly(text: str) -> str:
@@ -41,17 +44,44 @@ def main() -> int:
     except Exception:
         return 0
 
-    transcript_path = payload.get("transcript_path")
-    if not transcript_path or not os.path.isfile(transcript_path):
-        return 0
+    transcript_path = payload.get("transcript_path") or ""
 
     project_dir = payload.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
     out_path = os.path.join(project_dir, "stuff.txt")
 
+    # The summary is the last text block of the turn. Newer Claude Code
+    # versions pass it directly in the payload, which is authoritative: the
+    # hook can fire before the transcript's final assistant record is flushed
+    # to disk, so the transcript alone may be missing it.
+    summary = (payload.get("last_assistant_message") or "").strip()
+
+    chunks = _turn_text_chunks(transcript_path)
+    if not chunks and not summary:
+        # Transcript not flushed yet and no payload text; give it a moment.
+        for _ in range(10):
+            time.sleep(0.1)
+            chunks = _turn_text_chunks(transcript_path)
+            if chunks:
+                break
+
+    if summary and (not chunks or chunks[-1].strip() != summary):
+        chunks.append(summary)
+    if not chunks:
+        return 0
+    summary = summary or chunks[-1].strip()
+
+    _write(os.path.join(project_dir, "taskInfo.txt"),
+           _screen_reader_friendly(summary))
+    _write(out_path, _screen_reader_friendly("\n\n".join(chunks).strip()))
+    return 0
+
+
+def _turn_text_chunks(transcript_path: str) -> list:
+    """Text blocks of the assistant turn after the last genuine user prompt."""
     try:
         raw_lines = open(transcript_path, encoding="utf-8").read().splitlines()
     except Exception:
-        return 0
+        return []
 
     records = []
     for line in raw_lines:
@@ -86,22 +116,18 @@ def main() -> int:
             continue
         for block in content:
             if isinstance(block, dict) and block.get("type") == "text":
-                text = block.get("text", "")
+                text = block.get("text", "").strip()
                 if text:
                     chunks.append(text)
+    return chunks
 
-    final_text = "\n\n".join(chunks).strip()
-    if not final_text:
-        return 0
 
-    final_text = _screen_reader_friendly(final_text)
-
+def _write(path: str, text: str) -> None:
     try:
-        with open(out_path, "w", encoding="utf-8", newline="\n") as fh:
-            fh.write(final_text + "\n")
+        with open(path, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text + "\n")
     except Exception:
-        return 0
-    return 0
+        pass
 
 
 if __name__ == "__main__":

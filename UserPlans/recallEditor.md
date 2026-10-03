@@ -1,78 +1,153 @@
 # Recall Score - Editor Version
 
-It is proposed that version 2  of Recall Score enables the user to edit existing scores or create new ones from scratch.  This will be version 2026.2.
+Version 2026.2 of Recall Score lets the user edit existing scores and create new ones from scratch.
 
-It is expected that Recall Score will operate in read-only mode and edit mode.
+It is not a score engraving application. Notes are entered as if onto a formal engraved score, without any concern for rendering it.
 
-There are many design decisions that need to be made on the behaviour of the app.  Examples include:
+The app has a read-only mode and an edit mode, and switching between them takes a deliberate user action. A read-only build may also be offered, so a score cannot be changed by mistake.
+
+Topics still to be covered by the sections below (each is removed from this list once a section decides it):
 * Creation of score information
 * Adding parts, staves and voices
 * Creating, reading, updating and deleting (CRUD) for notes
 * Setting attributes for notes
 * CRUD for performance indicators
-* Approach to correct content of bars.  That is, ensuring notes and rests for each voice in a bar add up to a whole bar.
-* Formats that can be saved 
-* How exhaustively musical notation is covered as there are hundreds of details about musical scores.  Only those relevant to playback need be considered.
-* Is support provided for input by connected MIDI devices?
-* Can MIDI be imported 
-* How does copying, cutting  and pasting  work?
-* Tools for speeding up input such as copying a range, duplicating voices, staves and parts, selecting similar items
-* Guitar specific features like chord diagrams 
-* Entering lyrics 
+* Keeping bars correct: the notes and rests of each voice in a bar add up to a whole bar
+* Formats that can be saved
+* How much musical notation is covered. Only what is relevant to playback need be considered.
+* Input from connected MIDI devices
+* MIDI import
+* Copy, cut and paste
+* Tools for faster input, such as copying a range, duplicating voices, staves and parts, and selecting similar items
+* Guitar-specific features such as chord diagrams
+* Entering lyrics
 
-A key point is that this is not a music score engraving application.  It is focused on entering notes as if being placed on a formal engraved score but without the concern of rendering it as such.  
+The sections are ordered so that earlier decisions constrain later ones.
 
-Is there a crossover to becoming a DAW for MIDI input?  Yes.  
+### 1. The document model
 
-## Further things to think about (added by Claude, 2026-09-29)
+Decided 2026-09-30.
 
-These are grouped roughly in the order I'd want them decided, because the early ones constrain everything after them.
+#### Design
 
-### 1. The document model: what is the source of truth?
+* The MusicXML element tree is the document. Every edit changes the tree, and Save writes the tree.
+* MusicData becomes a read-only index rebuilt from the tree after each edit. It is never edited or saved.
+* Each NoteData carries a link back to the XML element it came from, so an edit knows what to change.
+* After an edit, only the affected bar (or part) is rebuilt. Edits that change everything after them (time signature, key, repeats, inserting or deleting bars) do a full rebuild.
+* The edited note sounds as soon as it is entered, before the rebuild, so the 25 ms audition budget (Ref 9) holds regardless of rebuild time.
+* Save keeps comments, processing instructions, the XML declaration and the DOCTYPE. ElementTree as used today (xml_source.py) drops all of these on read, so the reader must change.
+* After a rebuild the cursor returns to the same bar, beat, part, staff and voice, never the same list index, and Region 2 toggles are kept (invariant 11).
+* Imported MIDI, Guitar Pro and Ultimate Guitar files are first converted into a MusicXML tree, which is then edited. That conversion is a feature in its own right.
 
-This is the biggest decision and it should come first. Today the app is read-only by design:
+Why:
 
-* MusicData is rebuilt wholesale from the file on every load (CLAUDE.md invariant 3). It holds a flattened, derived view: NoteData with beat positions already converted to time-signature units, rests skipped, and part names copied onto every note.
-* That view loses information. It is built for navigation and playback, not for writing back out.
+* Anything the app does not understand (layout, credits, beaming, lyric details, ignored notation) survives a save untouched. Using music21 streams (about 460 ms per rebuild, and it rewrites MusicXML its own way) or a new app-specific model (most work, and anything not modelled is lost on save) do not give this.
+* MusicData is kept because the raw XML cannot directly answer "what sounds at bar 12 beat 3 across all parts". The timeline builder works that out once, and every region, playback, Find and the Performance Report depend on it.
+* One place holds each fact (invariant 8). MusicData is always regenerated, so it cannot diverge from the tree.
 
-So if you edit NoteData directly and write it out, you lose everything the app does not model. Options:
+#### Performance gate
 
-* A. Keep the MusicXML element tree as the document of record. Every edit changes the tree, then MusicData is rebuilt from it (the ElementTree timeline build is already about 1 ms for typical files). Save just writes the tree. Anything the app does not understand (layout, credits, beaming, lyric details, notation it ignores) survives a round trip untouched. My recommendation.
-* B. Use music21 streams as the model. Rich, but about 460 ms per rebuild, and music21 has its own opinions about how to rewrite MusicXML.
-* C. Build a new editable model made for this app. Cleanest API, most work, and anything not modelled is lost on save.
+A full rebuild is too slow to run after every keystroke on a large score. Measured 2026-09-30:
 
-With A, imported MIDI, Guitar Pro and Ultimate Guitar files would first be converted into a MusicXML tree, which then becomes the thing being edited. That conversion is a feature in its own right.
+* Dvorak Largo (122 KB .mxl): about 440 ms
+* Ode to Joy orchestral (1.5 MB .musicxml): about 230 ms
+* Blue Danube, Pachelbel quartet: about 220 to 260 ms
 
-Related questions:
+About 110 ms of this is reading the file, which an in-memory rebuild skips, leaving about 300 ms.
 
-* After an edit, how is the cursor restored after the rebuild? It should come back to the same measure, beat, part and voice, not the same list index.
-* Region 2 toggles must survive a rebuild (invariant 11 already warns about this).
-* Invariant 8 ("two copies of the same fact diverge") matters much more once you can edit: every edit must write exactly one place.
-* What happens to .rsc sidecar overrides (renamed parts, instrument overrides, key override) on save? Write them into the file, keep them in the sidecar, or ask?
+The builder already walks one part and one bar at a time, carrying a small state object between bars, so rebuilding one bar looks feasible. Not yet proven: the whole-score steps (the first-part scan of bar lengths and repeats, merging parts into slices, the Find index) need incremental versions too.
+
+This is the first thing built and tested. Prototype a single-bar rebuild for note edits and time it on the Dvorak score. Well under about 50 ms and the design stands. Otherwise, revisit this section before anything else is built.
+
+#### The .rsc sidecar
+
+* Listening preferences stay in the sidecar: mute, solo, metronome, announcer, attribute order and hidden attributes, mixer, marking filters, linked parts, last position. They belong to the listener, not the score, and a collaborator should not inherit them.
+* Score facts have proper MusicXML homes: part-name, midi-program, midi-unpitched, key, part-list order, sound tempo. In edit mode, changing one edits the tree. In read-only mode it stays a sidecar override, as now.
+* MusicXML does allow app-specific data (identification/miscellaneous/miscellaneous-field, and processing instructions), but MuseScore and Sibelius usually drop it on re-save, so nothing that matters is stored only there.
 
 ### 2. Mode switching and the keyboard
 
-* Ref 23 already specifies Ctrl+Shift+E for switching between Read-Only and Edit mode, with a spoken announcement.
-* In edit mode, letter keys will want to mean note entry (A to G). That collides with the Z/X/C/V/B region jumps and other single-letter shortcuts. Decide whether edit mode has its own shortcut map, and how ShortcutController's reserved list and user customisation handle two maps.
-* Is the mode per window or per region? For example, only Regions 3 and 4 might become editable.
-* Voice control: dictation ("C sharp quarter", "rest eighth") is a very natural way to enter notes for this user base. Decide early whether voice commands are part of edit mode's design rather than added later.
+Decided 2026-09-30.
+
+#### Design
+
+* Ctrl+Shift+E switches between Read-Only and Edit mode, with a spoken announcement (Ref 23). The mode applies to the whole window.
+* Two shortcut maps. Each action is scoped to both modes, read-only only, or edit only. A key may be bound twice if the two actions' scopes don't overlap.
+* ShortcutController: saved overrides stay keyed by action id, since the scope belongs to the action. `_apply()` binds the active mode's actions and unbinds and disables the rest, which also locks editing controls in read-only mode (Ref 23 criterion 3). The reserved list and `ShortcutMap.owner_of` become mode-aware. The Keyboard Shortcuts dialog shows each action's mode.
+* Keys a widget handles itself in `keyPressEvent` must check the mode too.
+* Region quick nav moves from Z/X/C/V/B to F1 to F5, freeing letters for note entry.
+* In edit mode, digits choose durations and bar-number typing is dropped. Go to Measure is always available through its dialog. Enter becomes free in edit mode.
+* All five regions are editable: score information (Region 1), parts, staves and voices (Region 2), notes (Region 3), attributes (Region 4), performance markings (Region 5).
+* The same verbs work in every region. For example, Insert adds, Delete removes, and Enter edits the current item.
+* Region 1: for a new score, a dialog with labelled fields and a way to add fields. For an existing score, possibly an edit box on each row, with a context menu to add a row.
+* Region 2: adding a part probably needs a dialog, since the part needs a name, an instrument and its staves together.
+* One undo stack for the whole window. The undo announcement says what went ("Deleted part Viola, 212 notes").
+* Voice control works in read-only mode only. When editing, the user is expected to be at the computer keyboard rather than the instrument.
+
+Why:
+
+* Note entry wants bare letters and digits, which read-only mode uses for region jumps and bar-number typing. Two scoped maps keep both sets of keys without chords.
+* Voice control is not responsive enough for entering notes.
+
+#### Still open
+
+* A fast way to check the current mode. The title bar is too slow, and the start of the status bar is not wanted.
+* F1 is Windows' conventional Help key. Nothing in the app uses F1 to F5 today, but check that users don't expect F1 to open help.
+* Final wording for voice control in the phasing: decide at section 15.
 
 ### 3. The cursor in edit mode
 
-* Navigation currently lands only on attacks: rests are skipped (invariant 15). An editor needs to land on rests, on empty bars, and on an insertion point between events.
-* Does the cursor move by event, by the current input duration, or by beat? Most notation editors move by event and keep a separate "input duration" setting.
-* Which part, staff and voice is the cursor in? Today Region 2 filters what is shown. In edit mode it probably also has to choose the one voice being written.
+Decided 2026-09-30.
+
+#### Design
+
+* The cursor moves by event. A separate input duration setting (chosen with the digits, section 2) sets the length of the next note entered.
+* The user can also move the cursor to a given beat position in the bar, to add a note there.
+* In edit mode the cursor lands on rests and empty bars as well as notes. Read-only mode still skips rests (invariant 15).
+* The cursor is always in one part, one staff and one voice. Notes can only be entered on a staff, and every part has at least one staff.
+* Alt+1 to Alt+4 choose the voice being written. Nothing uses Alt+digits today.
+
+Why:
+
+* Moving by event with a separate duration setting is how most notation editors work, and it keeps navigation independent of what is about to be entered.
+* Moving to a beat covers placing a note where no event starts yet, such as beat 3 of an empty bar.
+
+#### Still open
+
+* How the beat position is typed. In edit mode the digits choose durations and bar-number typing is dropped, so this probably needs a Go to Beat dialog, or a field in the Go to Measure dialog.
+* Moving to a beat that falls inside a longer note or rest: split it, or land on the event that covers the beat? Section 5 (overwrite mode) probably decides this.
+* How the cursor is placed in a part, staff and voice: from Region 2, by keys in Region 3, or both. What happens when the chosen voice has no music in the current bar.
+* Whether voices above 4 need a key. MusicXML allows more, and some imported files use them.
 
 ### 4. Note entry model
 
-* Pitch entry: letter name plus an automatic octave (nearest to the previous note, as in MuseScore and LilyPond's relative mode), with keys to force the octave up or down.
-* Accidentals: taken from the key signature by default, or always explicit? How do you enter a courtesy accidental?
-* Spelling: a MIDI keyboard gives a number, not a name. pitch_spelling.py already guesses, but the user needs a quick "respell enharmonically" command.
-* Transposing instruments: the user enters written pitch, and midi_pitch follows from the transpose setting (invariant 15 already keeps these apart).
-* Guitar and tab: enter by string and fret, or by pitch and let the app choose string and fret from the tuning? Both, with one derived from the other? What happens to string and fret when a pitch is edited, or to pitch when the fret is edited?
-* Chords: a key to add a note to the current chord, separate from moving on.
-* Tuplets, dotted notes, ties and grace notes each need a way to enter them.
-* Ref 24: play every change immediately. Also decide what is spoken after each edit, and how much. A fast typist does not want a long sentence after every keystroke.
+Decided 2026-09-30.
+
+#### Design
+
+* Pitch: a letter name A to G, with the octave chosen automatically as the one nearest the previous note (as in MuseScore and LilyPond's relative mode). Separate keys force the octave up or down.
+* Accidentals come from the key signature. In G major, typing F gives F sharp. The user never enters courtesy accidentals.
+* Separate keys force sharp, flat or natural on the current note.
+* J toggles the current note between its two enharmonic spellings, for example D sharp and E flat. This also fixes a note entered from a MIDI keyboard, which sends only a key number: the app guesses the name (pitch_spelling.py) and J corrects it.
+* Transposing instruments: the user enters written pitch, and midi_pitch follows from the transpose setting (invariant 15).
+* Chords: Shift plus a letter adds that pitch to the current chord instead of moving on.
+* Tab staff: Up and Down choose the string, typed digits set the fret, and Enter enters the note. Shift+Enter adds it to the current chord.
+* Linked staff and tab: a pitch entered on the staff gets the most obvious string and fret, meaning the lowest fret that can play it. A string and fret entered on the tab gives exactly one pitch on the staff. Editing either side re-derives the other.
+* Ref 24: every change sounds immediately. What is spoken after each edit is kept short, because a fast typist does not want a sentence after every keystroke.
+
+Why:
+
+* Letter plus automatic octave, with accidentals from the key, means most notes take one keystroke.
+* A string and fret always gives one pitch, but a pitch can be played on several strings, so the staff-to-tab direction needs a rule and the tab-to-staff direction does not.
+
+#### Still open
+
+* The default keymap for octave up and down, forced sharp, flat and natural, dots, ties, tuplets and grace notes.
+* Accidentals within a bar: after a forced F natural in G major, does a later F in the same bar default to F natural (as a printed score reads) or F sharp (the key)?
+* On a tab staff digits enter frets, but section 2 gives digits to durations. Durations on a tab staff need other keys. Multi-digit frets (10 and up) are handled by typing both digits before Enter.
+* Up and Down move between the notes of a chord in Region 3 today. On a tab staff in edit mode they choose the string instead, so decide how to move between chord notes there.
+* When the lowest-fret choice falls on a string already used by the chord, the next string is taken. Confirm this, and what happens when no string is left.
+* The exact wording spoken after each kind of edit, and whether there is a verbosity setting.
 
 ### 5. Keeping bars correct
 
@@ -147,11 +222,11 @@ Your list says only notation relevant to playback needs to be considered. Two ca
 * Treat 2026.2 as a speculative feature branch, like feature/ug-import, and merge it only once live testing holds up.
 * Keep models/ free of Qt and of parsers/. A writer probably wants its own package (for example writers/) rather than living in parsers/.
 * Use a round-trip test as the acceptance gate: load every file in files/, examples/ and tests/fixtures/, save it unchanged, reload it, and require the model fingerprint to match. tests/manual/model_fingerprint.py already does most of this.
-* Rebuild cost on large scores: about 1 ms is fine for small files, but edit mode rebuilds after every keystroke, so check the biggest files. Rebuilding one measure at a time may be needed later.  This sounds like a big issue.
+* Rebuild cost: see the section 1 performance gate.
 
 ### 15. Suggested phasing
 
-* Phase 1: decide the document model, the edit mode toggle, undo and redo, save as MusicXML with an unsaved-changes flag, round-trip tests.
+* Phase 1: the section 1 performance gate (single-bar rebuild prototype, timed on the largest scores) comes first. Then the edit mode toggle, undo and redo, save as MusicXML with an unsaved-changes flag, round-trip tests.
 * Phase 2: add, delete and change notes in one voice with overwrite mode and automatic rests, Region 4 attribute editing (Ref 24), the Check score report.
 * Phase 3: bar and structure edits, the new score wizard, adding and duplicating parts.
 * Phase 4: range selection, copy and paste, MIDI step-time entry.

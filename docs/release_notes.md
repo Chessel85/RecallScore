@@ -1,5 +1,9 @@
 # Recall Score Release Notes
 
+## 2026.1.66
+
+* Added autodetection of percussion parts when loading Guitar Pro files
+
 ## 2026.1.65
 
 * Removed lyrics from mixer 
