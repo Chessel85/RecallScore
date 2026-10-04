@@ -188,6 +188,16 @@ def multi_value_technical_score() -> str:
 
 
 @pytest.fixture
+def guitar_alternate_tab_stave_score() -> str:
+    """Classical guitar layout: stave 1 (treble, voice 1) carries fingering
+    and pluck, stave 2 is a TAB stave flagged <staff-type>alternate</...>
+    (voice 5) carrying string/fret for the same notes. One 4/4 bar: E5,
+    a C4/E4/A4 chord whose TAB copy is in reverse order and lacks the A4,
+    then a tied B4 pair - see Parts > Collapse staves."""
+    return _require(FIXTURES_DIR / "guitar_alternate_tab_stave.musicxml")
+
+
+@pytest.fixture
 def two_parts_chord_score() -> str:
     """Two parts, one complete 4/4 bar each: Piano C4 and Guitar E3 land on
     the same beat, so they bucket into a single EventSlice (A8, Ref 8)."""

@@ -286,3 +286,15 @@ def test_load_for_with_corrupt_file_returns_none():
     path.write_text("not valid json{{{", encoding="utf-8")
 
     assert score_config.load_for("Chessel Duet.mxl") is None
+
+
+def test_save_then_load_round_trips_collapsed_stave_parts():
+    score_config.save("Guitar.mxl", ScoreConfig(collapsed_stave_parts=["P1"]))
+
+    assert score_config.load_for("Guitar.mxl").collapsed_stave_parts == ["P1"]
+
+
+def test_load_with_no_saved_collapsed_staves_defaults_to_empty():
+    score_config.save("No Collapse.mxl", ScoreConfig())
+
+    assert score_config.load_for("No Collapse.mxl").collapsed_stave_parts == []

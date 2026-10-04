@@ -1458,6 +1458,39 @@ class MainWindow(QMainWindow):
             if selected_node_id is not None:
                 self.region_2.select_node(selected_node_id)
 
+    def _region_2_current_part_id(self):
+        node = self.region_2.current_node()
+        return node.part_id if node is not None else None
+
+    def refresh_collapse_staves_action(self):
+        """Parts menu aboutToShow: Collapse staves is enabled, and ticked,
+        for the part holding Region 2's current row."""
+        enabled, checked = (False, False)
+        if self._music_data:
+            enabled, checked = self.score_edit.collapse_staves_state(
+                self._region_2_current_part_id()
+            )
+        self._actions.collapse_staves.setEnabled(enabled)
+        self._actions.collapse_staves.setChecked(checked)
+
+    def toggle_staves_collapsed_current_part(self):
+        """Parts > Collapse staves. Region 2 is rebuilt, so its current row
+        is put back afterwards - on the same node if it survived, else on
+        the part (a row on the now-hidden stave is gone)."""
+        part_id = self._region_2_current_part_id()
+        if self._music_data and part_id is not None:
+            node = self.region_2.current_node()
+            if self.score_edit.toggle_staves_collapsed(part_id):
+                restore = self.region_2.model_manager.node(node.node_id)
+                if restore is None:
+                    restore = next(
+                        (n for n in self.region_2.model_manager.roots if n.part_id == part_id),
+                        None,
+                    )
+                if restore is not None:
+                    self.region_2.select_node(restore.node_id)
+        self.refresh_collapse_staves_action()
+
     def _show_strumming_dialog(self):
         """Tools > Strumming Patterns... (P2/P3) - a read-only view of a UG
         import's decoded pattern(s). Pure view: it emits

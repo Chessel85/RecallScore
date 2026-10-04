@@ -26,3 +26,10 @@ class PartStructureInfo:
     pre_percussion_structure: Optional[
         Tuple[Dict[int, List[int]], Dict[Tuple[int, int], str]]
     ] = None
+    # Classical guitar: <staff-details number="n"><staff-type>alternate
+    # </staff-type> marks stave n as "the same music as the stave before
+    # it, shown differently" (a TAB stave under the treble). Maps that
+    # alternate staff -> the staff it shadows (n -> n-1). Only the MusicXML
+    # reader sets it; drives Parts > Collapse staves (models/
+    # stave_collapse.py).
+    alternate_staves: Dict[int, int] = field(default_factory=dict)

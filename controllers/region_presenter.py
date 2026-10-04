@@ -141,6 +141,13 @@ class RegionPresenter(QObject):
     def apply_link_groups(self, numbers) -> None:
         self.region_2.apply_link_groups(numbers)
 
+    def announce_staves_collapsed(self, collapsed: bool) -> None:
+        """Parts > Collapse staves: Region 2's rows change under the user,
+        so the new state is spoken - the menu tick is gone with the menu."""
+        accessible_announcer.announce(
+            self.region_2, "Staves collapsed" if collapsed else "Staves uncollapsed"
+        )
+
     def reorder_parts(self, part_id_order) -> None:
         self.region_2.reorder_parts(part_id_order)
 

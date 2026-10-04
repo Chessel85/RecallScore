@@ -231,3 +231,33 @@ class ScoreEditController:
         self.presenter.apply_link_groups(self.link_group_numbers())
         self.presenter.update_timeline_views(play_all=False)
         return True
+
+    # --- Parts > Collapse staves ---------------------------------------
+
+    def collapse_staves_state(self, part_id: Optional[str]) -> Tuple[bool, bool]:
+        """(enabled, checked) for the Collapse staves menu item, given the
+        part holding Region 2's current row (None for no row)."""
+        if part_id is None or not self.music_data.is_stave_collapsible(part_id):
+            return False, False
+        return True, self.music_data.is_staves_collapsed(part_id)
+
+    def toggle_staves_collapsed(self, part_id: str) -> bool:
+        """Collapse or uncollapse `part_id`'s alternate stave. Returns
+        whether anything changed (False for a part with none).
+
+        Region 2 is rebuilt, carrying mute/solo/links across (invariant 11
+        - same path as flagging a part percussion), because the alternate
+        stave's rows come and go. The rebuild re-emits Region 2's filter,
+        which is what drops (or restores) that stave's notes in navigation
+        and playback."""
+        music_data = self.music_data
+        collapsed = not music_data.is_staves_collapsed(part_id)
+        if not music_data.set_staves_collapsed(part_id, collapsed):
+            return False
+        self.presenter.reload_region_2_structure(
+            music_data.get_score_structure(), music_data.collapsed_part_ids,
+            self.link_group_numbers(),
+        )
+        self.presenter.update_timeline_views(play_all=False)
+        self.presenter.announce_staves_collapsed(collapsed)
+        return True

@@ -141,6 +141,9 @@ def load_for(file_path: str) -> Optional[ScoreConfig]:
             part_link_groups=[
                 [str(p) for p in g] for g in (data.get("part_link_groups") or [])
             ],
+            collapsed_stave_parts=[
+                str(p) for p in (data.get("collapsed_stave_parts") or [])
+            ],
         )
     except FileNotFoundError:
         return None
@@ -196,6 +199,7 @@ def save(file_path: str, config: ScoreConfig) -> None:
         "last_position_index": config.last_position_index,
         "marking_categories_off": sorted(config.marking_categories_off),
         "part_link_groups": [list(g) for g in config.part_link_groups],
+        "collapsed_stave_parts": list(config.collapsed_stave_parts),
     }
     try:
         os.makedirs(path.parent, exist_ok=True)

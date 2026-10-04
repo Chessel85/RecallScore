@@ -261,3 +261,21 @@ def test_percussion_parts_play_on_separate_channels_at_the_gm_percussion_bank(sc
     for channel, program, midi_notes, duration_ms, bank in events:
         assert bank == 128
         assert program == 0
+
+
+@pytest.mark.slow
+def test_reader_records_an_alternate_tab_stave(guitar_alternate_tab_stave_score):
+    """<staff-details number="2"><staff-type>alternate</...> marks the TAB
+    stave as a copy of stave 1 - what Parts > Collapse staves keys off."""
+    data = MusicXMLReader(guitar_alternate_tab_stave_score).load()
+
+    part = data.parts_info[0]
+    assert part.alternate_staves == {2: 1}
+    assert part.staves_voices == {1: [1], 2: [5]}
+
+
+@pytest.mark.slow
+def test_reader_records_no_alternate_stave_for_an_ordinary_two_stave_part(score_duet):
+    data = MusicXMLReader(score_duet).load()
+
+    assert all(p.alternate_staves == {} for p in data.parts_info)

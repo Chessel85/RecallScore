@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="4.0">
+  <part-list>
+    <score-part id="P1">
+      <part-name>Guitar</part-name>
+      <score-instrument id="P1-I1"><instrument-name>Guitar</instrument-name></score-instrument>
+      <midi-instrument id="P1-I1"><midi-channel>1</midi-channel><midi-program>25</midi-program></midi-instrument>
+    </score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>1</divisions>
+        <key><fifths>0</fifths></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <staves>2</staves>
+        <clef number="1"><sign>G</sign><line>2</line><clef-octave-change>-1</clef-octave-change></clef>
+        <clef number="2"><sign>TAB</sign><line>5</line></clef>
+        <staff-details number="2">
+          <staff-type>alternate</staff-type>
+          <staff-lines>6</staff-lines>
+        </staff-details>
+      </attributes>
+      <!-- Stave 1 (treble): left-hand fingering and right-hand pluck. -->
+      <note>
+        <pitch><step>E</step><octave>5</octave></pitch>
+        <duration>1</duration><voice>1</voice><type>quarter</type><staff>1</staff>
+        <notations><technical>
+          <fingering>1</fingering><pluck>i</pluck><pluck>m</pluck>
+        </technical></notations>
+      </note>
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>1</duration><voice>1</voice><type>quarter</type><staff>1</staff>
+        <notations><technical><fingering>3</fingering></technical></notations>
+      </note>
+      <note>
+        <chord/>
+        <pitch><step>E</step><octave>4</octave></pitch>
+        <duration>1</duration><voice>1</voice><type>quarter</type><staff>1</staff>
+        <notations><technical><fingering>2</fingering></technical></notations>
+      </note>
+      <note>
+        <chord/>
+        <pitch><step>A</step><octave>4</octave></pitch>
+        <duration>1</duration><voice>1</voice><type>quarter</type><staff>1</staff>
+        <notations><technical><fingering>1</fingering></technical></notations>
+      </note>
+      <note>
+        <pitch><step>B</step><octave>4</octave></pitch>
+        <duration>1</duration><tie type="start"/><voice>1</voice><type>quarter</type><staff>1</staff>
+        <notations><tied type="start"/><technical><fingering>3</fingering></technical></notations>
+      </note>
+      <note>
+        <pitch><step>B</step><octave>4</octave></pitch>
+        <duration>1</duration><tie type="stop"/><voice>1</voice><type>quarter</type><staff>1</staff>
+        <notations><tied type="stop"/></notations>
+      </note>
+      <backup><duration>4</duration></backup>
+      <!-- Stave 2 (alternate TAB): string and fret for the same notes. The
+           chord is written in the opposite pitch order to stave 1, and has
+           no A4, so pairing must go by pitch and leave A4 unmatched. -->
+      <note>
+        <pitch><step>E</step><octave>5</octave></pitch>
+        <duration>1</duration><voice>5</voice><type>quarter</type><staff>2</staff>
+        <notations><technical><string>1</string><fret>12</fret></technical></notations>
+      </note>
+      <note>
+        <pitch><step>E</step><octave>4</octave></pitch>
+        <duration>1</duration><voice>5</voice><type>quarter</type><staff>2</staff>
+        <notations><technical><string>4</string><fret>2</fret></technical></notations>
+      </note>
+      <note>
+        <chord/>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>1</duration><voice>5</voice><type>quarter</type><staff>2</staff>
+        <notations><technical><string>5</string><fret>3</fret></technical></notations>
+      </note>
+      <note>
+        <pitch><step>B</step><octave>4</octave></pitch>
+        <duration>1</duration><tie type="start"/><voice>5</voice><type>quarter</type><staff>2</staff>
+        <notations><tied type="start"/><technical><string>2</string><fret>12</fret></technical></notations>
+      </note>
+      <note>
+        <pitch><step>B</step><octave>4</octave></pitch>
+        <duration>1</duration><tie type="stop"/><voice>5</voice><type>quarter</type><staff>2</staff>
+        <notations><tied type="stop"/><technical><string>2</string><fret>12</fret></technical></notations>
+      </note>
+    </measure>
+  </part>
+</score-partwise>

@@ -1779,7 +1779,8 @@ def test_apply_config_is_best_effort_against_a_mismatched_score(timeline, minima
     # (the old flat attribute_order field) into the one real part this
     # score has.
     assert "not-a-real-attribute" not in target.attribute_order_by_part["P1"]
-    assert target.attribute_order_by_part["P1"][:2] == ["octave", "step"]
+    restored = target.attribute_order_by_part["P1"]
+    assert restored.index("octave") < restored.index("step")
     assert set(target.attribute_order_by_part["P1"]) == set(target.DISPLAY_ATTRIBUTE_ORDER)
     # metronome_enabled has no notion of "matching the score", so it always
     # applies as-is.

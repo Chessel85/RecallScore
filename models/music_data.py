@@ -23,6 +23,7 @@ from models import marking_labels
 from models import marking_categories
 from models.mixer_settings import MixerSettings
 from models.navigation_jump import NavigationJump
+from models.gm_instruments import PLUCKED_GM_PROGRAMS
 from models.note_data import NoteData
 from models.note_renderer import NoteRenderer
 from models.override_manager import OverrideManager
@@ -38,6 +39,7 @@ from models.region3_row import MarkingRow, NoteRow, Region3Row
 from models.repeat_span import RepeatSpan
 from models.score_config_data import ScoreConfig
 from models.score_formats import family_for_path
+from models.stave_collapse import StaveCollapse
 from models.score_section import ScoreSection
 from models.jump_point import JumpPoint
 from models.segno_mark import SegnoMark
@@ -307,6 +309,11 @@ class MusicData:
     # NoteData.part_name from here (invariant 8). Empty by default.
     part_link_groups: List[List[str]] = field(default_factory=list)
 
+    # Parts > Collapse staves: part_ids whose alternate stave
+    # (PartStructureInfo.alternate_staves - classical guitar's TAB under the treble) is
+    # folded into the stave it shadows. See models/stave_collapse.py.
+    collapsed_stave_parts: Set[str] = field(default_factory=set)
+
     @property
     def is_midi(self) -> bool:
         """True for a score loaded from a Standard MIDI File, as opposed to
@@ -385,6 +392,7 @@ class MusicData:
         self.performance_rows = PerformanceRows(self)
         self.marking_rows = MarkingRows(self)
         self.part_links = PartLinks(self)
+        self.stave_collapse = StaveCollapse(self)
         # DISPLAY_ATTRIBUTE_ORDER is the fixed default; attribute_order_by_
         # part's per-part copies are seeded lazily on first access
         # (NoteRenderer.attribute_order_for_part) - nothing to do here.
@@ -459,6 +467,9 @@ class MusicData:
         self._chord_context: Optional[List[Optional[Tuple[str, int]]]] = None
         self._lyric_context: Optional[List[Optional[Tuple[str, int]]]] = None
         self._context_quarters: Optional[List[float]] = None
+        # The kept-note -> alternate-stave-note pairing is keyed by NoteData
+        # identity, so a new section's slices need a fresh one.
+        self.stave_collapse.invalidate_cache()
         self._invalidate_visibility_cache()
 
     @property
@@ -752,9 +763,12 @@ class MusicData:
 
     def get_score_structure(self) -> List[Dict[str, Any]]:
         """The parts/staves/voices shape Region2HierarchyModel expects
-        (Ref 7). A pure transform of parts_info, no XML access."""
+        (Ref 7). A pure transform of parts_info, no XML access. A part with
+        its staves collapsed (models/stave_collapse.py) leaves its alternate
+        stave out, so Region 2's voice filter drops that stave's notes."""
         structure = []
         for p in self.parts_info:
+            hidden = self.stave_collapse.hidden_staves(p.part_id)
             staves = [
                 {
                     "id": s_id,
@@ -767,6 +781,7 @@ class MusicData:
                     },
                 }
                 for s_id in sorted(p.staves_voices.keys())
+                if s_id not in hidden
             ]
             structure.append({"id": p.part_id, "name": p.name, "staves": staves})
         return structure
@@ -841,7 +856,10 @@ class MusicData:
     # "step"/"octave".
     DISPLAY_ATTRIBUTE_ORDER = [
         "step", "octave", "text", "duration", "measure", "beat position",
-        "part", "stave", "voice", "midi", "string", "fret",
+        "part", "stave", "voice", "midi",
+        # "playing" (s2f3g4m) condenses string/fret/fingering/pluck into one
+        # spoken token - see NoteRenderer.note_attribute_pairs.
+        "playing", "string", "fret",
         "dynamic", "articulation", "ornament", "fingering", "pluck", "strum",
         # P1 (D9): note-attached notations, grouped
         # after the existing optional tail. "other notation" is the D6
@@ -905,7 +923,9 @@ class MusicData:
     # checks note.duration_name_us itself rather than relying on this set
     # for "duration". Region 4's table always labels its "Duration" row
     # regardless; only the inline Region 3 rendering ever omits the prefix.
-    REGION_3_UNPREFIXED_ATTRIBUTES = frozenset({"step", "text", "duration"})
+    # "playing" is its own code ("s2f3g4m") - a "playing" prefix would only
+    # pad it.
+    REGION_3_UNPREFIXED_ATTRIBUTES = frozenset({"step", "text", "duration", "playing"})
 
     def _note_attribute_pairs(self, note: NoteData) -> Dict[str, str]:
         """Attribute name -> value for one note - see
@@ -1116,6 +1136,29 @@ class MusicData:
         PartLinks.set_part_link_groups."""
         self.part_links.set_part_link_groups(groups)
 
+    # --- Parts > Collapse staves (models/stave_collapse.py) -------------
+
+    def is_stave_collapsible(self, part_id: str) -> bool:
+        """Whether `part_id` has an alternate stave to collapse."""
+        return self.stave_collapse.collapsible(part_id)
+
+    def is_staves_collapsed(self, part_id: str) -> bool:
+        return self.stave_collapse.is_collapsed(part_id)
+
+    def set_staves_collapsed(self, part_id: str, on: bool) -> bool:
+        """See StaveCollapse.set_collapsed."""
+        changed = self.stave_collapse.set_collapsed(part_id, on)
+        if changed:
+            # Find's occurrence lists read note_attribute_pairs, which now
+            # borrows (or stops borrowing) the partner's attributes.
+            self._invalidate_visibility_cache()
+        return changed
+
+    def stave_partner_for(self, note: NoteData) -> Optional[NoteData]:
+        """The alternate-stave note `note` borrows attributes from while
+        its part is collapsed - see StaveCollapse.partner_for."""
+        return self.stave_collapse.partner_for(note)
+
     def export_config(self) -> ScoreConfig:
         """Ref 27: this score's state as a ScoreConfig. voices_muted is the
         complement of active_voice_filter, not the active list - a muted-set
@@ -1162,7 +1205,24 @@ class MusicData:
             last_position_index=self.active_event_index,
             marking_categories_off=set(self.marking_categories_off),
             part_link_groups=[list(g) for g in self.part_link_groups],
+            collapsed_stave_parts=sorted(self.collapsed_stave_parts),
         )
+
+    def _merge_saved_attribute_order(self, saved: List[str]) -> List[str]:
+        """A saved per-part attribute order, minus keys this version no
+        longer knows, plus any key it lacks (one added since it was saved,
+        e.g. "playing") slotted in straight after its predecessor in
+        DISPLAY_ATTRIBUTE_ORDER - so a new key lands beside its default
+        neighbours rather than at the very end."""
+        default = self.DISPLAY_ATTRIBUTE_ORDER
+        ordered = [key for key in saved if key in default]
+        for i, key in enumerate(default):
+            if key in ordered:
+                continue
+            predecessors = [k for k in default[:i] if k in ordered]
+            at = ordered.index(predecessors[-1]) + 1 if predecessors else 0
+            ordered.insert(at, key)
+        return ordered
 
     def apply_config(self, config: ScoreConfig) -> None:
         """Ref 27: restore a saved ScoreConfig, best-effort. An entry that no
@@ -1196,9 +1256,7 @@ class MusicData:
             for part_id, order in config.attribute_order_by_part.items():
                 if part_id not in known_part_ids:
                     continue
-                ordered = [key for key in order if key in known_attribute_keys]
-                ordered += [key for key in self.DISPLAY_ATTRIBUTE_ORDER if key not in ordered]
-                self.attribute_order_by_part[part_id] = ordered
+                self.attribute_order_by_part[part_id] = self._merge_saved_attribute_order(order)
         elif config.attribute_order:
             # Migration: an old .rsc has a flat attribute_order and no
             # attribute_order_by_part - seed every part currently in the
@@ -1208,8 +1266,7 @@ class MusicData:
             # part in mind). Never written back out - export_config() only
             # ever emits the new per-part field, so this only ever fires
             # once, on the first load of a pre-migration .rsc.
-            ordered = [key for key in config.attribute_order if key in known_attribute_keys]
-            ordered += [key for key in self.DISPLAY_ATTRIBUTE_ORDER if key not in ordered]
+            ordered = self._merge_saved_attribute_order(config.attribute_order)
             self.attribute_order_by_part = {part_id: list(ordered) for part_id in known_part_ids}
         else:
             self.attribute_order_by_part = {}
@@ -1264,6 +1321,14 @@ class MusicData:
         # itself drops unknown part_ids, a part repeated across groups, and
         # any group left under two members.
         self.set_part_link_groups(config.part_link_groups)
+
+        # Best-effort like part_link_groups: a part that no longer exists,
+        # or no longer has an alternate stave, is dropped.
+        self.collapsed_stave_parts = {
+            part_id for part_id in config.collapsed_stave_parts
+            if self.is_stave_collapsible(part_id)
+        }
+        self.stave_collapse.invalidate_cache()
 
         self.part_percussion_overrides = set(config.part_percussion_overrides) & known_part_ids
         self.apply_part_percussion_overrides()
@@ -1656,6 +1721,25 @@ class MusicData:
             if p.part_id == part_id:
                 return p.gmidi_program
         return 25
+
+    def is_plucked_part(self, part_id: str) -> bool:
+        """Whether `part_id` is a plucked instrument (guitar, bass, lute,
+        banjo...) - the only parts the condensed "playing" attribute
+        (s2f3g4m) applies to; a piano's fingering is not that. True for a
+        GM program in PLUCKED_GM_PROGRAMS (so it follows the Instruments
+        dialog's program override) or for any part with a TAB stave,
+        whatever its program. A part missing from parts_info (a directly
+        built MusicData) is not plucked."""
+        for p in self.parts_info:
+            if p.part_id == part_id:
+                if p.is_percussion:
+                    return False
+                return (
+                    p.gmidi_program in PLUCKED_GM_PROGRAMS
+                    or bool(p.alternate_staves)
+                    or "Tab stave" in p.staves_clefs.values()
+                )
+        return False
 
     def is_percussion_part(self, part_id: str) -> bool:
         """Wishlist #8: whether this part's notes are unpitched percussion

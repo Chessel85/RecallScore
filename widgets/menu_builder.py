@@ -71,6 +71,7 @@ class Actions:
     mixer: Optional[QAction] = None
     part_order: Optional[QAction] = None
     link_parts: Optional[QAction] = None
+    collapse_staves: Optional[QAction] = None
     uk_language: Optional[QAction] = None
     us_language: Optional[QAction] = None
     terminology_group: Optional[QActionGroup] = None
@@ -317,6 +318,18 @@ class MenuBuilder:
             status_tip="Mark parts that are the same music, so each shows the others' performance markings",
         )
         parts_menu.addAction(a.link_parts)
+
+        # Classical guitar's treble + TAB staves folded into one (models/
+        # stave_collapse.py). Acts on the part holding Region 2's current
+        # row, so enablement and the tick are refreshed as the menu opens
+        # (that row can change without any focus change).
+        a.collapse_staves = self._action(
+            "Collapse s&taves", self.slots.toggle_staves_collapsed_current_part,
+            status_tip="Show a part's tab stave as attributes of the stave above it",
+            checkable=True,
+        )
+        parts_menu.addAction(a.collapse_staves)
+        parts_menu.aboutToShow.connect(self.slots.refresh_collapse_staves_action)
 
         parts_menu.addSeparator()
 

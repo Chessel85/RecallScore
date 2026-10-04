@@ -400,6 +400,19 @@ class MusicXMLReader:
                 if 1 not in staves_clefs:
                     staves_clefs[1] = "Treble stave"
 
+                # An "alternate" stave repeats the stave before it in
+                # another notation (classical guitar's TAB under the
+                # treble) - see PartStructureInfo.alternate_staves.
+                for details in part_elem.findall(".//attributes/staff-details"):
+                    staff_num = int(details.attrib.get("number", "1"))
+                    type_elem = details.find("staff-type")
+                    if (
+                        staff_num > 1
+                        and type_elem is not None
+                        and (type_elem.text or "").strip() == "alternate"
+                    ):
+                        p_info.alternate_staves[staff_num] = staff_num - 1
+
                 # Wishlist #8: gmidi_program is meaningless for a percussion
                 # part (see PartStructureInfo.is_percussion) - MusicData
                 # routes its playback to the GM percussion bank instead of

@@ -3,6 +3,7 @@
 ## 2026.1.66
 
 * Added autodetection of percussion parts when loading Guitar Pro files
+* Ties now announced as start, mid or end ties.
 
 ## 2026.1.65
 

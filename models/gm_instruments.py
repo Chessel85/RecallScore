@@ -94,3 +94,12 @@ def gm_program_for_name(name: str) -> Optional[int]:
     """The reverse lookup, or None for anything not an exact GM name (free
     text the user typed but never selected from the combo)."""
     return GM_PROGRAM_BY_NAME.get(name)
+
+
+# Plucked instruments (1-indexed GM programs): the eight guitars, the eight
+# basses, then Sitar, Banjo, Shamisen and Koto. A lute has no GM program of
+# its own and is normally written as a nylon guitar (25). Orchestral Harp
+# (47) and Pizzicato Strings (46) are left out - neither is fingered with
+# string/fret/p-i-m-a. Gates the "playing" attribute (MusicData.
+# is_plucked_part).
+PLUCKED_GM_PROGRAMS = frozenset(range(25, 41)) | frozenset({105, 106, 107, 108})

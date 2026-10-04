@@ -118,7 +118,45 @@ class NoteRenderer:
         ):
             if value is not None:
                 pairs[key] = str(value)
+
+        # Parts > Collapse staves: the alternate-stave (TAB) partner's
+        # attributes show on this note too - borrowed here at display time,
+        # never copied onto the NoteData, so string/fret stay one fact on
+        # the hidden note (invariant 8). This note's own value wins on a
+        # clash, and its identity/position keys are never borrowed.
+        partner = data.stave_partner_for(note)
+        if partner is not None:
+            for key, value in self.note_attribute_pairs(partner).items():
+                if key not in pairs and key not in data.CORE_ATTRIBUTE_KEYS and key != "playing":
+                    pairs[key] = value
+
+        # Plucked parts only (guitar, lute...) - a piano's fingering is not
+        # a playing position.
+        if data.is_plucked_part(note.part_id):
+            playing = self._playing_code(pairs)
+            if playing:
+                pairs["playing"] = playing
         return pairs
+
+    @staticmethod
+    def _playing_code(pairs: Dict[str, str]) -> str:
+        """The condensed "playing" attribute: s<string>f<fret>, a g<finger>
+        per left-hand fingering, then the right-hand pluck letters run
+        together - "s2f3g4m". A missing piece is left out ("s2f3"); a note
+        with none of the four has no "playing" at all. Fingering and pluck
+        are comma-joined lists (see TimelineBuilder's technical marks).
+        Every value is reported as written, a finger 0 included."""
+        def items(key):
+            return [v.strip() for v in pairs.get(key, "").split(",") if v.strip()]
+
+        code = ""
+        if "string" in pairs:
+            code += f"s{pairs['string']}"
+        if "fret" in pairs:
+            code += f"f{pairs['fret']}"
+        code += "".join(f"g{finger}" for finger in items("fingering"))
+        code += "".join(items("pluck"))
+        return code
 
     def _duration_text(self, note: NoteData) -> str:
         """The note's duration as a word ("quaver"), or the raw

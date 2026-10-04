@@ -136,3 +136,6 @@ class ScoreConfig:
     # Link Parts... groups, see MusicData.part_link_groups. Empty means no
     # parts are linked.
     part_link_groups: List[List[str]] = field(default_factory=list)
+    # Parts > Collapse staves: part_ids whose alternate stave is folded
+    # into the stave it shadows - see MusicData.collapsed_stave_parts.
+    collapsed_stave_parts: List[str] = field(default_factory=list)
