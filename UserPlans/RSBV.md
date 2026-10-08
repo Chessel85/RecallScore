@@ -143,6 +143,14 @@ next one after a /clear.
   `--scores`. One-time user step: repo Settings > Pages > Source = GitHub
   Actions. Verified only by running the staging command locally.
 
+* 1.7 (2026-10-08). `tests/web/test_web_api.py` (conftest puts `web/py` on
+  the path) loads `.musicxml` fixtures and `bach-bourree-tab.mxl`, asserts the
+  summary JSON shape, the `{"error": ...}` dict for a broken file and an
+  unsupported suffix (previous score kept), and no-score handling. Fast, no
+  music21. Phase 1 is complete; next is Phase 2 (2.1 is Opus). Before that the
+  user should try the skeleton in a browser: `python tools/stage_web.py
+  --serve 8000`, open `/app/`.
+
 ### Next: finish Phase 1 with 1.5, 1.6, 1.7 (all Sonnet)
 
 Do them in order; each is specified under "Phase 1" below. Read `CLAUDE.md`,
