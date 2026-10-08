@@ -52,9 +52,8 @@ timing, stop and hand it to Opus rather than guess.
 * Latency: about 53 ms key to sound, accepted as a known deviation from Ref 9's
   25 ms for the web version. Record it in the user guide and the Product
   Definition decision log.
-* No music21 in the browser. Chord symbols use a pure-Python table (task 1.4).
-  Until that lands: show the chord name, play no sound for it, and say so in
-  Region 3.
+* No music21 in the browser. Chord symbols use a pure-Python table (task 1.4,
+  done).
 * Announcer: every message goes through a queue. Use `ariaNotify` where present
   (Chrome 154 and Firefox 157 both have it), and two alternating live regions
   otherwise. Never a single live region, never rapid direct calls.
@@ -98,9 +97,7 @@ next one after a /clear.
   and adds music21's tempo, key and time on top. Guard:
   `tests/parsers/test_musicxml_without_music21.py`. Both fingerprints matched,
   and `MusicXMLReader.load()` output was identical on all 99 MusicXML files.
-  Known gap for later: without music21, `_handle_harmony` skips every chord
-  (no pitches), so chords are missing rather than "shown, silent". Fix in the
-  bridge (Phase 2) or by task 1.4.
+  Commit `9e8ff78`. (Its chord gap was closed by 1.4.)
 
 * 1.2 (2026-10-08, commit `56c2a41`). Score-config and app-settings JSON are
   Qt-free in `models/`: `score_config_json.py` (`config_to_dict`,
@@ -113,35 +110,94 @@ next one after a /clear.
   and docs updated. Pure move.
   Both 1.2 and 1.3: full pytest passes, both fingerprints MATCH.
 
-### Next: 1.4 (Opus)
+* 1.4 (2026-10-08). Chord symbols no longer need music21, on desktop or web.
+  `tools/gen_chord_kinds.py` (needs music21, run by hand, about 2.5 min)
+  writes `models/chord_kinds.py`: music21's exact pitch lists for every root
+  spelling, kind (55, MusicXML plus music21's own names) and bass, packed
+  per kind as zlib + base64 (145 KB file), plus a per-kind label suffix.
+  `_resolve_harmony` calls `chord_symbol()`. Ultimate Guitar still uses
+  music21 (free-text chords; desktop-only). Sub-plan: `UserPlans/ChordTable.md`.
+  Tests: `tests/models/test_chord_kinds.py` (fast hand cases plus a slow
+  full sweep against music21, about 3 min, so the full suite now takes about
+  4 min; use `-m "not slow"` for quick runs); the music21-blocked guard now
+  expects chords with pitches. Both fingerprints MATCH, full pytest passes.
+  The web's "chord name, no sound" fallback is no longer needed for MusicXML.
+  Not yet committed when these notes were written: if `git status` still
+  shows `models/chord_kinds.py` untracked, ask the user before committing it.
 
-Per the plan below, 1.4 needs its own sub-plan, `userPlans/ChordTable.md`,
-written first and reviewed by the user before any code, because it changes the
-desktop parser's dependencies. Sub-plan written 2026-10-08
-(`UserPlans/ChordTable.md`); awaiting the user's answers to its questions
-before any code.
+* 1.5 (2026-10-08). Skeleton and staging. Source layout: `web/index.html`
+  is the root signpost; the app is `web/app/` (`index.html`, `css/rsbv.css`,
+  `js/app.js`, `py_bridge.js`, `announcer.js`); `web/py/web_api.py` is the
+  bridge (`load(bytes, filename)`, `score_summary()`, errors as
+  `{"error": ...}`). Staged site: `/` signpost, `app/`, `py/` (shared.zip plus
+  web_api.py, fetched as `../py/`), `sf/`. `stage_web.py` now adds the eight
+  Qt-free `audio/` modules, copies only GeneralUser GS (+ its licence text,
+  `web/sf/GeneralUser-GS-LICENSE.txt`, which permits use in software) and
+  `recall_score_sounds.sf2`, and has `--public` (omits `spikes/`, `scores/`).
+  Tests: `tests/web/test_stage_web.py`. Not yet tried in a real browser:
+  stage with `--serve 8000` and open `/app/`.
 
-Starting state to know:
-* Branch `rsbv`. Task 1.1's work is still UNCOMMITTED in the working tree
-  (`parsers/musicxml_metadata.py`, `tests/parsers/test_musicxml_without_music21.py`,
-  edits to `parsers/musicXML_reader.py`, `timeline_builder.py`,
-  `timeline_builder_factory.py`, `ug_timeline_builder.py`, `docs/parsers.md`,
-  `docs/architecture.md`, `UserPlans/RSBVProofOfConcept.md`). Ask the user
-  whether to commit it first; do not mix it into 1.4's commit. Note
-  `docs/*.md` contain both 1.1 and later edits, so stage by hunk or by
-  building the index version from HEAD.
-* music21 is now imported only inside `TimelineBuilder._resolve_harmony`
-  (`parsers/timeline_builder.py`) and `UgTimelineBuilder._chord_symbol_to_pitches`
-  (`parsers/ug_timeline_builder.py`). Without music21 a chord resolves to no
-  pitches and `_handle_harmony` skips it, so chords vanish. 1.4 replaces that
-  with a pure-Python table in `models/chord_kinds.py`.
-* Gate: capture fingerprint baselines BEFORE editing
-  (`tests/manual/parser_fingerprint.py <out>`, `model_fingerprint.py <out>`
-  into the scratchpad), then `--check` after. Run the full pytest suite.
-  Desktop chords must sound exactly as before.
-* Read `CLAUDE.md`, `docs/architecture.md` and `docs/parsers.md` first. User
-  rules: no `**` bold in replies, short messages (screen reader), do not edit
-  `docs/user_guide.md` or `wishlist.txt`.
+### Next: finish Phase 1 with 1.5, 1.6, 1.7 (all Sonnet)
+
+Do them in order; each is specified under "Phase 1" below. Read `CLAUDE.md`,
+`docs/architecture.md` and `docs/parsers.md` first. User rules: no `**` bold
+in replies, short messages (screen reader), do not edit `docs/user_guide.md`
+or `wishlist.txt`, commit only when the user says so, never merge to `main`.
+After each task, add a Done entry here.
+
+State of the tree that the task list doesn't say:
+* Python entry point for the web: `parsers.musicxml_metadata.load_musicxml_without_music21(path)`
+  returns a full `MusicData`, chords included. It takes a path, so the bridge
+  writes the uploaded bytes to Pyodide's virtual filesystem first (keep the
+  original suffix; `.mxl` is a zip and the reader handles it). Nothing in the
+  MusicXML path imports music21 any more, so the bridge needs no stub.
+* `tools/stage_web.py` today: copies `web/` (skipping `*.sf2`, `__pycache__`,
+  `CLAUDE.md`) to `build/rsbv_site`, zips `SHARED_PACKAGES = ("models",
+  "parsers")` into `py/shared.zip`, copies `soundfonts/recall_score_sounds.sf2`
+  plus every `web/sf/*.sf2` into `sf/` with an `index.json`, and `--serve`s
+  with the right MIME types. 1.5 adds the Qt-free `audio/` files listed in the
+  reuse map (only those, never `synth_engine.py`, `sequencer.py` or anything
+  importing PySide6/fluidsynth); add a pytest or a check in the script that
+  each staged `audio/` file imports without PySide6.
+* `web/spikes/pyodide_boot.js` is the thing to promote into `web/js/py_bridge.js`.
+  Drop its music21-stub option (spike 1 only; `web/spikes/music21_stub.py`
+  stays with the spikes). Pyodide 314.0.7 pinned from jsDelivr. Note it
+  fetches `../py/shared.zip`, relative to the spikes folder; the app's path
+  will differ.
+* SoundFonts: `web/sf/GeneralUser-GS.sf2` (32 MB) and `web/sf/TimGM6mb.sf2`
+  (6 MB) are both already committed. The user chose GeneralUser GS only.
+  Staging should copy just GeneralUser GS (plus `recall_score_sounds.sf2`).
+  Do not delete `TimGM6mb.sf2` from git without asking. Still open from
+  decision 1: confirm GeneralUser GS's licence allows redistribution and
+  commit its licence text next to it (`web/sf/`); if it doesn't, stop and
+  tell the user.
+* Public layout (decision 3): the site root holds a short signpost
+  `index.html` (what Recall Score is, a link to the app); the app itself is
+  at the sub-path `app/`, i.e. `chessel85.github.io/RecallScore/app/`. So
+  the staged site is `index.html` (signpost), `app/` (the app's html, css,
+  js, py), `py/` or `app/py/` for `shared.zip` (pick one and keep paths
+  relative), `sf/`. Spikes stay staged locally for testing but are left out
+  of the public deploy (1.6): give `stage_web.py` a `--public` flag (or
+  similar) that omits `spikes/` and `scores/`.
+* 1.5's error reporting: a parse failure must reach the user as an
+  accessible message (an alert or a focused message element), not a
+  console print. The Python side still prints `[ERROR]` and returns partial
+  state in places (CLAUDE.md "Known gaps"); the bridge should catch
+  exceptions and return `{"error": ...}` so JS can show it.
+* 1.5's announcer use is minimal: loading progress only. The real announcer
+  (queue, `ariaNotify`, alternating live regions) is Opus task 2.1, so keep
+  1.5's version a small module 2.1 can replace; copy the queue idea from
+  `web/spikes/spike3.js` rather than writing to one live region directly.
+* 1.6: the workflow publishes from `main` only, and `main` gets `rsbv` only
+  on the user's say-so. It must run `stage_web.py` without `--scores`. The
+  SoundFonts are in git, so the workflow needs no extra download step.
+* 1.7: `tests/web/` imports `web/py/web_api.py` directly in CPython (add the
+  path in a conftest or the test). Load at least one fixture per type it
+  supports (`tests/fixtures/*.musicxml`, an `.mxl` such as
+  `examples/bach-bourree-tab.mxl` (no `.mxl` in `tests/fixtures/`), `chords_and_lyrics.musicxml`
+  for chords) and assert the JSON shapes, plus the error dict for a broken
+  file. Keep it fast (no `slow` marker needed; no music21).
+* After Phase 1 the next step is Phase 2, whose first task (2.1) is Opus.
 
 ## Reuse map: desktop piece to web
 

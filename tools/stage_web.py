@@ -7,8 +7,9 @@ from the app. It does the same copy the GitHub Pages workflow will do:
 
     web/                      -> <out>/            (the pages themselves)
     models/ + parsers/ (*.py) -> <out>/py/shared.zip  (unpacked by Pyodide)
-    soundfonts/recall_score_sounds.sf2 and web/sf/*.sf2 -> <out>/sf/
-                                 plus <out>/sf/index.json listing them
+    plus the Qt-free audio/ event builders (WEB_AUDIO_MODULES only)
+    soundfonts/recall_score_sounds.sf2 and web/sf/GeneralUser-GS.sf2
+                              -> <out>/sf/, plus <out>/sf/index.json
 
 With --scores (local testing only - never for a public deploy), it also
 copies every MusicXML file in files/, examples/ and tests/fixtures/ into
@@ -32,17 +33,30 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SHARED_PACKAGES = ("models", "parsers")
+# Qt-free audio event builders the web plays unchanged. Never add
+# synth_engine.py, sequencer.py or anything importing PySide6 / fluidsynth;
+# tests/web/test_stage_web.py imports each of these without PySide6.
+WEB_AUDIO_MODULES = (
+    "metronome", "lead_in", "barline_patterns", "boundary_cue",
+    "performance_cue", "position_announcer", "strum_schedule",
+    "grace_note_schedule",
+)
+WEB_SOUNDFONT = "GeneralUser-GS.sf2"
+# Shipped beside the SoundFont (its licence asks for the text to travel).
+WEB_SOUNDFONT_LICENCE = "GeneralUser-GS-LICENSE.txt"
 MUSICXML_SUFFIXES = {".musicxml", ".xml", ".mxl"}
 SCORE_DIRS = ("files", "examples", "tests/fixtures")
 
 
-def stage(out: Path, with_scores: bool) -> None:
+def stage(out: Path, with_scores: bool, public: bool = False) -> None:
     web = REPO_ROOT / "web"
     if not web.is_dir():
         sys.exit(f"[ERROR] {web} not found")
     if out.exists():
         shutil.rmtree(out)
     shutil.copytree(web, out, ignore=shutil.ignore_patterns("__pycache__", "*.sf2", "CLAUDE.md"))
+    if public:
+        shutil.rmtree(out / "spikes", ignore_errors=True)
 
     py_dir = out / "py"
     py_dir.mkdir(exist_ok=True)
@@ -52,12 +66,17 @@ def stage(out: Path, with_scores: bool) -> None:
             for path in sorted((REPO_ROOT / package).glob("*.py")):
                 zf.write(path, f"{package}/{path.name}")
                 count += 1
-    print(f"[OK] py/shared.zip: {count} files from {', '.join(SHARED_PACKAGES)}")
+        for module in WEB_AUDIO_MODULES:
+            zf.write(REPO_ROOT / "audio" / f"{module}.py", f"audio/{module}.py")
+            count += 1
+        zf.writestr("audio/__init__.py", "")
+        count += 1
+    print(f"[OK] py/shared.zip: {count} files from {', '.join(SHARED_PACKAGES)} and audio")
 
     sf_dir = out / "sf"
     sf_dir.mkdir(exist_ok=True)
     sf_sources = [REPO_ROOT / "soundfonts" / "recall_score_sounds.sf2"]
-    sf_sources += sorted((web / "sf").glob("*.sf2")) if (web / "sf").is_dir() else []
+    sf_sources.append(web / "sf" / WEB_SOUNDFONT)
     sf_names = []
     for src in sf_sources:
         if src.is_file():
@@ -65,10 +84,13 @@ def stage(out: Path, with_scores: bool) -> None:
             sf_names.append(src.name)
         else:
             print(f"[WARN] SoundFont not found, skipped: {src}")
+    licence = web / "sf" / WEB_SOUNDFONT_LICENCE
+    if licence.is_file():
+        shutil.copy2(licence, sf_dir / licence.name)
     (sf_dir / "index.json").write_text(json.dumps(sf_names, indent=1), encoding="utf-8")
     print(f"[OK] sf/: {', '.join(sf_names) or 'none'}")
 
-    if with_scores:
+    if with_scores and not public:
         scores_dir = out / "scores"
         scores_dir.mkdir(exist_ok=True)
         entries = []
@@ -113,11 +135,13 @@ def main() -> None:
     parser.add_argument("--out", default=str(REPO_ROOT / "build" / "rsbv_site"))
     parser.add_argument("--scores", action="store_true",
                         help="also copy the local MusicXML corpus (local testing only)")
+    parser.add_argument("--public", action="store_true",
+                        help="deploy build: omit spikes/ and scores/")
     parser.add_argument("--serve", type=int, metavar="PORT",
                         help="serve the staged folder on 127.0.0.1:PORT afterwards")
     args = parser.parse_args()
     out = Path(args.out).resolve()
-    stage(out, args.scores)
+    stage(out, args.scores, args.public)
     if args.serve:
         serve(out, args.serve)
 
