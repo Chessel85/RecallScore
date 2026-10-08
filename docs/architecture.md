@@ -817,8 +817,12 @@ Qt-aware I/O only.
 silently breaking the "models/ stays Qt-free" invariant that
 `main_window.detect_default_uk_terms()`'s placement depends on.
 `persistence.score_config` re-exports `ScoreConfig`, so import sites are
-unchanged; the JSON key codecs stayed in `persistence/` (spelling a tuple key in
-a file is serialisation, not data shape). `test_models_package_does_not_import_qt`
+unchanged. The JSON encode/decode is Qt-free too and also in `models/`
+(`score_config_json.py`: `config_to_dict`/`config_from_dict`;
+`app_settings_data.py`: `AppSettings` with `to_dict`/`from_dict`), so the web
+version writes and reads the same `.rsc` and settings shapes; `persistence/`
+keeps only file I/O and `QStandardPaths`, and `persistence.app_settings`
+re-exports `AppSettings`. `test_models_package_does_not_import_qt`
 guards it **in a subprocess** — the test session loads PySide6 via conftest
 first, so in-process `sys.modules` proves nothing.
 
