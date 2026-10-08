@@ -1,0 +1,40 @@
+# Publishes the browser version (RSBV) to GitHub Pages.
+# Runs only on main; the rsbv branch reaches main only when the user merges.
+# One-time setting: repo Settings > Pages > Source = "GitHub Actions".
+name: Publish web version
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    # workflow_dispatch can be started from any branch; publish main only.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      # stdlib only; no --scores, so the score corpus never ships.
+      - run: python tools/stage_web.py --public --out build/rsbv_site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/rsbv_site
+      - id: deployment
+        uses: actions/deploy-pages@v4

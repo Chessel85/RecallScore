@@ -137,6 +137,12 @@ next one after a /clear.
   Tests: `tests/web/test_stage_web.py`. Not yet tried in a real browser:
   stage with `--serve 8000` and open `/app/`.
 
+* 1.6 (2026-10-08). `.github/workflows/pages.yml`: on push to `main` (and
+  manual dispatch, guarded to `main`), runs `stage_web.py --public` with plain
+  Python and deploys `build/rsbv_site` with the official Pages actions. No
+  `--scores`. One-time user step: repo Settings > Pages > Source = GitHub
+  Actions. Verified only by running the staging command locally.
+
 ### Next: finish Phase 1 with 1.5, 1.6, 1.7 (all Sonnet)
 
 Do them in order; each is specified under "Phase 1" below. Read `CLAUDE.md`,
