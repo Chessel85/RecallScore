@@ -79,8 +79,9 @@ imported all four timeline builders at module scope. Because
 `TimelineBuilder`/`UgTimelineBuilder` import music21, merely importing the data
 model cost **461 ms and 706 modules**; it is now **45 ms and 111 modules**, with
 music21 not loaded at all. (Since RSBV 1.1 no builder imports music21 at
-module scope, so a `MusicData(file_path=...)` MusicXML load without chord
-symbols doesn't load it either.) Four modules carry what used to be reached across the
+module scope, and since RSBV 1.4 chord symbols come from the
+`models/chord_kinds.py` table, so a `MusicData(file_path=...)` MusicXML load
+never loads it.) Four modules carry what used to be reached across the
 boundary:
 
 * **`models/synthetic_parts.py`** — the identifiers for parts/voices this app

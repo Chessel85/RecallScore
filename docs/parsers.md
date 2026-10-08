@@ -176,16 +176,29 @@ part with no staff/voice nodes is invisible to
 `Region2HierarchyModel.get_active_voice_tuples()`.
 
 **Chord resolution.** A `<harmony>`'s root/kind/bass resolves to MIDI pitches and
-a display label ("G7", "F/C") via `music21.harmony.ChordSymbol(root=..., kind=...,
-bass=...)`, accepting MusicXML's own `kind` vocabulary directly, with a
-bare-root-triad fallback and finally the label alone with no `chord_pitches` — a
-malformed `<kind>` shouldn't make the whole bar's chord entry vanish.
-(In practice `_handle_harmony` skips a chord with no pitches, so that last step
-drops the chord.) music21 is imported inside `_resolve_harmony`, not at module
-scope, so `TimelineBuilder` imports without it; with music21 absent every chord
-takes that pitchless path, until RSBV task 1.4's chord table replaces music21
-here. `UgTimelineBuilder` likewise imports it inside `_chord_symbol_to_pitches`,
-and `timeline_builder_factory.builder_for` imports the MIDI, Guitar Pro and UG
+a display label ("G7", "F/C") through `models/chord_kinds.chord_symbol`, a table
+of exactly what `music21.harmony.ChordSymbol(root=..., kind=..., bass=...)`
+answers, generated once by `tools/gen_chord_kinds.py` (RSBV 1.4). Neither
+desktop nor the browser version calls music21 for chords any more.
+
+The table is music21's output verbatim, not a port of its algorithm: music21
+realises a figured bass, bumps octaves for 9th/11th/13th chords, detects
+inversions and pulls the result into a fixed range, so the voicing depends on
+the root letter (C major is C3 E3 G3, G major G3 B3 D4) and about a quarter
+of the lists are unsorted or repeat a pitch (E/G is 55, 44, 47, 52). It covers
+every root spelling (alter -2 to +2), every kind music21 knows (MusicXML's
+vocabulary plus music21's own names) and every bass. An unknown kind sounds
+the root alone, an unreadable bass gives the root labelled "pedal", an
+unreadable root drops the chord - all as music21 did. The label is root + a
+per-kind suffix + "/bass" when the bass differs. `<degree>`, `<inversion>`
+and `<kind text>` are not read.
+
+After a music21 upgrade run `tools/gen_chord_kinds.py --check`;
+`tests/models/test_chord_kinds.py`'s slow test sweeps the whole table against
+music21 (about three minutes). `UgTimelineBuilder` still uses music21, inside
+`_chord_symbol_to_pitches`, because UG chords are free text ("C7b9",
+"Cadd9/G") that need music21's figure parser; UG import is desktop-only.
+`timeline_builder_factory.builder_for` imports the MIDI, Guitar Pro and UG
 builders function-locally, so a MusicXML load never pulls them in.
 
 **`models/vocabulary.spell_out_minor_chord`.** A chord label's minor abbreviation

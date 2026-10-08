@@ -47,3 +47,16 @@ building it: loaded a generated test `.sf2` through `fluidsynth.Synth`,
 triggered several notes across two presets, and measured the actual
 rendered audio to confirm both correct sample selection per
 note/bank/program and that nothing gets pitch-shifted.
+
+## gen_chord_kinds.py
+
+Writes `models/chord_kinds.py`, the table that resolves a MusicXML
+`<harmony>` to pitches and a label without music21 (RSBV 1.4). The one
+script here that needs a third-party library: it asks music21 for every
+root, kind and bass combination and stores the answers. Still imports
+nothing from the app. Takes a few minutes.
+
+```
+python tools/gen_chord_kinds.py           # rewrite the table
+python tools/gen_chord_kinds.py --check   # fail if it would change (after a music21 upgrade)
+```

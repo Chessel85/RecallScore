@@ -63,15 +63,14 @@ def test_musicxml_score_loads_with_music21_blocked():
 
 
 def test_score_with_chord_symbols_loads_with_music21_blocked():
-    """<harmony> is the one MusicXML feature that reaches for music21
-    (_resolve_harmony). Blocked, it must degrade, not fail the load. Until
-    the chord table (RSBV 1.4) lands, the chords resolve to no pitches and
-    the builder skips them, so the Chords part is listed but empty."""
+    """<harmony> used to reach for music21 (_resolve_harmony). Since RSBV
+    1.4 it reads models/chord_kinds.py instead, so the chords load with
+    their pitches and labels even with music21 blocked."""
     out = _load_with_music21_blocked("chords_and_lyrics.musicxml")
 
     assert out["music21_loaded"] is False
     assert out["parts"] == ["Piano", "Chords", "Lyrics"]
-    assert out["chords"] == []
+    assert out["chords"] == [{"label": "A minor", "pitches": [45, 48, 52]}] * 3
 
 
 @pytest.mark.slow

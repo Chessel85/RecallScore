@@ -11,6 +11,7 @@ from models.duration_units import (
     tuplet_word,
 )
 from models.barline_mark import BarlineMark
+from models.chord_kinds import chord_symbol
 from models.clef_change_mark import ClefChangeMark
 from models.coda_mark import CodaMark
 from models.direction_mark import DirectionMark
@@ -172,30 +173,20 @@ def _percussion_instrument_map(root: Optional[ET.Element]) -> Dict[str, Tuple[st
     return instrument_map
 
 
-def _pitch_name(step: str, alter_elem: Optional[ET.Element]) -> str:
-    """MusicXML <root-step>/<root-alter> (or <bass-step>/<bass-alter>) as a
-    music21 pitch name string ("F#", "B--") - music21's harmony.ChordSymbol
-    accepts both `root=`/`bass=` and `kind=` using MusicXML's own vocabulary
-    directly, so no separate kind->suffix mapping is needed here."""
-    alter = int(float(alter_elem.text.strip())) if (alter_elem is not None and alter_elem.text) else 0
-    accidental = {1: "#", -1: "-", 2: "##", -2: "--"}.get(alter, "")
-    return f"{step}{accidental}"
+def _alter(alter_elem: Optional[ET.Element]) -> int:
+    """<root-alter>/<bass-alter> as whole semitones (0 when absent)."""
+    return int(float(alter_elem.text.strip())) if (alter_elem is not None and alter_elem.text) else 0
 
 
 def _resolve_harmony(harmony_elem) -> Tuple[List[int], str]:
     """A <harmony> element's MIDI pitches and display label ("Am", "G7",
-    "F/C"), via music21.harmony.ChordSymbol - already a project dependency,
-    first used this way by parsers/ug_timeline_builder.py's UG chord-symbol
-    parsing. Falls back to a bare root triad, then to the root name alone
-    with no real pitches, mirroring ug_timeline_builder's
-    _chord_symbol_to_pitches "absence isn't an error, degrade gracefully"
-    pattern - a malformed <kind> shouldn't make the whole bar's chord vanish.
-
-    music21 is imported here, not at module scope, so the browser version
-    (which has no music21) can import this module. Without music21 every
-    chord resolves to no pitches, and _handle_harmony skips a pitchless
-    chord, so chord symbols are absent until RSBV task 1.4's pure-Python
-    chord table replaces music21 here.
+    "F/C"), from models/chord_kinds.py - a table of exactly what
+    music21.harmony.ChordSymbol(root=..., kind=..., bass=...) answers for
+    every root, MusicXML/music21 kind and bass, generated once by
+    tools/gen_chord_kinds.py (RSBV 1.4), so neither desktop nor the browser
+    version needs music21 here. A missing <kind> reads as "major"; an
+    unknown kind sounds the root alone, as music21 does. <degree>,
+    <inversion> and <kind text> are not read.
     """
     root_elem = harmony_elem.find("root")
     if root_elem is None:
@@ -203,43 +194,23 @@ def _resolve_harmony(harmony_elem) -> Tuple[List[int], str]:
     step_elem = root_elem.find("root-step")
     if step_elem is None or not step_elem.text:
         return [], ""
-    root_name = _pitch_name(step_elem.text.strip(), root_elem.find("root-alter"))
+    root_alter = _alter(root_elem.find("root-alter"))
 
     kind_elem = harmony_elem.find("kind")
     kind = kind_elem.text.strip() if (kind_elem is not None and kind_elem.text) else "major"
 
-    bass_name = None
+    bass_step, bass_alter = None, 0
     bass_elem = harmony_elem.find("bass")
     if bass_elem is not None:
         bass_step_elem = bass_elem.find("bass-step")
         if bass_step_elem is not None and bass_step_elem.text:
-            bass_name = _pitch_name(bass_step_elem.text.strip(), bass_elem.find("bass-alter"))
+            bass_step = bass_step_elem.text.strip()
+            bass_alter = _alter(bass_elem.find("bass-alter"))
 
-    try:
-        from music21 import harmony as harmony21
-    except ImportError:
-        return [], root_name
-
-    try:
-        kwargs = {"root": root_name, "kind": kind}
-        if bass_name:
-            kwargs["bass"] = bass_name
-        cs = harmony21.ChordSymbol(**kwargs)
-        pitches = [p.midi for p in cs.pitches]
-        if pitches:
-            return pitches, spell_out_minor_chord(cs.figure)
-    except Exception:
-        pass
-
-    try:
-        cs = harmony21.ChordSymbol(root=root_name)
-        pitches = [p.midi for p in cs.pitches]
-        if pitches:
-            return pitches, spell_out_minor_chord(cs.figure)
-    except Exception:
-        pass
-
-    return [], root_name
+    pitches, label = chord_symbol(step_elem.text.strip(), root_alter, kind, bass_step, bass_alter)
+    if not pitches:
+        return [], label
+    return pitches, spell_out_minor_chord(label)
 
 
 def _resolve_chord_diagram(harmony_elem) -> Optional[str]:
