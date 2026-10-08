@@ -4,7 +4,7 @@
 
 Phase 0 is finished and the user's decision is GO. This document is the original
 plan, written before the spikes. **Do not implement from it as it stands.** The
-next step is a full new Phase 1 plan, written from:
+implementation plan that replaces it is `userPlans/RSBV.md`, written from:
 
 1. `docs/rsbv_spike_findings.md`, especially "Conclusions for the Phase 1
    design". Where it contradicts this file, it wins.

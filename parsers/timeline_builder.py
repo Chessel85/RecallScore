@@ -4,8 +4,6 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Tuple
 
-from music21 import harmony as harmony21
-
 from models.duration_units import (
     beat_unit_display_name,
     beat_unit_quarter_length,
@@ -192,6 +190,12 @@ def _resolve_harmony(harmony_elem) -> Tuple[List[int], str]:
     with no real pitches, mirroring ug_timeline_builder's
     _chord_symbol_to_pitches "absence isn't an error, degrade gracefully"
     pattern - a malformed <kind> shouldn't make the whole bar's chord vanish.
+
+    music21 is imported here, not at module scope, so the browser version
+    (which has no music21) can import this module. Without music21 every
+    chord resolves to no pitches, and _handle_harmony skips a pitchless
+    chord, so chord symbols are absent until RSBV task 1.4's pure-Python
+    chord table replaces music21 here.
     """
     root_elem = harmony_elem.find("root")
     if root_elem is None:
@@ -210,6 +214,11 @@ def _resolve_harmony(harmony_elem) -> Tuple[List[int], str]:
         bass_step_elem = bass_elem.find("bass-step")
         if bass_step_elem is not None and bass_step_elem.text:
             bass_name = _pitch_name(bass_step_elem.text.strip(), bass_elem.find("bass-alter"))
+
+    try:
+        from music21 import harmony as harmony21
+    except ImportError:
+        return [], root_name
 
     try:
         kwargs = {"root": root_name, "kind": kind}

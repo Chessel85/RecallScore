@@ -19,16 +19,19 @@ reader has one (xml_root/midi_source/gp_source/ug_source), so a file is
 never walked twice - the shared-source rule described in CLAUDE.md. UG is
 the exception with no fallback: a UG import's file_path is a synthetic slug
 with nothing fetchable at it, so ug_source must always be supplied.
+
+RSBV 1.1: only the MusicXML builder is imported at module scope. The MIDI,
+Guitar Pro and UG builders are imported inside builder_for, so loading a
+MusicXML score - the browser version's path - imports nothing it doesn't
+use, and never music21 (TimelineBuilder imports it only inside
+_resolve_harmony). Keep those imports function-local.
 """
 from typing import List
 
 from models.score_section import ScoreSection
 from models.timeline_build import TimelineBuild
-from parsers.gp_timeline_builder import GpTimelineBuilder
-from parsers.midi_timeline_builder import MidiTimelineBuilder
 from parsers.score_sections import split_score_sections
 from parsers.timeline_builder import TimelineBuilder
-from parsers.ug_timeline_builder import UgTimelineBuilder
 from parsers.xml_source import read_musicxml_root
 
 
@@ -40,14 +43,20 @@ def builder_for(music_data):
     not a fourth explicit check, because it is the only format identified by
     more than one extension (.xml/.musicxml/.mxl)."""
     if music_data.is_midi:
+        from parsers.midi_timeline_builder import MidiTimelineBuilder
+
         return MidiTimelineBuilder(
             music_data.file_path, music_data.parts_info, source=music_data.midi_source
         )
     if music_data.is_gp:
+        from parsers.gp_timeline_builder import GpTimelineBuilder
+
         return GpTimelineBuilder(
             music_data.file_path, music_data.parts_info, source=music_data.gp_source
         )
     if music_data.is_ug:
+        from parsers.ug_timeline_builder import UgTimelineBuilder
+
         return UgTimelineBuilder(
             music_data.file_path, music_data.parts_info, source=music_data.ug_source
         )

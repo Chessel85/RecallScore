@@ -12,7 +12,7 @@ the two can never independently re-walk the input and drift.
 
 **The R5 bug class.** Two independent reads of the same fact WILL diverge. It
 happened for real: a non-ASCII `<part-name>` (a MuseScore export with a Korean
-instrument name) was replaced by `_extract_part_structure_etree` with a hardcoded
+instrument name) was replaced by `extract_part_structure` with a hardcoded
 `"Classical Guitar"` fallback while `TimelineBuilder` kept the real text, and the
 Performance Report — which joins `parts_info.name` against `note.part_name` by
 exact text — showed "0 notes" for a fully-noted part. Whenever two places need
@@ -55,10 +55,18 @@ may assume partwise and never handles timewise itself. A separate function,
 so `MusicXMLReader` can hand music21 the converted tree when the source file was
 timewise — everything else should call `read_musicxml_root`.
 
-### `parsers/musicXML_reader.py`
+### `parsers/musicXML_reader.py` and `parsers/musicxml_metadata.py`
 
 `MusicXMLReader` builds header/metadata: credits, key, time signature, tempo,
-per-part structure (staff-to-clef, staff-to-voices, GM program). It parses the
+per-part structure (staff-to-clef, staff-to-voices, GM program). The
+ElementTree half (`extract_credits`, `extract_key_and_time`, `extract_tempo`,
+`extract_part_structure`, `fill_empty_beat_units`, and `assemble_music_data`,
+which builds the `MusicData`) lives in **`parsers/musicxml_metadata.py`**, which
+must never import music21: the browser version (RSBV) loads MusicXML through its
+`load_musicxml_without_music21`, which uses the ElementTree tempo/key/time alone
+and leaves `MusicData.score` as `None`.
+`tests/parsers/test_musicxml_without_music21.py` checks this in a subprocess
+with music21 blocked. The reader parses the
 file **twice**: raw `ElementTree` for credits/part-list/clefs, and
 `music21.converter.parse` for tempo/key/time, with the ElementTree values as
 fallback when music21 returns nothing. When the source file is timewise,
@@ -68,7 +76,7 @@ the plain `converter.parse(file_path)` path stays byte-for-byte unchanged for
 partwise files.
 
 **A malformed `<metronome>` used to abort music21's WHOLE parse, not just that
-marking.** `_fill_empty_beat_units` scans `root` for any textless
+marking.** `fill_empty_beat_units` scans `root` for any textless
 `<beat-unit/>` (as MuseScore emitted in the Dvořák "New World" Largo, measure
 46 — some notation software exports a metronome mark's note-head glyph this
 way instead of a real duration name) and fills it with `"quarter"` *before*
@@ -78,7 +86,7 @@ which used to drop key/time/tempo **everywhere in the piece**, not just at
 that one marking — even though the real note timeline
 (`parsers/timeline_builder.py`, walked straight from `root`) never touches
 `score` at all and would have loaded fine regardless. The fix only changes
-that one marking's cosmetic note-head glyph — `_extract_tempo_etree`'s own
+that one marking's cosmetic note-head glyph — `extract_tempo`'s own
 fallback already produced the identical display string via a same-`<direction>`
 `<sound tempo>`, so sanitizing is a strict improvement (music21-derived fields
 now work everywhere else in the file too), never a behaviour change for a
@@ -90,14 +98,14 @@ since the tree was mutated in memory.
 `_extract_tempo` (music21) returns `None` — not a default — when it finds no
 usable `MetronomeMark`, *and* `score` is `None` whenever music21 couldn't parse
 the file at all (still possible for failures other than the empty-`<beat-unit>`
-case above). `_extract_tempo_etree` then walks the first part's `<direction>`
+case above). `extract_tempo` then walks the first part's `<direction>`
 elements for the first valid marking — a `<metronome>` with a known
 `<beat-unit>` and a positive `<per-minute>` (a same-`<direction>`
 `<sound tempo>` is authoritative for the quarter BPM when present) — mirroring
 `TimelineBuilder._tempo_change_from_direction`, which does the same for every
 *later* marking.
 
-`_extract_part_structure_etree`'s `<part-name>` read populates
+`extract_part_structure`'s `<part-name>` read populates
 `PartStructureInfo.name`, and **`TimelineBuilder` derives `NoteData.part_name`
 from that same `parts_info`** (R5, `TimelineBuilder._part_names`) rather than
 re-reading the XML. `TimelineBuilder` keeps an ElementTree fallback only for the
@@ -161,7 +169,7 @@ unlike UG's fabricated ones).
 
 Identifiers live in `models/synthetic_parts.py`; `has_harmony_elements(root)` and
 `has_lyric_elements(root)` live in `timeline_builder.py` and are imported into
-`_extract_part_structure_etree` — one shared source, not two independent reads.
+`extract_part_structure` — one shared source, not two independent reads.
 `MusicXMLReader` adds the two `PartStructureInfo` entries **only when the file
 actually has the markup**, with one staff and one voice each — **not zero**: a
 part with no staff/voice nodes is invisible to
@@ -172,6 +180,13 @@ a display label ("G7", "F/C") via `music21.harmony.ChordSymbol(root=..., kind=..
 bass=...)`, accepting MusicXML's own `kind` vocabulary directly, with a
 bare-root-triad fallback and finally the label alone with no `chord_pitches` — a
 malformed `<kind>` shouldn't make the whole bar's chord entry vanish.
+(In practice `_handle_harmony` skips a chord with no pitches, so that last step
+drops the chord.) music21 is imported inside `_resolve_harmony`, not at module
+scope, so `TimelineBuilder` imports without it; with music21 absent every chord
+takes that pitchless path, until RSBV task 1.4's chord table replaces music21
+here. `UgTimelineBuilder` likewise imports it inside `_chord_symbol_to_pitches`,
+and `timeline_builder_factory.builder_for` imports the MIDI, Guitar Pro and UG
+builders function-locally, so a MusicXML load never pulls them in.
 
 **`models/vocabulary.spell_out_minor_chord`.** A chord label's minor abbreviation
 is usually a bare trailing "m" ("Am", "Am7") — NVDA reads that as the letter "m",
@@ -505,7 +520,7 @@ it and must never be read.**
   `<unpitched>` note resolves its own `<instrument id>` through that map for BOTH
   its spoken name and its real sounding key — **never** from
   `<display-step>`/`<display-octave>`, which is only where MuseScore draws the
-  notehead, not a real pitch. `_extract_part_structure_etree` sets
+  notehead, not a real pitch. `extract_part_structure` sets
   `is_percussion` from `<clef><sign>percussion</sign></clef>`, independently of
   the note-level check (the same "structural fact vs. per-note fact" split
   `is_rest` has).
@@ -587,7 +602,7 @@ free" trick as GP's `GP_CHORD_VOICE_ID` — **zero changes** were needed in
 `(part_id, staff, voice)` and don't care what a "voice" number means. A 4th tree
 level was considered and rejected: it would have needed all of that touched.
 
-`_extract_part_structure_etree` makes the identical substitution when building
+`extract_part_structure` makes the identical substitution when building
 `staves_voices`/`voice_names`, sharing `_percussion_instrument_map` with
 `TimelineBuilder`. **A rest inside a percussion voice has no `<unpitched>`/item
 identity**, so it is skipped entirely when building a percussion part's voice

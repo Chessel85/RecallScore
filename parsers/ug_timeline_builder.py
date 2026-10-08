@@ -30,8 +30,6 @@ import re
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple, Union
 
-from music21 import harmony
-
 from models import guitar_tuning
 from models.event_slice import EventSlice
 from models.note_data import NoteData
@@ -506,7 +504,12 @@ def _chord_symbol_to_pitches(symbol: str) -> List[int]:
     """Resolves a UG chord-symbol string ("Fmaj7", "C/B", "G7"...) to a list
     of MIDI pitches via music21.harmony.ChordSymbol. On a parse failure
     (UG is user-submitted text and can contain a typo), falls back to the
-    chord's root letter alone, so the event stays audible/navigable."""
+    chord's root letter alone, so the event stays audible/navigable.
+
+    music21 is imported here rather than at module scope so that importing
+    the timeline builder factory does not load it."""
+    from music21 import harmony
+
     try:
         pitches = [p.midi for p in harmony.ChordSymbol(symbol).pitches]
         if pitches:
