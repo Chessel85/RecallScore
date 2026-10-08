@@ -5,7 +5,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QAbstractItemView, QTreeWidget, QTreeWidgetItem
 
 from .accessible_announcer import announce
-from .region2_manager import Region2HierarchyModel, Region2Node, node_status_label
+from models.region2_manager import Region2HierarchyModel, Region2Node, node_status_label
 from .region_focus_cycle import RegionFocusCycleMixin
 
 

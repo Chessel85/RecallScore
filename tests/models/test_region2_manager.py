@@ -1,9 +1,9 @@
-# tests/widgets/test_region2_manager.py
+# tests/models/test_region2_manager.py
 """Region2HierarchyModel is pure state with no Qt dependency, so it needs
 no qapp fixture and runs instantly."""
 import pytest
 
-from widgets.region2_manager import (
+from models.region2_manager import (
     Region2HierarchyModel,
     Region2Node,
     node_breadcrumb,

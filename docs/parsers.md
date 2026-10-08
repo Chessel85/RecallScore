@@ -582,7 +582,7 @@ Both builders now set `NoteData.voice` to the item's own declared key
 (`percussion_source_key`) for a percussion note, instead of the notated `<voice>`.
 This is the same "fabricate a voice_id so it drops into the existing tree for
 free" trick as GP's `GP_CHORD_VOICE_ID` — **zero changes** were needed in
-`region2_manager.py`'s mute/solo machinery, `active_voice_filter`, or
+`models/region2_manager.py`'s mute/solo machinery, `active_voice_filter`, or
 `ScoreConfig`'s `voices_muted`/`voices_soloed`, since all of those operate on
 `(part_id, staff, voice)` and don't care what a "voice" number means. A 4th tree
 level was considered and rejected: it would have needed all of that touched.

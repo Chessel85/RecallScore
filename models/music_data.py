@@ -341,7 +341,7 @@ class MusicData:
 
     @property
     def collapsed_part_ids(self) -> Union[bool, Set[str]]:
-        """Region 2's collapse_to_parts argument (widgets/region2_manager.py):
+        """Region 2's collapse_to_parts argument (models/region2_manager.py):
         True to flatten every part (MIDI, a pure Ultimate Guitar import,
         where a real staff/voice concept doesn't exist anywhere in the
         score), or the specific set of part_ids to flatten for a score that

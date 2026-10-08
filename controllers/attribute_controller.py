@@ -3,7 +3,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QMenu
 
 from models.vocabulary import attribute_label
-from widgets.region2_manager import voice_tuples_for_node
+from models.region2_manager import voice_tuples_for_node
 from widgets.user_notification import notify_user
 
 

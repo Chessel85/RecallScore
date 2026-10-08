@@ -3,7 +3,7 @@
 
 The load-bearing property is that with nothing soloed, get_active_voice_
 tuples() falls through to the plain mute-based filter unchanged."""
-from widgets.region2_manager import Region2HierarchyModel
+from models.region2_manager import Region2HierarchyModel
 
 PARTS = [
     {

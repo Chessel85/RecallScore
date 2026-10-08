@@ -567,8 +567,8 @@ flat navigable list, not a table, so NVDA reads a whole row's name/level/on-off
 status in one Up/Down keystroke instead of needing column-by-column navigation),
 `timeline_list_widget.py` (`TimelineListWidget`, region 3),
 `region5_list_widget.py` (`Region5ListWidget`, region 5), and
-`region2_manager.py` (`Region2HierarchyModel` / `Region2Node`, pure state — no
-Qt — that both `Region2ListWidget` and its tests drive).
+`models/region2_manager.py` (`Region2HierarchyModel` / `Region2Node`, pure state —
+no Qt, so it lives in `models/` and the web version shares it — that both `Region2ListWidget` and its tests drive).
 
 **Building a new dialog that pairs a reorderable list with buttons, or mixes
 plain `QPushButton`s with a `QDialogButtonBox`? Read
@@ -1203,7 +1203,7 @@ visibility or mute state.
 
 Region 2 shows a linked part's group number as a display-only prefix
 ("1. Classical Guitar" — `Region2Node.link_group`,
-`widgets/region2_manager.py`'s `node_status_label`), set via
+`models/region2_manager.py`'s `node_status_label`), set via
 `Region2HierarchyModel.apply_link_groups`/`Region2ListWidget.apply_link_groups`
 and never folded into `display_name` itself, so a rename or reorder can't
 disturb it.

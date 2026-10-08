@@ -1,4 +1,4 @@
-# widgets/region2_manager.py
+# models/region2_manager.py
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Set, Tuple, Union
 
