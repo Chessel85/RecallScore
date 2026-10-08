@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RSBV Spike 4</title>
+<link rel="stylesheet" href="common.css">
+<script src="https://cdn.jsdelivr.net/npm/js-synthesizer@1.13.0/dist/js-synthesizer.min.js"></script>
+</head>
+<body>
+<main>
+<h1>Spike 4: sound, latency and background playback</h1>
+<p>Plays notes with FluidSynth compiled for the browser (js-synthesizer), the same synthesizer the
+desktop app uses. Browsers only allow sound after you press a key or click, so start with the Start
+sound button.</p>
+<p id="status" role="status" aria-live="polite">Not started.</p>
+
+<h2>1. Start</h2>
+<p><label>Latency setting:
+  <select id="latency-hint">
+    <option value="interactive" selected>interactive (lowest the browser offers)</option>
+    <option value="balanced">balanced</option>
+    <option value="playback">playback</option>
+  </select></label></p>
+<p><label>Instrument SoundFont:
+  <select id="sf-choice"></select></label></p>
+<p><label>Or load a SoundFont from your computer: <input id="sf-file" type="file" accept=".sf2,.sf3"></label></p>
+<p><button id="start" disabled>Start sound</button></p>
+<p>To compare SoundFonts or latency settings, reload the page and start again with another choice.</p>
+
+<h2>2. Key-to-sound latency</h2>
+<p>Focus the note list and press Down Arrow or Up Arrow repeatedly. Each move plays a note at once,
+the way timeline navigation auditions notes. Judge by ear whether it feels instant; the page reports
+the browser's own latency figures.</p>
+<h3 id="notes-label">Note list</h3>
+<div id="notes" role="listbox" tabindex="0" aria-labelledby="notes-label" aria-activedescendant="note-0"></div>
+
+<h2>3. Instruments and app sounds</h2>
+<p><label>Instrument:
+  <select id="program">
+    <option value="1">Acoustic Grand Piano</option>
+    <option value="25">Acoustic Guitar (nylon)</option>
+    <option value="26">Acoustic Guitar (steel)</option>
+    <option value="41">Violin</option>
+    <option value="43">Cello</option>
+    <option value="49">String Ensemble 1</option>
+    <option value="57">Trumpet</option>
+    <option value="74">Flute</option>
+    <option value="72">Clarinet</option>
+    <option value="20">Church Organ</option>
+  </select></label>
+  (also used by the note list)</p>
+<p><button id="demo">Play a demo phrase</button>
+<button id="drums">Play a drum pattern</button>
+<button id="clicks">Play metronome clicks and a bar line sound</button></p>
+
+<h2>4. Background playback</h2>
+<p>Each test plays a repeating scale for 60 seconds. After starting one, switch to another tab or
+window for at least 20 seconds, listen for gaps or uneven timing, then come back. Test A schedules
+each note with an ordinary page timer; test B hands notes to FluidSynth's own sequencer three
+seconds ahead, timed by the audio clock.</p>
+<p><button id="bg-timer">Test A: page timer</button>
+<button id="bg-seq">Test B: FluidSynth sequencer</button>
+<button id="bg-stop">Stop</button></p>
+
+<h2>Report</h2>
+<p>Add what you heard to the report after copying it: whether audition felt instant, which
+SoundFont sounded better, and whether background playback stayed even.</p>
+<p><button id="copy-report">Copy report</button></p>
+<textarea id="report" rows="16" readonly aria-label="Report"></textarea>
+
+<h2>Log</h2>
+<ol id="log"></ol>
+</main>
+<script type="module" src="spike4.js"></script>
+</body>
+</html>

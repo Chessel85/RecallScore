@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RSBV Spike 1</title>
+<link rel="stylesheet" href="common.css">
+</head>
+<body>
+<main>
+<h1>Spike 1: Python in the browser</h1>
+<p>Loads Pyodide and the desktop app's models and parsers code, then parses scores and times
+navigation. Python starts loading as soon as the page opens. For a true first-visit number, clear the
+browser cache first (or use a private window).</p>
+<p id="status" role="status" aria-live="polite">Starting.</p>
+
+<h2>Tests</h2>
+<p><button id="parse-all" disabled>Parse every staged score</button></p>
+<p><label>Parse a score from your computer: <input id="file" type="file" accept=".musicxml,.xml,.mxl" disabled></label></p>
+<p><button id="step-bench" disabled>Time 200 Right Arrow steps on the largest score parsed so far</button></p>
+
+<h2>Report</h2>
+<p><button id="copy-report">Copy report</button></p>
+<textarea id="report" rows="16" readonly aria-label="Report"></textarea>
+
+<h2>Log</h2>
+<ol id="log"></ol>
+</main>
+<script type="module" src="spike1.js"></script>
+</body>
+</html>

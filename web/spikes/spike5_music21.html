@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RSBV Spike 5</title>
+<link rel="stylesheet" href="common.css">
+</head>
+<body>
+<main>
+<h1>Spike 5: installing music21 for chord symbols</h1>
+<p>Scores with chord symbols need music21 to work out the chord's notes. This page installs music21
+into Python in the browser on demand and measures what that costs. For a true first-visit number,
+use a private window. Nothing needs listening to; just wait for the result and copy the report.</p>
+<p><button id="run">Install music21 and test chord symbols</button></p>
+<p id="status" role="status" aria-live="polite">Not started.</p>
+
+<h2>Report</h2>
+<p><button id="copy-report">Copy report</button></p>
+<textarea id="report" rows="14" readonly aria-label="Report"></textarea>
+
+<h2>Log</h2>
+<ol id="log"></ol>
+</main>
+<script type="module" src="spike5.js"></script>
+</body>
+</html>

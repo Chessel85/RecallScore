@@ -4,6 +4,7 @@
 
 * Added autodetection of percussion parts when loading Guitar Pro files
 * Ties now announced as start, mid or end ties.
+* New feature to collapse guitar treble and tablature staves to one stave along with shorthand for playing information in format s1f2g3
 
 ## 2026.1.65
 

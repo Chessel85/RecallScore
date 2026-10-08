@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RSBV Spike 3</title>
+<link rel="stylesheet" href="common.css">
+</head>
+<body>
+<main>
+<h1>Spike 3: spoken announcements</h1>
+<p>Compares ways of making the screen reader speak a message the app sends by itself, such as
+"Metronome on". Pick a method, run each test, and record what you heard in the results table.</p>
+<p id="support"></p>
+
+<h2>Method</h2>
+<fieldset>
+  <legend>Announcement method</legend>
+  <label><input type="radio" name="method" value="ariaNotify"> ariaNotify (Chrome and Edge only)</label><br>
+  <label><input type="radio" name="method" value="alternating" checked> Two alternating live regions</label><br>
+  <label><input type="radio" name="method" value="single"> One live region (the naive way, for comparison)</label>
+</fieldset>
+<p><label>Gap between queued messages:
+  <select id="gap">
+    <option value="0">none</option>
+    <option value="100">100 ms</option>
+    <option value="250" selected>250 ms</option>
+    <option value="500">500 ms</option>
+  </select></label></p>
+
+<h2>Tests</h2>
+<p>Run them with the buttons, or from the test list below in focus mode with keys 1 to 6.</p>
+<ol>
+  <li><button data-test="1">Once: "Metronome on"</button></li>
+  <li><button data-test="2">Same text twice, half a second apart: "Loop bar" then "Loop bar"</button></li>
+  <li><button data-test="3">Five quick messages, sent all at once: "one" to "five"</button></li>
+  <li><button data-test="4">Five quick messages through the queue: "one" to "five"</button></li>
+  <li><button data-test="5">Urgent then polite: "Playing" (assertive) then "Bar 3" (polite)</button></li>
+  <li><button data-test="6">While navigating: focus the test list and press Down Arrow; each move also announces "bar line"</button></li>
+</ol>
+
+<h3 id="list-label">Test list</h3>
+<div id="test-list" role="listbox" tabindex="0" aria-labelledby="list-label" aria-activedescendant="opt-0"></div>
+
+<h2>Results</h2>
+<table>
+  <caption>What you heard, per method and test</caption>
+  <thead><tr><th scope="col">Test</th><th scope="col">ariaNotify</th><th scope="col">Alternating regions</th><th scope="col">One region</th></tr></thead>
+  <tbody id="results"></tbody>
+</table>
+
+<h2>Report</h2>
+<p><button id="copy-report">Copy report</button></p>
+<textarea id="report" rows="14" readonly aria-label="Report"></textarea>
+<p id="status" role="status" aria-live="polite" class="visually-hidden"></p>
+
+<div id="assertive-a" class="visually-hidden" aria-live="assertive" aria-atomic="true"></div>
+<div id="assertive-b" class="visually-hidden" aria-live="assertive" aria-atomic="true"></div>
+<div id="polite-a" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+<div id="polite-b" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+<div id="single-assertive" class="visually-hidden" aria-live="assertive" aria-atomic="true"></div>
+<div id="single-polite" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+</main>
+<script type="module" src="spike3.js"></script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RSBV Spike 2</title>
+<link rel="stylesheet" href="common.css">
+</head>
+<body>
+<main>
+<h1>Spike 2: which keys reach the page</h1>
+<p>Below are three test widgets, each a different kind of control. Tab to one, check your screen
+reader has switched to focus mode, then press each planned key. Every key the page receives is spoken
+straight away ("reached: Control L"). Silence, or the browser or screen reader doing something
+else, means the key was lost. The page blocks the browser's own action for every planned key, so
+Ctrl+P should not open Print, for example.</p>
+<p>Alt on its own and F10 normally open the browser menu. Press Escape if that happens.</p>
+<p>When you have tried every key on all three widgets, copy the report. The results table at the end
+shows what reached each widget.</p>
+
+<div id="announce-a" class="visually-hidden" aria-live="assertive"></div>
+<div id="announce-b" class="visually-hidden" aria-live="assertive"></div>
+
+<h2>Test widgets</h2>
+<h3 id="lb-label">Widget A: list box</h3>
+<div id="w-listbox" role="listbox" tabindex="0" aria-labelledby="lb-label" aria-activedescendant="lb-1" data-widget="listbox">
+  <div role="option" id="lb-1" aria-selected="true">C quarter note</div>
+  <div role="option" id="lb-2" aria-selected="false">E quarter note</div>
+</div>
+
+<h3 id="tree-label">Widget B: tree</h3>
+<div id="w-tree" role="tree" tabindex="0" aria-labelledby="tree-label" aria-activedescendant="tr-1" data-widget="tree">
+  <div role="treeitem" id="tr-1" aria-selected="true" aria-expanded="false">Flute, part 1</div>
+</div>
+
+<h3 id="app-label">Widget C: application</h3>
+<div id="w-app" role="application" tabindex="0" aria-labelledby="app-label" data-widget="application">
+  Application widget. Keys pressed here go straight to the page.
+</div>
+
+<h2>Results</h2>
+<p id="summary"></p>
+<table>
+  <caption>Planned keys and which widgets received them</caption>
+  <thead><tr><th scope="col">Key</th><th scope="col">List box</th><th scope="col">Tree</th><th scope="col">Application</th></tr></thead>
+  <tbody id="results"></tbody>
+</table>
+
+<h2>Report</h2>
+<p><button id="copy-report">Copy report</button></p>
+<textarea id="report" rows="16" readonly aria-label="Report"></textarea>
+<p id="status" role="status" aria-live="polite"></p>
+
+<h2>Other keys received</h2>
+<ol id="other-keys"></ol>
+</main>
+<script type="module" src="spike2.js"></script>
+</body>
+</html>
