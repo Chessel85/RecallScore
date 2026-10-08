@@ -300,6 +300,34 @@ class TimelineNavigator:
         self.data.active_event_index = target
         return True
 
+    # --- song jump points (P2) ---------------------------------------------
+
+    def move_to_jump_point(self, direction: int) -> bool:
+        """Ctrl+Alt+Right/Left: to the first visible event of the next
+        (direction > 0) or previous song jump point - a UG [Section]/GP
+        <Section> jump point, or a MusicXML <rehearsal> mark (MusicXML has
+        no JumpPoint of its own, see models/jump_point.py). Positional like
+        Home/End: False (position unchanged) past the last one or on a
+        score with neither, never a wrap, so callers sound the boundary cue."""
+        data = self.data
+        jump_measures = [s.start_measure for s in data.jump_points]
+        jump_measures += [m.measure for m in data.direction_marks if m.kind == "rehearsal"]
+        starts = sorted(
+            i for i in (
+                self.first_visible_event_index_of_measure(m) for m in jump_measures
+            )
+            if i is not None
+        )
+        current = data.active_event_index
+        if direction > 0:
+            target = next((i for i in starts if i > current), None)
+        else:
+            target = next((i for i in reversed(starts) if i < current), None)
+        if target is None:
+            return False
+        data.active_event_index = target
+        return True
+
     # --- ends of the piece --------------------------------------------------
 
     def move_home(self) -> bool:

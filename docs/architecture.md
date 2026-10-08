@@ -381,7 +381,10 @@ the window.**
   `Enter` can't action a stale number.
 * **`region_presenter.py`** (`RegionPresenter`) — **the only controller that
   touches widgets.** Owns the five regions, the status bar, and the refresh choke
-  point (`update_timeline_views`).
+  point (`update_timeline_views`). The *wording* of its one-off announcements
+  (and of `PlaybackController`'s metronome/announcer/loop-length status fields)
+  lives in Qt-free `models/announcements.py`, shared with the web version's
+  bridge (`web/py/web_api.py`) so the two can't drift; change text there.
 * **`attribute_controller.py`**, **`focus_controller.py`**,
   **`score_persistence.py`** — Ref 15 AC4's attribute system, the region focus
   cycle / F6 panes, and the per-score `.rsc`.

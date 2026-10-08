@@ -5,15 +5,13 @@ from PySide6.QtCore import QItemSelectionModel, QObject, Signal
 from PySide6.QtWidgets import QListWidgetItem
 
 from audio.performance_cue import performance_cue_event
-from models import marking_categories
+from models import announcements
 from models.performance_indicator_mode import (
     PERFORMANCE_INDICATOR_ALWAYS_ON,
     PERFORMANCE_INDICATOR_OFF,
-    PERFORMANCE_INDICATOR_ON_EXCEPT_WHEN_PLAYING,
 )
 from models.performance_indicator_mode import cycle as cycle_performance_indicator_mode
 from models.region3_row import MarkingRow
-from models.vocabulary import bar_word
 from persistence import app_settings
 from widgets import accessible_announcer
 
@@ -144,9 +142,7 @@ class RegionPresenter(QObject):
     def announce_staves_collapsed(self, collapsed: bool) -> None:
         """Parts > Collapse staves: Region 2's rows change under the user,
         so the new state is spoken - the menu tick is gone with the menu."""
-        accessible_announcer.announce(
-            self.region_2, "Staves collapsed" if collapsed else "Staves uncollapsed"
-        )
+        accessible_announcer.announce(self.region_2, announcements.staves_collapsed(collapsed))
 
     def reorder_parts(self, part_id_order) -> None:
         self.region_2.reorder_parts(part_id_order)
@@ -249,9 +245,9 @@ class RegionPresenter(QObject):
         current = self.music_data.get_current_slice()
         if current is None:
             return
-        label = bar_word(self.session.uk_terms).capitalize()
-        message = f"{label} {current.measure}."
-        accessible_announcer.announce(self.region_3, message)
+        accessible_announcer.announce(
+            self.region_3, announcements.measure_change(current.measure, self.session.uk_terms)
+        )
 
     def refresh_region_3_labels(self) -> None:
         """Re-renders Region 3's row text in place after an attribute
@@ -290,11 +286,9 @@ class RegionPresenter(QObject):
         rows = self.music_data.get_region_4_rows_for_region_3_selection(
             self.selected_region_3_indices()
         )
-        if number < 1 or number > len(rows):
-            return
-        display_key, _attribute_key, value = rows[number - 1]
-        message = f"{display_key}: {value}"
-        accessible_announcer.announce(self.region_3, message)
+        message = announcements.attribute_by_number(rows, number)
+        if message is not None:
+            accessible_announcer.announce(self.region_3, message)
 
     def announce_loop_length(self, bars: int) -> None:
         """Alt+PageUp/PageDown (main_window.increase_loop_length/
@@ -304,24 +298,16 @@ class RegionPresenter(QObject):
         field, which a screen-reader user isn't focused on and so never
         hears change. Wording follows the UK/US terminology setting exactly
         like every other bar/measure label in the app."""
-        label = bar_word(self.session.uk_terms)
-        plural = "" if bars == 1 else "s"
-        message = f"Loop length {bars} {label}{plural}."
-        accessible_announcer.announce(self.region_3, message)
+        accessible_announcer.announce(
+            self.region_3, announcements.loop_length(bars, self.session.uk_terms)
+        )
 
     def announce_play_mode(self, mode: str) -> None:
         """Ctrl+L (main_window.cycle_play_mode) rotates the three-way play
         mode without moving focus off the Note region - so, like
         announce_loop_length, the new mode is spoken aloud since the only
         other trace is the (unfocused) status bar."""
-        phrases = {
-            "to_end": "Play mode: play to end.",
-            "loop_once": "Play mode: play loop once.",
-            "loop_forever": "Play mode: play loop until stopped.",
-        }
-        accessible_announcer.announce(
-            self.region_3, phrases.get(mode, phrases["to_end"])
-        )
+        accessible_announcer.announce(self.region_3, announcements.play_mode(mode))
 
     def cycle_performance_indicator_mode(self) -> str:
         """Ctrl+C (main_window.cycle_performance_indicator_mode): Off -> On
@@ -338,13 +324,8 @@ class RegionPresenter(QObject):
         """Speaks the new Performance Indicator mode aloud - Ctrl+C is a
         bare shortcut, so the submenu's own checked-item change isn't heard
         (same reasoning as announce_play_mode)."""
-        phrases = {
-            PERFORMANCE_INDICATOR_OFF: "Performance indicator off.",
-            PERFORMANCE_INDICATOR_ON_EXCEPT_WHEN_PLAYING: "Performance indicator on except when playing.",
-            PERFORMANCE_INDICATOR_ALWAYS_ON: "Performance indicator always on.",
-        }
         accessible_announcer.announce(
-            self.region_3, phrases.get(mode, phrases[PERFORMANCE_INDICATOR_OFF])
+            self.region_3, announcements.performance_indicator_mode(mode)
         )
 
     def announce_refresh_on_playback(self, enabled: bool) -> None:
@@ -354,10 +335,7 @@ class RegionPresenter(QObject):
         toggles above. Kept short (UserPlans/DelayRefresh.md): the user
         hears the CLI and the app through NVDA, and a long phrase here is
         heard on every press."""
-        accessible_announcer.announce(
-            self.region_3,
-            "Region refresh on." if enabled else "Region refresh off.",
-        )
+        accessible_announcer.announce(self.region_3, announcements.refresh_on_playback(enabled))
 
     def announce_loop_repeat_mode(self, mode: str) -> None:
         """Ctrl+R (main_window.cycle_loop_repeat_mode) rotates how a repeat
@@ -365,14 +343,7 @@ class RegionPresenter(QObject):
         the Note region - so, like announce_loop_length, the change is
         spoken aloud since the only other trace is the (unfocused) status
         bar."""
-        phrases = {
-            "first": "Loop repeat handling: repeat the first play-through.",
-            "second": "Loop repeat handling: repeat the second play-through.",
-            "alternate": "Loop repeat handling: alternate the first and second play-throughs.",
-        }
-        accessible_announcer.announce(
-            self.region_3, phrases.get(mode, phrases["first"])
-        )
+        accessible_announcer.announce(self.region_3, announcements.loop_repeat_mode(mode))
 
     def announce_tempo(self) -> None:
         """F/S/D (main_window.tempo_faster/tempo_slower/tempo_reset) nudge
@@ -383,10 +354,7 @@ class RegionPresenter(QObject):
         "N quarter notes per minute"."""
         if not self.music_data:
             return
-        number = self.music_data._format_tempo_number(
-            self.music_data.playback_tempo_display_bpm()
-        )
-        accessible_announcer.announce(self.region_3, f"{number}.")
+        accessible_announcer.announce(self.region_3, announcements.tempo(self.music_data))
 
     def announce_section_change(self) -> None:
         """Spoken after NavigationController.select_section switches which
@@ -398,11 +366,7 @@ class RegionPresenter(QObject):
         from there."""
         if not self.music_data:
             return
-        md = self.music_data
-        position = f"section {md.active_section_index + 1} of {len(md.sections)}"
-        label = md.active_section.label
-        message = f"{label}, {position}." if label else f"{position.capitalize()}."
-        accessible_announcer.announce(self.region_3, message)
+        accessible_announcer.announce(self.region_3, announcements.section_change(self.music_data))
 
     def refresh_region_5(self) -> None:
         """Ref 29 / PerformanceMarkingsStrategy.md section 7: recomputes
@@ -474,7 +438,7 @@ class RegionPresenter(QObject):
             return
         if digits:
             fields = self.music_data.get_status_bar_fields()
-            fields[0] = f"Go to {bar_word(self.session.uk_terms)}: {digits}"
+            fields[0] = announcements.pending_digits(digits, self.session.uk_terms)
             self.status_bar.set_fields(fields)
         else:
             self.update_status_bar()
@@ -510,8 +474,6 @@ class RegionPresenter(QObject):
         self.update_timeline_views(play_all=False)
         if 0 <= current_row < self.region_5.count():
             self.region_5.setCurrentRow(current_row)
-        name = marking_categories.CATEGORY_NAMES.get(category, category)
         accessible_announcer.announce(
-            self.region_5,
-            f"{name}, {'in note list' if surfaced else 'not in note list'}",
+            self.region_5, announcements.marking_category_toggled(category, surfaced)
         )

@@ -18,7 +18,7 @@ from audio.boundary_cue import boundary_cue_event
 from audio.position_announcer import POSITION_ANNOUNCER_CHANNEL, announcement_event_for_beat
 from audio.sequencer import Sequencer
 from audio.strum_schedule import sound_events
-from models import mixer_settings
+from models import announcements, mixer_settings
 from models.mixer_settings import MixerSettings
 from models.play_settings import (
     LOOP_REPEAT_MODES,
@@ -29,7 +29,6 @@ from models.play_settings import (
 )
 from models.playback_jump_state import PlaybackJumpState
 from models.synthetic_parts import LYRICS_PART_ID
-from models.vocabulary import bar_word
 
 
 @dataclass
@@ -1523,27 +1522,23 @@ class PlaybackController(QObject):
             return "Playback: Paused"
         if self.sequencer is not None and self.sequencer.is_playing:
             return "Playback: Playing"
-        return "Playback: Stopped"
+        return announcements.PLAYBACK_STOPPED
 
     def metronome_status_text(self) -> str:
         """Ref 14: On/Off, since there is otherwise no way to check the
         metronome without listening for a click."""
-        if self.music_data and self.music_data.metronome_enabled:
-            return "Metronome: On"
-        return "Metronome: Off"
+        return announcements.metronome_status(bool(self.music_data and self.music_data.metronome_enabled))
 
     def position_announcer_status_text(self) -> str:
         """Ref 28: same discoverability reasoning as the metronome field."""
-        if self.music_data and self.music_data.position_announcer_enabled:
-            return "Position Announcer: On"
-        return "Position Announcer: Off"
+        return announcements.position_announcer_status(
+            bool(self.music_data and self.music_data.position_announcer_enabled)
+        )
 
     def loop_length_status_text(self) -> str:
         """Alt+PageUp/PageDown (adjust_loop_length_bars) and the typed
         Ctrl+Enter buffer have no visible control to read the current value
         off, unlike a spin box in the dialog - so the count is shown here
         the same way the metronome/announcer toggles are."""
-        bar = bar_word(self.session.uk_terms) if self.session else "bar"
-        bars = self.play_settings.loop_length_bars
-        plural = "" if bars == 1 else "s"
-        return f"Loop length: {bars} {bar}{plural}"
+        uk_terms = self.session.uk_terms if self.session else True  # "bar"
+        return announcements.loop_length_status(self.play_settings.loop_length_bars, uk_terms)

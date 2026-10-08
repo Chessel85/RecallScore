@@ -33,7 +33,7 @@ function toJs(proxy) {
   return value;
 }
 
-/** Returns {ok, summary} or {error}. Never throws for a bad score. */
+/** Returns {ok, summary, view} or {error}. Never throws for a bad score. */
 export function loadScore(bytes, filename) {
   try {
     return toJs(api.load(bytes, filename));
@@ -41,3 +41,27 @@ export function loadScore(bytes, filename) {
     return { error: `Could not open ${filename}: ${err.message}` };
   }
 }
+
+// The rest wrap web_api.py one to one; see its docstrings for the shapes.
+// A Python exception comes back as {error}, so a bug shows up as a message
+// rather than a dead key.
+function call(name, ...args) {
+  try {
+    const result = api[name](...args);
+    return result && typeof result.toJs === "function" ? toJs(result) : result;
+  } catch (err) {
+    return { error: `${name} failed: ${err.message}` };
+  }
+}
+
+export const view = () => call("view");
+export const regionRows = (region, selection = null) => call("region_rows", region, selection);
+/** direction: "left", "right", "bar_left", "bar_right", "first", "last". */
+export const move = (direction) => call("move", direction);
+export const gotoBar = (measure) => call("goto_bar", measure);
+export const jumpPoint = (direction) => call("jump_point", direction);
+export const section = (delta) => call("section", delta);
+export const selectionChanged = (selection) => call("selection_changed", selection);
+export const attributeAnnouncement = (number, selection = null) =>
+  call("attribute_announcement", number, selection) ?? null;
+export const setUkTerms = (ukTerms) => call("set_uk_terms", ukTerms);

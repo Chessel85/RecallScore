@@ -685,6 +685,10 @@ class MusicData:
         TimelineNavigator.jump_to_measure."""
         return self.navigator.jump_to_measure(measure_number)
 
+    def move_to_jump_point(self, direction: int) -> bool:
+        """Ctrl+Alt+Right/Left (P2) - see TimelineNavigator.move_to_jump_point."""
+        return self.navigator.move_to_jump_point(direction)
+
     def move_timeline_home(self) -> bool:
         """Home (Ref 5) - see TimelineNavigator.move_home."""
         return self.navigator.move_home()

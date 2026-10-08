@@ -294,30 +294,9 @@ class NavigationController(QObject):
     def _step_jump_point(self, direction: int) -> None:
         self.clear_pending_digits()
         data = self.music_data
-        if data is None:
+        if data is None or not data.move_to_jump_point(direction):
             self.boundary_hit.emit()
             return
-        jump_measures = [s.start_measure for s in data.jump_points]
-        jump_measures += [m.measure for m in data.direction_marks if m.kind == "rehearsal"]
-        starts = sorted(
-            i for i in (
-                data.first_visible_event_index_of_measure(m)
-                for m in jump_measures
-            )
-            if i is not None
-        )
-        if not starts:
-            self.boundary_hit.emit()
-            return
-        current = data.active_event_index
-        if direction > 0:
-            target = next((i for i in starts if i > current), None)
-        else:
-            target = next((i for i in reversed(starts) if i < current), None)
-        if target is None:
-            self.boundary_hit.emit()
-            return
-        data.active_event_index = target
         self._emit_position_changed(False)
 
     # --- score sections (multi-section MusicXML) -------------------------

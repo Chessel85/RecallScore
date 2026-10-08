@@ -151,7 +151,50 @@ next one after a /clear.
   user should try the skeleton in a browser: `python tools/stage_web.py
   --serve 8000`, open `/app/`.
 
-### Next: finish Phase 1 with 1.5, 1.6, 1.7 (all Sonnet)
+* 2.1 (2026-10-08). Page accessibility core in `web/app/js/`:
+  `announcer.js` (queue at a 250 ms gap, `ariaNotify` else two alternating
+  live regions per priority, created by the module; `announce(text,
+  priority)`, `announceUrgent`, `dropPolite`; assertive jumps ahead of
+  waiting polite messages), `keymap.js` (the single key table as strict JSON
+  between `KEYMAP-BEGIN`/`END` markers, `bind(id, handler)`, one capture-phase
+  document `keydown` dispatcher; scopes `regionN` > `list` > `cycle` >
+  `global`; ignores keys in editable fields and open dialogs; Escape never
+  bound), `focus.js` (cycle Menu, Regions 1 to 6, Tab/Shift+Tab wrap only
+  inside the cycle, Z X C V B N jumps). Region 6 key is N (decision 2).
+  `web/CLAUDE.md` holds the browser rules. Guard:
+  `tests/web/test_keymap_table.py`. Menu button is a stub until 2.5.
+* 2.2 (2026-10-08). Bridge: `web_api.region_rows(n, selection)`, `view()`,
+  `move(direction)` (left, right, bar_left, bar_right, first, last),
+  `goto_bar(n)`, `jump_point(dir)`, `section(delta)`,
+  `selection_changed(sel)`, `attribute_announcement(n, sel)`,
+  `set_uk_terms`. Move results carry `moved`, `boundary`, `announce` (speak
+  before redraw), `barline` and Regions 3 to 6 plus Region 3's select-all
+  selection (sections re-send all six). Load seeds the desktop's global
+  defaults and builds Region 2's tree from the shared
+  `Region2HierarchyModel`. Shared code: `models/announcements.py` holds all
+  `RegionPresenter` announcement wording and `PlaybackController`'s
+  metronome, announcer and loop-length status text; jump-point stepping
+  moved to `TimelineNavigator.move_to_jump_point`. Region 1 gets a
+  "section" row for multi-section files (Left/Right steps it; its own
+  reading replaces the spoken message). Not done: Region 5 Alt+Home/End
+  span jumps (logic still in `NavigationController.jump_to_span`). Tests:
+  `tests/web/test_web_api.py`, `tests/models/test_announcements.py`.
+  Model fingerprint MATCH, fast suite passes. Smoke-tested in headless
+  Chrome under real Pyodide, no screen reader yet.
+  To make 2.1/2.2 testable, `regions.js` is a minimal renderer (options
+  with fresh ids per render, Up/Down/Home/End, Ctrl+A, skip re-render when
+  text is unchanged except Region 3); 2.3 extends it (Shift-select, tree
+  expand/collapse, Region 4 re-anchor by `key`). Boundary and bar line
+  sounds wait for Phase 3, so a move that hits an end is silent for now.
+
+### Next: Phase 2 from 2.3 (Sonnet)
+
+Read `web/CLAUDE.md` first. Before 2.3, the user should try 2.1/2.2 with
+NVDA: `python tools/stage_web.py --serve 8000`, open `/app/`, load a score,
+check Tab wrap, Z X C V B N, Left/Right and Ctrl+arrows in Notes, and that
+"Measure N." is heard before the note.
+
+### Earlier: finish Phase 1 with 1.5, 1.6, 1.7 (all Sonnet)
 
 Do them in order; each is specified under "Phase 1" below. Read `CLAUDE.md`,
 `docs/architecture.md` and `docs/parsers.md` first. User rules: no `**` bold
