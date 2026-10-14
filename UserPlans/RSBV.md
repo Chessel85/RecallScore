@@ -211,7 +211,7 @@ next one after a /clear.
   Smoke-tested in headless Chrome under real Pyodide (tree, mute, typed
   bar, Go to bar, help, menu); no screen reader yet. Fast suite passes.
 
-### RESUME HERE (2026-10-14): 5.3 built, not yet committed; user to test with NVDA, then 5.4
+### RESUME HERE (2026-10-14): 5.3 done and committed (e40e10a); next is 5.4
 
 `app/js/storage.js` keeps settings in localStorage: global under
 `recallscore.settings` (settings.json text), each score under
