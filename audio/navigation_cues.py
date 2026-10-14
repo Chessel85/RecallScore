@@ -25,8 +25,30 @@ def position_cues(music_data) -> Tuple[Optional[Event], Optional[Event]]:
     current = music_data.get_current_slice()
     if current is None:
         return None, None
-    click = click_event_for_beat(current.beat_position) if music_data.metronome_enabled else None
-    word = (announcement_event_for_beat(current.beat_position)
+    return _beat_cues(music_data, current.beat_position)
+
+
+def position_cues_at(music_data, index: int) -> Tuple[Optional[Event], Optional[Event]]:
+    """position_cues for timeline slice `index` rather than the cursor: what
+    each playback step sounds alongside its notes (Ref 14 AC1/AC2, Ref 28
+    AC1/AC2), in the Sequencer and the web scheduler alike."""
+    return _beat_cues(music_data, music_data.timeline_slices[index].beat_position)
+
+
+def count_in_cues(music_data, beat_position: float) -> Tuple[Optional[Event], Optional[Event]]:
+    """(click, word) for one beat of a lead-in count-in. The click always
+    sounds (the lead-in IS "play the count-in click", independent of the
+    metronome toggle); the spoken beat number follows the position
+    announcer - with it on, hearing "three, four" is the clearest signal of
+    where the downbeat lands."""
+    word = (announcement_event_for_beat(beat_position)
+            if music_data.position_announcer_enabled else None)
+    return click_event_for_beat(beat_position), word
+
+
+def _beat_cues(music_data, beat_position: float) -> Tuple[Optional[Event], Optional[Event]]:
+    click = click_event_for_beat(beat_position) if music_data.metronome_enabled else None
+    word = (announcement_event_for_beat(beat_position)
             if music_data.position_announcer_enabled else None)
     return click, word
 

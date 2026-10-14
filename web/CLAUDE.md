@@ -43,7 +43,10 @@ Rows take real focus (roving tabindex): the current row is the only
 tabbable one and holds the focus; the region element is not focusable.
 `aria-activedescendant` was tried first and NVDA stayed silent with it in
 Firefox and Chrome. Every render builds fresh row elements, so the screen
-reader reads the row even when its text is unchanged.
+reader reads the row even when its text is unchanged. Playback results
+are the exception: regions other than 3 change their text in place
+(`render(..., {inPlace: true})`), so a reader on Region 6 is not pulled
+back to the position line on every note.
 
 ## Dialogs: `app/js/dialogs.js`
 
@@ -84,6 +87,24 @@ gesture listeners stay for the page's life and resume a suspended
 context, and nothing ever awaits `resume()` (it stays pending, with no
 error, while permission is withheld). js-synthesizer's main script must load before the worklet node is
 made (`JSSynth` global); audio.js preloads it with the SoundFonts.
+
+## Playback: `app/js/scheduler.js`
+
+Python plans the whole run: `web_api.play_*` over `models/play_plan.py`'s
+`PlayTimeline` (count-in, steps, loop restarts, the desktop's timing, the
+same code the desktop's PlaybackController and Sequencer use). The page
+asks for it a chunk ahead (`play_plan(session, until_ms)`) and puts every
+sound on FluidSynth's own sequencer in the worklet, timed in its ticks, so
+the notes keep time in a busy or hidden tab. Only refills and the cursor
+run on page timers. Never compute timing in JavaScript. A note-off is sent
+1 ms early so it cannot cut a note-on at the same moment, and only once
+everything starting before it is planned, so a key another group still
+holds keeps sounding (SynthEngine's group note-off). The cursor moves when
+a step is heard (`play_cursor`), after the output latency. A stop sends
+all-notes-off on every channel: a note whose note-off is already queued is
+no longer in the page's bookkeeping, and clearing the queue drops it. Pause, resume
+and stop are Python's decisions (`play_toggle`, `play_pause`); a call with
+an old `session` number is ignored, so a stop always wins.
 
 ## Mute and solo
 

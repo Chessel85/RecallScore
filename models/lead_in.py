@@ -1,11 +1,11 @@
-# audio/lead_in.py
+# models/lead_in.py
 """The lead-in count-in before playback starts: which beats click, and when.
 
-A pure function (no Qt, no timers), deliberately split out from
-controllers/playback_controller.py for the same reason as
-audio/strum_schedule.py - the timing maths is then directly unit-testable
-without a real event loop, and the controller only has to walk the schedule
-it hands back.
+A pure function (no Qt, no timers), deliberately split out of the
+controller for the same reason as audio/strum_schedule.py - the timing
+maths is then directly unit-testable without a real event loop. It lives in
+models/ (it was audio/lead_in.py) because models/play_plan.py, shared by
+the desktop and the web version, builds each iteration's count-in from it.
 
 The lead-in exists because, from real practice use, playback sounding the
 instant Space is pressed leaves no time to get hands back onto the guitar.

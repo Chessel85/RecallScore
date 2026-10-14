@@ -53,9 +53,19 @@ function visibleTree(nodes, level = 1, parentId = null, out = []) {
  * unless `keepCurrent`, which keeps the same Region 4 attribute (by `key`)
  * or the same Region 2 node (by `id`) when it is still there. `reset`
  * (Region 2) forgets the expand state, for a newly loaded score. */
-export function render(n, rows, { selection = null, force = false, keepCurrent = false, reset = false } = {}) {
+export function render(n, rows, { selection = null, force = false, keepCurrent = false, reset = false, inPlace = false } = {}) {
   const region = regions.get(n);
   const isTree = n === 2;
+  if (inPlace && !isTree && rows.length === region.rows.length && region.el.children.length === rows.length) {
+    // Playback following: change the text where it differs and leave the
+    // current row and the focus alone, so a moving position line does not
+    // pull the reader back to the top of the region.
+    rows.forEach((row, i) => {
+      if (row.text !== region.rows[i].text) region.el.children[i].textContent = row.text;
+    });
+    region.rows = rows;
+    return;
+  }
   if (isTree && reset) expanded.clear();
   const flat = isTree ? visibleTree(rows) : rows;
   const texts = flat.map((row) => row.text);

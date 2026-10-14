@@ -76,6 +76,8 @@ export const KEYMAP = /* KEYMAP-BEGIN */ [
   {"id": "options.barLineIndicator", "keys": ["Ctrl+B"], "scope": "global", "label": "Bar line indicator on or off", "desktopAction": "bar_line_indicator", "difference": null},
   {"id": "options.metronome", "keys": ["Ctrl+M"], "scope": "global", "label": "Metronome on or off", "desktopAction": "metronome", "difference": null},
   {"id": "options.positionAnnouncer", "keys": ["Ctrl+P"], "scope": "global", "label": "Position announcer on or off", "desktopAction": "position_announcer", "difference": null},
+  {"id": "play.toggle", "keys": ["Space"], "scope": "global", "label": "Play or stop", "desktopAction": "play_stop", "difference": null},
+  {"id": "play.pause", "keys": ["Ctrl+Space"], "scope": "global", "label": "Pause", "desktopAction": "pause_resume", "difference": null},
   {"id": "help.keys", "keys": ["F1"], "scope": "global", "label": "Keyboard help", "desktopAction": null, "difference": null},
   {"id": "attributes.speak", "keys": ["Ctrl+1", "Ctrl+2", "Ctrl+3", "Ctrl+4", "Ctrl+5", "Ctrl+6", "Ctrl+7", "Ctrl+8", "Ctrl+9"], "scope": "global", "label": "Speak attribute by number", "desktopAction": null, "difference": null}
 ] /* KEYMAP-END */;

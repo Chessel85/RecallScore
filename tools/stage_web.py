@@ -37,7 +37,7 @@ SHARED_PACKAGES = ("models", "parsers")
 # synth_engine.py, sequencer.py or anything importing PySide6 / fluidsynth;
 # tests/web/test_stage_web.py imports each of these without PySide6.
 WEB_AUDIO_MODULES = (
-    "metronome", "lead_in", "barline_patterns", "boundary_cue",
+    "metronome", "barline_patterns", "boundary_cue",
     "performance_cue", "position_announcer", "strum_schedule",
     "grace_note_schedule", "navigation_cues",
 )

@@ -211,7 +211,59 @@ next one after a /clear.
   Smoke-tested in headless Chrome under real Pyodide (tree, mute, typed
   bar, Go to bar, help, menu); no screen reader yet. Fast suite passes.
 
-### RESUME HERE (2026-10-14): Phase 3 done; Phase 4 (playback) is next
+### RESUME HERE (2026-10-14): 4.2 built; user to test Space and Ctrl+Space, then 4.3
+
+4.2 built, not committed. `models/play_plan.py` gained `PlayTimeline`
+(the whole run as timed entries: count, step, restart, end; pause and
+resume via per-step walker snapshots) and `StepWalker.snapshot/restore`.
+Tests: `tests/models/test_play_plan.py` compares the timeline with the
+desktop on a virtual clock (`tests/support/virtual_clock.py`) for 7
+play modes on 4 score positions. Shared wording and cues:
+`announcements.playback_status` (the desktop status field uses it),
+`navigation_cues.position_cues_at` and `count_in_cues` (Sequencer and
+the count-in use them). Playback fingerprint still MATCH.
+Bridge: `play_toggle`, `play_plan`, `play_cursor`, `play_ended`,
+`play_pause`, `play_stop`; Region 6 shows the real playback state; a
+move while paused drops to Stopped; a load stops playback. Tests:
+`tests/web/test_web_playback.py`. Page: `app/js/scheduler.js` (FluidSynth
+sequencer in the worklet, see web/CLAUDE.md "Playback"), Space and
+Ctrl+Space in the key table, a Playback menu. Space on a focused button
+or input is left to it. Headless Chrome under real Pyodide: play, cursor
+follows in time, pause, resume, stop and cursor restore all work, no
+errors; not heard yet. Play mode, lead-in and tempo keys are 4.3, so for
+now only plain play-to-end can be tried from the page.
+
+### Was (2026-10-14): 4.1 done; next was 4.2 (scheduler.js, Opus)
+
+4.1 built, not yet committed. `models/play_plan.py` holds the play plan
+for both versions: `PlayRun` (was `_PlayRun`; the controller keeps the old
+name as an alias because tests use it), `build_play_run`,
+`refresh_play_span`, `phrase_end_index`, `loop_seed_jump_state`,
+`iteration_events` and `plan_iteration` (count-in clicks, then
+`("play",)`), `play_from_arguments`, `restart_with_lead_in`,
+`ends_when_notes_finish`, `loop_restart_events`, and `StepWalker` (the
+Sequencer's jump-aware stepping, bar budget and step delays, now used by
+`audio/sequencer.py`). For 4.2: `step_chunk(walker, index, retrigger,
+horizon_ms)` gives the steps of the next chunk with offsets, reading the
+tempo per chunk. The caller passes the index it is on (the desktop's
+resume re-asks from the paused step). `audio/lead_in.py` moved to
+`models/lead_in.py` (and out of stage_web's audio list; models/ ships
+whole). What sounds at a step is still the caller's: the bridge should
+build it from the shared builders, as move results already do.
+Gate: new `tests/manual/playback_fingerprint.py` (12 play scenarios per
+file on a virtual clock, 108 files) MATCH against a baseline from before
+the change; model fingerprint MATCH; fast suite passes; new
+`tests/models/test_play_plan.py` compares plan steps with the desktop
+Sequencer (repeats, D.C., a budgeted loop, a real score).
+For 4.2, the web flow is: `build_play_run` (or, with no lead-in and no
+loop, a plain walker from the cursor), `plan_iteration`, walk
+`run.events`; at `("play",)` make a `StepWalker` from
+`play_from_arguments` and feed `step_chunk` to the scheduler; when the
+chunk says the run is over, `ends_when_notes_finish` decides between stop
+and `loop_restart_events`, and a restart bumps `iteration_count` then
+calls `plan_iteration` with `restart_with_lead_in(run)`.
+
+### Was (2026-10-14): Phase 3 done; Phase 4 (playback) is next
 
 The user heard Phase 3 with NVDA in Firefox: Left/Right, Ctrl+Left/Right
 and typing a bar number all sound where the cursor lands. The first try

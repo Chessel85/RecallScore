@@ -43,6 +43,7 @@ const MENUS = [
       "focus.region1", "focus.region2", "focus.region3", "focus.region4", "focus.region5", "focus.region6",
     ],
   },
+  { title: "Playback", region: 3, items: ["play.toggle", "play.pause"] },
   { title: "Options", region: 3, items: ["options.barLineIndicator", "options.metronome", "options.positionAnnouncer"] },
   { title: "Help", items: ["help.keys"] },
 ];

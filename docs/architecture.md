@@ -434,7 +434,17 @@ single play control, and there is one settings dialog.
   is a property reading/writing the current score per call. A newly opened score
   gets the defaults: lead-in off (1 bar, 0 beats), play to end, 1-bar loop, no
   lead-in on every repeat. An old global `settings.json` `"play"` key is ignored.
-* **`_PlayRun`** carries `looping: bool`. Non-looping = lead-in only: starts on
+* **The play plan is `models/play_plan.py`** (RSBV 4.1), shared with the web
+  version: `PlayRun` (the controller keeps `_PlayRun` as an alias),
+  `build_play_run`, `refresh_play_span`, `phrase_end_index`,
+  `loop_seed_jump_state`, `iteration_events`/`plan_iteration` (count-in and
+  the moment the notes start), `play_from_arguments`, and `StepWalker` (the
+  Sequencer's jump-aware stepping, bar budget and step delays;
+  `step_chunk` hands the web scheduler the same steps a chunk at a time).
+  `PlaybackController` and `Sequencer` only walk it with QTimers. The count-in
+  maths moved with it to `models/lead_in.py` (was `audio/lead_in.py`). Gate
+  for changes here: `tests/manual/playback_fingerprint.py`.
+* **`PlayRun`** carries `looping: bool`. Non-looping = lead-in only: starts on
   the exact cursor, `end_index=None`, cursor follows, ends via
   `_on_sequencer_finished`. Looping: snaps to the bar line of the cursor's
   measure, fixed `loop_length_bars` window, cursor frozen, `("loop",)` restart

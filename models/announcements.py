@@ -121,6 +121,32 @@ def pending_digits(digits: str, uk_terms: bool) -> str:
 # --- playback status fields (after MusicData.get_status_bar_fields) -------
 
 PLAYBACK_STOPPED = "Playback: Stopped"
+PLAYBACK_PAUSED = "Playback: Paused"
+PLAYBACK_PLAYING = "Playback: Playing"
+PLAYBACK_LEAD_IN = "Playback: Lead-in"
+PLAYBACK_LOOPING = "Playback: Playing (looping)"
+PLAYBACK_LOOP_ONCE = "Playback: Playing (loop once)"
+
+
+def playback_status(run, paused: bool, playing: bool) -> str:
+    """The Playing/Paused/Stopped field. `run` is the lead-in/looping play
+    run (models/play_plan.py's PlayRun) or None for a plain run.
+
+    A play run reports its own phase first: during the count-in nothing
+    is sounding yet and the notes would say "Stopped", which reads as
+    "Space did nothing". Looping is called out because it is the one
+    state that will not end on its own."""
+    if run is not None:
+        if not run.playing:
+            return PLAYBACK_LEAD_IN
+        if run.looping:
+            return PLAYBACK_LOOPING if run.settings.loop_forever else PLAYBACK_LOOP_ONCE
+        return PLAYBACK_PLAYING
+    if paused:
+        return PLAYBACK_PAUSED
+    if playing:
+        return PLAYBACK_PLAYING
+    return PLAYBACK_STOPPED
 
 
 def metronome_status(enabled: bool) -> str:

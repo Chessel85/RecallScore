@@ -77,3 +77,10 @@ export const synthSetup = () => call("synth_setup");
 export const audition = (selection, withPositionCues = false) => call("audition", selection, withPositionCues);
 /** kind: "metronome", "position_announcer" or "bar_line_indicator". */
 export const toggle = (kind) => call("toggle", kind);
+// Playback (see the "playback" section of web_api.py).
+export const playToggle = () => call("play_toggle");
+export const playPlan = (session, untilMs) => call("play_plan", session, untilMs);
+export const playCursor = (session, index) => call("play_cursor", session, index);
+export const playEnded = (session) => call("play_ended", session);
+export const playPause = (session, seq) => call("play_pause", session, seq);
+export const playStop = () => call("play_stop");

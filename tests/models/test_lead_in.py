@@ -1,9 +1,9 @@
-"""The Preview count-in schedule (audio/lead_in.py).
+"""The Preview count-in schedule (models/lead_in.py).
 
 Pure timing maths - no Qt, no synth, no window, which is the whole reason
 it lives outside controllers/playback_controller.py.
 """
-from audio.lead_in import build_lead_in_schedule
+from models.lead_in import build_lead_in_schedule
 from audio.metronome import METRONOME_ACCENT_NOTE, METRONOME_OFFBEAT_NOTE, click_event_for_beat
 
 

@@ -8,6 +8,7 @@ import {
 import { showHelp, showGotoBar } from "./dialogs.js";
 import { initMenu } from "./menu.js";
 import { initAudio, prefetchSoundFonts, play } from "./audio.js";
+import { initScheduler, startSession, stopSession, pauseSession, isScheduling } from "./scheduler.js";
 import * as py from "./py_bridge.js";
 
 const status = document.getElementById("status");
@@ -46,10 +47,14 @@ initMenu({
 
 // --- drawing bridge results --------------------------------------------------
 
-function showRegions(regions, regionThreeSelection, { loaded = false } = {}) {
+/** `follow`: a playback result. Regions other than 3 then change their
+ * text in place, so the reader stays on the row they are reading (Region
+ * 6's position line changes with every note). */
+function showRegions(regions, regionThreeSelection, { loaded = false, follow = false } = {}) {
   for (const [key, rows] of Object.entries(regions)) {
     const n = Number(key);
     if (n === 3) render(n, rows, { selection: regionThreeSelection });
+    else if (follow && n !== 2) render(n, rows, { inPlace: true });
     // A mute or solo redraws Region 2 and must keep the cursor on its row
     // and the open nodes; a fresh score starts collapsed.
     else if (n === 2) render(n, rows, loaded ? { reset: true, force: true } : { keepCurrent: true });
@@ -68,6 +73,8 @@ function applyMove(result, { speak = true } = {}) {
   // Sound first: the audition is the latency-critical part (Ref 9), and
   // speech and drawing do not delay it.
   play(result.sound);
+  // A move while paused drops playback to Stopped (revert_pause_on_move).
+  if (result.transport === "stopped") stopSession();
   if (speak && result.announce) announceUrgent(result.announce);
   // `regions` also comes back on a failed jump, to clear a typed number from Region 6.
   if (result.regions) showRegions(result.regions, result.selection);
@@ -195,6 +202,37 @@ bind("digits.clear", () => {
 
 bind("help.keys", () => showHelp());
 
+// --- playback (Space, Ctrl+Space) ------------------------------------------------
+
+initScheduler({
+  cursor: (result) => showRegions(result.regions, result.selection, { follow: true }),
+  ended: (result) => result?.regions && showRegions(result.regions, result.selection, { follow: true }),
+  error: showError,
+});
+
+// Space on a focused button presses it, as everywhere else on the web.
+const onButton = () => ["BUTTON", "INPUT"].includes(document.activeElement?.tagName);
+
+bind("play.toggle", () => {
+  if (!scoreLoaded || onButton()) return false;
+  const result = py.playToggle();
+  if (result?.error) return showError(result.error);
+  if (result.action === "boundary") play(result.sound);
+  else if (result.action === "stop") {
+    stopSession();
+    showRegions(result.regions, result.selection, { follow: true });
+  } else if (result.action === "start" || result.action === "resume") {
+    showRegions(result.regions, null, { follow: true });
+    startSession(result.session);
+  }
+});
+
+bind("play.pause", withScore(() => {
+  const result = pauseSession();
+  if (result?.error) showError(result.error);
+  else if (result?.paused) showRegions(result.regions, result.selection, { follow: true });
+}));
+
 bind("notes.selectAll", withScore(() => {
   selectAll();
   play(py.audition(selection(), true).sound);
@@ -239,6 +277,7 @@ async function openFile(file) {
     showError(result.error);
     return;
   }
+  if (isScheduling()) stopSession(); // the bridge stopped it with the old score
   scoreLoaded = true;
   digitsPending = false;
   showRegions(result.view.regions, result.view.selection, { loaded: true });

@@ -141,6 +141,25 @@ async function startSynth() {
 // resume, so a plan is only played while it runs.
 export const audioReady = () => state === "ready" && ctx.state === "running";
 
+/** What scheduler.js needs to put sounds on the synth's own sequencer, or
+ * null before the synth is ready. */
+export const synthParts = () => (state === "ready" ? { ctx, synth, gmSfont, appSfont } : null);
+
+/** Resolves true once sound can play, false if it failed or did not start
+ * within `timeoutMs`. Playback waits on this: the key press that starts it
+ * may be the one that starts the synth, and keymap.js sees it first. */
+export function whenSoundReady(timeoutMs = 10000) {
+  const started = performance.now();
+  return new Promise((resolve) => {
+    const check = () => {
+      if (audioReady()) return resolve(true);
+      if (state === "failed" || performance.now() - started > timeoutMs) return resolve(false);
+      setTimeout(check, 50);
+    };
+    check();
+  });
+}
+
 function later(ms, fn) {
   const id = setTimeout(() => {
     timers.delete(id);

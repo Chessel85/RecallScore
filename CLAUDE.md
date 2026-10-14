@@ -76,12 +76,13 @@ VS Code launch config is "Python: Current File" (debugpy) — debug by opening
 
 ### The fingerprint harnesses
 
-**`tests/manual/`** holds two refactor-verification harnesses
-(`parser_fingerprint.py`, `model_fingerprint.py`) — **not** pytest tests (pytest
-only collects `test_*.py`). They fingerprint every timeline-builder output, and
-everything `MusicData` answers, across every score file in `files/`, `examples/`
-and `tests/fixtures/`, and `--check` a fresh run against a baseline captured from
-an earlier revision.
+**`tests/manual/`** holds three refactor-verification harnesses
+(`parser_fingerprint.py`, `model_fingerprint.py`, `playback_fingerprint.py`) —
+**not** pytest tests (pytest only collects `test_*.py`). They fingerprint every
+timeline-builder output, everything `MusicData` answers, and everything the
+desktop playback path schedules (count-ins, loops, Sequencer steps), across
+every score file in `files/`, `examples/` and `tests/fixtures/`, and `--check` a
+fresh run against a baseline captured from an earlier revision.
 
 **Use them as the acceptance gate for any change to `parsers/` or `models/` that
 is meant to be behaviour-preserving** — "the tests pass" is not evidence for that

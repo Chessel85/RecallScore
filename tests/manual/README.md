@@ -1,6 +1,6 @@
 # tests/manual — refactor verification harnesses
 
-Two scripts that fingerprint what this app produces across the **whole score
+Three scripts that fingerprint what this app produces across the **whole score
 corpus**, so a refactor that is supposed to change nothing can be *proved* to
 change nothing.
 
@@ -21,12 +21,13 @@ measure walks into `_scan_first_part`), **S1** (splitting `MusicData` into
 five collaborators), **S2** (removing `models/ → parsers/` imports) and **S3**
 (splitting `TimelineBuilder.build()`). Zero differences every time.
 
-## The two harnesses
+## The three harnesses
 
 | Script | Level | Use it when you change… |
 |---|---|---|
 | `parser_fingerprint.py` | Parser | anything in `parsers/` — every field of every `EventSlice` and `NoteData`, plus `beat_markers`, `tempo_changes`, the repeat/ending/hairpin spans, the Segno/Coda/To Coda/Fine/navigation marks, and `total_measures` |
 | `model_fingerprint.py` | Model | anything in `models/` — navigation walks, Region 3/4 text, playback and grace events, durations and ring-out, bar bounds, jump-aware playback stepping, Find's occurrence lists, percussion items, the performance report, key-override round trips |
+| `playback_fingerprint.py` | Playback | `models/play_plan.py`, `audio/sequencer.py`, `controllers/playback_controller.py` — twelve play scenarios per file (play to end, lead-in, pickup, loop once, loop until stopped over four iterations, each loop repeat mode, a fast tempo, a negative Delay Refresh), driven on a virtual clock: the resolved play run, every count-in click and spoken beat, every `play_from` and its arguments, every step and timer interval |
 
 Both walk `files/`, `examples/` and `tests/fixtures/` (~56 files at time of
 writing; the corpus grows on its own as fixtures are added — no list to

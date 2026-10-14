@@ -21,7 +21,9 @@ from audio.barline_patterns import STEP_MS
 from audio.boundary_cue import BOUNDARY_CUE_CHANNEL, boundary_cue_event
 from audio.grace_note_schedule import effective_grace_duration_ms
 from audio.metronome import METRONOME_CHANNEL
-from audio.navigation_cues import barline_indicator_events, position_cues
+from audio.navigation_cues import (
+    barline_indicator_events, count_in_cues, position_cues, position_cues_at,
+)
 from audio.performance_cue import PERFORMANCE_CUE_CHANNEL
 from audio.position_announcer import POSITION_ANNOUNCER_CHANNEL
 from models import announcements
@@ -29,6 +31,7 @@ from models.mixer_settings import ANNOUNCER, CENTRE_PAN, CLICK, CUE, default_pan
 from models.app_settings_data import AppSettings
 from models.marking_categories import ALL_CATEGORIES
 from models.music_data import MusicData
+from models.play_plan import PlayTimeline, TimelineEntry
 from models.region2_manager import Region2HierarchyModel, Region2Node, node_status_label
 from models.region3_row import NoteRow
 from models.vocabulary import bar_word
@@ -85,6 +88,7 @@ def _adopt(music_data: MusicData) -> None:
     rendered."""
     global _music_data, _pending_digits
     _pending_digits = ""
+    _end_playback()
     defaults = AppSettings()
     music_data.uk_terms = _uk_terms
     music_data.marking_categories_off = set(defaults.marking_categories_off) & set(ALL_CATEGORIES)
@@ -220,14 +224,13 @@ def _region_5_rows() -> List[Dict[str, Any]]:
 
 
 def _region_6_rows() -> List[Dict[str, Any]]:
-    """The desktop status bar's eight fields, in its Tab order. Playback is
-    always stopped until the web has a player (Phase 4)."""
+    """The desktop status bar's eight fields, in its Tab order."""
     md = _music_data
     fields = md.get_status_bar_fields()
     if _pending_digits:
         fields[0] = announcements.pending_digits(_pending_digits, _uk_terms)
     fields += [
-        announcements.PLAYBACK_STOPPED,
+        _playback_status(),
         announcements.metronome_status(md.metronome_enabled),
         announcements.position_announcer_status(md.position_announcer_enabled),
         announcements.loop_length_status(md.play_settings.loop_length_bars, _uk_terms),
@@ -269,15 +272,11 @@ def _oneshot(slot: str, event, delay_ms: int = 0) -> Dict[str, Any]:
     return {"slot": slot, "event": list(event), "delay_ms": int(delay_ms)}
 
 
-def _audition_sound(selection: List[int], with_position_cues: bool = True) -> Dict[str, Any]:
-    """PlaybackController.audition_selection: the selected Region 3 rows,
-    then the click and spoken beat position if they are on."""
-    md = _music_data
-    note_indices = md.note_indices_from_selection([int(i) for i in selection])
-    events = md.get_playback_events_for_indices(note_indices)
-    grace = md.get_grace_note_events_for_indices(note_indices)
-    sound: Dict[str, Any] = {
-        "stop": True,
+def _sound_plan(events, grace, stop: bool) -> Dict[str, Any]:
+    """SynthEngine.play_chord / play_chord_with_grace as a plan: each group
+    with its own ring time, grace notes first when there are any."""
+    return {
+        "stop": stop,
         "notes": [
             {"channel": e[0], "program": e[1], "bank": e[4] if len(e) > 4 else 0,
              "pitches": list(e[2]), "ms": int(e[3])}
@@ -289,12 +288,26 @@ def _audition_sound(selection: List[int], with_position_cues: bool = True) -> Di
         "grace_ms": effective_grace_duration_ms(events) if events and grace else 0,
         "oneshots": [],
     }
+
+
+def _add_cues(sound: Dict[str, Any], click, word) -> Dict[str, Any]:
+    if click is not None:
+        sound["oneshots"].append(_oneshot("click", click))
+    if word is not None:
+        sound["oneshots"].append(_oneshot("word", word))
+    return sound
+
+
+def _audition_sound(selection: List[int], with_position_cues: bool = True) -> Dict[str, Any]:
+    """PlaybackController.audition_selection: the selected Region 3 rows,
+    then the click and spoken beat position if they are on."""
+    md = _music_data
+    note_indices = md.note_indices_from_selection([int(i) for i in selection])
+    events = md.get_playback_events_for_indices(note_indices)
+    grace = md.get_grace_note_events_for_indices(note_indices)
+    sound = _sound_plan(events, grace, True)
     if with_position_cues:
-        click, word = position_cues(md)
-        if click is not None:
-            sound["oneshots"].append(_oneshot("click", click))
-        if word is not None:
-            sound["oneshots"].append(_oneshot("word", word))
+        _add_cues(sound, *position_cues(md))
     return sound
 
 
@@ -363,6 +376,11 @@ def _result(moved: bool, announce_measure: bool = False, barline=None,
         "sound": None,
     }
     global _pending_cleared
+    if moved and _paused_seq is not None:
+        # PlaybackController.revert_pause_on_move: the paused position is
+        # stale once the cursor moves, so drop to Stopped where it now is.
+        _end_playback()
+        result["transport"] = "stopped"
     if not moved and _pending_cleared:
         result["regions"] = {"6": _region_6_rows()}  # the half-typed number is gone
     _pending_cleared = False
@@ -573,3 +591,137 @@ def region2_clear(kind: str) -> Dict[str, Any]:
     result["announce"] = said
     return result
 
+
+
+# --- playback (Space, Ctrl+Space) ---------------------------------------------
+#
+# The whole run is planned here (models/play_plan.py's PlayTimeline: the
+# desktop PlaybackController's sequencing on a virtual clock) and handed to
+# the page a chunk at a time. scheduler.js puts each entry's sound on the
+# synth's own sequencer ahead of time and moves the cursor when it is heard.
+# Each entry is {at, kind, seq, cursor, sound}:
+#   at      ms after playback started (or resumed)
+#   kind    "count", "step", "restart" or "end" (see TimelineEntry)
+#   cursor  the timeline index the cursor shows from then on, or None
+#   sound   a sound plan (see "sound" above), or None
+# `session` numbers each start and resume, so a stale call is ignored.
+
+_timeline: Optional[PlayTimeline] = None
+_session = 0
+_paused_seq: Optional[int] = None
+
+
+def _playback_status() -> str:
+    run = _timeline.run if _timeline is not None else None
+    paused = _paused_seq is not None
+    return announcements.playback_status(run, paused, _timeline is not None and not paused)
+
+
+def _end_playback() -> None:
+    global _timeline, _paused_seq, _session
+    _timeline = None
+    _paused_seq = None
+    _session += 1
+
+
+def _entry_dict(entry: TimelineEntry) -> Dict[str, Any]:
+    md = _music_data
+    sound = None
+    if entry.kind == "count":
+        sound = _add_cues(_sound_plan([], [], False), *count_in_cues(md, entry.beat))
+    elif entry.kind == "step":
+        events = md.get_playback_events_at_index(entry.index)
+        grace = md.get_grace_note_events_at_index(entry.index)
+        # A jump's retrigger acts only through the notes (sound_events does
+        # nothing for a step without any); a run's start always stops.
+        stop = entry.stop or (entry.retrigger and bool(events))
+        sound = _add_cues(_sound_plan(events, grace, stop), *position_cues_at(md, entry.index))
+    return {"at": entry.at_ms, "kind": entry.kind, "seq": entry.seq, "cursor": entry.index,
+            "sound": sound}
+
+
+def _cursor_view() -> Dict[str, Any]:
+    return {"regions": _position_regions(), "selection": _select_all()}
+
+
+def play_toggle() -> Dict[str, Any]:
+    """Space (PlaybackController.toggle_play_stop): start from the cursor,
+    stop (the cursor goes back where it started), or resume a paused plain
+    run. A paused lead-in or looping run stops, as on the desktop. From the
+    last note it sounds the boundary cue instead: nothing is ahead to play.
+
+    {"action": "start" | "resume", "session", "regions"}, then play_plan;
+    {"action": "stop", "regions", "selection"}; {"action": "boundary",
+    "sound"}; {"action": "none"} with no score."""
+    global _timeline, _paused_seq, _session
+    md = _music_data
+    if md is None:
+        return {"action": "none"}
+    _clear_pending()
+    if _timeline is not None:
+        if _paused_seq is not None and _timeline.run is None:
+            _timeline.resume_from(_paused_seq)
+            _paused_seq = None
+            _session += 1
+            return {"action": "resume", "session": _session, "regions": {"6": _region_6_rows()}}
+        md.active_event_index = _timeline.restore_index
+        _end_playback()
+        return {"action": "stop", **_cursor_view()}
+    if md.next_visible_event_index(md.active_event_index) is None:
+        return {"action": "boundary", "sound": _boundary_sound()}
+    _end_playback()
+    _timeline = PlayTimeline(md, md.play_settings)
+    return {"action": "start", "session": _session, "regions": {"6": _region_6_rows()}}
+
+
+def play_plan(session: int, until_ms: int) -> Dict[str, Any]:
+    """The entries due before until_ms not handed out yet. {"stale": True}
+    once that session is over or paused."""
+    if _timeline is None or int(session) != _session or _paused_seq is not None:
+        return {"stale": True}
+    return {"entries": [_entry_dict(e) for e in _timeline.plan(int(until_ms))]}
+
+
+def play_cursor(session: int, index: int) -> Dict[str, Any]:
+    """A step or a loop restart is heard: the cursor follows it, as the
+    desktop's Note region does during playback (Ref 10 AC4). Region 6 comes
+    with it, so the Lead-in/Playing field keeps up."""
+    if _timeline is None or int(session) != _session or _music_data is None:
+        return {"stale": True}
+    _music_data.active_event_index = int(index)
+    return _cursor_view()
+
+
+def play_ended(session: int) -> Dict[str, Any]:
+    """The run finished on its own: the cursor goes back to where it
+    started (Ref 10 AC5: "stopping reverts" includes reaching the end)."""
+    if _timeline is None or int(session) != _session:
+        return {"stale": True}
+    _music_data.active_event_index = _timeline.restore_index
+    _end_playback()
+    return _cursor_view()
+
+
+def play_pause(session: int, seq: int) -> Dict[str, Any]:
+    """Ctrl+Space (toggle_pause_resume): pauses only, and only once the
+    notes are under way; `seq` is the last entry heard. The cursor stays on
+    the paused step. Resuming is Space's job. {"paused": bool, ...}."""
+    global _paused_seq
+    if (_timeline is None or int(session) != _session or _paused_seq is not None
+            or not _timeline.can_pause_at(int(seq))):
+        return {"paused": False}
+    _paused_seq = int(seq)
+    # The desktop flushes the cursor on pause, so it is on the paused step
+    # even when its redraw had not caught up yet.
+    _music_data.active_event_index = _timeline.step_index_at(_paused_seq)
+    return {"paused": True, **_cursor_view()}
+
+
+def play_stop() -> Dict[str, Any]:
+    """Stop whatever is playing, cursor put back (a load, or anything else
+    that must stop playback first). {"stopped": False} if nothing was."""
+    if _timeline is None or _music_data is None:
+        return {"stopped": False}
+    _music_data.active_event_index = _timeline.restore_index
+    _end_playback()
+    return {"stopped": True, **_cursor_view()}
