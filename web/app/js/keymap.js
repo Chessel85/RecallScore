@@ -59,6 +59,24 @@ export const KEYMAP = /* KEYMAP-BEGIN */ [
   {"id": "nav.sectionPrevious", "keys": ["Left"], "scope": "region1", "label": "Previous section", "desktopAction": null, "difference": "The desktop steps sections with its Region 1 tab bar or Ctrl+Shift+Tab; browsers keep Ctrl+Tab for their own tabs"},
   {"id": "nav.sectionNext", "keys": ["Right"], "scope": "region1", "label": "Next section", "desktopAction": null, "difference": "The desktop steps sections with its Region 1 tab bar or Ctrl+Tab; browsers keep Ctrl+Tab for their own tabs"},
   {"id": "notes.selectAll", "keys": ["Ctrl+A"], "scope": "region3", "label": "Select all notes", "desktopAction": "select_all", "difference": null},
+  {"id": "list.extendPrevious", "keys": ["Shift+Up"], "scope": "region3", "label": "Extend selection up", "desktopAction": null, "difference": null},
+  {"id": "list.extendNext", "keys": ["Shift+Down"], "scope": "region3", "label": "Extend selection down", "desktopAction": null, "difference": null},
+  {"id": "list.extendTop", "keys": ["Shift+Home"], "scope": "region3", "label": "Extend selection to first row", "desktopAction": null, "difference": null},
+  {"id": "list.extendBottom", "keys": ["Shift+End"], "scope": "region3", "label": "Extend selection to last row", "desktopAction": null, "difference": null},
+  {"id": "tree.expand", "keys": ["Right"], "scope": "region2", "label": "Expand part or step in", "desktopAction": null, "difference": null},
+  {"id": "tree.collapse", "keys": ["Left"], "scope": "region2", "label": "Collapse part or step out", "desktopAction": null, "difference": null},
+  {"id": "region2.mute", "keys": ["F8"], "scope": "region2", "label": "Mute or unmute row", "desktopAction": "mute", "difference": null},
+  {"id": "region2.solo", "keys": ["F9"], "scope": "region2", "label": "Solo or unsolo row", "desktopAction": "solo", "difference": null},
+  {"id": "region2.unmuteAll", "keys": ["Alt+F8"], "scope": "region2", "label": "Unmute all", "desktopAction": "unmute_all", "difference": null},
+  {"id": "region2.unsoloAll", "keys": ["Alt+F9"], "scope": "region2", "label": "Unsolo all", "desktopAction": "unsolo_all", "difference": null},
+  {"id": "goto.bar", "keys": ["Ctrl+G"], "scope": "global", "label": "Go to bar", "desktopAction": "goto_measure", "difference": null},
+  {"id": "digits.type", "keys": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"], "scope": "global", "label": "Type a bar number", "desktopAction": null, "difference": null},
+  {"id": "digits.commit", "keys": ["Enter"], "scope": "global", "label": "Go to the typed bar", "desktopAction": "commit_digits", "difference": null},
+  {"id": "digits.clear", "keys": ["Backspace"], "scope": "global", "label": "Cancel the typed bar number", "desktopAction": null, "difference": "The desktop cancels with Escape, which the web never binds"},
+  {"id": "options.barLineIndicator", "keys": ["Ctrl+B"], "scope": "global", "label": "Bar line indicator on or off", "desktopAction": "bar_line_indicator", "difference": null},
+  {"id": "options.metronome", "keys": ["Ctrl+M"], "scope": "global", "label": "Metronome on or off", "desktopAction": "metronome", "difference": null},
+  {"id": "options.positionAnnouncer", "keys": ["Ctrl+P"], "scope": "global", "label": "Position announcer on or off", "desktopAction": "position_announcer", "difference": null},
+  {"id": "help.keys", "keys": ["F1"], "scope": "global", "label": "Keyboard help", "desktopAction": null, "difference": null},
   {"id": "attributes.speak", "keys": ["Ctrl+1", "Ctrl+2", "Ctrl+3", "Ctrl+4", "Ctrl+5", "Ctrl+6", "Ctrl+7", "Ctrl+8", "Ctrl+9"], "scope": "global", "label": "Speak attribute by number", "desktopAction": null, "difference": null}
 ] /* KEYMAP-END */;
 
@@ -75,6 +93,15 @@ let context = () => ({ region: null, inCycle: false, isList: false });
 export function bind(id, handler) {
   if (!KEYMAP.some((row) => row.id === id)) throw new Error(`keymap: no command ${id}`);
   handlers.set(id, handler);
+}
+
+/** Run command `id` as if its first key was pressed (the Menu button).
+ * Returns what the handler returned. */
+export function runCommand(id) {
+  const row = KEYMAP.find((r) => r.id === id);
+  const handler = handlers.get(id);
+  if (!row || !handler) return false;
+  return handler(null, row.keys[0]);
 }
 
 /** Rows whose command is implemented, for menus and help. */
@@ -138,10 +165,10 @@ function onKeyDown(event) {
   const key = combo(event);
   if (key === null || key === "Escape") return;
   const target = event.target;
-  // Typing in a field, and anything inside an open dialog, belongs to the
-  // browser and the dialog's own controls. Bare letters must not jump
-  // regions while someone types a bar number.
-  if (isEditable(target) || target?.closest?.("dialog[open]")) return;
+  // Typing in a field, and anything inside an open dialog or the Menu,
+  // belongs to the browser and that widget's own keys. Bare letters must
+  // not jump regions while someone types a bar number.
+  if (isEditable(target) || target?.closest?.("dialog[open], [role='menu']")) return;
   const where = context();
   const rows = KEYMAP
     .filter((row) => row.keys.includes(key) && handlers.has(row.id) && scopeApplies(row.scope, where))

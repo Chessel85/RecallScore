@@ -3,7 +3,7 @@ import { status, wireCopyButton, renderReport } from "./common.js";
 // Every key the POC plans to use (plan: Phase 0, spike 2), plus the
 // navigation keys the regions need. Tab and Escape are recorded but never
 // blocked, so the tester can still move between widgets and close menus.
-const PLANNED = [
+const FIRST_ROUND = [
   "Space", "Ctrl+Space", "Ctrl+Alt+Space", "Pause",
   "Ctrl+L", "Ctrl+B", "Ctrl+M", "Ctrl+G", "Ctrl+P", "Ctrl+R", "Ctrl+H",
   "Ctrl+O", "Ctrl+F", "Ctrl+A",
@@ -12,6 +12,21 @@ const PLANNED = [
   "Left", "Right", "Up", "Down", "Ctrl+Left", "Ctrl+Right", "Ctrl+Home", "Ctrl+End",
   "Tab", "Shift+Tab", "Escape",
 ];
+// Task 2.6, ?set=retest: the keys Phase 0 left untested, plus every key the
+// real app binds (web/app/js/keymap.js), in every widget kind. Open
+// spike2_keys.html?set=retest.
+const RETEST = [
+  "N", "F8", "F9", "Alt+F8", "Alt+F9", "Ctrl+G", "Ctrl+F", "F1", "Enter", "Backspace",
+  "0", "5", "9", "Ctrl+1", "Ctrl+9", "Ctrl+Enter", "Alt+Home", "Alt+End",
+  "Shift+Tab", "Shift+Up", "Shift+Down", "Shift+Home", "Shift+End", "Up", "Down", "Home", "End",
+  "Left", "Right", "Ctrl+Alt+Left", "Ctrl+Alt+Right", "Ctrl+Left", "Ctrl+Right", "Ctrl+Home", "Ctrl+End",
+  "Ctrl+Shift+A", "Ctrl+Shift+D", "Ctrl+Shift+F", "Ctrl+Shift+I", "Ctrl+Shift+K", "Ctrl+Shift+L",
+  "Ctrl+Shift+M", "Ctrl+Shift+N", "Ctrl+Shift+O", "Ctrl+Shift+P", "Ctrl+Shift+R", "Ctrl+Shift+T",
+  "Ctrl+Shift+U", "Ctrl+Shift+V", "Ctrl+Shift+X", "Ctrl+Shift+Y",
+  "Z", "X", "C", "V", "B", "Tab", "Escape",
+];
+const retest = new URLSearchParams(location.search).get("set") === "retest";
+const PLANNED = retest ? RETEST : FIRST_ROUND;
 const NEVER_BLOCK = new Set(["Tab", "Shift+Tab", "Escape"]);
 const WIDGETS = ["listbox", "tree", "application"];
 const SPOKEN = { Ctrl: "Control", Left: "Left Arrow", Right: "Right Arrow", Up: "Up Arrow", Down: "Down Arrow", ContextMenu: "Applications key" };

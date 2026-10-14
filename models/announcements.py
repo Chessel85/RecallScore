@@ -101,6 +101,18 @@ def staves_collapsed(collapsed: bool) -> str:
     return "Staves collapsed" if collapsed else "Staves uncollapsed"
 
 
+def metronome_toggled(enabled: bool) -> str:
+    return f"Metronome {'on' if enabled else 'off'}"
+
+
+def position_announcer_toggled(enabled: bool) -> str:
+    return f"Position announcer {'on' if enabled else 'off'}"
+
+
+def bar_line_indicator_toggled(enabled: bool) -> str:
+    return f"Bar line indicator {'on' if enabled else 'off'}"
+
+
 def pending_digits(digits: str, uk_terms: bool) -> str:
     """The status bar's position field while a bar number is being typed."""
     return f"Go to {bar_word(uk_terms)}: {digits}"

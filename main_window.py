@@ -37,7 +37,7 @@ from controllers.score_session import ScoreSession
 from controllers.shortcut_controller import ShortcutController, ShortcutTarget
 from controllers.tuner_controller import TunerController
 from controllers.voice_control_controller import VoiceControlController
-from models import marking_categories
+from models import announcements, marking_categories
 from models.metronome_pattern import default_pattern, snap_time_signature
 from models.music_data import MusicData
 from models.performance_indicator_mode import (
@@ -1146,10 +1146,7 @@ class MainWindow(QMainWindow):
         self._actions.metronome.setChecked(enabled)
         sequencer = self.playback.sequencer
         if sequencer is None or not sequencer.is_playing:
-            accessible_announcer.announce(
-                self.region_3,
-                f"Metronome {'on' if enabled else 'off'}",
-            )
+            accessible_announcer.announce(self.region_3, announcements.metronome_toggled(enabled))
 
     def toggle_position_announcer(self):
         enabled = self.playback.toggle_position_announcer()
@@ -1157,8 +1154,7 @@ class MainWindow(QMainWindow):
         sequencer = self.playback.sequencer
         if sequencer is None or not sequencer.is_playing:
             accessible_announcer.announce(
-                self.region_3,
-                f"Position announcer {'on' if enabled else 'off'}",
+                self.region_3, announcements.position_announcer_toggled(enabled)
             )
 
     def _select_performance_indicator_off(self, checked: bool = False):
@@ -1203,10 +1199,7 @@ class MainWindow(QMainWindow):
         config, like the metronome and position announcer toggles."""
         enabled = self.playback.toggle_bar_line_indicator()
         self._actions.bar_line_indicator.setChecked(enabled)
-        accessible_announcer.announce(
-            self.region_3,
-            f"Bar line indicator {'on' if enabled else 'off'}",
-        )
+        accessible_announcer.announce(self.region_3, announcements.bar_line_indicator_toggled(enabled))
 
     def toggle_show_engraving_details(self):
         """Ctrl+V: on/off for surfacing octave-shift/clef-change rows in

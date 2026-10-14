@@ -1,7 +1,13 @@
+import "./debug.js";
 import { announce, announceUrgent } from "./announcer.js";
 import { bind } from "./keymap.js";
-import { initFocus, focusRegion } from "./focus.js";
-import { initRegions, render, moveRow, selection, selectAll, rowAt, currentRow } from "./regions.js";
+import { initFocus, focusRegion, focusedRegion, focusMenuButton } from "./focus.js";
+import {
+  initRegions, render, moveRow, extendSelection, selection, selectAll, rowAt, currentRow, treeExpand, treeCollapse,
+} from "./regions.js";
+import { showHelp, showGotoBar } from "./dialogs.js";
+import { initMenu } from "./menu.js";
+import { initAudio, prefetchSoundFonts, play } from "./audio.js";
 import * as py from "./py_bridge.js";
 
 const status = document.getElementById("status");
@@ -11,6 +17,7 @@ const dropZone = document.getElementById("drop-zone");
 const menuButton = document.getElementById("menu-button");
 const regionElements = [1, 2, 3, 4, 5, 6].map((n) => document.getElementById(`region-${n}`));
 
+prefetchSoundFonts();
 initRegions(regionElements);
 initFocus({ menuButton, regions: regionElements });
 
@@ -31,15 +38,22 @@ function clearError() {
   errorBox.textContent = "";
 }
 
-// Task 2.5 builds the real menu from keymap.js.
-menuButton.addEventListener("click", () => announceUrgent("The menu is not built yet."));
+initMenu({
+  menuButton,
+  extra: { open: { label: "Open a score", run: () => picker.click() } },
+  returnFocus: (n) => (n && scoreLoaded ? focusRegion(n) : focusMenuButton()),
+});
 
 // --- drawing bridge results --------------------------------------------------
 
-function showRegions(regions, regionThreeSelection) {
+function showRegions(regions, regionThreeSelection, { loaded = false } = {}) {
   for (const [key, rows] of Object.entries(regions)) {
     const n = Number(key);
-    render(n, rows, n === 3 ? { selection: regionThreeSelection } : {});
+    if (n === 3) render(n, rows, { selection: regionThreeSelection });
+    // A mute or solo redraws Region 2 and must keep the cursor on its row
+    // and the open nodes; a fresh score starts collapsed.
+    else if (n === 2) render(n, rows, loaded ? { reset: true, force: true } : { keepCurrent: true });
+    else render(n, rows);
   }
 }
 
@@ -51,16 +65,18 @@ function applyMove(result, { speak = true } = {}) {
     showError(result.error);
     return;
   }
+  // Sound first: the audition is the latency-critical part (Ref 9), and
+  // speech and drawing do not delay it.
+  play(result.sound);
   if (speak && result.announce) announceUrgent(result.announce);
-  if (result.moved) showRegions(result.regions, result.selection);
-  // Phase 3 sounds result.boundary (the boundary cue) and result.barline
-  // (the bar line indicator, Ctrl+B).
+  // `regions` also comes back on a failed jump, to clear a typed number from Region 6.
+  if (result.regions) showRegions(result.regions, result.selection);
 }
 
 function refreshRegionFour() {
   const result = py.selectionChanged(selection());
   if (result?.error) showError(result.error);
-  else render(4, result.regions["4"]);
+  else render(4, result.regions["4"], { keepCurrent: true });
 }
 
 // --- commands ----------------------------------------------------------------
@@ -88,19 +104,117 @@ function stepSection(delta) {
 bind("nav.sectionPrevious", () => stepSection(-1));
 bind("nav.sectionNext", () => stepSection(1));
 
+function activeRegion() {
+  return focusedRegion() ?? 0;
+}
+
+// Up/Down in Region 3 sound the new row (notes only: the cursor has not
+// moved, so no click or spoken beat), even at an end, where the desktop
+// still collapses a chord to one note and sounds it. Home/End do not sound,
+// as on the desktop.
 for (const [id, where] of [["list.previous", "previous"], ["list.next", "next"], ["list.top", "top"], ["list.bottom", "bottom"]]) {
   bind(id, () => {
-    const n = regionElements.indexOf(document.activeElement) + 1;
+    const n = activeRegion();
     if (n < 1) return false;
-    if (moveRow(n, where) && n === 3 && scoreLoaded) refreshRegionFour();
+    const moved = moveRow(n, where);
+    if (n !== 3 || !scoreLoaded) return true;
+    if (where === "previous" || where === "next") play(py.audition(selection(), false).sound);
+    if (moved || where === "previous" || where === "next") refreshRegionFour();
     return true;
   });
 }
 
+for (const [id, where] of [
+  ["list.extendPrevious", "previous"], ["list.extendNext", "next"],
+  ["list.extendTop", "top"], ["list.extendBottom", "bottom"],
+]) {
+  bind(id, () => {
+    if (extendSelection(where) && scoreLoaded) refreshRegionFour();
+    return true;
+  });
+}
+
+bind("tree.expand", () => { treeExpand(); return true; });
+bind("tree.collapse", () => { treeCollapse(); return true; });
+
+// --- Region 2 mute and solo ----------------------------------------------------
+
+function applyRegion2(result) {
+  if (result?.error) {
+    showError(result.error);
+    return;
+  }
+  if (result.announce) announceUrgent(result.announce);
+  showRegions(result.regions, result.selection);
+}
+
+function toggleRegion2(kind) {
+  const node = rowAt(2, currentRow(2));
+  if (node?.id) applyRegion2(py.region2Toggle(node.id, kind));
+}
+
+bind("region2.mute", withScore(() => toggleRegion2("mute")));
+bind("region2.solo", withScore(() => toggleRegion2("solo")));
+bind("region2.unmuteAll", withScore(() => applyRegion2(py.region2Clear("mute"))));
+bind("region2.unsoloAll", withScore(() => applyRegion2(py.region2Clear("solo"))));
+
+// --- go to bar -----------------------------------------------------------------
+
+bind("goto.bar", withScore(async () => {
+  const number = await showGotoBar(py.gotoInfo());
+  if (number !== null) applyMove(py.gotoBar(number));
+}));
+
+// Typed bar number: digits build up (Region 6 shows them), Enter jumps. The
+// page remembers only whether something is pending, so Enter falls through
+// to a focused button when nothing is.
+let digitsPending = false;
+
+function applyDigits(result) {
+  if (result?.error) showError(result.error);
+  else if (result?.regions) showRegions(result.regions, result.selection);
+}
+
+bind("digits.type", withScore((event, key) => {
+  digitsPending = true;
+  applyDigits(py.appendDigit(key));
+}));
+bind("digits.commit", () => {
+  if (!scoreLoaded || !digitsPending) return false;
+  digitsPending = false;
+  const result = py.commitDigits();
+  if (result.error) showError(result.error);
+  else applyMove(result);
+  return result.pending !== false;
+});
+bind("digits.clear", () => {
+  if (!scoreLoaded || !digitsPending) return false;
+  digitsPending = false;
+  applyDigits(py.clearDigits());
+});
+
+bind("help.keys", () => showHelp());
+
 bind("notes.selectAll", withScore(() => {
   selectAll();
+  play(py.audition(selection(), true).sound);
   refreshRegionFour();
 }));
+
+// Ctrl+M, Ctrl+P, Ctrl+B. Only Region 6 is redrawn, so the spoken state is
+// not talked over by the note list.
+for (const [id, kind] of [
+  ["options.metronome", "metronome"],
+  ["options.positionAnnouncer", "position_announcer"],
+  ["options.barLineIndicator", "bar_line_indicator"],
+]) {
+  bind(id, withScore(() => {
+    const result = py.toggle(kind);
+    if (result?.error) return showError(result.error);
+    announceUrgent(result.announce);
+    showRegions(result.regions);
+  }));
+}
 
 bind("attributes.speak", withScore((event, key) => {
   const text = py.attributeAnnouncement(Number(key.slice(-1)), selection());
@@ -126,7 +240,8 @@ async function openFile(file) {
     return;
   }
   scoreLoaded = true;
-  showRegions(result.view.regions, result.view.selection);
+  digitsPending = false;
+  showRegions(result.view.regions, result.view.selection, { loaded: true });
   say(`Loaded ${file.name}. ${result.summary.parts.length} parts, ${result.summary.slices} notes and chords.`);
   focusRegion(3);
 }
@@ -147,6 +262,7 @@ py.boot(say)
   .then(() => {
     ready = true;
     picker.disabled = false;
-    say("Ready. Choose a score file.");
+    initAudio({ synthSetup: py.synthSetup(), status: (text) => (text.startsWith("Sound could not") ? showError(text) : announce(text)) });
+    say("Ready. Choose a score file. Sound starts at your first key press.");
   })
   .catch((err) => showError(`Could not start: ${err.message}`));

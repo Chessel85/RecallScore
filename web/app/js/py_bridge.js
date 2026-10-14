@@ -65,3 +65,15 @@ export const selectionChanged = (selection) => call("selection_changed", selecti
 export const attributeAnnouncement = (number, selection = null) =>
   call("attribute_announcement", number, selection) ?? null;
 export const setUkTerms = (ukTerms) => call("set_uk_terms", ukTerms);
+export const gotoInfo = () => call("goto_info");
+export const appendDigit = (digit) => call("append_digit", digit);
+export const commitDigits = () => call("commit_digits");
+export const clearDigits = () => call("clear_digits");
+/** kind: "mute" or "solo". */
+export const region2Toggle = (nodeId, kind) => call("region2_toggle", nodeId, kind);
+export const region2Clear = (kind) => call("region2_clear", kind);
+export const synthSetup = () => call("synth_setup");
+/** Sound Region 3's selection without moving; see web_api.audition. */
+export const audition = (selection, withPositionCues = false) => call("audition", selection, withPositionCues);
+/** kind: "metronome", "position_announcer" or "bar_line_indicator". */
+export const toggle = (kind) => call("toggle", kind);

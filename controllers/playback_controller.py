@@ -4,13 +4,9 @@ from typing import Any, List, Optional, Tuple
 
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
 
-from audio.barline_patterns import (
-    STEP_MS,
-    events_for_pattern,
-    pattern_for_crossing,
-    plain_barline_event,
-)
+from audio.barline_patterns import STEP_MS
 from audio.lead_in import build_lead_in_schedule
+from audio.navigation_cues import barline_indicator_events, position_cues
 from audio.metronome import METRONOME_CHANNEL, click_event_for_beat
 from audio.performance_cue import PERFORMANCE_CUE_CHANNEL
 from audio import boundary_cue as _boundary_cue
@@ -1335,7 +1331,8 @@ class PlaybackController(QObject):
         before_measure/after_measure are normalised to (min, max) before
         pattern_for_crossing looks them up - a barline is the same barline
         whichever direction it is crossed from, so Left across a repeat end
-        must sound the same pattern as Right did.
+        must sound the same pattern as Right did. That decision is
+        audio/navigation_cues.barline_indicator_events, shared with the web.
 
         Sounds AFTER the destination note's own audition, never before: both
         the plain beep and a pattern are on BARLINE_PATTERN_CHANNEL, which
@@ -1345,31 +1342,13 @@ class PlaybackController(QObject):
         change cue and the Find wrap boundary cue). barline_crossed is
         emitted after position_changed for exactly this reason, so nothing
         extra is needed here."""
-        if not self.music_data or not self.music_data.bar_line_indicator_enabled:
+        if not self.music_data or self._muted:
             return
-        if self._muted:
-            return
-
-        pattern_kind = None
-        if before_measure is not None and after_measure is not None:
-            pattern_kind = pattern_for_crossing(
-                min(before_measure, after_measure), max(before_measure, after_measure),
-                self.music_data.repeat_spans, self.music_data.ending_spans,
-                self.music_data.barline_marks,
-            )
-        if pattern_kind is not None:
-            self._play_barline_pattern(pattern_kind)
-            return
-
-        if self.music_data.metronome_enabled:
-            return
-        self.synth.play_click(*plain_barline_event())
-
-    def _play_barline_pattern(self, kind: str) -> None:
-        """Sounds a multi-step barline pattern. The first step fires right
-        away (preserving the audition-then-cue ordering above); the rest go
-        through play_event_sequence."""
-        self.play_event_sequence(events_for_pattern(kind))
+        # The first step fires right away (preserving the audition-then-cue
+        # ordering above); any later ones go through play_event_sequence.
+        self.play_event_sequence(
+            barline_indicator_events(self.music_data, before_measure, after_measure)
+        )
 
     def play_event_sequence(self, events) -> None:
         """Sounds one or more (channel, bank, program, pitch, velocity)
@@ -1472,23 +1451,14 @@ class PlaybackController(QObject):
         if not with_position_cues:
             return
 
-        # Ref 14 AC3: fires even with no events at all (a metronome-only
-        # beat marker), which is why it isn't folded into `if events`.
-        if self.music_data.metronome_enabled:
-            current = self.music_data.get_current_slice()
-            if current is not None:
-                click = click_event_for_beat(current.beat_position)
-                if click is not None:
-                    self.synth.play_click(*click)
-
-        # Ref 28 AC1/AC2: independent of the click, same "fires with no
-        # notes here" reasoning.
-        if self.music_data.position_announcer_enabled:
-            current = self.music_data.get_current_slice()
-            if current is not None:
-                announcement = announcement_event_for_beat(current.beat_position)
-                if announcement is not None:
-                    self.synth.play_word(*announcement)
+        # Ref 14 AC3 / Ref 28 AC1/AC2: both fire even with no events at all
+        # (a metronome-only beat marker), which is why they aren't folded
+        # into `if events`, and independently of each other.
+        click, word = position_cues(self.music_data)
+        if click is not None:
+            self.synth.play_click(*click)
+        if word is not None:
+            self.synth.play_word(*word)
 
     # --- status text -------------------------------------------------
 

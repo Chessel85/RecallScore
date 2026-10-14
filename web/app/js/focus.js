@@ -12,8 +12,10 @@
 // Jumping to a region never moves the score cursor, as on the desktop.
 
 import { bind, setContextProvider } from "./keymap.js";
+import { focusCurrent } from "./regions.js";
 
-const LIST_REGIONS = new Set([1, 3, 4, 5, 6]); // Region 2 is a tree
+// Up/Down/Home/End move by row in every region, the Region 2 tree included.
+const LIST_REGIONS = new Set([1, 2, 3, 4, 5, 6]);
 
 let members = []; // [menuButton, region1, ..., region6]
 
@@ -21,9 +23,8 @@ let members = []; // [menuButton, region1, ..., region6]
 export function initFocus({ menuButton, regions }) {
   if (regions.length !== 6) throw new Error("focus: expected six regions");
   members = [menuButton, ...regions];
-  for (const el of members) {
-    if (!el.hasAttribute("tabindex")) el.tabIndex = 0;
-  }
+  // Only the Menu button is focusable itself; a region's focus lives on its
+  // current row (regions.js).
   bind("focus.next", () => cycle(1));
   bind("focus.previous", () => cycle(-1));
   for (let n = 1; n <= 6; n += 1) bind(`focus.region${n}`, () => focusRegion(n));
@@ -49,7 +50,12 @@ export function regionElement(n) {
 }
 
 export function focusRegion(n) {
-  members[n]?.focus();
+  focusMember(n);
+}
+
+function focusMember(index) {
+  if (index === 0) members[0].focus();
+  else focusCurrent(index);
 }
 
 export function focusMenuButton() {
@@ -61,6 +67,6 @@ export function focusMenuButton() {
 export function cycle(delta) {
   const current = focusedRegion();
   if (current === null) return false;
-  members[(current + delta + members.length) % members.length].focus();
+  focusMember((current + delta + members.length) % members.length);
   return true;
 }

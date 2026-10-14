@@ -1,0 +1,10 @@
+start the server with this from a command line in the sReadr folder 
+.venv\Scripts\python.exe tools\stage_web.py --serve 8000
+
+With a browser, go to:
+http://127.0.0.1:8000/app/
+
+- To get the debug log too, open 
+http://127.0.0.1:8000/app/?debug
+The "Debug log"  section is at the end of the page.   
+                 

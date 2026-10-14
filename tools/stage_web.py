@@ -39,7 +39,7 @@ SHARED_PACKAGES = ("models", "parsers")
 WEB_AUDIO_MODULES = (
     "metronome", "lead_in", "barline_patterns", "boundary_cue",
     "performance_cue", "position_announcer", "strum_schedule",
-    "grace_note_schedule",
+    "grace_note_schedule", "navigation_cues",
 )
 WEB_SOUNDFONT = "GeneralUser-GS.sf2"
 # Shipped beside the SoundFont (its licence asks for the text to travel).

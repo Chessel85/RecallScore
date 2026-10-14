@@ -403,3 +403,24 @@ announcements; go ahead with the build.
 Open items: JAWS run (spikes 2 and 3); `web/sf/*.sf2` is neither gitignored nor
 committed (decide in Phase 1; the files are 5.7 MB and 30.8 MB, under GitHub's
 limit); the final SoundFont choice.
+
+## Key re-test (task 2.6)
+
+Phase 0 left some keys untested. Decision 2 (Region 6 on N) was settled by the
+user, who simply had not pressed N. This re-test covers everything the real app
+binds, in each widget kind (list box, tree, application).
+
+Run it from the repo root, in Chrome and in Firefox, with NVDA:
+
+```powershell
+.venv\Scripts\python.exe tools\stage_web.py --serve 8000
+```
+
+Open `http://127.0.0.1:8000/spikes/spike2_keys.html?set=retest`. Press each key
+in each of the three widgets, then use Copy report and paste it below, with the
+screen reader and browser version. Keys that matter most: F8, F9, Alt+F8,
+Alt+F9, Ctrl+G (Chrome), Ctrl+F (Firefox), F1 (Firefox), the Ctrl+Shift
+letters, Shift+Tab, Shift+arrows, and Up, Down, Home, End, Left, Right in the
+tree. A key that was lost needs a different binding in `keymap.js`.
+
+Results: not yet run.

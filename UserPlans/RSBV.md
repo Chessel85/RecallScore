@@ -187,7 +187,156 @@ next one after a /clear.
   expand/collapse, Region 4 re-anchor by `key`). Boundary and bar line
   sounds wait for Phase 3, so a move that hits an end is silent for now.
 
-### Next: Phase 2 from 2.3 (Sonnet)
+* 2.3 to 2.7 (2026-10-08). Phase 2 is complete, not yet committed.
+  2.3: `regions.js` now does Region 3 Shift+Up/Down/Home/End (anchor-based),
+  Region 4 keeping the current row on the same attribute `key` across a
+  rebuild, and the Region 2 tree (Right opens or steps in, Left closes or
+  steps out, collapsing forgets descendants' open state; expand state is the
+  page's). 2.4: `web_api.region2_toggle(node_id, kind)` and
+  `region2_clear(kind)` (F8, F9, Alt+F8, Alt+F9, Region 2 only); the row text
+  carries "muted"/"soloed", only Unmute/Unsolo All are spoken. 2.5:
+  `app/js/dialogs.js` (native `<dialog>`: Menu, F1 keyboard help, Go to bar
+  on Ctrl+G), all built from the keymap, each with a Close or Cancel
+  button. Typed bar number: bare digits accumulate in Python
+  (`append_digit`, `commit_digits`, `clear_digits`), Region 6's first field
+  shows "Go to measure: 12", Enter jumps (falls through to a focused button
+  when nothing is typed), any move cancels it. Backspace cancels too, as the
+  web never binds Escape. The Menu lists every bound command except the
+  focus-dependent ones, plus "Open a score". 2.6: re-test page is
+  `spikes/spike2_keys.html?set=retest`; the user still has to run it with
+  NVDA in both browsers and paste results into
+  `docs/rsbv_spike_findings.md` ("Key re-test"). 2.7:
+  `tests/web/test_keymap_drift.py` checks every row with a `desktopAction`
+  against the real desktop menus. Not done: Ctrl+Enter (loop length, Phase 4).
+  Smoke-tested in headless Chrome under real Pyodide (tree, mute, typed
+  bar, Go to bar, help, menu); no screen reader yet. Fast suite passes.
+
+### RESUME HERE (2026-10-14): Phase 3 done; Phase 4 (playback) is next
+
+The user heard Phase 3 with NVDA in Firefox: Left/Right, Ctrl+Left/Right
+and typing a bar number all sound where the cursor lands. The first try
+was silent: the synth started on the first keydown even when it was a
+modifier (Shift+Tab), which the browser does not count as a gesture, and
+audio.js then awaited `resume()` forever. Fixed in audio.js (see the
+Sound section of `web/CLAUDE.md`). Next: Phase 4, task 4.1 (extract the
+play plan).
+
+### Was (2026-10-14): Phase 3 built, waiting for the user's NVDA test
+
+Phase 3 (3.1 and 3.2) is built and smoke-tested in headless Chrome:
+* `audio/navigation_cues.py` (new, shared): `position_cues` (metronome click,
+  spoken beat) and `barline_indicator_events`. PlaybackController now calls
+  it (behaviour unchanged, fast suite passes); staged for the web.
+* `web_api.py`: every move result carries `sound` (audition of the new
+  slice, then position cues, then bar line steps; boundary cue alone on a
+  refused move); `audition(selection, cues)`, `toggle(kind)`,
+  `synth_setup()` (app channel pans from the Mixer defaults).
+* `app/js/audio.js`: js-synthesizer driver, starts on first gesture,
+  SynthEngine's retrigger / group note-off / grace / one-shot slots.
+* Keys: Ctrl+B, Ctrl+M, Ctrl+P (Options menu too), wording moved into
+  `models/announcements.py` (desktop uses it as well). Region 3 Up/Down
+  sound the row (notes only), Ctrl+A sounds the chord with cues.
+* Not done: the performance indicator cue (its mode is a Phase 5 setting
+  and defaults to Off, so it could never fire yet); per-part mixer volume
+  and pan (needs saved settings).
+
+### Was (2026-10-14): NVDA silence SOLVED; the Menu dialog is next
+
+The user ran step 5 (PASS) and then the real `/app/` with NVDA in Firefox:
+it works. Load, Tab cycle, Z X C V B N, Up/Down in every list, Region 2
+expand, single note select, Ctrl+A, Ctrl+Left/Right by bar all speak. The
+silence was the old activedescendant/focus code that the roving-focus change
+replaced; the bisect is over and `web/basic/` can be deleted (it was never
+committed). Not yet tried: F8/F9 mute and solo, typed bar number, Ctrl+G,
+F1, the 2.6 key re-test.
+
+The Menu button's dialog was "confusing and not usable" (a modal
+`<dialog>` of h3 headings and ~30 buttons). Replaced the same day by
+`app/js/menu.js`: a real ARIA menu shaped like the desktop menu bar (File,
+Edit, Parts, Navigation, Help as submenus; see web/CLAUDE.md "Menu").
+Smoke-tested in headless Chrome (open, arrows, submenus, letters, Escape,
+Left, Tab, mute lands on the Region 2 row, Help opens). Next: the user
+tries it with NVDA. Then Phase 3.
+
+### Was: bisecting the NVDA silence bottom-up in `web/basic/` (2026-10-13)
+
+Instead of debugging the full app, the user asked to pare back to a trivial
+page and add the app's pieces one at a time until NVDA goes silent. All
+pages are temporary, uncommitted, staged with the site
+(`python tools/stage_web.py --serve 8000`, open `/basic/`, Ctrl+F5 after
+each restage). The user tests with NVDA in Firefox.
+
+Results so far (all PASS = NVDA reads every row as arrows move):
+* `basic/index.html` Step 1: native `<select size>` with Region 1 rows. PASS.
+* Step 2: hand-built `role="listbox"`, roving focus, its own keydown. PASS.
+* Step 3 checkboxes, each alone and all together: A capture-phase document
+  keydown with stopPropagation; B rebuild the option elements every move;
+  C `announceUrgent("Row N")` via the real announcer.js (both row text and
+  "Row N" heard); D the app's rsbv.css (no difference to speech);
+  E page-handled Tab swapping between the two boxes (wraps; Escape to
+  browse mode reaches the checkboxes). PASS.
+* `basic/step4.html`: the real index.html region markup + Menu button +
+  rsbv.css, the REAL regions.js, keymap.js and focus.js, binding only
+  list.*, tree.expand/collapse (Tab, Z X C V B N come from focus.js). Load,
+  Z, arrows in every region, Region 2 expand, Tab cycle incl. Menu button.
+  PASS.
+* `basic/step5.html` (built, NOT yet tested by the user): step 4 plus the
+  app's loading behaviour copied from app.js: say() through the announcer
+  ("Starting", "Ready", "Loading", "Loaded ..."), the role=alert error box
+  and drop zone markup, and `focusRegion(3)` after a load. Headless Chrome
+  confirmed it boots to "Ready. Choose a score file."
+
+So regions.js, keymap.js, focus.js, the announcer and the CSS are cleared.
+What app.js still adds beyond step 5, the remaining suspects:
+* `import "./debug.js"` (inert without ?debug, but it is imported).
+* dialogs.js and the Menu button's click handler (showMenu).
+* Every other binding: nav.* (Python move + applyMove, which speaks then
+  re-renders Region 3 and 4 while focused), section, digits.* (global
+  Enter and Backspace!), goto.bar, help.keys, region2 mute/solo,
+  attributes.speak, notes.selectAll, list.extend*.
+* The "list" handler in app.js also calls refreshRegionFour() on Region 3
+  moves (Python call + Region 4 re-render).
+Next steps: user tests step 5. If PASS, step 6 = step 5 + dialogs.js and the
+Menu click handler + debug.js import; step 7 = the remaining bindings
+(likely just point at the real `/app/` again and compare). Also worth
+asking the user to retry the real `/app/` as-is: it has not been tried with
+NVDA since the roving-focus change was finished, and step 4 shows that
+code works.
+
+### OPEN PROBLEM (2026-10-08, end of day): NVDA is silent on the app page
+
+Resume here before anything else. User uses Firefox (default) and Chrome with
+NVDA. After loading Cavatina (not in the repo; any score may do):
+* Tab reaches Score information, but Down Arrow makes NVDA say "Recall Score
+  document" once, then nothing. Same in every region. In Chrome NVDA is fully
+  silent. Enter/Space on the Menu button does nothing audible.
+* Headless Chrome (CDP script, key events) shows the page is correct: focus
+  moves, Down moves the row, F8 mutes, Menu and F1 open dialogs, even on the
+  Blue Danube. The Phase 0 spike pages are heard fine on the same machine and
+  server, so it is something about the real page, not NVDA, the server or the
+  browser. Ctrl+F5 changed nothing.
+* Tried: switched regions from `aria-activedescendant` to real roving focus
+  (regions.js, focus.js, index.html lost the regions' tabindex). The user said
+  that was slightly worse: Tab in browse mode now did nothing and they had to
+  press NVDA+Space to get into focus mode; arrows still silent. Roving focus
+  is still in the tree, uncommitted. Reverting to activedescendant is the
+  fallback if the debug log shows nothing; the earlier version let Tab work.
+* Added `web/app/js/debug.js`: open `/app/?debug`; a "Debug log" section at
+  the end of the page lists keydown, focusin/focusout and errors (button
+  copies it). Next step: user reads or pastes that log (Firefox, load a score,
+  Tab, Down, Down, then go to the end of the page in browse mode).
+* Ideas not yet tried: NVDA log at "Input/output" level (writes spoken text
+  to nvda.log in the temp folder, readable by Claude); bisect against the
+  Phase 2.1/2.2 commit (60337ac) to see whether the silence predates 2.3 to
+  2.7 (the user never tried that version with NVDA); strip the page down
+  (no announcer, no capture-phase key handler) until NVDA speaks; check
+  whether `ariaNotify` calls (high priority) are cutting off NVDA speech.
+* Staging server: `python tools/stage_web.py --serve 8000` (it can only run
+  one at a time on port 8000).
+
+### Next: Phase 3 (sound on navigation), 3.1 is Opus. Before it, the user should try Phase 2 with NVDA and run the 2.6 re-test.
+
+### Was next: Phase 2 from 2.3 (Sonnet)
 
 Read `web/CLAUDE.md` first. Before 2.3, the user should try 2.1/2.2 with
 NVDA: `python tools/stage_web.py --serve 8000`, open `/app/`, load a score,
