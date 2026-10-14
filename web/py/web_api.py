@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional
 
 from audio.barline_patterns import STEP_MS
 from audio.boundary_cue import BOUNDARY_CUE_CHANNEL, boundary_cue_event
+from audio.free_metronome import free_metronome_beat
 from audio.grace_note_schedule import effective_grace_duration_ms
 from audio.metronome import METRONOME_CHANNEL
 from audio.navigation_cues import (
@@ -32,6 +33,11 @@ from models.app_settings_data import AppSettings
 from models.marking_categories import ALL_CATEGORIES
 from models.music_data import MusicData
 from models.play_plan import PlayTimeline, TimelineEntry
+from models.play_settings import (
+    LOOP_REPEAT_LABELS, LOOP_REPEAT_MODES, MAX_LEAD_IN_BARS, MAX_LEAD_IN_BEATS,
+    MAX_LOOP_LENGTH_BARS, MIN_LOOP_LENGTH_BARS, PLAY_MODE_LABELS, PLAY_MODES,
+    PlaySettings, dialog_enabled_states, dialog_labels,
+)
 from models.region2_manager import Region2HierarchyModel, Region2Node, node_status_label
 from models.region3_row import NoteRow
 from models.vocabulary import bar_word
@@ -612,9 +618,11 @@ _paused_seq: Optional[int] = None
 
 
 def _playback_status() -> str:
-    run = _timeline.run if _timeline is not None else None
+    # The free metronome is not playback: the desktop's field says Stopped.
+    playing = _timeline is not None and not isinstance(_timeline, _FreeMetronome)
+    run = _timeline.run if playing else None
     paused = _paused_seq is not None
-    return announcements.playback_status(run, paused, _timeline is not None and not paused)
+    return announcements.playback_status(run, paused, playing and not paused)
 
 
 def _end_playback() -> None:
@@ -658,6 +666,11 @@ def play_toggle() -> Dict[str, Any]:
     if md is None:
         return {"action": "none"}
     _clear_pending()
+    if isinstance(_timeline, _FreeMetronome):
+        # Space stops everything sounding: a running click track is what it
+        # stops here, and nothing starts (toggle_play_stop).
+        _end_playback()
+        return {"action": "stop", "regions": {"6": _region_6_rows()}}
     if _timeline is not None:
         if _paused_seq is not None and _timeline.run is None:
             _timeline.resume_from(_paused_seq)
@@ -679,6 +692,8 @@ def play_plan(session: int, until_ms: int) -> Dict[str, Any]:
     once that session is over or paused."""
     if _timeline is None or int(session) != _session or _paused_seq is not None:
         return {"stale": True}
+    if isinstance(_timeline, _FreeMetronome):
+        return {"entries": _timeline.plan(int(until_ms))}
     return {"entries": [_entry_dict(e) for e in _timeline.plan(int(until_ms))]}
 
 
@@ -725,3 +740,222 @@ def play_stop() -> Dict[str, Any]:
     _music_data.active_event_index = _timeline.restore_index
     _end_playback()
     return {"stopped": True, **_cursor_view()}
+
+
+# --- free metronome (Ctrl+Alt+Space) -------------------------------------------
+
+class _FreeMetronome:
+    """Playback > Play Metronome as a play timeline the scheduler plans like
+    any other: one click entry per beat, from audio/free_metronome.py (the
+    desktop's own beat logic), so tempo and time signature are re-read each
+    beat as it is planned. It never moves the cursor and cannot pause.
+    Entries are already dicts, kind "click" (see the playback section)."""
+
+    run = None
+
+    def __init__(self, music_data: MusicData):
+        self._md = music_data
+        self._beat = 1
+        self._next_at = 0
+        self._seq = 0
+
+    def plan(self, until_ms: int) -> List[Dict[str, Any]]:
+        entries = []
+        while self._next_at < until_ms:
+            click, self._beat, beat_ms = free_metronome_beat(self._md, self._beat)
+            sound = _add_cues(_sound_plan([], [], False), click, None)
+            entries.append({"at": self._next_at, "kind": "click", "seq": self._seq,
+                            "cursor": None, "sound": sound})
+            self._seq += 1
+            self._next_at += beat_ms
+        return entries
+
+    def can_pause_at(self, seq: int) -> bool:
+        return False
+
+
+def _playback_going() -> bool:
+    """Playing, paused or counting in: a play run, not the free metronome
+    (PlaybackController.is_playback_active)."""
+    return _timeline is not None and not isinstance(_timeline, _FreeMetronome)
+
+
+def disabled_commands() -> List[str]:
+    """Keymap ids the Menu shows as unavailable right now, as the desktop
+    greys out their actions: Play Metronome while playback is going (a click
+    with the music is Ctrl+M's job)."""
+    return ["play.metronome"] if _playback_going() else []
+
+
+def play_metronome() -> Dict[str, Any]:
+    """Ctrl+Alt+Space (toggle_play_metronome): start or stop the free
+    click track. Does nothing while playback is going, as the desktop's
+    greyed-out action: {"action": "none"}. Otherwise the shapes of
+    play_toggle's start and stop."""
+    global _timeline
+    md = _music_data
+    if md is None or _playback_going():
+        return {"action": "none"}
+    if isinstance(_timeline, _FreeMetronome):
+        _end_playback()
+        return {"action": "stop", "regions": {"6": _region_6_rows()}}
+    _end_playback()
+    _timeline = _FreeMetronome(md)
+    return {"action": "start", "session": _session, "regions": {"6": _region_6_rows()}}
+
+
+# --- tempo and play settings (F, S, D, Ctrl+L, Ctrl+I, Ctrl+R, loop length) ------
+#
+# Each returns {"announce", "regions": {"6": ...}}: the new value is spoken
+# (nothing where focus is shows it) and Region 6 redrawn. All of them apply
+# to the next play run; a running one keeps its own snapshot, except the
+# tempo, which a run reads as it plans (the desktop's per-chunk reading).
+
+def _setting_changed(said: str) -> Dict[str, Any]:
+    return {"announce": said, "regions": {"6": _region_6_rows()}}
+
+
+def tempo(kind: str) -> Dict[str, Any]:
+    """F faster, S slower (10 on the displayed tempo), D back to the
+    score's own (Ref 12). The new number is spoken."""
+    md = _music_data
+    if md is None:
+        return {"error": "No score is loaded."}
+    if kind == "faster":
+        md.nudge_playback_tempo(10)
+    elif kind == "slower":
+        md.nudge_playback_tempo(-10)
+    elif kind == "reset":
+        md.reset_playback_tempo()
+    else:
+        return {"error": f"Unknown tempo change {kind!r}."}
+    return _setting_changed(announcements.tempo(md))
+
+
+def play_setting(command: str) -> Dict[str, Any]:
+    """play_mode     Ctrl+L, cycle the play mode
+    lead_in       Ctrl+I, lead-in on or off
+    loop_repeat   Ctrl+R, cycle repeat handling while looping (says why
+                  not when looping is off or the score has no repeats)
+    loop_longer   Alt+PageUp, loop length one bar longer
+    loop_shorter  Alt+PageDown, one bar shorter"""
+    md = _music_data
+    if md is None:
+        return {"error": "No score is loaded."}
+    settings = md.play_settings
+    if command == "play_mode":
+        md.play_settings = settings.with_play_mode(settings.next_play_mode())
+        said = announcements.play_mode(md.play_settings.play_mode)
+    elif command == "lead_in":
+        md.play_settings = settings.with_lead_in_enabled(not settings.lead_in_enabled)
+        said = announcements.lead_in_toggled(md.play_settings.lead_in_enabled)
+    elif command == "loop_repeat":
+        if not settings.loop_enabled:
+            return {"announce": announcements.LOOPING_OFF}
+        if not md.repeat_spans:
+            return {"announce": announcements.NO_REPEATS}
+        md.play_settings = settings.with_loop_repeat_mode(settings.next_loop_repeat_mode())
+        said = announcements.loop_repeat_mode(md.play_settings.loop_repeat_mode)
+    elif command in ("loop_longer", "loop_shorter"):
+        delta = 1 if command == "loop_longer" else -1
+        md.play_settings = settings.with_loop_length_bars(settings.loop_length_bars + delta)
+        said = announcements.loop_length(md.play_settings.loop_length_bars, _uk_terms)
+    else:
+        return {"error": f"Unknown play setting {command!r}."}
+    return _setting_changed(said)
+
+
+def commit_loop_length() -> Dict[str, Any]:
+    """Ctrl+Enter: the typed number becomes the loop length instead of a
+    bar to go to (MainWindow.commit_loop_length). With looping off it says
+    so and drops the number. {"pending": False} when nothing was typed."""
+    global _pending_digits
+    md = _music_data
+    if md is None or not _pending_digits:
+        return {"pending": False}
+    digits, _pending_digits = _pending_digits, ""
+    if not md.play_settings.loop_enabled:
+        said = announcements.LOOPING_OFF
+    else:
+        md.play_settings = md.play_settings.with_loop_length_bars(int(digits))
+        said = announcements.loop_length(md.play_settings.loop_length_bars, _uk_terms)
+    result = _setting_changed(said)
+    result["pending"] = True
+    return result
+
+
+# --- Play Settings dialog (Ctrl+Shift+P) -----------------------------------------
+
+def _label(text: str) -> str:
+    """The desktop's mnemonic "&" means nothing on the web."""
+    return text.replace("&", "")
+
+
+def play_settings_form() -> Dict[str, Any]:
+    """The Play Settings dialog's fields in tab order, with the desktop
+    dialog's labels, ranges and current values: {"title", "fields": [{name,
+    type ("number", "checkbox" or "select"), label, value, min, max,
+    options}], "enabled": play_settings_enabled(...)}."""
+    md = _music_data
+    if md is None:
+        return {"error": "No score is loaded."}
+    s = md.play_settings
+    labels = dialog_labels(bar_word(_uk_terms))
+    tempo_now = max(MusicData.MIN_TEMPO_BPM,
+                    min(MusicData.MAX_TEMPO_BPM, int(round(md.playback_tempo_display_bpm()))))
+
+    def number(name, value, low, high):
+        return {"name": name, "type": "number", "label": _label(labels[name]),
+                "value": value, "min": low, "max": high}
+
+    def checkbox(name, value):
+        return {"name": name, "type": "checkbox", "label": _label(labels[name]), "value": value}
+
+    def select(name, value, values, texts):
+        return {"name": name, "type": "select", "label": _label(labels[name]), "value": value,
+                "options": [{"value": v, "label": t} for v, t in zip(values, texts)]}
+
+    fields = [
+        number("tempo", tempo_now, MusicData.MIN_TEMPO_BPM, MusicData.MAX_TEMPO_BPM),
+        checkbox("lead_in_enabled", s.lead_in_enabled),
+        number("lead_in_bars", s.lead_in_bars, 0, MAX_LEAD_IN_BARS),
+        number("lead_in_beats", s.lead_in_beats, 0, MAX_LEAD_IN_BEATS),
+        select("play_mode", s.play_mode, PLAY_MODES, PLAY_MODE_LABELS),
+        number("loop_length_bars", s.loop_length_bars, MIN_LOOP_LENGTH_BARS, MAX_LOOP_LENGTH_BARS),
+        select("loop_repeat_mode", s.loop_repeat_mode, LOOP_REPEAT_MODES, LOOP_REPEAT_LABELS),
+        checkbox("loop_lead_in", s.loop_lead_in),
+    ]
+    return {"title": "Play Settings", "fields": fields,
+            "enabled": play_settings_enabled(s.lead_in_enabled, s.play_mode)}
+
+
+def play_settings_enabled(lead_in: bool, play_mode: str) -> Dict[str, bool]:
+    """Which fields are live for the dialog's current lead-in tick and play
+    mode, asked again on every change. A field not listed stays enabled."""
+    has_repeats = bool(_music_data is not None and _music_data.repeat_spans)
+    return dialog_enabled_states(bool(lead_in), str(play_mode), has_repeats)
+
+
+def apply_play_settings(values) -> Dict[str, Any]:
+    """The dialog's OK: `values` maps each field name to what was entered.
+    Clamping is PlaySettings' and MusicData's own job, as on the desktop.
+    Re-sends Region 6 (tempo and loop length are shown there)."""
+    md = _music_data
+    if md is None:
+        return {"error": "No score is loaded."}
+    if hasattr(values, "to_py"):
+        values = values.to_py()
+    md.play_settings = PlaySettings(
+        lead_in_enabled=bool(values.get("lead_in_enabled")),
+        lead_in_bars=values.get("lead_in_bars"),
+        lead_in_beats=values.get("lead_in_beats"),
+        play_mode=values.get("play_mode"),
+        loop_length_bars=values.get("loop_length_bars"),
+        loop_lead_in=bool(values.get("loop_lead_in")),
+        loop_repeat_mode=values.get("loop_repeat_mode"),
+    )
+    try:
+        md.set_playback_tempo_display_bpm(float(values.get("tempo")))
+    except (TypeError, ValueError):
+        pass  # an empty or garbled tempo keeps the current one
+    return {"regions": {"6": _region_6_rows()}}

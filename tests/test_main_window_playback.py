@@ -1170,6 +1170,35 @@ def test_play_metronome_clicks_without_moving_the_timeline(
     assert window.playback.is_play_metronome_running is False
 
 
+def test_play_metronome_is_greyed_out_while_playback_is_going(
+    window, qtbot, null_synth, minimal_score
+):
+    """The user's decision (2026-10-14): the free metronome is a quick click
+    on its own; a click with the music is Ctrl+M's job. The menu item is
+    disabled (NVDA: "unavailable"), so its shortcut does nothing either."""
+    load_and_wait(window, qtbot, minimal_score)
+    action = window._actions.play_metronome
+    assert action.isEnabled() is True
+    no_lead_in(window, loop_enabled=False)
+
+    window.toggle_play_stop()
+    assert window.sequencer.is_playing is True
+    assert action.isEnabled() is False
+    window.toggle_pause_resume()
+    assert action.isEnabled() is False
+
+    window.toggle_play_stop()  # resume
+    window.toggle_play_stop()  # stop
+    assert action.isEnabled() is True
+
+    window.playback.play_settings = window.playback.play_settings.with_lead_in_enabled(True)
+    window.toggle_play_stop()  # into the count-in
+    assert window.playback.is_playback_active is True
+    assert action.isEnabled() is False
+    window.toggle_play_stop()
+    assert action.isEnabled() is True
+
+
 def test_play_metronome_beat_interval_tracks_the_current_playback_tempo(
     window, qtbot, null_synth, minimal_score
 ):

@@ -211,7 +211,57 @@ next one after a /clear.
   Smoke-tested in headless Chrome under real Pyodide (tree, mute, typed
   bar, Go to bar, help, menu); no screen reader yet. Fast suite passes.
 
-### RESUME HERE (2026-10-14): 4.2 built; user to test Space and Ctrl+Space, then 4.3
+### RESUME HERE (2026-10-14): 4.3 and 4.4 built; user to test, then Phase 5
+
+User test round 1 (NVDA, Firefox) and fixes, same day:
+* F, S, D, Alt+PageUp/PageDown, Ctrl+I and the Playback menu's Play
+  Settings work. Ctrl+Shift+P is Firefox's private window, so the web's
+  Play Settings key is Ctrl+Alt+P (a `difference` in the key table).
+* Lead-in clicks were silent. Cause: the worklet synth ignores init()'s
+  settings, so it had 16 channels and dropped every app sound on channels
+  251 to 255 (clicks, spoken beats, boundary cue, bar line indicator), by
+  key and in playback alike. audio.js now passes SETTINGS to
+  createAudioNode (256 channels, gain 0.7 as on the desktop); measured in
+  headless Chrome, the count-in clicks now sound. Everything is louder
+  than before (gain 0.7 instead of FluidSynth's default 0.2).
+* Play Metronome is now unavailable during playback (playing, paused or
+  counting in) on both versions: Ctrl+M is for a click with the music
+  (user's decision). Round 2: the user asked for default behaviour rather
+  than a spoken "Stop playback first", so the desktop greys out the
+  QAction (its shortcut then does nothing) and the web Menu marks the item
+  aria-disabled from web_api.disabled_commands(); the key does nothing.
+  Lead-in clicks confirmed audible by the user.
+* Open: the user thought the Bourree from bar 7 with a 10-bar loop did not
+  respect the first-time ending. The plan (same on the desktop) plays
+  7, 8 (first-time ending), 1 to 7, 9 (second-time ending) for "first";
+  asked the user what they heard and expected.
+
+4.3 and 4.4 built, not committed. Keys (all global): Ctrl+Alt+Space free
+metronome, Ctrl+L play mode, Ctrl+I lead-in, Ctrl+R loop repeat handling,
+Alt+PageUp/PageDown loop length, Ctrl+Enter typed loop length, F/S/D
+tempo, Shift+Space sounds the selection again (Ref 13), Ctrl+Shift+P Play
+Settings (now Ctrl+Alt+P, see below); all on the Playback menu. Shared code: `PlaySettings`
+`with_play_mode`/`with_lead_in_enabled`/`with_loop_repeat_mode`/
+`next_play_mode`/`next_loop_repeat_mode`, the dialog's labels and
+enabled-state rules (`dialog_labels`, `dialog_enabled_states`,
+`PLAY_MODE_LABELS`, `LOOP_REPEAT_LABELS`) in `models/play_settings.py`;
+`announcements.lead_in_toggled`, `LOOPING_OFF`, `NO_REPEATS`;
+`audio/free_metronome.py` (staged). The desktop PlaybackController,
+MainWindow and PlaySettingsDialog use them. Bridge: `play_metronome`,
+`tempo`, `play_setting`, `commit_loop_length`, `play_settings_form`,
+`play_settings_enabled`, `apply_play_settings`. Deliberate difference:
+the free metronome is refused during playback on both versions. Tests:
+`tests/web/test_web_play_settings.py`, new cases in
+`tests/models/test_play_settings.py`. Model and playback fingerprints
+MATCH, fast suite passes. Headless Chrome under real Pyodide: every key
+speaks the right text, Region 6 follows, the dialog opens on the tempo
+field, enables fields as on the desktop, OK applies. Not yet heard or
+tried with NVDA before round 1. Still untested with NVDA: Ctrl+Alt+P,
+Ctrl+Enter, Shift+Space, Ctrl+L, Ctrl+R, Ctrl+Alt+Space.
+Not done:
+Ctrl+H and Delay Refresh (the web always follows playback).
+
+### Was (2026-10-14): 4.2 built; user to test Space and Ctrl+Space, then 4.3
 
 4.2 built, not committed. `models/play_plan.py` gained `PlayTimeline`
 (the whole run as timed entries: count, step, restart, end; pause and

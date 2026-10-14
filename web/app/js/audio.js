@@ -114,7 +114,10 @@ async function startSynth() {
       synth = new JSSynth.AudioWorkletNodeSynthesizer();
     }
     synth.init(ctx.sampleRate, SETTINGS);
-    synth.createAudioNode(ctx).connect(ctx.destination);
+    // The worklet synth ignores init()'s settings: they must go to
+    // createAudioNode, or it has 16 channels and every app sound (251 to
+    // 255) is dropped.
+    synth.createAudioNode(ctx, SETTINGS).connect(ctx.destination);
     const { gm, app } = await fontBytes;
     gmSfont = await synth.loadSFont(gm);
     appSfont = await synth.loadSFont(app);

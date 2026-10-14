@@ -149,3 +149,46 @@ def test_loop_repeat_mode_round_trips_and_an_unknown_value_coerces():
 def test_loop_repeat_mode_absent_from_an_older_settings_file_gets_first():
     assert PlaySettings.from_dict({"play_mode": "loop_forever"}).loop_repeat_mode == "first"
     assert PlaySettings.from_dict({}).loop_repeat_mode == "first"
+
+
+# --- shared by the desktop controller and the web bridge (RSBV 4.3, 4.4) ---
+
+def test_next_modes_cycle_and_with_helpers_coerce():
+    settings = PlaySettings()
+    seen = []
+    for _ in PLAY_MODES:
+        settings = settings.with_play_mode(settings.next_play_mode())
+        seen.append(settings.play_mode)
+    assert seen == ["loop_once", "loop_forever", "to_end"]
+    seen = []
+    for _ in LOOP_REPEAT_MODES:
+        settings = settings.with_loop_repeat_mode(settings.next_loop_repeat_mode())
+        seen.append(settings.loop_repeat_mode)
+    assert seen == ["second", "alternate", "first"]
+    assert PlaySettings().with_play_mode("nonsense").play_mode == "to_end"
+    assert PlaySettings().with_loop_repeat_mode("nonsense").loop_repeat_mode == "first"
+    original = PlaySettings()
+    assert original.with_lead_in_enabled(True).lead_in_enabled is True
+    assert original.lead_in_enabled is False  # a copy, not a change
+
+
+def test_dialog_enabled_states():
+    from models.play_settings import dialog_enabled_states
+
+    assert dialog_enabled_states(False, "to_end", True) == {
+        "lead_in_bars": False, "lead_in_beats": False, "loop_length_bars": False,
+        "loop_repeat_mode": False, "loop_lead_in": False,
+    }
+    assert dialog_enabled_states(True, "loop_once", True)["loop_repeat_mode"] is True
+    assert dialog_enabled_states(True, "loop_once", True)["loop_lead_in"] is False
+    assert dialog_enabled_states(True, "loop_forever", False) == {
+        "lead_in_bars": True, "lead_in_beats": True, "loop_length_bars": True,
+        "loop_repeat_mode": False, "loop_lead_in": True,
+    }
+
+
+def test_dialog_labels_follow_the_dialect():
+    from models.play_settings import dialog_labels
+
+    assert dialog_labels("bar")["loop_length_bars"] == "Loop length in bars:"
+    assert dialog_labels("measure")["lead_in_bars"] == "Lead-in measures:"

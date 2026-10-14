@@ -5,7 +5,7 @@ import { initFocus, focusRegion, focusedRegion, focusMenuButton } from "./focus.
 import {
   initRegions, render, moveRow, extendSelection, selection, selectAll, rowAt, currentRow, treeExpand, treeCollapse,
 } from "./regions.js";
-import { showHelp, showGotoBar } from "./dialogs.js";
+import { showHelp, showGotoBar, showPlaySettings } from "./dialogs.js";
 import { initMenu } from "./menu.js";
 import { initAudio, prefetchSoundFonts, play } from "./audio.js";
 import { initScheduler, startSession, stopSession, pauseSession, isScheduling } from "./scheduler.js";
@@ -43,6 +43,7 @@ initMenu({
   menuButton,
   extra: { open: { label: "Open a score", run: () => picker.click() } },
   returnFocus: (n) => (n && scoreLoaded ? focusRegion(n) : focusMenuButton()),
+  disabled: () => (scoreLoaded ? py.disabledCommands() : []),
 });
 
 // --- drawing bridge results --------------------------------------------------
@@ -194,6 +195,17 @@ bind("digits.commit", () => {
   else applyMove(result);
   return result.pending !== false;
 });
+// Ctrl+Enter: the typed number becomes the loop length instead.
+bind("digits.loopLength", () => {
+  if (!scoreLoaded || !digitsPending) return false;
+  digitsPending = false;
+  const result = py.commitLoopLength();
+  if (result.error) showError(result.error);
+  else if (result.pending !== false) {
+    announceUrgent(result.announce);
+    showRegions(result.regions);
+  }
+});
 bind("digits.clear", () => {
   if (!scoreLoaded || !digitsPending) return false;
   digitsPending = false;
@@ -213,9 +225,8 @@ initScheduler({
 // Space on a focused button presses it, as everywhere else on the web.
 const onButton = () => ["BUTTON", "INPUT"].includes(document.activeElement?.tagName);
 
-bind("play.toggle", () => {
-  if (!scoreLoaded || onButton()) return false;
-  const result = py.playToggle();
+/** A play_toggle or play_metronome result. */
+function applyTransport(result) {
   if (result?.error) return showError(result.error);
   if (result.action === "boundary") play(result.sound);
   else if (result.action === "stop") {
@@ -225,7 +236,46 @@ bind("play.toggle", () => {
     showRegions(result.regions, null, { follow: true });
     startSession(result.session);
   }
+}
+
+bind("play.toggle", () => {
+  if (!scoreLoaded || onButton()) return false;
+  applyTransport(py.playToggle());
 });
+
+bind("play.metronome", withScore(() => applyTransport(py.playMetronome())));
+
+// Shift+Space (Ref 13): sound the selected notes again, with the position
+// cues, as the desktop's chord audition does.
+bind("notes.audition", () => {
+  if (!scoreLoaded || onButton()) return false;
+  play(py.audition(selection(), true).sound);
+});
+
+// F, S, D, Ctrl+L, Ctrl+I, Ctrl+R, Alt+PageUp/PageDown: a setting changes,
+// its new value is spoken and Region 6 redrawn.
+function applySetting(result) {
+  if (result?.error) return showError(result.error);
+  if (result.announce) announceUrgent(result.announce);
+  if (result.regions) showRegions(result.regions);
+}
+
+for (const [id, kind] of [["tempo.faster", "faster"], ["tempo.slower", "slower"], ["tempo.reset", "reset"]]) {
+  bind(id, withScore(() => applySetting(py.tempo(kind))));
+}
+for (const [id, command] of [
+  ["play.mode", "play_mode"], ["play.leadIn", "lead_in"], ["play.loopRepeat", "loop_repeat"],
+  ["play.loopLonger", "loop_longer"], ["play.loopShorter", "loop_shorter"],
+]) {
+  bind(id, withScore(() => applySetting(py.playSetting(command))));
+}
+
+bind("play.settings", withScore(async () => {
+  const form = py.playSettingsForm();
+  if (form?.error) return showError(form.error);
+  const values = await showPlaySettings(form, py.playSettingsEnabled);
+  if (values) applySetting(py.applyPlaySettings(values));
+}));
 
 bind("play.pause", withScore(() => {
   const result = pauseSession();

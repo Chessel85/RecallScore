@@ -84,3 +84,14 @@ export const playCursor = (session, index) => call("play_cursor", session, index
 export const playEnded = (session) => call("play_ended", session);
 export const playPause = (session, seq) => call("play_pause", session, seq);
 export const playStop = () => call("play_stop");
+export const playMetronome = () => call("play_metronome");
+/** Keymap ids the Menu shows as unavailable now. */
+export const disabledCommands = () => call("disabled_commands");
+/** kind: "faster", "slower" or "reset". */
+export const tempo = (kind) => call("tempo", kind);
+/** command: "play_mode", "lead_in", "loop_repeat", "loop_longer", "loop_shorter". */
+export const playSetting = (command) => call("play_setting", command);
+export const commitLoopLength = () => call("commit_loop_length");
+export const playSettingsForm = () => call("play_settings_form");
+export const playSettingsEnabled = (leadIn, playMode) => call("play_settings_enabled", leadIn, playMode);
+export const applyPlaySettings = (values) => call("apply_play_settings", values);

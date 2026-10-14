@@ -5,7 +5,8 @@ from PySide6.QtCore import QObject, Qt, QTimer, Signal
 
 from audio.barline_patterns import STEP_MS
 from audio.navigation_cues import barline_indicator_events, count_in_cues, position_cues
-from audio.metronome import METRONOME_CHANNEL, click_event_for_beat
+from audio.free_metronome import free_metronome_beat
+from audio.metronome import METRONOME_CHANNEL
 from audio.performance_cue import PERFORMANCE_CUE_CHANNEL
 from audio import boundary_cue as _boundary_cue
 from audio.boundary_cue import boundary_cue_event
@@ -17,10 +18,8 @@ from models.mixer_settings import MixerSettings
 from models import play_plan
 from models.play_plan import PlayRun
 from models.play_settings import (
-    LOOP_REPEAT_MODES,
     PLAY_MODE_LOOP_FOREVER,
     PLAY_MODE_TO_END,
-    PLAY_MODES,
     PlaySettings,
 )
 from models.synthetic_parts import LYRICS_PART_ID
@@ -157,6 +156,13 @@ class PlaybackController(QObject):
         if self.refresh_gate is None:
             return 0
         return max(0, -self.refresh_gate.settings.delay_ms)
+
+    @property
+    def is_playback_active(self) -> bool:
+        """Playing, paused, or in a play run's count-in or loop gap."""
+        sequencer = self.sequencer
+        playing = sequencer is not None and (sequencer.is_playing or sequencer.is_paused)
+        return playing or self._play_run is not None
 
     @property
     def is_paused(self) -> bool:
@@ -583,21 +589,14 @@ class PlaybackController(QObject):
         """Ctrl+L: rotate the play mode "play to end" -> "play loop once" ->
         "play loop until stopped" -> "play to end". Returns the new mode.
         Replaces the old toggle_loop (a plain loop on/off)."""
-        try:
-            i = PLAY_MODES.index(self.play_settings.play_mode)
-        except ValueError:
-            i = 0
-        return self.set_play_mode(PLAY_MODES[(i + 1) % len(PLAY_MODES)])
+        return self.set_play_mode(self.play_settings.next_play_mode())
 
     def set_play_mode(self, mode: str) -> str:
         """The deterministic target for cycle_play_mode and the Play
         Settings dialog. Stored per score and refreshes the status bar; an
         unknown value coerces to "play to end" in PlaySettings.__post_init__.
         Returns the mode actually stored."""
-        updated = self.play_settings.copy()
-        updated.play_mode = mode
-        updated.__post_init__()
-        self.play_settings = updated
+        self.play_settings = self.play_settings.with_play_mode(mode)
         self.status_text_changed.emit()
         return self.play_settings.play_mode
 
@@ -615,10 +614,7 @@ class PlaybackController(QObject):
 
     def set_lead_in_enabled(self, enabled: bool) -> bool:
         """Counterpart of set_loop_enabled for "lead in on/off"."""
-        updated = self.play_settings.copy()
-        updated.lead_in_enabled = bool(enabled)
-        updated.__post_init__()
-        self.play_settings = updated
+        self.play_settings = self.play_settings.with_lead_in_enabled(enabled)
         self.status_text_changed.emit()
         return self.play_settings.lead_in_enabled
 
@@ -628,20 +624,13 @@ class PlaybackController(QObject):
         LOOP_REPEAT_MODES). Per score, like loop_enabled; an unknown value
         coerces to "first" in PlaySettings.__post_init__. Returns the mode
         actually stored."""
-        updated = self.play_settings.copy()
-        updated.loop_repeat_mode = mode
-        updated.__post_init__()
-        self.play_settings = updated
+        self.play_settings = self.play_settings.with_loop_repeat_mode(mode)
         self.status_text_changed.emit()
         return self.play_settings.loop_repeat_mode
 
     def cycle_loop_repeat_mode(self) -> str:
         """Ctrl+R: rotate first -> second -> alternate -> first."""
-        try:
-            i = LOOP_REPEAT_MODES.index(self.play_settings.loop_repeat_mode)
-        except ValueError:
-            i = 0
-        return self.set_loop_repeat_mode(LOOP_REPEAT_MODES[(i + 1) % len(LOOP_REPEAT_MODES)])
+        return self.set_loop_repeat_mode(self.play_settings.next_loop_repeat_mode())
 
     def _build_play_run(self, looping: bool) -> Optional[PlayRun]:
         """See models/play_plan.py's build_play_run."""
@@ -954,11 +943,15 @@ class PlaybackController(QObject):
         sounds at the current playback tempo (F/S/D adjustments included)
         and the time signature at the cursor, never moves the timeline, and
         is separate from the Ctrl+M score metronome. Returns the new on/off
-        state."""
+        state.
+
+        Refused while playback is going (playing, paused or counting in):
+        it is a quick way to get a click on its own, and a click with the
+        music is Ctrl+M's job (the user's decision, 2026-10-14)."""
         if self.is_play_metronome_running:
             self.stop_play_metronome()
             return False
-        if not self.music_data:
+        if not self.music_data or self.is_playback_active:
             return False
         self._play_metronome_beat = 1
         self._sound_play_metronome_beat()
@@ -975,19 +968,12 @@ class PlaybackController(QObject):
         if not self.music_data:
             self._play_metronome_timer.stop()
             return
-        ts_num, ts_den = 4, 4
-        current = self.music_data.get_current_slice()
-        if current is not None and current.time_sig:
-            ts_num, ts_den = current.time_sig
-        beat = self._play_metronome_beat
-        if not self._muted:
-            click = click_event_for_beat(float(beat))
-            if click is not None:
-                self.synth.play_click(*click)
-        self._play_metronome_beat = beat + 1 if beat < max(1, ts_num) else 1
-        quarter_bpm = self.music_data.effective_tempo_bpm()
-        beat_ms = (4.0 / float(ts_den or 4)) * 60000.0 / float(quarter_bpm)
-        self._play_metronome_timer.start(max(1, int(round(beat_ms))))
+        click, self._play_metronome_beat, beat_ms = free_metronome_beat(
+            self.music_data, self._play_metronome_beat
+        )
+        if not self._muted and click is not None:
+            self.synth.play_click(*click)
+        self._play_metronome_timer.start(beat_ms)
 
     # --- sounding ----------------------------------------------------
 

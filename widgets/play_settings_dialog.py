@@ -17,25 +17,12 @@ from models.play_settings import (
     MAX_LEAD_IN_BEATS,
     MAX_LOOP_LENGTH_BARS,
     MIN_LOOP_LENGTH_BARS,
-    PLAY_MODE_LOOP_FOREVER,
-    PLAY_MODE_LOOP_ONCE,
+    LOOP_REPEAT_LABELS,
+    PLAY_MODE_LABELS,
     PLAY_MODES,
     PlaySettings,
-)
-
-# Combo labels, index-aligned to models.play_settings.LOOP_REPEAT_MODES.
-_LOOP_REPEAT_LABELS = (
-    "Repeat the first play-through",
-    "Repeat the second play-through",
-    "Alternate the first and second play-throughs",
-)
-
-# Combo labels, index-aligned to models.play_settings.PLAY_MODES. This combo
-# replaces the old "Repeat (loop) until stopped" tickbox.
-_PLAY_MODE_LABELS = (
-    "Play to end",
-    "Play loop once",
-    "Play loop until stopped",
+    dialog_enabled_states,
+    dialog_labels,
 )
 from models.vocabulary import bar_word
 
@@ -68,7 +55,7 @@ class PlaySettingsDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Play Settings")
         settings = play_settings.copy() if play_settings is not None else PlaySettings()
-        bar = bar_word(uk_terms)
+        labels = dialog_labels(bar_word(uk_terms))
         # "Repeat handling while looping" only bites when the score actually
         # carries repeat barlines; the combo is disabled otherwise (as it is
         # with looping off).
@@ -84,50 +71,50 @@ class PlaySettingsDialog(QDialog):
                 min(MusicData.MAX_TEMPO_BPM, int(round(current_tempo_display_bpm))),
             )
         )
-        self._add_row(layout, "Playback tempo (beats per minute):", self.tempo_spin)
+        self._add_row(layout, labels["tempo"], self.tempo_spin)
 
-        self.lead_in_check = QCheckBox("Play a &lead-in metronome click", self)
+        self.lead_in_check = QCheckBox(labels["lead_in_enabled"], self)
         self.lead_in_check.setChecked(settings.lead_in_enabled)
         layout.addWidget(self.lead_in_check)
 
         self.lead_in_bars_spin = QSpinBox(self)
         self.lead_in_bars_spin.setRange(0, MAX_LEAD_IN_BARS)
         self.lead_in_bars_spin.setValue(settings.lead_in_bars)
-        self._add_row(layout, f"Lead-in {bar}s:", self.lead_in_bars_spin)
+        self._add_row(layout, labels["lead_in_bars"], self.lead_in_bars_spin)
 
         self.lead_in_beats_spin = QSpinBox(self)
         self.lead_in_beats_spin.setRange(0, MAX_LEAD_IN_BEATS)
         self.lead_in_beats_spin.setValue(settings.lead_in_beats)
-        self._add_row(layout, "Extra lead-in beats:", self.lead_in_beats_spin)
+        self._add_row(layout, labels["lead_in_beats"], self.lead_in_beats_spin)
 
         # Replaces the old "Repeat (loop) until stopped" tickbox: a three-way
         # choice of how far Space plays. Sits here - right after the lead-in
         # controls and before the loop-length spin - both visually and in
         # the tab order.
         self.play_mode_combo = QComboBox(self)
-        self.play_mode_combo.addItems(_PLAY_MODE_LABELS)
+        self.play_mode_combo.addItems(PLAY_MODE_LABELS)
         try:
             play_mode_index = PLAY_MODES.index(settings.play_mode)
         except ValueError:
             play_mode_index = 0
         self.play_mode_combo.setCurrentIndex(play_mode_index)
-        self._add_row(layout, "&Play mode:", self.play_mode_combo)
+        self._add_row(layout, labels["play_mode"], self.play_mode_combo)
 
         self.loop_length_spin = QSpinBox(self)
         self.loop_length_spin.setRange(MIN_LOOP_LENGTH_BARS, MAX_LOOP_LENGTH_BARS)
         self.loop_length_spin.setValue(settings.loop_length_bars)
-        self._add_row(layout, f"Loop length in {bar}s:", self.loop_length_spin)
+        self._add_row(layout, labels["loop_length_bars"], self.loop_length_spin)
 
         self.loop_repeat_combo = QComboBox(self)
-        self.loop_repeat_combo.addItems(_LOOP_REPEAT_LABELS)
+        self.loop_repeat_combo.addItems(LOOP_REPEAT_LABELS)
         try:
             mode_index = LOOP_REPEAT_MODES.index(settings.loop_repeat_mode)
         except ValueError:
             mode_index = 0
         self.loop_repeat_combo.setCurrentIndex(mode_index)
-        self._add_row(layout, "Repeat handling while looping:", self.loop_repeat_combo)
+        self._add_row(layout, labels["loop_repeat_mode"], self.loop_repeat_combo)
 
-        self.loop_lead_in_check = QCheckBox("Play the lead-in a&gain on every repeat", self)
+        self.loop_lead_in_check = QCheckBox(labels["loop_lead_in"], self)
         self.loop_lead_in_check.setChecked(settings.loop_lead_in)
         layout.addWidget(self.loop_lead_in_check)
 
@@ -149,22 +136,16 @@ class PlaySettingsDialog(QDialog):
         layout.addWidget(widget)
 
     def _update_enabled_states(self, *_args) -> None:
-        lead_in = self.lead_in_check.isChecked()
-        mode = PLAY_MODES[self.play_mode_combo.currentIndex()]
-        looping = mode in (PLAY_MODE_LOOP_ONCE, PLAY_MODE_LOOP_FOREVER)
-        loop_forever = mode == PLAY_MODE_LOOP_FOREVER
-        self.lead_in_bars_spin.setEnabled(lead_in)
-        self.lead_in_beats_spin.setEnabled(lead_in)
-        # Loop length defines the loop window, so it is relevant to both
-        # looping modes and dead only for "Play to end".
-        self.loop_length_spin.setEnabled(looping)
-        # Repeat handling bites for either looping mode (and only when the
-        # score actually carries repeat barlines).
-        self.loop_repeat_combo.setEnabled(looping and self._score_has_repeats)
-        # "Play the lead-in again on every repeat" only means something when
-        # the loop actually repeats - i.e. "Play loop until stopped" - and
-        # there is a lead-in to replay.
-        self.loop_lead_in_check.setEnabled(loop_forever and lead_in)
+        enabled = dialog_enabled_states(
+            self.lead_in_check.isChecked(),
+            PLAY_MODES[self.play_mode_combo.currentIndex()],
+            self._score_has_repeats,
+        )
+        self.lead_in_bars_spin.setEnabled(enabled["lead_in_bars"])
+        self.lead_in_beats_spin.setEnabled(enabled["lead_in_beats"])
+        self.loop_length_spin.setEnabled(enabled["loop_length_bars"])
+        self.loop_repeat_combo.setEnabled(enabled["loop_repeat_mode"])
+        self.loop_lead_in_check.setEnabled(enabled["loop_lead_in"])
 
     def showEvent(self, event):
         super().showEvent(event)

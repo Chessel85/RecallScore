@@ -58,6 +58,66 @@ PLAY_MODES = (PLAY_MODE_TO_END, PLAY_MODE_LOOP_ONCE, PLAY_MODE_LOOP_FOREVER)
 DEFAULT_PLAY_MODE = PLAY_MODE_TO_END
 
 
+def _next_in(cycle, current) -> str:
+    try:
+        i = cycle.index(current)
+    except ValueError:
+        i = 0
+    return cycle[(i + 1) % len(cycle)]
+
+
+# The Play Settings dialog's wording, shared by the desktop dialog
+# (widgets/play_settings_dialog.py) and the web one, so the two cannot
+# drift. Choice labels are index-aligned to PLAY_MODES and
+# LOOP_REPEAT_MODES. "&" marks the desktop's mnemonic letter; the web
+# strips it.
+PLAY_MODE_LABELS = (
+    "Play to end",
+    "Play loop once",
+    "Play loop until stopped",
+)
+LOOP_REPEAT_LABELS = (
+    "Repeat the first play-through",
+    "Repeat the second play-through",
+    "Alternate the first and second play-throughs",
+)
+
+
+def dialog_labels(bar: str) -> dict:
+    """Each Play Settings field's label, in the dialog's tab order. `bar`
+    is vocabulary.bar_word's "bar"/"measure"."""
+    return {
+        "tempo": "Playback tempo (beats per minute):",
+        "lead_in_enabled": "Play a &lead-in metronome click",
+        "lead_in_bars": f"Lead-in {bar}s:",
+        "lead_in_beats": "Extra lead-in beats:",
+        "play_mode": "&Play mode:",
+        "loop_length_bars": f"Loop length in {bar}s:",
+        "loop_repeat_mode": "Repeat handling while looping:",
+        "loop_lead_in": "Play the lead-in a&gain on every repeat",
+    }
+
+
+def dialog_enabled_states(lead_in: bool, play_mode: str, score_has_repeats: bool) -> dict:
+    """Which Play Settings fields are live, given the dialog's current
+    lead-in tick and play mode (fields not listed are always enabled)."""
+    looping = play_mode in (PLAY_MODE_LOOP_ONCE, PLAY_MODE_LOOP_FOREVER)
+    return {
+        "lead_in_bars": bool(lead_in),
+        "lead_in_beats": bool(lead_in),
+        # Loop length defines the loop window, so it is relevant to both
+        # looping modes and dead only for "Play to end".
+        "loop_length_bars": looping,
+        # Repeat handling bites for either looping mode, and only when the
+        # score actually carries repeat barlines.
+        "loop_repeat_mode": looping and bool(score_has_repeats),
+        # Replaying the lead-in on every repeat only means something when
+        # the loop repeats ("Play loop until stopped") and there is a
+        # lead-in to replay.
+        "loop_lead_in": play_mode == PLAY_MODE_LOOP_FOREVER and bool(lead_in),
+    }
+
+
 def _clamp(value: int, low: int, high: int) -> int:
     try:
         value = int(value)
@@ -141,6 +201,37 @@ class PlaySettings:
         settings.loop_length_bars = loop_length_bars
         settings.__post_init__()
         return settings
+
+    def with_play_mode(self, play_mode: str) -> "PlaySettings":
+        """A copy with just play_mode changed; an unknown value coerces to
+        "play to end"."""
+        settings = self.copy()
+        settings.play_mode = play_mode
+        settings.__post_init__()
+        return settings
+
+    def with_lead_in_enabled(self, enabled: bool) -> "PlaySettings":
+        settings = self.copy()
+        settings.lead_in_enabled = enabled
+        settings.__post_init__()
+        return settings
+
+    def with_loop_repeat_mode(self, mode: str) -> "PlaySettings":
+        """A copy with just loop_repeat_mode changed; an unknown value
+        coerces to "first"."""
+        settings = self.copy()
+        settings.loop_repeat_mode = mode
+        settings.__post_init__()
+        return settings
+
+    def next_play_mode(self) -> str:
+        """Ctrl+L's target: play to end -> play loop once -> play loop
+        until stopped -> play to end."""
+        return _next_in(PLAY_MODES, self.play_mode)
+
+    def next_loop_repeat_mode(self) -> str:
+        """Ctrl+R's target: first -> second -> alternate -> first."""
+        return _next_in(LOOP_REPEAT_MODES, self.loop_repeat_mode)
 
     def copy(self) -> "PlaySettings":
         """An independent snapshot. A play session snapshots the settings

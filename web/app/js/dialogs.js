@@ -1,4 +1,4 @@
-// Dialogs: the keyboard help list and Go to bar, on native <dialog>. (The
+// Dialogs: the keyboard help list, Go to bar and Play Settings, on native <dialog>. (The
 // Menu is a real ARIA menu, in menu.js.) Rules every dialog here follows:
 // * Initial focus goes to the first widget in tab order, never a "more
 //   useful" later one (the desktop's dialog rule).
@@ -21,6 +21,8 @@ const GROUPS = {
   nav: "Navigation",
   goto: "Navigation",
   digits: "Navigation",
+  play: "Playback",
+  tempo: "Playback",
   options: "Options",
   notes: "Notes",
   attributes: "Attributes",
@@ -141,5 +143,81 @@ export function showGotoBar(info) {
     });
     d.open();
     input.select();
+  });
+}
+
+/** Play Settings (Ctrl+Shift+P): `form` is web_api.play_settings_form(),
+ * `enabledFor(leadIn, playMode)` asks the bridge which fields are live
+ * (the desktop dialog's rules) whenever the lead-in tick or the play mode
+ * changes. Resolves to {name: value} on OK (number fields as typed; the
+ * bridge clamps), or null on Cancel. */
+export function showPlaySettings(form, enabledFor) {
+  return new Promise((resolve) => {
+    const d = makeDialog(form.title);
+    const el = document.createElement("form");
+    el.method = "dialog";
+    el.id = `play-settings-${serial}`;
+    const inputs = new Map();
+    for (const field of form.fields) {
+      // A separate <label for>, not one wrapping the control: a wrapped
+      // select can have its chosen option read into its name.
+      const row = document.createElement("div");
+      row.className = "dialog-field";
+      const label = document.createElement("label");
+      label.textContent = field.label;
+      let input;
+      if (field.type === "select") {
+        input = document.createElement("select");
+        for (const option of field.options) {
+          const opt = document.createElement("option");
+          opt.value = option.value;
+          opt.textContent = option.label;
+          input.append(opt);
+        }
+        input.value = field.value;
+      } else {
+        input = document.createElement("input");
+        input.type = field.type;
+        if (field.type === "checkbox") input.checked = Boolean(field.value);
+        else {
+          input.min = String(field.min);
+          input.max = String(field.max);
+          input.step = "1";
+          input.value = String(field.value);
+        }
+      }
+      input.name = field.name;
+      input.id = `${el.id}-${field.name}`;
+      label.htmlFor = input.id;
+      if (field.type === "checkbox") row.append(input, " ", label);
+      else row.append(label, " ", input);
+      el.append(row);
+      inputs.set(field.name, input);
+    }
+    d.body.append(el);
+
+    const applyEnabled = (enabled) => {
+      for (const [name, live] of Object.entries(enabled ?? {})) {
+        const input = inputs.get(name);
+        if (input) input.disabled = !live;
+      }
+    };
+    const refresh = () => applyEnabled(enabledFor(inputs.get("lead_in_enabled").checked, inputs.get("play_mode").value));
+    inputs.get("lead_in_enabled").addEventListener("change", refresh);
+    inputs.get("play_mode").addEventListener("change", refresh);
+    applyEnabled(form.enabled);
+
+    // The buttons sit in the footer but belong to the form, so Enter in a
+    // field submits it as OK.
+    const ok = button("OK", null, "submit");
+    ok.setAttribute("form", el.id);
+    d.footer.append(ok, button("Cancel", () => d.close()));
+    let answer = null;
+    el.addEventListener("submit", () => {
+      answer = {};
+      for (const [name, input] of inputs) answer[name] = input.type === "checkbox" ? input.checked : input.value;
+    });
+    d.dialog.addEventListener("close", () => resolve(answer));
+    d.open();
   });
 }

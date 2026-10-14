@@ -21,7 +21,10 @@
 // would never be the region the command is about.
 //
 // Items come from the key table: a command appears only once it is bound,
-// with its label and the key it really has.
+// with its label and the key it really has. A command the bridge says is
+// disabled right now (web_api.disabled_commands, as the desktop greys out
+// its action) is aria-disabled: still reachable, read as unavailable, and
+// does nothing when chosen.
 
 import { KEYMAP, boundCommands, runCommand } from "./keymap.js";
 import { keysText } from "./dialogs.js";
@@ -43,7 +46,15 @@ const MENUS = [
       "focus.region1", "focus.region2", "focus.region3", "focus.region4", "focus.region5", "focus.region6",
     ],
   },
-  { title: "Playback", region: 3, items: ["play.toggle", "play.pause"] },
+  {
+    title: "Playback",
+    region: 3,
+    items: [
+      "play.toggle", "play.pause", "play.metronome", "play.settings", "play.mode", "play.leadIn", "play.loopRepeat", "-",
+      "tempo.faster", "tempo.slower", "tempo.reset", "-",
+      "play.loopLonger", "play.loopShorter",
+    ],
+  },
   { title: "Options", region: 3, items: ["options.barLineIndicator", "options.metronome", "options.positionAnnouncer"] },
   { title: "Help", items: ["help.keys"] },
 ];
@@ -51,15 +62,18 @@ const MENUS = [
 let button = null;
 let extras = {};
 let restoreFocus = () => {};
+let disabledIds = () => [];
 let root = null; // the open top-level menu element, or null
 let serial = 0;
 
 /** `menuButton` opens the menu. `extra` maps a name to {label, run}.
- * `returnFocus(region)` focuses that region, or the Menu button for none. */
-export function initMenu({ menuButton, extra = {}, returnFocus }) {
+ * `returnFocus(region)` focuses that region, or the Menu button for none.
+ * `disabled()` lists the keymap ids to show as unavailable. */
+export function initMenu({ menuButton, extra = {}, returnFocus, disabled }) {
   button = menuButton;
   extras = extra;
   restoreFocus = returnFocus;
+  disabledIds = disabled ?? disabledIds;
   button.setAttribute("aria-haspopup", "menu");
   button.setAttribute("aria-expanded", "false");
   button.addEventListener("click", () => (root ? closeAll(true) : open()));
@@ -68,6 +82,7 @@ export function initMenu({ menuButton, extra = {}, returnFocus }) {
 /** The menus with only bound commands, separators tidied, empty menus dropped. */
 function liveMenus() {
   const bound = new Set(boundCommands().map((row) => row.id));
+  const disabled = new Set(disabledIds());
   const menus = [];
   for (const menu of MENUS) {
     const items = [];
@@ -79,7 +94,12 @@ function liveMenus() {
         if (extra) items.push({ label: extra.label, keys: null, run: extra.run });
       } else if (bound.has(entry)) {
         const row = KEYMAP.find((r) => r.id === entry);
-        items.push({ label: row.label, keys: keysText(row.keys), run: () => runCommand(row.id) });
+        items.push({
+          label: row.label,
+          keys: keysText(row.keys),
+          run: () => runCommand(row.id),
+          disabled: disabled.has(entry),
+        });
       }
     }
     if (items[items.length - 1] === "-") items.pop();
@@ -143,7 +163,8 @@ function open() {
         continue;
       }
       const item = makeItem(entry.label, entry.keys);
-      item.addEventListener("click", () => activate(entry.run, menu.region));
+      if (entry.disabled) item.setAttribute("aria-disabled", "true");
+      else item.addEventListener("click", () => activate(entry.run, menu.region));
       sub.append(wrap(item));
     }
     parent.addEventListener("click", () => openSub(parent));

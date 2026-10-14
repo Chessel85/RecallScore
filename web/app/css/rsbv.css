@@ -37,4 +37,7 @@ dialog h3 { font-size: 1rem; margin: 1rem 0 .25rem; }
 .popup-menu [role="menuitem"]:focus, .popup-menu [role="menuitem"][aria-expanded="true"] { background: var(--current); }
 .popup-menu [role="separator"] { border-top: 1px solid var(--line); margin: .25rem 0; }
 .menu-key { opacity: .8; }
-dialog input[type="text"] { font: inherit; width: 6rem; }
+.popup-menu [role="menuitem"][aria-disabled="true"] { opacity: .55; }
+dialog input[type="text"], dialog input[type="number"] { font: inherit; width: 6rem; }
+dialog select { font: inherit; max-width: 100%; }
+.dialog-field { display: block; margin: .5rem 0; }

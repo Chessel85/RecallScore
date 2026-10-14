@@ -78,6 +78,18 @@ export const KEYMAP = /* KEYMAP-BEGIN */ [
   {"id": "options.positionAnnouncer", "keys": ["Ctrl+P"], "scope": "global", "label": "Position announcer on or off", "desktopAction": "position_announcer", "difference": null},
   {"id": "play.toggle", "keys": ["Space"], "scope": "global", "label": "Play or stop", "desktopAction": "play_stop", "difference": null},
   {"id": "play.pause", "keys": ["Ctrl+Space"], "scope": "global", "label": "Pause", "desktopAction": "pause_resume", "difference": null},
+  {"id": "play.metronome", "keys": ["Ctrl+Alt+Space"], "scope": "global", "label": "Play metronome", "desktopAction": "play_metronome", "difference": null},
+  {"id": "play.settings", "keys": ["Ctrl+Alt+P"], "scope": "global", "label": "Play settings", "desktopAction": "play_settings", "difference": "The desktop uses Control Shift P, which Firefox keeps for a private window"},
+  {"id": "play.mode", "keys": ["Ctrl+L"], "scope": "global", "label": "Cycle play mode", "desktopAction": "play_mode_cycle", "difference": null},
+  {"id": "play.leadIn", "keys": ["Ctrl+I"], "scope": "global", "label": "Lead-in on or off", "desktopAction": "lead_in_toggle", "difference": null},
+  {"id": "play.loopRepeat", "keys": ["Ctrl+R"], "scope": "global", "label": "Cycle loop repeat handling", "desktopAction": "loop_repeat_mode", "difference": null},
+  {"id": "play.loopLonger", "keys": ["Alt+PageUp"], "scope": "global", "label": "Loop one bar longer", "desktopAction": null, "difference": null},
+  {"id": "play.loopShorter", "keys": ["Alt+PageDown"], "scope": "global", "label": "Loop one bar shorter", "desktopAction": null, "difference": null},
+  {"id": "digits.loopLength", "keys": ["Ctrl+Enter"], "scope": "global", "label": "Set the typed number as the loop length", "desktopAction": null, "difference": null},
+  {"id": "tempo.faster", "keys": ["F"], "scope": "global", "label": "Tempo faster", "desktopAction": null, "difference": null},
+  {"id": "tempo.slower", "keys": ["S"], "scope": "global", "label": "Tempo slower", "desktopAction": null, "difference": null},
+  {"id": "tempo.reset", "keys": ["D"], "scope": "global", "label": "Score tempo", "desktopAction": null, "difference": null},
+  {"id": "notes.audition", "keys": ["Shift+Space"], "scope": "global", "label": "Sound the selected notes again", "desktopAction": null, "difference": null},
   {"id": "help.keys", "keys": ["F1"], "scope": "global", "label": "Keyboard help", "desktopAction": null, "difference": null},
   {"id": "attributes.speak", "keys": ["Ctrl+1", "Ctrl+2", "Ctrl+3", "Ctrl+4", "Ctrl+5", "Ctrl+6", "Ctrl+7", "Ctrl+8", "Ctrl+9"], "scope": "global", "label": "Speak attribute by number", "desktopAction": null, "difference": null}
 ] /* KEYMAP-END */;

@@ -1,5 +1,6 @@
 !.venv/scripts/python main.py
 
+the free running metronome can be toggled on with control alt space during playback. this should not be allowed.
 should tied notes only be displayed as one long note?
 add a tool called "Add chords" which gets the user to select a part and then an extra stave is added containing just chord names.
 If a stave has only one voice, then no point opening it in the parts view and no point having "Add attribute to voice" etc.

@@ -619,10 +619,15 @@ class MainWindow(QMainWindow):
         # Tools > Metronome Player is a standalone dialog that must not open
         # mid-playback (it seeds from, and clicks alongside nothing - but the
         # synth is busy). Grey it out whenever a play run is active.
-        self.playback.playback_state_changed.connect(
-            self._refresh_metronome_player_action_enabled
-        )
-        self._refresh_metronome_player_action_enabled()
+        # Playback > Play Metronome is greyed out for the same span: the free
+        # metronome is a quick click on its own, and a click with the music
+        # is Ctrl+M's job (user's decision, 2026-10-14). A disabled action's
+        # shortcut does nothing, so Ctrl+Alt+Space is ignored then too.
+        # cursor_moved as well: a stop that puts the cursor back reports
+        # itself that way rather than with playback_state_changed.
+        for signal in (self.playback.playback_state_changed, self.playback.cursor_moved):
+            signal.connect(self._refresh_playback_blocked_actions)
+        self._refresh_playback_blocked_actions()
 
         # Emitted from inside update_timeline_views, and delivered
         # synchronously, so the notes still sound before the performance cue.
@@ -1023,6 +1028,7 @@ class MainWindow(QMainWindow):
     def toggle_play_metronome(self):
         self.playback.toggle_play_metronome()
 
+
     def audition_phrase(self):
         # Enter/Return now only commits a typed bar number (Preview is
         # gone - Space is the single play control). Kept named
@@ -1039,7 +1045,7 @@ class MainWindow(QMainWindow):
         if not digits:
             return
         if not self.playback.play_settings.loop_enabled:
-            accessible_announcer.announce(self.region_3, "Looping is off")
+            accessible_announcer.announce(self.region_3, announcements.LOOPING_OFF)
             self.navigation.clear_pending_digits()
             return
         n = int(digits)
@@ -1068,10 +1074,7 @@ class MainWindow(QMainWindow):
     def toggle_lead_in(self):
         enabled = self.playback.toggle_lead_in()
         self._actions.lead_in_toggle.setChecked(enabled)
-        accessible_announcer.announce(
-            self.region_3,
-            f"Lead in {'on' if enabled else 'off'}",
-        )
+        accessible_announcer.announce(self.region_3, announcements.lead_in_toggled(enabled))
 
     def toggle_refresh_on_playback(self):
         """Ctrl+H: flips the Delay Refresh gate's on/off setting for the
@@ -1092,10 +1095,10 @@ class MainWindow(QMainWindow):
         when it can't apply - looping off, or a score with no repeats -
         rather than silently doing nothing to a screen-reader user."""
         if not self.playback.play_settings.loop_enabled:
-            accessible_announcer.announce(self.region_3, "Looping is off")
+            accessible_announcer.announce(self.region_3, announcements.LOOPING_OFF)
             return
         if not (self._music_data and self._music_data.repeat_spans):
-            accessible_announcer.announce(self.region_3, "This score has no repeats")
+            accessible_announcer.announce(self.region_3, announcements.NO_REPEATS)
             return
         mode = self.playback.cycle_loop_repeat_mode()
         self.presenter.announce_loop_repeat_mode(mode)
@@ -1589,8 +1592,9 @@ class MainWindow(QMainWindow):
         seq = self.sequencer
         return self.playback.is_play_run_active or (seq is not None and seq.is_playing)
 
-    def _refresh_metronome_player_action_enabled(self):
+    def _refresh_playback_blocked_actions(self, *_):
         self._actions.metronome_player.setEnabled(not self._metronome_player_is_blocked())
+        self._actions.play_metronome.setEnabled(not self.playback.is_playback_active)
 
     def _show_metronome_player_dialog(self):
         """Tools > Metronome Player... (Ctrl+Shift+M) - a standalone practice

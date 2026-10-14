@@ -53,7 +53,11 @@ back to the position line on every note.
 Native `<dialog>`. First widget in tab order gets focus, there is always a
 Close or Cancel button (Escape may never arrive), and keymap.js ignores
 every key while one is open. F1 help is built from the key table, so a new
-command shows up there by being bound.
+command shows up there by being bound. A settings dialog is built from a
+form the bridge describes (`web_api.play_settings_form`: fields, labels,
+ranges, values) and asks the bridge which fields are enabled on every
+change; labels are separate `<label for>` elements, never wrapped round a
+select (its chosen option would be read into the name).
 
 ## Menu: `app/js/menu.js`
 
@@ -66,7 +70,10 @@ submenu and the menu (Escape may never arrive); keymap.js ignores keys
 inside `[role=menu]`. Running a command first focuses the region that
 menu acts on (each `MENUS` entry's `region`; none means the Menu button),
 then runs it, so the result is heard there. "Back to where focus was" does
-not work here: the Menu button is only reached through Region 1 or 6.
+not work here: the Menu button is only reached through Region 1 or 6. A
+command the desktop greys out is listed by `web_api.disabled_commands()`
+and shown `aria-disabled` (still reachable, read as unavailable, does
+nothing), never hidden and never answered with bespoke speech.
 
 ## Sound: `app/js/audio.js`
 
@@ -104,7 +111,12 @@ a step is heard (`play_cursor`), after the output latency. A stop sends
 all-notes-off on every channel: a note whose note-off is already queued is
 no longer in the page's bookkeeping, and clearing the queue drops it. Pause, resume
 and stop are Python's decisions (`play_toggle`, `play_pause`); a call with
-an old `session` number is ignored, so a stop always wins.
+an old `session` number is ignored, so a stop always wins. The free
+metronome (Ctrl+Alt+Space) is planned the same way, as a timeline of
+"click" entries (`web_api._FreeMetronome` over `audio/free_metronome.py`),
+so the web has one transport. Space while it runs stops it. While
+playback is going it is unavailable, as the desktop greys out its action:
+the key does nothing and the Menu item is aria-disabled.
 
 ## Mute and solo
 

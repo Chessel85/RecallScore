@@ -113,6 +113,16 @@ def bar_line_indicator_toggled(enabled: bool) -> str:
     return f"Bar line indicator {'on' if enabled else 'off'}"
 
 
+def lead_in_toggled(enabled: bool) -> str:
+    return f"Lead in {'on' if enabled else 'off'}"
+
+
+# Why a loop command did nothing: said rather than staying silent, which
+# reads as "broken" to a screen-reader user.
+LOOPING_OFF = "Looping is off"
+NO_REPEATS = "This score has no repeats"
+
+
 def pending_digits(digits: str, uk_terms: bool) -> str:
     """The status bar's position field while a bar number is being typed."""
     return f"Go to {bar_word(uk_terms)}: {digits}"
