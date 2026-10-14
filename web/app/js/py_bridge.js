@@ -98,3 +98,7 @@ export const applyPlaySettings = (values) => call("apply_play_settings", values)
 // Region 4 scope menu (Shift+F10).
 export const region4Menu = (row, selection) => call("region4_menu", row, selection);
 export const region4Apply = (row, selection, scope) => call("region4_apply", row, selection, scope);
+// Performance indicator (Ctrl+C) and Region 5's marking categories (Alt+N, Shift+F10).
+export const cyclePerformanceIndicator = () => call("cycle_performance_indicator");
+export const toggleMarkingCategory = (row) => call("toggle_marking_category", row);
+export const region5Menu = (row) => call("region5_menu", row);

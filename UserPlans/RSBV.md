@@ -211,7 +211,35 @@ next one after a /clear.
   Smoke-tested in headless Chrome under real Pyodide (tree, mute, typed
   bar, Go to bar, help, menu); no screen reader yet. Fast suite passes.
 
-### RESUME HERE (2026-10-14): 5.1 done and committed; next is 5.2
+### RESUME HERE (2026-10-14): 5.2 done and committed; next is 5.3
+
+Confirmed by the user with NVDA in Firefox: Ctrl+C, Alt+N (it does reach
+the page), the Region 5 menu and the cue all work.
+
+Shared code: `audio/navigation_cues.performance_indicator_cue(mode, rows,
+manual_move, playing)` is now the one fire decision; RegionPresenter.
+update_timeline_views calls it (desktop behaviour unchanged).
+`models/marking_categories.note_list_menu_label` words Region 5's menu
+item; MainWindow.show_region_5_context_menu uses it. Bridge:
+`cycle_performance_indicator()`, `toggle_marking_category(row)`,
+`region5_menu(row)`; the mode and the categories are module globals that
+outlive a load (the desktop's AppSettings; kept across visits in 5.3).
+Every move's sound plan gets a "cue" one-shot when the mode is not Off
+and the note list has a marking row; with Always on each playback step
+carries it too (the step's note list is read by briefly setting the
+cursor to the step while planning). Keys: Ctrl+C (global, Options menu),
+Alt+N on a Region 5 row (Ctrl+N on the desktop; browsers keep Ctrl+N for
+a new window, so this is a `difference`), Shift+F10 /
+ContextMenu / right click on Region 5 for the one-item menu. Tests:
+`tests/web/test_web_performance_indicator.py`; fast suite passes.
+Headless Chrome (ts_change.musicxml): Ctrl+C speaks the mode, Alt+N
+speaks "Structural changes, in note list", Region 5 gains its "* " in
+place with focus kept, the note list gains the change row, the menu offers
+Remove and its Enter speaks "not in note list" back on the row. Not done: the Options submenu's three direct
+choices (the web menu has no radio items; Ctrl+C cycles), and Show
+Engraving Details (Ctrl+V on the desktop; outside 5.2's scope).
+
+### Was (2026-10-14): 5.1 done and committed; next was 5.2
 
 5.1 built and confirmed by the user with NVDA. `models/attribute_scopes.py` holds the scope
 menu's wording and filters (`scope_action_labels`,

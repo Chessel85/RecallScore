@@ -1,7 +1,8 @@
 # audio/navigation_cues.py
 """Which app sounds a timeline move makes beyond the notes themselves: the
 metronome click and spoken beat position at the new cursor (Ref 14 AC3,
-Ref 28), and the bar line indicator when a plain step crosses a bar line.
+Ref 28), the bar line indicator when a plain step crosses a bar line, and
+the performance indicator cue when the cursor lands on a marking row.
 
 Pure decisions over MusicData, no synth and no Qt, so the desktop
 (PlaybackController.audition_selection / play_barline_indicator) and the
@@ -12,7 +13,13 @@ from typing import List, Optional, Tuple
 
 from audio.barline_patterns import events_for_pattern, pattern_for_crossing, plain_barline_event
 from audio.metronome import click_event_for_beat
+from audio.performance_cue import performance_cue_event
 from audio.position_announcer import announcement_event_for_beat
+from models.performance_indicator_mode import (
+    PERFORMANCE_INDICATOR_ALWAYS_ON,
+    PERFORMANCE_INDICATOR_OFF,
+)
+from models.region3_row import MarkingRow
 
 Event = Tuple[int, int, int, int, int]
 
@@ -76,3 +83,24 @@ def barline_indicator_events(
     if music_data.metronome_enabled:
         return []
     return [plain_barline_event()]
+
+
+def performance_indicator_cue(mode: str, rows, manual_move: bool, playing: bool) -> Optional[Event]:
+    """The performance indicator cue (Options > Performance Indicator,
+    Ctrl+C; PerformanceIndicatorCue.md) for a cursor whose note list is
+    `rows` (MusicData.get_region_3_rows()), or None for silence.
+
+    Fires when the mode is not Off AND the note list carries at least one
+    MarkingRow (a category switched off in the note list never produces
+    one, so that gate needs no separate check) AND either this is a real
+    manual move, or the mode is Always on and a play run is in progress.
+    A same-position refresh (a Region 2 filter toggle, Ctrl+N) is neither,
+    so it never fires. The desktop's RegionPresenter.update_timeline_views
+    and the web bridge's moves and playback steps both ask here."""
+    if mode == PERFORMANCE_INDICATOR_OFF:
+        return None
+    if not (manual_move or (mode == PERFORMANCE_INDICATOR_ALWAYS_ON and playing)):
+        return None
+    if not any(isinstance(row, MarkingRow) for row in rows):
+        return None
+    return performance_cue_event()

@@ -4,14 +4,9 @@ from typing import List, Optional
 from PySide6.QtCore import QItemSelectionModel, QObject, Signal
 from PySide6.QtWidgets import QListWidgetItem
 
-from audio.performance_cue import performance_cue_event
+from audio.navigation_cues import performance_indicator_cue
 from models import announcements
-from models.performance_indicator_mode import (
-    PERFORMANCE_INDICATOR_ALWAYS_ON,
-    PERFORMANCE_INDICATOR_OFF,
-)
 from models.performance_indicator_mode import cycle as cycle_performance_indicator_mode
-from models.region3_row import MarkingRow
 from persistence import app_settings
 from widgets import accessible_announcer
 
@@ -219,14 +214,13 @@ class RegionPresenter(QObject):
         # run is actually in progress - play_all alone can't tell a genuine
         # playback step apart from a same-position refresh (a Region 2
         # filter toggle, Ctrl+N, ...), which must never fire the cue.
-        fire = self.performance_indicator_mode != PERFORMANCE_INDICATOR_OFF and any(
-            isinstance(r, MarkingRow) for r in rows
-        ) and (
-            play_all
-            or (self.performance_indicator_mode == PERFORMANCE_INDICATOR_ALWAYS_ON and self._is_playing())
+        # The decision itself is audio/navigation_cues.py's, shared with the
+        # web bridge.
+        cue = performance_indicator_cue(
+            self.performance_indicator_mode, rows, play_all, self._is_playing()
         )
-        if fire:
-            self.session.synth.play_performance_cue(*performance_cue_event())
+        if cue is not None:
+            self.session.synth.play_performance_cue(*cue)
 
         self.refresh_region_5()
 

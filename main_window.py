@@ -1339,9 +1339,9 @@ class MainWindow(QMainWindow):
         2's Unlink menu."""
         if not self._music_data:
             return
-        already_present = category not in self._music_data.marking_categories_off
-        name = marking_categories.CATEGORY_NAMES.get(category, category)
-        label = f"Remove {name} from note list" if already_present else f"Add {name} to note list"
+        label = marking_categories.note_list_menu_label(
+            category, category not in self._music_data.marking_categories_off
+        )
         menu = QMenu(self)
         action = menu.addAction(label)
         action.triggered.connect(

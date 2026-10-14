@@ -82,7 +82,10 @@ that key). Its items come from the bridge (`web_api.region4_menu`, over
 `models/attribute_scopes.py`, shared with the desktop's
 AttributeController). Closing without a choice goes back to the row;
 choosing redraws and then focuses the row, which reads it. Nothing else
-is spoken, as on the desktop.
+is spoken, as on the desktop. Region 5's menu (same keys) is one item,
+"Add/Remove <category> to/from note list" (`web_api.region5_menu`), doing
+the same toggle as Alt+N (Ctrl+N on the desktop, which browsers keep):
+Region 5 changes in place and the new state is spoken.
 
 ## Sound: `app/js/audio.js`
 
@@ -93,7 +96,9 @@ shared Python (`audio/navigation_cues.py`, also used by the desktop's
 PlaybackController), so never decide a cue in JavaScript. Programs arrive
 0-indexed (invariant 9, converted once in `models/`). One-shot slots mirror
 SynthEngine's: the metronome click and the bar line indicator share
-"click", as `play_click` does. Play the sound before speaking or drawing.
+"click", as `play_click` does; the performance indicator cue (Ctrl+C's
+mode, `performance_indicator_cue`) has its own "cue" slot, on moves and,
+when Always on, with each playback step. Play the sound before speaking or drawing.
 The synth starts on the first key press or click (browsers need a
 gesture); a plan that arrives before it is ready, or while the browser
 has the context suspended, is dropped, never played late. A modifier key

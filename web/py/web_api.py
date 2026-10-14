@@ -23,7 +23,8 @@ from audio.free_metronome import free_metronome_beat
 from audio.grace_note_schedule import effective_grace_duration_ms
 from audio.metronome import METRONOME_CHANNEL
 from audio.navigation_cues import (
-    barline_indicator_events, count_in_cues, position_cues, position_cues_at,
+    barline_indicator_events, count_in_cues, performance_indicator_cue, position_cues,
+    position_cues_at,
 )
 from audio.performance_cue import PERFORMANCE_CUE_CHANNEL
 from audio.position_announcer import POSITION_ANNOUNCER_CHANNEL
@@ -31,8 +32,9 @@ from models import announcements
 from models.mixer_settings import ANNOUNCER, CENTRE_PAN, CLICK, CUE, default_pan_for
 from models.app_settings_data import AppSettings
 from models.attribute_scopes import region_4_scope_menu
-from models.marking_categories import ALL_CATEGORIES
+from models.marking_categories import ALL_CATEGORIES, CATEGORY_NAMES, note_list_menu_label
 from models.music_data import MusicData
+from models.performance_indicator_mode import cycle as cycle_performance_indicator_mode
 from models.play_plan import PlayTimeline, TimelineEntry
 from models.play_settings import (
     LOOP_REPEAT_LABELS, LOOP_REPEAT_MODES, MAX_LEAD_IN_BARS, MAX_LEAD_IN_BEATS,
@@ -51,6 +53,10 @@ _region_2 = Region2HierarchyModel()
 _uk_terms = False
 _pending_digits = ""
 _pending_cleared = False
+# Global settings the desktop keeps in AppSettings: they outlive a load, so
+# a newly opened score inherits them (storage across visits is task 5.3).
+_performance_indicator_mode = AppSettings().performance_indicator_mode
+_marking_categories_off = set(AppSettings().marking_categories_off) & set(ALL_CATEGORIES)
 
 
 def set_uk_terms(uk_terms: bool) -> None:
@@ -98,7 +104,7 @@ def _adopt(music_data: MusicData) -> None:
     _end_playback()
     defaults = AppSettings()
     music_data.uk_terms = _uk_terms
-    music_data.marking_categories_off = set(defaults.marking_categories_off) & set(ALL_CATEGORIES)
+    music_data.marking_categories_off = set(_marking_categories_off)
     music_data.show_engraving_details_enabled = defaults.show_engraving_details_enabled
     _region_2.build_from_score(
         music_data.get_score_structure(), collapse_to_parts=music_data.collapsed_part_ids
@@ -305,6 +311,19 @@ def _add_cues(sound: Dict[str, Any], click, word) -> Dict[str, Any]:
     return sound
 
 
+def _add_performance_cue(sound: Dict[str, Any], manual_move: bool) -> Dict[str, Any]:
+    """The performance indicator cue for the cursor's note list, after the
+    notes (RegionPresenter.update_timeline_views' order). Its own slot, as
+    it has its own channel on the desktop."""
+    cue = performance_indicator_cue(
+        _performance_indicator_mode, _music_data.get_region_3_rows(), manual_move,
+        _playback_going(),
+    )
+    if cue is not None:
+        sound["oneshots"].append(_oneshot("cue", cue))
+    return sound
+
+
 def _audition_sound(selection: List[int], with_position_cues: bool = True) -> Dict[str, Any]:
     """PlaybackController.audition_selection: the selected Region 3 rows,
     then the click and spoken beat position if they are on."""
@@ -356,6 +375,59 @@ def toggle(kind: str) -> Dict[str, Any]:
     return {"announce": said, "regions": {"6": _region_6_rows()}}
 
 
+# --- performance indicator and marking categories (Ctrl+C, Ctrl+N) -------------
+
+def cycle_performance_indicator() -> Dict[str, Any]:
+    """Ctrl+C (MainWindow.cycle_performance_indicator_mode): Off, On except
+    when playing, Always on. Global, so it works with no score loaded;
+    the new mode is spoken."""
+    global _performance_indicator_mode
+    _performance_indicator_mode = cycle_performance_indicator_mode(_performance_indicator_mode)
+    return {"announce": announcements.performance_indicator_mode(_performance_indicator_mode)}
+
+
+def _region_5_category(row: int) -> Optional[str]:
+    """The marking category behind Region 5's row `row`, or None for a row
+    without one (a context row, "None")."""
+    rows = list(_music_data.get_performance_context_rows()) + list(
+        _music_data.get_performance_region_rows()
+    )
+    row = int(row)
+    return rows[row].category if 0 <= row < len(rows) else None
+
+
+def toggle_marking_category(row: int) -> Dict[str, Any]:
+    """Ctrl+N on Region 5's row `row` (RegionPresenter.
+    toggle_marking_category_in_note_list): its category's rows join or
+    leave the note list. Every later load inherits the choice, as the
+    desktop writes it through to AppSettings. Re-sends Regions 3 to 6 (the
+    note list's rows, Region 5's "* " prefixes) and says the new state.
+    {"done": False} for a row with no category, where the key does nothing."""
+    global _marking_categories_off
+    if _music_data is None:
+        return {"done": False}
+    category = _region_5_category(row)
+    if category is None:
+        return {"done": False}
+    surfaced = _music_data.toggle_marking_category(category)
+    _marking_categories_off = set(_music_data.marking_categories_off)
+    return {"done": True, "announce": announcements.marking_category_toggled(category, surfaced),
+            **_cursor_view()}
+
+
+def region5_menu(row: int) -> Dict[str, Any]:
+    """Region 5's context menu (Shift+F10, MainWindow.
+    show_region_5_context_menu): one item, worded by the category's state,
+    doing Ctrl+N's toggle. {"title", "items": [{label}]}; no items for a
+    row with no category (the desktop opens no menu)."""
+    category = _region_5_category(row) if _music_data is not None else None
+    if category is None:
+        return {"title": "", "items": []}
+    in_note_list = category not in _music_data.marking_categories_off
+    return {"title": CATEGORY_NAMES.get(category, category),
+            "items": [{"label": note_list_menu_label(category, in_note_list)}]}
+
+
 # --- navigation --------------------------------------------------------------
 #
 # Each returns a move result:
@@ -405,6 +477,7 @@ def _result(moved: bool, announce_measure: bool = False, barline=None,
         if barline:
             for i, event in enumerate(barline_indicator_events(_music_data, before, after)):
                 sound["oneshots"].append(_oneshot("click", event, i * STEP_MS))
+        _add_performance_cue(sound, manual_move=True)
         result["sound"] = sound
     elif result["boundary"]:
         result["sound"] = _boundary_sound()
@@ -682,6 +755,15 @@ def _entry_dict(entry: TimelineEntry) -> Dict[str, Any]:
         # nothing for a step without any); a run's start always stops.
         stop = entry.stop or (entry.retrigger and bool(events))
         sound = _add_cues(_sound_plan(events, grace, stop), *position_cues_at(md, entry.index))
+        # Always on: the cue sounds with the step, as the desktop's fires
+        # when the step moves its cursor. The note list it asks about is
+        # the step's own, planned ahead of the cursor, hence the swap.
+        cursor = md.active_event_index
+        md.active_event_index = entry.index
+        try:
+            _add_performance_cue(sound, manual_move=False)
+        finally:
+            md.active_event_index = cursor
     return {"at": entry.at_ms, "kind": entry.kind, "seq": entry.seq, "cursor": entry.index,
             "sound": sound}
 

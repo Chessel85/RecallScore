@@ -343,6 +343,59 @@ function applyScope(row, chosen, scope) {
 
 bind("attributes.scopeMenu", withScore(() => openScopeMenu()));
 
+// --- performance indicator and marking categories ----------------------------------
+// Ctrl+C cycles the performance indicator (whether the cue sounds on a
+// marking row; the bridge puts it in each move's sound plan). Alt+N, or the
+// one-item menu on Shift+F10, adds or removes the Region 5 row's marking
+// category in the note list (Ctrl+N on the desktop, which browsers keep).
+
+bind("options.performanceIndicator", () => {
+  const result = py.cyclePerformanceIndicator();
+  if (result?.error) return showError(result.error);
+  announceUrgent(result.announce);
+});
+
+/** Ctrl+N's toggle for Region 5's row `row`. Region 5 keeps its rows and
+ * only their "* " prefix changes, so it changes in place and the reader
+ * stays on the row; the spoken state says what happened. Returns false for
+ * a row with no category (the key then does nothing). */
+function toggleCategory(row) {
+  const result = py.toggleMarkingCategory(row);
+  if (result?.error) {
+    showError(result.error);
+    return true;
+  }
+  if (!result.done) return false;
+  const { "5": regionFive, ...others } = result.regions;
+  showRegions(others, result.selection);
+  render(5, regionFive, { inPlace: true, keepCurrent: true });
+  announceUrgent(result.announce);
+  return true;
+}
+
+function openCategoryMenu() {
+  const row = currentRow(5);
+  const menu = py.region5Menu(row);
+  if (menu?.error) return showError(menu.error);
+  if (!menu.items.length) return; // a row with no category: no menu, as on the desktop
+  showContextMenu({
+    anchor: regionElements[4],
+    label: menu.title,
+    entries: menu.items.map((item) => ({
+      label: item.label,
+      // Changed first, so going back to the row reads its new text.
+      run: () => {
+        toggleCategory(row);
+        focusRegion(5);
+      },
+    })),
+    back: () => focusRegion(5),
+  });
+}
+
+bind("performance.toggleCategory", withScore(() => toggleCategory(currentRow(5))));
+bind("performance.categoryMenu", withScore(() => openCategoryMenu()));
+
 // The ContextMenu key reaches the page only as this event in some browsers,
 // and a right click lands here too. One that follows Shift+F10 arrives at
 // the menu the key already opened, so it is only swallowed there.
@@ -351,6 +404,9 @@ document.addEventListener("contextmenu", (event) => {
   else if (scoreLoaded && regionElements[3].contains(event.target)) {
     event.preventDefault();
     openScopeMenu();
+  } else if (scoreLoaded && regionElements[4].contains(event.target)) {
+    event.preventDefault();
+    openCategoryMenu();
   }
 });
 

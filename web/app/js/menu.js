@@ -59,7 +59,7 @@ const MENUS = [
       "play.loopLonger", "play.loopShorter",
     ],
   },
-  { title: "Options", region: 3, items: ["options.barLineIndicator", "options.metronome", "options.positionAnnouncer"] },
+  { title: "Options", region: 3, items: ["options.barLineIndicator", "options.metronome", "options.positionAnnouncer", "options.performanceIndicator"] },
   { title: "Help", items: ["help.keys"] },
 ];
 

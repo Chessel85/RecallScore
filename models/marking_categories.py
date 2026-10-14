@@ -99,3 +99,10 @@ def category_visible(
     if category in ENGRAVING_DETAIL_CATEGORIES and not show_engraving_details_enabled:
         return False
     return category not in marking_categories_off
+
+
+def note_list_menu_label(category: str, in_note_list: bool) -> str:
+    """Region 5's context menu item (Menu key/Shift+F10): one item, worded
+    by the category's current state, the same toggle as Ctrl+N."""
+    name = CATEGORY_NAMES.get(category, category)
+    return f"Remove {name} from note list" if in_note_list else f"Add {name} to note list"
