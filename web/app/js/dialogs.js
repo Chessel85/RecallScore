@@ -146,7 +146,7 @@ export function showGotoBar(info) {
   });
 }
 
-/** Play Settings (Ctrl+Shift+P): `form` is web_api.play_settings_form(),
+/** Play Settings (Ctrl+Alt+P): `form` is web_api.play_settings_form(),
  * `enabledFor(leadIn, playMode)` asks the bridge which fields are live
  * (the desktop dialog's rules) whenever the lead-in tick or the play mode
  * changes. Resolves to {name: value} on OK (number fields as typed; the

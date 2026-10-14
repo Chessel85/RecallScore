@@ -884,7 +884,7 @@ def commit_loop_length() -> Dict[str, Any]:
     return result
 
 
-# --- Play Settings dialog (Ctrl+Shift+P) -----------------------------------------
+# --- Play Settings dialog (Ctrl+Alt+P) -------------------------------------------
 
 def _label(text: str) -> str:
     """The desktop's mnemonic "&" means nothing on the web."""

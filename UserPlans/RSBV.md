@@ -211,7 +211,7 @@ next one after a /clear.
   Smoke-tested in headless Chrome under real Pyodide (tree, mute, typed
   bar, Go to bar, help, menu); no screen reader yet. Fast suite passes.
 
-### RESUME HERE (2026-10-14): 4.3 and 4.4 built; user to test, then Phase 5
+### RESUME HERE (2026-10-14): 4.3 and 4.4 committed; finish NVDA checks, then Phase 5
 
 User test round 1 (NVDA, Firefox) and fixes, same day:
 * F, S, D, Alt+PageUp/PageDown, Ctrl+I and the Playback menu's Play
@@ -234,9 +234,18 @@ User test round 1 (NVDA, Firefox) and fixes, same day:
 * Open: the user thought the Bourree from bar 7 with a 10-bar loop did not
   respect the first-time ending. The plan (same on the desktop) plays
   7, 8 (first-time ending), 1 to 7, 9 (second-time ending) for "first";
-  asked the user what they heard and expected.
+  asked the user what they heard and expected. Round 3: the user
+  re-tested and the endings are handled correctly.
+* Round 3 (NVDA, Firefox): every 4.3/4.4 shortcut works. Ctrl+Shift+P
+  still opens Firefox's private window, which a page cannot stop; the
+  web's Ctrl+Alt+P is the key to use.
+* Desktop fix: Metronome Player and Play Metronome stayed greyed out
+  after a stop that put the cursor back, because that stop reports
+  itself through `cursor_moved`, not `playback_state_changed`.
+  MainWindow now refreshes both actions on either signal
+  (`_refresh_playback_blocked_actions`). Confirmed working by the user.
 
-4.3 and 4.4 built, not committed. Keys (all global): Ctrl+Alt+Space free
+4.3 and 4.4 committed as `1a3095d` (not yet pushed). Keys (all global): Ctrl+Alt+Space free
 metronome, Ctrl+L play mode, Ctrl+I lead-in, Ctrl+R loop repeat handling,
 Alt+PageUp/PageDown loop length, Ctrl+Enter typed loop length, F/S/D
 tempo, Shift+Space sounds the selection again (Ref 13), Ctrl+Shift+P Play
@@ -256,8 +265,7 @@ the free metronome is refused during playback on both versions. Tests:
 MATCH, fast suite passes. Headless Chrome under real Pyodide: every key
 speaks the right text, Region 6 follows, the dialog opens on the tempo
 field, enables fields as on the desktop, OK applies. Not yet heard or
-tried with NVDA before round 1. Still untested with NVDA: Ctrl+Alt+P,
-Ctrl+Enter, Shift+Space, Ctrl+L, Ctrl+R, Ctrl+Alt+Space.
+tried with NVDA before round 1. All tested with NVDA in round 3.
 Not done:
 Ctrl+H and Delay Refresh (the web always follows playback).
 
