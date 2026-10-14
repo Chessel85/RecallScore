@@ -9,6 +9,7 @@ import { showHelp, showGotoBar, showPlaySettings } from "./dialogs.js";
 import { initMenu, showContextMenu } from "./menu.js";
 import { initAudio, prefetchSoundFonts, play } from "./audio.js";
 import { initScheduler, startSession, stopSession, pauseSession, isScheduling } from "./scheduler.js";
+import * as storage from "./storage.js";
 import * as py from "./py_bridge.js";
 
 const status = document.getElementById("status");
@@ -353,6 +354,7 @@ bind("options.performanceIndicator", () => {
   const result = py.cyclePerformanceIndicator();
   if (result?.error) return showError(result.error);
   announceUrgent(result.announce);
+  saveGlobalSettings();
 });
 
 /** Ctrl+N's toggle for Region 5's row `row`. Region 5 keeps its rows and
@@ -366,6 +368,7 @@ function toggleCategory(row) {
     return true;
   }
   if (!result.done) return false;
+  saveGlobalSettings(); // the desktop writes the choice through to its settings.json
   const { "5": regionFive, ...others } = result.regions;
   showRegions(others, result.selection);
   render(5, regionFive, { inPlace: true, keepCurrent: true });
@@ -410,6 +413,41 @@ document.addEventListener("contextmenu", (event) => {
   }
 });
 
+// --- stored settings (storage.js) -----------------------------------------------
+// Global settings are written as they change, as the desktop writes its
+// settings.json. A score's settings are written when another score is
+// opened and when the page is hidden or closed: the desktop's two points
+// (swapping files and shutting down), not every toggle.
+
+/** The open score: {key (SHA-256, or null), name}, or null. */
+let current = null;
+
+storage.initStorage({ failure: (text) => announce(text) });
+
+function saveGlobalSettings() {
+  const text = py.globalSettingsJson();
+  if (typeof text === "string") storage.saveGlobal(text);
+}
+
+function saveScoreSettings() {
+  if (!current?.key) return;
+  const text = py.scoreSettingsJson();
+  if (typeof text === "string") storage.saveScore(current.key, current.name, text);
+}
+
+function saveEverything() {
+  if (!ready) return;
+  saveScoreSettings();
+  saveGlobalSettings();
+}
+
+// pagehide covers closing and leaving; visibilitychange covers a mobile
+// browser, or a tab the browser discards later without either.
+window.addEventListener("pagehide", saveEverything);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") saveEverything();
+});
+
 // --- loading -------------------------------------------------------------------
 
 let ready = false;
@@ -422,17 +460,21 @@ async function openFile(file) {
   clearError();
   say(`Loading ${file.name}.`);
   const bytes = new Uint8Array(await file.arrayBuffer());
+  const key = await storage.scoreKey(bytes);
   await new Promise((resolve) => setTimeout(resolve, 0)); // let the message paint
-  const result = py.loadScore(bytes, file.name);
+  saveScoreSettings(); // the score being replaced, as the desktop saves on a swap
+  const result = py.loadScore(bytes, file.name, storage.loadScore(key));
   if (result.error) {
     showError(result.error);
     return;
   }
+  current = { key, name: file.name };
   if (isScheduling()) stopSession(); // the bridge stopped it with the old score
   scoreLoaded = true;
   digitsPending = false;
   showRegions(result.view.regions, result.view.selection, { loaded: true });
-  say(`Loaded ${file.name}. ${result.summary.parts.length} parts, ${result.summary.slices} notes and chords.`);
+  const loaded = `Loaded ${file.name}. ${result.summary.parts.length} parts, ${result.summary.slices} notes and chords.`;
+  say(result.settings_error ? `${loaded} ${result.settings_error}` : loaded);
   focusRegion(3);
 }
 
@@ -450,6 +492,8 @@ picker.disabled = true;
 say("Starting Recall Score.");
 py.boot(say)
   .then(() => {
+    const applied = py.applyGlobalSettings(storage.loadGlobal());
+    if (applied?.error) showError(applied.error);
     ready = true;
     picker.disabled = false;
     initAudio({ synthSetup: py.synthSetup(), status: (text) => (text.startsWith("Sound could not") ? showError(text) : announce(text)) });

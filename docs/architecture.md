@@ -852,6 +852,13 @@ first, so in-process `sys.modules` proves nothing.
 Both live under `QStandardPaths.AppLocalDataLocation` (`main.py` sets
 `QApplication.setApplicationName("Recall Score")`).
 
+The web version keeps the same two shapes in the browser's localStorage
+(`web/app/js/storage.js`, over `web_api.global_settings_json`/
+`score_settings_json`), keying a score by the SHA-256 of its bytes rather
+than its name, and saving at the desktop's two points (swapping scores,
+leaving the page). See `web/CLAUDE.md`, "Stored settings". A change to
+`ScoreConfig`, `AppSettings` or `MusicData.apply_config` reaches both.
+
 **`apply_config` is best-effort by construction** —
 `voice_display_attributes`/`attribute_order` are filtered against the freshly-
 loaded score's own known voices/attribute keys, so a saved entry with nothing

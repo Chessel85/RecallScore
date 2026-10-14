@@ -132,6 +132,25 @@ so the web has one transport. Space while it runs stops it. While
 playback is going it is unavailable, as the desktop greys out its action:
 the key does nothing and the Menu item is aria-disabled.
 
+## Stored settings: `app/js/storage.js`
+
+localStorage stands in for the desktop's settings.json and `.rsc` files.
+The shapes are Python's: storage.js keeps JSON text from
+`web_api.global_settings_json()` (AppSettings) and
+`score_settings_json()` (the desktop `.rsc` shape, via
+`models/score_config_json.py`), never building either itself. Text, not
+dicts, because a None must survive the trip. A score is keyed by the
+SHA-256 of its bytes. Every storage call is wrapped, so a private window
+or a full quota only means settings last for the session (said once).
+Global settings are written when they change (Ctrl+C, Alt+N); a score's
+when another is opened and on `pagehide`/hidden, the desktop's "swap files
+and shutdown" points. A load passes the stored `.rsc` text into
+`web_api.load(..., saved)`, which applies it in
+`MainWindow._on_score_loaded`'s order. There is no settings import or
+export: saving is automatic, and moving settings between browsers or in
+from a desktop `.rsc` was dropped as unneeded (add it back only if a
+tester asks).
+
 ## Mute and solo
 
 The words "muted"/"soloed" live in the Region 2 row text (set by

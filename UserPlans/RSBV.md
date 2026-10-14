@@ -211,7 +211,30 @@ next one after a /clear.
   Smoke-tested in headless Chrome under real Pyodide (tree, mute, typed
   bar, Go to bar, help, menu); no screen reader yet. Fast suite passes.
 
-### RESUME HERE (2026-10-14): 5.2 done and committed; next is 5.3
+### RESUME HERE (2026-10-14): 5.3 built, not yet committed; user to test with NVDA, then 5.4
+
+`app/js/storage.js` keeps settings in localStorage: global under
+`recallscore.settings` (settings.json text), each score under
+`recallscore.score.<SHA-256 of its bytes>` as {name, saved, config}, config
+being the desktop `.rsc` dict. Bridge: `global_settings_json()`,
+`apply_global_settings(text)` (at start-up), `score_settings_json()`
+(export_config plus Region 2's own mute/solo, as
+ScorePersistenceController.save_current; the start position while playing),
+and `load(bytes, name, saved)` now applies
+the stored `.rsc` in MainWindow._on_score_loaded's order (apply_config,
+then Region 2's per-node mute/solo); unreadable saved text opens with
+defaults and is reported in `settings_error`, spoken after "Loaded".
+`_adopt` now reads show_engraving_details from the stored AppSettings.
+Writes: global on Ctrl+C and Alt+N; a score's on opening another and on
+pagehide/visibilitychange hidden. A storage write failure is spoken once.
+Settings import/export (all settings, or a desktop .rsc) was built and then
+removed at the user's request: saving is automatic, so add it back only if
+a tester asks. Tests: `tests/web/test_web_storage.py`; fast suite passes.
+Headless Chrome (hairpins_two_parts.musicxml): Ctrl+M, three Rights and F8
+on Guitar survive a reload. Not done: the desktop's "Clear
+Preferences" (not in 5.3's scope); uk_terms has no web control yet (5.4).
+
+### Was (2026-10-14): 5.2 done and committed; next was 5.3
 
 Confirmed by the user with NVDA in Firefox: Ctrl+C, Alt+N (it does reach
 the page), the Region 5 menu and the cue all work.

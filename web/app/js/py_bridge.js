@@ -33,10 +33,11 @@ function toJs(proxy) {
   return value;
 }
 
-/** Returns {ok, summary, view} or {error}. Never throws for a bad score. */
-export function loadScore(bytes, filename) {
+/** Returns {ok, summary, view, settings_error?} or {error}. Never throws
+ * for a bad score. `saved` is the score's stored .rsc text, or null. */
+export function loadScore(bytes, filename, saved = null) {
   try {
-    return toJs(api.load(bytes, filename));
+    return toJs(api.load(bytes, filename, saved));
   } catch (err) {
     return { error: `Could not open ${filename}: ${err.message}` };
   }
@@ -102,3 +103,8 @@ export const region4Apply = (row, selection, scope) => call("region4_apply", row
 export const cyclePerformanceIndicator = () => call("cycle_performance_indicator");
 export const toggleMarkingCategory = (row) => call("toggle_marking_category", row);
 export const region5Menu = (row) => call("region5_menu", row);
+// Stored settings (storage.js keeps the text; the shapes are Python's).
+export const globalSettingsJson = () => call("global_settings_json");
+export const applyGlobalSettings = (text) => call("apply_global_settings", text);
+/** This score's settings as .rsc text, or null/undefined when there is nothing to keep. */
+export const scoreSettingsJson = () => call("score_settings_json");

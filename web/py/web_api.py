@@ -13,6 +13,7 @@ those calls (NavigationController, RegionPresenter, MainWindow._on_score_loaded)
 Region numbers in the returned dicts are string keys "1" to "6"; Region 6 is
 the desktop status bar.
 """
+import json
 import os
 import tempfile
 from typing import Any, Dict, List, Optional
@@ -43,6 +44,8 @@ from models.play_settings import (
 )
 from models.region2_manager import Region2HierarchyModel, Region2Node, node_status_label
 from models.region3_row import NoteRow
+from models.score_config_data import ScoreConfig
+from models.score_config_json import config_from_dict, config_to_dict
 from models.vocabulary import bar_word
 from parsers.musicxml_metadata import load_musicxml_without_music21
 
@@ -54,9 +57,11 @@ _uk_terms = False
 _pending_digits = ""
 _pending_cleared = False
 # Global settings the desktop keeps in AppSettings: they outlive a load, so
-# a newly opened score inherits them (storage across visits is task 5.3).
-_performance_indicator_mode = AppSettings().performance_indicator_mode
-_marking_categories_off = set(AppSettings().marking_categories_off) & set(ALL_CATEGORIES)
+# a newly opened score inherits them. The page keeps them across visits
+# (storage.js) through global_settings_json / apply_global_settings.
+_app_settings = AppSettings()
+_performance_indicator_mode = _app_settings.performance_indicator_mode
+_marking_categories_off = set(_app_settings.marking_categories_off) & set(ALL_CATEGORIES)
 
 
 def set_uk_terms(uk_terms: bool) -> None:
@@ -64,13 +69,85 @@ def set_uk_terms(uk_terms: bool) -> None:
     ScoreSession.set_uk_terms on the desktop."""
     global _uk_terms
     _uk_terms = bool(uk_terms)
+    _app_settings.uk_terms = _uk_terms
     if _music_data is not None:
         _music_data.uk_terms = _uk_terms
 
 
-def load(data: bytes, filename: str) -> Dict[str, Any]:
+# --- stored settings (storage.js) -------------------------------------------------
+#
+# The page stores JSON text, never Python objects: the global settings in
+# the desktop's settings.json shape (AppSettings), and each score's in the
+# desktop's .rsc shape (models/score_config_json.py), one encoder for
+# both. Text rather than dicts because a None value must survive
+# (JavaScript would drop it as undefined).
+
+def global_settings_json() -> str:
+    """The global settings as settings.json text. Fields the web has no use
+    for (recent files, MIDI input...) keep whatever was applied."""
+    _app_settings.performance_indicator_mode = _performance_indicator_mode
+    _app_settings.marking_categories_off = sorted(_marking_categories_off)
+    return json.dumps(_app_settings.to_dict())
+
+
+def apply_global_settings(text: Optional[str]) -> Dict[str, Any]:
+    """Global settings stored on an earlier visit, applied at start-up
+    before any score (the desktop's app_settings.load()). Missing or bad
+    values fall back to the defaults, as AppSettings.from_dict does; text
+    that is not a JSON object is an error and changes nothing."""
+    global _app_settings, _performance_indicator_mode, _marking_categories_off
+    if not text:
+        return {"ok": True}
+    try:
+        data = json.loads(str(text))
+        if not isinstance(data, dict):
+            raise ValueError("not a settings object")
+        settings = AppSettings.from_dict(data)
+    except (ValueError, TypeError, AttributeError) as exc:
+        return {"error": f"Saved settings could not be read: {exc}"}
+    _app_settings = settings
+    _performance_indicator_mode = settings.performance_indicator_mode
+    _marking_categories_off = set(settings.marking_categories_off) & set(ALL_CATEGORIES)
+    if settings.uk_terms is not None:
+        set_uk_terms(settings.uk_terms)
+    return {"ok": True}
+
+
+def _parse_score_settings(text: str) -> ScoreConfig:
+    """A .rsc's text as a ScoreConfig. Raises ValueError (or TypeError,
+    AttributeError for a wrong-shaped value) when it is not one."""
+    data = json.loads(text)
+    if not isinstance(data, dict):
+        raise ValueError("not a settings object")
+    return config_from_dict(data)
+
+
+def score_settings_json() -> Optional[str]:
+    """This score's settings as .rsc text (ScorePersistenceController.
+    save_current): MusicData's own, with Region 2's per-node mute and solo
+    state in place of the derived voices_muted. None with no score, or for
+    one that parsed into nothing, so good saved settings are never
+    overwritten with defaults."""
+    md = _music_data
+    if md is None or not (md.parts_info or md.timeline_slices):
+        return None
+    config = md.export_config()
+    if _playback_going():
+        # The cursor is following the music; the score's place is where
+        # playback started, which is where a stop puts it back.
+        config.last_position_index = _timeline.restore_index
+    config.parts_muted, config.staves_muted, config.voices_muted = _region_2.get_muted_node_keys()
+    config.parts_soloed, config.staves_soloed, config.voices_soloed = _region_2.get_soloed_node_keys()
+    return json.dumps(config_to_dict(config), indent=2)
+
+
+def load(data: bytes, filename: str, saved: Optional[str] = None) -> Dict[str, Any]:
     """Parse an uploaded score. The reader takes a path, so the bytes are
     written to a temp file that keeps the original suffix (.mxl is a zip).
+    `saved` is this score's stored .rsc text, if any; it is applied before
+    any region is built (MainWindow._on_score_loaded's order). Text that
+    cannot be read is skipped, as the desktop skips a broken .rsc, and the
+    result says so in "settings_error".
 
     On success returns {"ok", "summary", "view"}, "view" being every region
     (see view()). On failure the previous score stays loaded."""
@@ -79,6 +156,14 @@ def load(data: bytes, filename: str) -> Dict[str, Any]:
     if suffix not in SUPPORTED_SUFFIXES:
         return {"error": f"{filename or 'This file'} is not a supported score. "
                          f"Supported types: {', '.join(SUPPORTED_SUFFIXES)}."}
+    config = None
+    settings_error = None
+    if saved:
+        try:
+            config = _parse_score_settings(str(saved))
+        except (ValueError, TypeError, AttributeError) as exc:
+            settings_error = (f"This score's saved settings could not be read, "
+                              f"so it opened with the defaults: {exc}")
     path = ""
     try:
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as handle:
@@ -90,25 +175,34 @@ def load(data: bytes, filename: str) -> Dict[str, Any]:
     finally:
         if path and os.path.exists(path):
             os.remove(path)
-    _adopt(loaded)
-    return {"ok": True, "summary": score_summary(), "view": view()}
+    _adopt(loaded, config)
+    result = {"ok": True, "summary": score_summary(), "view": view()}
+    if settings_error:
+        result["settings_error"] = settings_error
+    return result
 
 
-def _adopt(music_data: MusicData) -> None:
-    """MainWindow._on_score_loaded's order, minus what the web has not built
-    yet (saved per-score config, Phase 5): global defaults first, then
-    Region 2's tree, whose voice filter must be in effect before any row is
-    rendered."""
+def _adopt(music_data: MusicData, config: Optional[ScoreConfig] = None) -> None:
+    """MainWindow._on_score_loaded's order: global defaults first, then the
+    score's saved config over them, then Region 2's tree with each node's
+    own saved mute and solo, whose voice filter must be in effect before
+    any row is rendered."""
     global _music_data, _pending_digits
     _pending_digits = ""
     _end_playback()
-    defaults = AppSettings()
     music_data.uk_terms = _uk_terms
     music_data.marking_categories_off = set(_marking_categories_off)
-    music_data.show_engraving_details_enabled = defaults.show_engraving_details_enabled
+    music_data.show_engraving_details_enabled = _app_settings.show_engraving_details_enabled
+    if config is not None:
+        music_data.apply_config(config)
     _region_2.build_from_score(
         music_data.get_score_structure(), collapse_to_parts=music_data.collapsed_part_ids
     )
+    if config is not None:
+        _region_2.apply_muted_node_keys(config.parts_muted, config.staves_muted, config.voices_muted)
+        _region_2.apply_soloed_node_keys(
+            config.parts_soloed, config.staves_soloed, config.voices_soloed
+        )
     music_data.set_active_voice_filter(_region_2.get_active_voice_tuples())
     _music_data = music_data
 
