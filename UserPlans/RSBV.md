@@ -211,7 +211,27 @@ next one after a /clear.
   Smoke-tested in headless Chrome under real Pyodide (tree, mute, typed
   bar, Go to bar, help, menu); no screen reader yet. Fast suite passes.
 
-### RESUME HERE (2026-10-14): 4.3 and 4.4 committed; finish NVDA checks, then Phase 5
+### RESUME HERE (2026-10-14): 5.1 done and committed; next is 5.2
+
+5.1 built and confirmed by the user with NVDA. `models/attribute_scopes.py` holds the scope
+menu's wording and filters (`scope_action_labels`,
+`filter_scopes_for_node_level`, `filter_scopes_for_part`) and
+`region_4_scope_menu(music_data, selection, row)`, which AttributeController
+(`menu_actions`, `order_menu_actions`) now calls. Bridge:
+`region4_menu(row, selection)` gives {title, items: [{scope, label}]}
+(title is the Region 4 row's own name, e.g. "note 1 octave");
+`region4_apply(row, selection, scope)` changes it and re-sends Regions 3
+and 4. Page: key row `attributes.scopeMenu` (Shift+F10, ContextMenu,
+Region 4 only), `menu.js` `showContextMenu`, plus a `contextmenu`
+listener (ContextMenu key in Firefox, right click). Nothing spoken; focus
+returns to the Region 4 row. Tests: `tests/models/test_attribute_scopes.py`,
+`tests/web/test_web_attribute_scopes.py`; desktop attribute tests and the
+fast suite pass. Headless Chrome: open, Left and Tab close to the row,
+choosing "for this voice" turns E into E4, the menu then offers Remove.
+Not done (plan's "if time allows"): the Attribute Management dialog
+(order, hide, its own Add/Remove). Next: 5.2.
+
+### Was (2026-10-14): 4.3 and 4.4 committed; finish NVDA checks, then Phase 5
 
 User test round 1 (NVDA, Firefox) and fixes, same day:
 * F, S, D, Alt+PageUp/PageDown, Ctrl+I and the Playback menu's Play

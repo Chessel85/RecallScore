@@ -2,6 +2,9 @@
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QMenu
 
+from models.attribute_scopes import (
+    filter_scopes_for_node_level, filter_scopes_for_part, region_4_scope_menu, scope_action_labels,
+)
 from models.vocabulary import attribute_label
 from models.region2_manager import voice_tuples_for_node
 from widgets.user_notification import notify_user
@@ -38,87 +41,20 @@ class AttributeController:
     def music_data(self):
         return self.session.music_data
 
-    # --- shared scope-menu building ------------------------------------
-
-    @staticmethod
-    def _scope_action_labels(already_present: bool) -> list:
-        """(scope, label) pairs for the four fan-out scopes, worded for
-        either direction of the toggle. D-15: "stave" is deliberately not
-        dialect-translated here. Shared by Region 4's context menu and the
-        Reorder Attributes dialog's Add/Remove button, so the two can't
-        drift onto different wording for the same action."""
-        if already_present:
-            return [
-                ("score", "Remove for notes in the whole score"),
-                ("part", "Remove for notes in current part"),
-                ("stave", "Remove for notes in current stave"),
-                ("voice", "Remove for notes in current voice"),
-            ]
-        return [
-            ("score", "Add to notes in the whole score"),
-            ("part", "Add to notes in the same part"),
-            ("stave", "Add to notes in same stave"),
-            ("voice", "Add to notes for this voice"),
-        ]
-
-    # Broader-or-equal-to-node-level check for the Reorder Attributes
-    # dialog's Add/Remove button (_filter_scopes_for_node_level below) -
-    # Region2Node.node_type spells the middle level "staff", the attribute-
-    # scope vocabulary spells it "stave" (D-15's own dialect-free choice);
-    # these two dicts are the one place that difference has to be bridged.
-    _SCOPE_LEVEL = {"voice": 0, "stave": 1, "part": 2, "score": 3}
-    _NODE_TYPE_LEVEL = {"voice": 0, "staff": 1, "part": 2}
-
-    def _filter_scopes_for_node_level(self, scopes: list, node_type: str) -> list:
-        """Reported: the Reorder Attributes dialog can be opened at any
-        Region 2 level (voice/staff/part), but every scope was always
-        offered regardless - "Add to notes for this voice" from a STAVE-
-        level dialog with two voices underneath is genuinely ambiguous
-        (which voice?). Only scopes at or broader than the dialog's own
-        node level are unambiguous: a stave-level dialog offers stave/
-        part/score; a part-level dialog offers only part/score. A voice-
-        level dialog (the common case) is unaffected - every scope is
-        still offered, same as before this fix."""
-        floor = self._NODE_TYPE_LEVEL.get(node_type, 0)
-        return [(scope, label) for scope, label in scopes if self._SCOPE_LEVEL[scope] >= floor]
-
-    def _filter_scopes_for_part(self, scopes: list, part_id: str) -> list:
-        """Reported: a part with no real stave/voice concept underneath it
-        (a MIDI track, a pure Ultimate Guitar import, or one of the
-        synthetic Chords/Lyrics parts a MusicXML file's own <harmony>/
-        <lyric> markup can add - see MusicData.collapsed_part_ids, the
-        same check Region 2 uses to decide whether to show a fake
-        staff/voice tree underneath that part) offered "current voice"/
-        "current stave" scopes that acted on exactly the same notes as
-        "current part" - not wrong, just redundant menu clutter with
-        nothing real behind it. Those two scopes are dropped for such a
-        part; "part" and "score" still apply normally."""
-        collapsed = self.music_data.collapsed_part_ids
-        if collapsed is True or part_id in collapsed:
-            return [(scope, label) for scope, label in scopes if scope not in ("voice", "stave")]
-        return scopes
-
     # --- Region 4 context menu ---------------------------------------
+    # Scope wording and filters live in models/attribute_scopes.py, shared
+    # with the browser version, so the two can't drift onto different
+    # wording or scopes for the same action.
 
     def menu_actions(self, row: int) -> list:
         """(label, callback) pairs for the context menu, empty if there's
         nothing to act on. Split from show_menu so it's testable without
         driving a blocking QMenu.exec()."""
-        if not self.music_data:
+        menu = region_4_scope_menu(
+            self.music_data, self.presenter.selected_region_3_indices(), row
+        )
+        if menu is None:
             return []
-
-        selected_indices = self.presenter.selected_region_3_indices()
-        targets = self.music_data.get_region_4_row_targets(selected_indices)
-        if not (0 <= row < len(targets)):
-            return []
-
-        attribute_key, anchor_note = targets[row]
-        selected_notes = self.music_data.notes_for_indices(selected_indices)
-        already_present = self.music_data.note_has_display_attribute(anchor_note, attribute_key)
-
-        scopes = self._scope_action_labels(already_present)
-        scopes = self._filter_scopes_for_part(scopes, anchor_note.part_id)
-
         return [
             (
                 label,
@@ -127,10 +63,10 @@ class AttributeController:
                 # bool lands in `scope`'s slot instead, silently replacing
                 # e.g. "voice" with False.
                 lambda checked=False, scope=scope: self.apply_change(
-                    attribute_key, scope, selected_notes, add=not already_present
+                    menu.attribute_key, scope, menu.notes, add=menu.add
                 ),
             )
-            for scope, label in scopes
+            for scope, label in menu.scopes
         ]
 
     def build_menu(self, row: int):
@@ -338,10 +274,9 @@ class AttributeController:
     # present in the dialog's scope regardless of on/off state (below), so
     # a user who spots a rare one there had no way to actually switch it
     # on without first finding a note that already shows it in Region 4.
-    # Reuses Region 4's own scope wording/logic (_scope_action_labels/
-    # _filter_scopes_for_part above) so the two can't drift onto different
-    # behaviour for the same action - the only real difference is that this
-    # one fans out from the dialog's own Region 2 node position instead of
+    # Reuses Region 4's own scope wording/logic (models/attribute_scopes.py)
+    # so the two can't drift onto different behaviour for the same action -
+    # the only real difference is that this one fans out from the dialog's own Region 2 node position instead of
     # a selected note, since the dialog has no note selection of its own.
 
     def order_menu_actions(self, node, attribute_key: str, dialog=None) -> list:
@@ -361,9 +296,9 @@ class AttributeController:
             attribute_key, part_id, staff, voice
         )
 
-        scopes = self._scope_action_labels(already_present)
-        scopes = self._filter_scopes_for_node_level(scopes, node.node_type)
-        scopes = self._filter_scopes_for_part(scopes, part_id)
+        scopes = scope_action_labels(already_present)
+        scopes = filter_scopes_for_node_level(scopes, node.node_type)
+        scopes = filter_scopes_for_part(scopes, part_id, self.music_data.collapsed_part_ids)
 
         return [
             (

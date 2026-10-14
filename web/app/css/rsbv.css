@@ -31,6 +31,8 @@ dialog h3 { font-size: 1rem; margin: 1rem 0 .25rem; }
 /* The Menu (menu.js): the top level drops below the button, a submenu
    opens to its right. */
 #menu-button + .popup-menu { position: absolute; z-index: 10; }
+.region { position: relative; }
+.region > .popup-menu { position: absolute; z-index: 10; left: 1rem; }
 .popup-menu { min-width: 12rem; color: var(--fg); background: var(--bg); border: 2px solid var(--accent); border-radius: 6px; padding: .25rem; }
 .popup-menu .popup-menu { position: absolute; left: 100%; top: 0; }
 .popup-menu > [role="none"] > [role="menuitem"] { display: flex; justify-content: space-between; gap: 2rem; padding: .15rem .5rem; border-radius: 3px; white-space: nowrap; cursor: default; }

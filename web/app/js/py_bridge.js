@@ -95,3 +95,6 @@ export const commitLoopLength = () => call("commit_loop_length");
 export const playSettingsForm = () => call("play_settings_form");
 export const playSettingsEnabled = (leadIn, playMode) => call("play_settings_enabled", leadIn, playMode);
 export const applyPlaySettings = (values) => call("apply_play_settings", values);
+// Region 4 scope menu (Shift+F10).
+export const region4Menu = (row, selection) => call("region4_menu", row, selection);
+export const region4Apply = (row, selection, scope) => call("region4_apply", row, selection, scope);

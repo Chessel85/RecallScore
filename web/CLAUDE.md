@@ -75,6 +75,15 @@ command the desktop greys out is listed by `web_api.disabled_commands()`
 and shown `aria-disabled` (still reachable, read as unavailable, does
 nothing), never hidden and never answered with bespoke speech.
 
+`showContextMenu()` is the same widget at one level, placed after a
+region (Region 4's scope menu: Shift+F10, the ContextMenu key, or a
+`contextmenu` event, which is the only form some browsers deliver for
+that key). Its items come from the bridge (`web_api.region4_menu`, over
+`models/attribute_scopes.py`, shared with the desktop's
+AttributeController). Closing without a choice goes back to the row;
+choosing redraws and then focuses the row, which reads it. Nothing else
+is spoken, as on the desktop.
+
 ## Sound: `app/js/audio.js`
 
 A thin synth driver. The bridge returns a sound plan with every move

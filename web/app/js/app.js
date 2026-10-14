@@ -6,7 +6,7 @@ import {
   initRegions, render, moveRow, extendSelection, selection, selectAll, rowAt, currentRow, treeExpand, treeCollapse,
 } from "./regions.js";
 import { showHelp, showGotoBar, showPlaySettings } from "./dialogs.js";
-import { initMenu } from "./menu.js";
+import { initMenu, showContextMenu } from "./menu.js";
 import { initAudio, prefetchSoundFonts, play } from "./audio.js";
 import { initScheduler, startSession, stopSession, pauseSession, isScheduling } from "./scheduler.js";
 import * as py from "./py_bridge.js";
@@ -308,6 +308,51 @@ bind("attributes.speak", withScore((event, key) => {
   const text = py.attributeAnnouncement(Number(key.slice(-1)), selection());
   if (text) announceUrgent(text);
 }));
+
+// --- Region 4 scope menu (Shift+F10, Ref 15 AC4) ---------------------------------
+// Add or remove the current row's attribute in the note list, at voice,
+// stave, part or score scope. The bridge words and filters the choices
+// (models/attribute_scopes.py, as the desktop's context menu); nothing is
+// spoken, focus goes back to the Region 4 row, which reads it.
+
+function openScopeMenu() {
+  const row = currentRow(4);
+  const chosen = selection();
+  const menu = py.region4Menu(row, chosen);
+  if (menu?.error) return showError(menu.error);
+  if (!menu.items.length) return; // nothing to act on: no menu, as on the desktop
+  showContextMenu({
+    anchor: regionElements[3],
+    label: menu.title,
+    entries: menu.items.map((item) => ({ label: item.label, run: () => applyScope(row, chosen, item.scope) })),
+    back: () => focusRegion(4),
+  });
+}
+
+function applyScope(row, chosen, scope) {
+  const result = py.region4Apply(row, chosen, scope);
+  if (result?.error) {
+    showError(result.error);
+    return;
+  }
+  // Region 3's text changes under its own selection (refresh_region_3_labels).
+  render(3, result.regions["3"], { selection: chosen, keepCurrent: true });
+  render(4, result.regions["4"], { keepCurrent: true });
+  focusRegion(4);
+}
+
+bind("attributes.scopeMenu", withScore(() => openScopeMenu()));
+
+// The ContextMenu key reaches the page only as this event in some browsers,
+// and a right click lands here too. One that follows Shift+F10 arrives at
+// the menu the key already opened, so it is only swallowed there.
+document.addEventListener("contextmenu", (event) => {
+  if (event.target?.closest?.("[role='menu']")) event.preventDefault();
+  else if (scoreLoaded && regionElements[3].contains(event.target)) {
+    event.preventDefault();
+    openScopeMenu();
+  }
+});
 
 // --- loading -------------------------------------------------------------------
 

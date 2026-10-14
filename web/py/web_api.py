@@ -30,6 +30,7 @@ from audio.position_announcer import POSITION_ANNOUNCER_CHANNEL
 from models import announcements
 from models.mixer_settings import ANNOUNCER, CENTRE_PAN, CLICK, CUE, default_pan_for
 from models.app_settings_data import AppSettings
+from models.attribute_scopes import region_4_scope_menu
 from models.marking_categories import ALL_CATEGORIES
 from models.music_data import MusicData
 from models.play_plan import PlayTimeline, TimelineEntry
@@ -505,6 +506,43 @@ def attribute_announcement(number: int, selection: Optional[List[int]] = None) -
     indices = _select_all() if selection is None else [int(i) for i in selection]
     rows = _music_data.get_region_4_rows_for_region_3_selection(indices)
     return announcements.attribute_by_number(rows, int(number))
+
+
+# --- Region 4 scope menu (Shift+F10, Ref 15 AC4) -------------------------------
+
+def _scope_menu(row: int, selection: Optional[List[int]]):
+    indices = _select_all() if selection is None else [int(i) for i in selection]
+    return region_4_scope_menu(_music_data, indices, int(row))
+
+
+def region4_menu(row: int, selection: Optional[List[int]] = None) -> Dict[str, Any]:
+    """What Region 4's context menu offers for its row `row` while Region 3
+    has `selection` selected: {"title": the attribute's name as the row
+    shows it, "items": [{scope, label}]}. No items when there is nothing to
+    act on (the desktop then opens no menu)."""
+    menu = _scope_menu(row, selection) if _music_data is not None else None
+    if menu is None:
+        return {"title": "", "items": []}
+    indices = _select_all() if selection is None else [int(i) for i in selection]
+    display_key = _music_data.get_region_4_rows_for_region_3_selection(indices)[int(row)][0]
+    return {
+        "title": display_key,
+        "items": [{"scope": scope, "label": label} for scope, label in menu.scopes],
+    }
+
+
+def region4_apply(row: int, selection: Optional[List[int]], scope: str) -> Dict[str, Any]:
+    """A scope chosen from Region 4's menu (AttributeController.apply_change):
+    add or remove the row's attribute across that scope, then re-send Regions
+    3 and 4. Region 3's text changes in place (refresh_region_3_labels): the
+    page keeps its selection and nothing is sounded or spoken."""
+    if _music_data is None:
+        return {"error": "No score is loaded."}
+    menu = _scope_menu(row, selection)
+    if menu is None or scope not in [s for s, _ in menu.scopes]:
+        return {"error": "That attribute can no longer be changed from here."}
+    _music_data.set_display_attribute(menu.attribute_key, scope, menu.notes, menu.add)
+    return {"regions": {"3": _region_3_rows(), "4": _region_4_rows(selection)}}
 
 
 # --- typed bar number (Ref 6) and Go to bar ------------------------------------

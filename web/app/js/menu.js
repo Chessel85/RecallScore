@@ -25,6 +25,10 @@
 // disabled right now (web_api.disabled_commands, as the desktop greys out
 // its action) is aria-disabled: still reachable, read as unavailable, and
 // does nothing when chosen.
+//
+// showContextMenu() opens a one-level menu of the same kind beside a
+// region (Region 4's scope menu, Shift+F10), with the same keys. Closing
+// it without a choice hands focus back to the caller.
 
 import { KEYMAP, boundCommands, runCommand } from "./keymap.js";
 import { keysText } from "./dialogs.js";
@@ -64,6 +68,8 @@ let extras = {};
 let restoreFocus = () => {};
 let disabledIds = () => [];
 let root = null; // the open top-level menu element, or null
+let backTo = () => {}; // where closing without a choice puts focus
+let fromButton = false; // root is the Menu button's menu
 let serial = 0;
 
 /** `menuButton` opens the menu. `extra` maps a name to {label, run}.
@@ -108,10 +114,11 @@ function liveMenus() {
   return menus;
 }
 
-function makeMenuElement(labelledBy) {
+function makeMenuElement(labelledBy, label = null) {
   const el = document.createElement("div");
   el.setAttribute("role", "menu");
-  el.setAttribute("aria-labelledby", labelledBy);
+  if (label !== null) el.setAttribute("aria-label", label);
+  else el.setAttribute("aria-labelledby", labelledBy);
   el.className = "popup-menu";
   el.addEventListener("keydown", onKeyDown);
   return el;
@@ -172,12 +179,42 @@ function open() {
     // parent item's accessible name.
     root.append(wrap(parent, sub));
   }
-  root.addEventListener("focusout", (event) => {
-    if (root && !root.contains(event.relatedTarget) && event.relatedTarget !== button) closeAll(false);
-  });
+  fromButton = true;
+  backTo = () => button.focus();
+  closeOnFocusLoss();
   button.after(root);
   button.setAttribute("aria-expanded", "true");
   items(root)[0]?.focus();
+}
+
+/** A one-level menu placed after `anchor` and named `label`. `entries` are
+ * {label, run}. Choosing one closes the menu and calls its run(), which
+ * then owns the focus; closing without a choice (Left, Escape, Tab) calls
+ * `back`. Focus goes to the first item. */
+export function showContextMenu({ anchor, label, entries, back }) {
+  closeAll(false);
+  root = makeMenuElement(null, label);
+  for (const entry of entries) {
+    const item = makeItem(entry.label, null);
+    item.addEventListener("click", () => {
+      closeAll(false);
+      entry.run();
+    });
+    root.append(wrap(item));
+  }
+  fromButton = false;
+  backTo = back;
+  closeOnFocusLoss();
+  anchor.after(root);
+  items(root)[0]?.focus();
+}
+
+function closeOnFocusLoss() {
+  root.addEventListener("focusout", (event) => {
+    if (root && !root.contains(event.relatedTarget) && !(fromButton && event.relatedTarget === button)) {
+      closeAll(false);
+    }
+  });
 }
 
 /** The menu's own items, not those of a submenu inside it. */
@@ -205,14 +242,15 @@ function closeSubs() {
   }
 }
 
-/** Close the whole menu; `toButton` puts focus on the Menu button. */
+/** Close the whole menu; `toButton` puts focus back where the menu came
+ * from (the Menu button, or a context menu's `back`). */
 function closeAll(toButton) {
   if (!root) return;
   const el = root;
   root = null;
   el.remove();
-  button.setAttribute("aria-expanded", "false");
-  if (toButton) button.focus();
+  if (fromButton) button.setAttribute("aria-expanded", "false");
+  if (toButton) backTo();
 }
 
 function activate(run, region) {
@@ -238,7 +276,7 @@ function onKeyDown(event) {
     case "Home": go(0); break;
     case "End": go(list.length - 1); break;
     case "ArrowRight":
-      if (isTop && current) openSub(current);
+      if (isTop && current?.hasAttribute("aria-haspopup")) openSub(current);
       break;
     case "ArrowLeft":
     case "Escape":
