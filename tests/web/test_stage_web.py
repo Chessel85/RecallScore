@@ -39,7 +39,7 @@ def test_stage_keeps_the_desktop_pages_already_published(tmp_path):
     # Before this site, GitHub Pages served docs/; the user guide links to
     # web_page/ (the installer download page), so those URLs must survive.
     stage_web.stage(tmp_path, with_scores=False, public=True)
-    for name in ("user_guide.html", "quick_start.html", "keystrokes.html",
+    for name in ("user_guide.html", "user_guide_web.html", "quick_start.html", "keystrokes.html",
                  "voice_commands.html", "licence.rtf"):
         assert (tmp_path / name).is_file(), name
     assert (tmp_path / "web_page" / "index.html").is_file()

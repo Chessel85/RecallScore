@@ -169,3 +169,12 @@ tester asks).
 
 The words "muted"/"soloed" live in the Region 2 row text (set by
 `node_status_label`), never only in a one-off announcement.
+
+## User guide
+
+Help > User guide opens `docs/user_guide_web.html` in a new tab (staged
+at the site root beside the desktop's pages). The `.md` is the source;
+regenerate the `.html` by hand with `pandoc docs/user_guide_web.md -s
+--metadata pagetitle="Recall Score Web Version User Guide" -o
+docs/user_guide_web.html` (pagetitle, no --toc: see docs/packaging.md).
+Edit either only when the user asks.

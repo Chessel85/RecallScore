@@ -76,7 +76,7 @@ const MENUS = [
       "options.engravingDetails", "options.metronome", "options.positionAnnouncer",
     ],
   },
-  { title: "Help", items: ["help.keys"] },
+  { title: "Help", items: ["extra:userGuide", "help.keys"] },
 ];
 
 let button = null;

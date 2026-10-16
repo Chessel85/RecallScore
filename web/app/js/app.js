@@ -44,6 +44,8 @@ initMenu({
   menuButton,
   extra: {
     open: { label: "Open a score", run: () => picker.click() },
+    // Published beside the app by tools/stage_web.py (docs/*.html).
+    userGuide: { label: "User guide", run: () => window.open("../user_guide_web.html", "_blank") },
     ukTerms: { label: "UK terminology", radio: true, run: () => setTerminology(true) },
     usTerms: { label: "US terminology", radio: true, run: () => setTerminology(false) },
     indicatorOff: { label: "Performance indicator off", radio: true, run: () => setIndicator("off") },

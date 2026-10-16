@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Recall Score Web Version User Guide</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<h1 id="recall-score-web-version-user-guide">Recall Score Web Version —
+User Guide</h1>
+<h2 id="introduction">1. Introduction</h2>
+<p>Recall Score is an application designed to make learning new music
+faster and more intuitive for visually impaired musicians. This guide
+covers the web version, which runs in a web browser with nothing to
+install.</p>
+<p>A full desktop version for Windows, with further features, is
+available from the <a
+href="https://chessel85.github.io/RecallScore/web_page">Recall Score
+Download Page</a>.</p>
+<p>Because reading notation while playing an instrument is often not
+feasible, memorising a piece is essential. Recall Score provides tools
+to navigate scores, inspect details, and build muscle memory through
+structured practice features.</p>
+<h3 id="document-navigation">Document Navigation</h3>
+<p>This guide is formatted as a single document. Screen reader users can
+use heading navigation keys (such as “H” or “1”–“3”) to move between
+sections, or use the search function to find specific topics.</p>
+<h2 id="getting-started">2. Getting Started</h2>
+<h3 id="running">2.1 Running</h3>
+<p>Go to <a href="https://chessel85.github.io/RecallScore/app/"
+class="uri">https://chessel85.github.io/RecallScore/app/</a> in a web
+browser.</p>
+<p>The first visit downloads the program and its sounds, which can take
+a little while; later visits are quicker. Browsers only allow sound
+after a key press or click, so the first key pressed on the page starts
+the sound.</p>
+<h3 id="opening-files">2.2 Opening Files</h3>
+<ul>
+<li>Open File: Use the “Open a score” control at the top of the page,
+select “Menu &gt; File &gt; Open a score”, or drop a file onto the
+page.</li>
+</ul>
+<p>When a file has been loaded, Recall Score automatically plays the
+notes at the current position.</p>
+<h4 id="supported-file-formats">Supported File Formats</h4>
+<ul>
+<li>MusicXML: “.musicxml”, “.xml” and “.mxl”.</li>
+</ul>
+<h3 id="saved-preferences">2.3 Saved Preferences</h3>
+<p>Recall Score automatically saves settings in the browser.</p>
+<ul>
+<li>Saved Per Score: Last cursor position, mute/solo states, visible
+attributes, metronome/announcer states, tempo adjustments, and play
+settings.</li>
+<li>Saved Globally: Terminology (UK/US), performance indicator, marking
+types shown in the note list, and engraving details.</li>
+</ul>
+<p>Settings for a score are found again when the same file is opened,
+even under another name. Clearing the browser’s data for the site
+removes them, and in a private window they last only until the window is
+closed.</p>
+<h2 id="screen-layout-navigation">3. Screen Layout &amp; Navigation</h2>
+<p>The interface is structured into a Menu button and six screen
+regions.</p>
+<ul>
+<li>Cycle through Regions: Press “Tab” or “Shift+Tab”.</li>
+<li>Jump to Region: Use keys “Z”, “X”, “C”, “V”, “B” and “N” (the bottom
+row of the keyboard, left to right).</li>
+<li>Open the Menu: Press “M”. Use “Up Arrow” and “Down Arrow” to move,
+“Right Arrow” or “Enter” to open a submenu, and “Left Arrow” to close
+it.</li>
+<li>Keyboard Help: Press “F1” to list every keyboard command.</li>
+</ul>
+<h3 id="region-reference">3.1 Region Reference</h3>
+<ol type="1">
+<li>Score Information (“Z”): Displays information such as title,
+composer, key, time signature, and initial tempo.</li>
+<li>Parts (“X”): Displays the score structure in a hierarchical tree
+(Part &gt; Stave &gt; Voice).
+<ul>
+<li>Use “Up Arrow” and “Down Arrow” to navigate parts.</li>
+<li>Use “Right Arrow” to expand a part into staves or voices; “Left
+Arrow” to collapse.</li>
+</ul></li>
+<li>Notes (“C”): Lists the musical content at the selected score
+position.
+<ul>
+<li>Move horizontally across time using “Left Arrow” and “Right
+Arrow”.</li>
+<li>Move vertically through notes at the current time position using “Up
+Arrow” and “Down Arrow”.</li>
+<li>Press “Control+A” to reselect all notes at the current
+position.</li>
+</ul></li>
+<li>Attributes (“V”): Displays note-level details (pitch, step, octave,
+bar, beat, dynamics, fingering, string/fret).
+<ul>
+<li>Press “Control+1” through “Control+9” while in the Notes region to
+quickly speak the corresponding attribute line without moving
+focus.</li>
+</ul></li>
+<li>Performance Information (“B”): Displays global markings (repeats,
+endings, crescendos, key changes).
+<ul>
+<li>Press “Alt+N” on a marking type to toggle its visibility in the
+Notes region. (Items marked with an asterisk “*” are currently visible
+in the Notes list).</li>
+</ul></li>
+<li>Status (“N”): Displays the status fields listed below.</li>
+</ol>
+<h3 id="status-fields">3.2 Status Fields</h3>
+<p>The Status region lists the following information, one field per
+line:</p>
+<ol type="1">
+<li>Bar and Beat Position</li>
+<li>Current Key Signature</li>
+<li>Current Time Signature</li>
+<li>Playback Tempo</li>
+<li>Playback Status (Playing/Paused/Stopped)</li>
+<li>Metronome (On/Off)</li>
+<li>Position Announcer (On/Off)</li>
+<li>Loop Length</li>
+</ol>
+<h2 id="playback">4. Playback</h2>
+<h3 id="playback-controls">4.1 Playback Controls</h3>
+<ul>
+<li>Play / Stop: Press “Spacebar”. When stopped, the cursor returns to
+the start position.</li>
+<li>Pause / Resume: Press “Control+Spacebar” to pause; “Spacebar” to
+resume.</li>
+<li>Play Selection: Press “Shift+Spacebar” to play all selected notes at
+the current position.</li>
+<li>Tempo Controls:
+<ul>
+<li>Press “F” to increase tempo (+10 BPM).</li>
+<li>Press “S” to decrease tempo (-10 BPM).</li>
+<li>Press “D” to reset to score default tempo.</li>
+</ul></li>
+</ul>
+<p>Note: Playback automatically follows written repeats, codas, and
+D.C./D.S. markings. Manual step-by-step navigation via arrow keys
+bypasses jumps and simply moves through bars.</p>
+<p>Written tempo changes (e.g., rallentando) are displayed in
+Performance Information but do not alter playback speed.</p>
+<h3 id="audio-orientation-aids">4.2 Audio Orientation Aids</h3>
+<ul>
+<li>Bar Line Indicator (“Control+B”): Plays unique audio tones when
+crossing standard bar lines, double bar lines, or repeat boundaries.
+<em>Automatically mutes when the metronome is active.</em></li>
+<li>Metronome (“Control+M”): Clicks during playback and step
+navigation.</li>
+<li>Standalone Metronome (“Control+Alt+Spacebar”): Plays a continuous
+background metronome at the current tempo without advancing the score
+position.</li>
+<li>Position Announcer (“Control+P”): A spoken metronome that announces
+beat counts (e.g., “1”, “2”, or subdivision counts like “and”, “e”,
+“a”).</li>
+<li>Performance Indicator (“Control+C”): Affects audio cue for
+performance indicators:
+<ul>
+<li>Off</li>
+<li>On during navigation</li>
+<li>Always On</li>
+</ul></li>
+<li>Score Boundaries: Reaching the beginning or end of a score plays a
+boundary sound effect.</li>
+</ul>
+<h2 id="navigation-commands">5. Navigation Commands</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Action</th>
+<th style="text-align: left;">Shortcut</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Move One Position Left / Right</td>
+<td style="text-align: left;">“Left Arrow” / “Right Arrow”</td>
+</tr>
+<tr>
+<td style="text-align: left;">Move One Bar Left / Right</td>
+<td style="text-align: left;">“Control+Left Arrow” / “Control+Right
+Arrow”</td>
+</tr>
+<tr>
+<td style="text-align: left;">Jump to First / Last Note</td>
+<td style="text-align: left;">“Control+Home” / “Control+End”</td>
+</tr>
+<tr>
+<td style="text-align: left;">Go to Specific Bar</td>
+<td style="text-align: left;">Type bar number + “Enter” (or
+“Control+G”)</td>
+</tr>
+<tr>
+<td style="text-align: left;">Move to Next / Previous jump point</td>
+<td style="text-align: left;">“Control+Alt+Right Arrow” /
+“Control+Alt+Left Arrow”</td>
+</tr>
+</tbody>
+</table>
+<h2 id="practicing-and-memorising-music">6. Practicing and Memorising
+Music</h2>
+<h3 id="filtering-parts-mute-solo">6.1 Filtering Parts (Mute &amp;
+Solo)</h3>
+<p>Specific parts or voices can be isolated while learning:</p>
+<ol type="1">
+<li>Press “X” to go to the Parts region, or use the “Tab” key.</li>
+<li>Arrow up and down to the desired Part.</li>
+<li>Expand parts with the “Right Arrow” key. Expand parts to expose
+voices.</li>
+<li>Press “F8” to mute a part, stave or voice. Notes in a muted element
+are not shown in the notes list.</li>
+<li>Press “F9” to “Solo” a part, stave or voice. Soloing supersedes
+muting. Soloed elements are always included in the note list.</li>
+<li>Press “Alt+F8” to Unmute All, or “Alt+F9” to Unsolo All.</li>
+</ol>
+<h3 id="managing-visible-note-attributes">6.2 Managing Visible Note
+Attributes</h3>
+<p>To customize what information is spoken when navigating notes:</p>
+<ol type="1">
+<li>Press “V” to enter the Attributes region or press the “Tab”
+key.</li>
+<li>Focus on the attribute to be spoken (e.g., Fingering or
+Octave).</li>
+<li>Press “Applications Key” (or “Shift+F10”) to open the context
+menu.</li>
+<li>Select the scope: “Whole Score”, “Same Part”, “Same Stave”, or “This
+Voice”, then press “Enter”.</li>
+</ol>
+<p>The selected attribute is now shown on the same row as a note in the
+note list which is in the requested scope and where the attribute
+exists.</p>
+<h3 id="practising-with-looping-and-lead-ins">6.3 Practising With
+Looping and Lead-ins</h3>
+<p>Default playback for Recall Score is to play from the current
+position to the end. It can also be set up to loop a defined number of
+bars. A lead-in metronome count can be defined before each repeat of the
+loop.</p>
+<p>Configure looping and lead-in options in “Menu &gt; Playback &gt;
+Play Settings” (“Control+Alt+P”):</p>
+<ul>
+<li>Toggle Play Mode. Select “Play to End”, “Play Loop Once”, and “Play
+Loop Until Stopped”. Cycle through these options in the main app with
+“Control+L”.</li>
+<li>Loop length. Size of the loop in bars. In the main app use “Alt+Page
+Up” and “Alt+Page Down”.</li>
+<li>Toggle lead-in clicks on or off. In the main app, toggle with
+“Control+I”.</li>
+<li>Lead-in. Set length of lead-in clicks in bars and beats.</li>
+<li>Repeat handling. Affects how looping handles repeats with different
+endings. In the main app, cycle through options with “Control+R”.</li>
+</ul>
+<h3 id="screen-reader-speech-during-playback">6.4 Screen Reader Speech
+During Playback</h3>
+<p>Recall Score updates the notes, attributes, performance and status
+regions during playback. If focus is on one of these areas the screen
+reader reads out the new text.</p>
+<h2 id="reporting-a-bug-or-requesting-a-feature">7. Reporting A Bug or
+Requesting A Feature</h2>
+<ul>
+<li>Issue Reporting: Submit bug reports at the official <a
+href="https://github.com/Chessel85/RecallScore/issues">Recall Score
+Issue Tracker</a>.</li>
+<li>Feature Requests: To suggest a new feature, open a new issue on the
+same <a href="https://github.com/Chessel85/RecallScore/issues">Recall
+Score Issue Tracker</a> and describe what you would like Recall Score to
+do.</li>
+</ul>
+</body>
+</html>

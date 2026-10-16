@@ -222,8 +222,11 @@ Pages to "GitHub Actions" replaces that site, so `stage_web.py` now copies
 (test in `tests/web/test_stage_web.py`), and leaves out `web/ToRun.txt`.
 Markdown pages Jekyll used to render from `docs/*.md` (architecture and
 so on) are no longer published; nothing linked to them.
-Next: a tester guide (7.1/7.4) for the JAWS tester; feedback route still
-to agree with the user.
+Same day: a web user guide (`docs/user_guide_web.md` + `.html`, the
+desktop guide cut down to what the web has), on Help > User guide.
+The JAWS testing is informal, by email between the user and the tester,
+so no checklist or tester guide is needed (7.1 dropped). Next: fix what
+the tester reports.
 
 ### Was (2026-10-16): 5.4 committed; Phase 6 skipped, next is letting others use it
 
