@@ -211,7 +211,21 @@ next one after a /clear.
   Smoke-tested in headless Chrome under real Pyodide (tree, mute, typed
   bar, Go to bar, help, menu); no screen reader yet. Fast suite passes.
 
-### RESUME HERE (2026-10-16): 5.4 committed; Phase 6 skipped, next is letting others use it
+### RESUME HERE (2026-10-16): merged to main and published
+
+The user tested a desktop build from `rsbv` (all fine) and asked for the
+merge (7.5, ahead of 7.1 to 7.4). Before it, GitHub Pages served `docs/`
+from `main` (legacy build): the installer download page `web_page/`, the
+user guide and friends, linked from the desktop user guide. Switching
+Pages to "GitHub Actions" replaces that site, so `stage_web.py` now copies
+`docs/*.html`, `docs/licence.rtf` and `docs/web_page/` to the site root
+(test in `tests/web/test_stage_web.py`), and leaves out `web/ToRun.txt`.
+Markdown pages Jekyll used to render from `docs/*.md` (architecture and
+so on) are no longer published; nothing linked to them.
+Next: a tester guide (7.1/7.4) for the JAWS tester; feedback route still
+to agree with the user.
+
+### Was (2026-10-16): 5.4 committed; Phase 6 skipped, next is letting others use it
 
 The user tested 5.4 with NVDA (Firefox, and Chrome for the Left Arrow
 bug) and it passed. Same round added: M opens the Menu from anywhere in

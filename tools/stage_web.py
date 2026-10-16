@@ -10,6 +10,12 @@ from the app. It does the same copy the GitHub Pages workflow will do:
     plus the Qt-free audio/ event builders (WEB_AUDIO_MODULES only)
     soundfonts/recall_score_sounds.sf2 and web/sf/GeneralUser-GS.sf2
                               -> <out>/sf/, plus <out>/sf/index.json
+    docs/*.html, docs/licence.rtf, docs/web_page/
+                              -> <out>/            (the pages GitHub Pages served
+                                                    from docs/ before this site
+                                                    replaced it; their URLs are
+                                                    linked from the user guide,
+                                                    so they must keep working)
 
 With --scores (local testing only - never for a public deploy), it also
 copies every MusicXML file in files/, examples/ and tests/fixtures/ into
@@ -46,6 +52,10 @@ WEB_SOUNDFONT = "GeneralUser-GS.sf2"
 WEB_SOUNDFONT_LICENCE = "GeneralUser-GS-LICENSE.txt"
 MUSICXML_SUFFIXES = {".musicxml", ".xml", ".mxl"}
 SCORE_DIRS = ("files", "examples", "tests/fixtures")
+# Desktop pages already published at the site root (download page, user
+# guide, ...). Copied as they are, beside the browser version.
+DOCS_SITE_GLOBS = ("*.html", "licence.rtf")
+DOCS_SITE_DIRS = ("web_page",)
 
 
 def stage(out: Path, with_scores: bool, public: bool = False) -> None:
@@ -54,9 +64,21 @@ def stage(out: Path, with_scores: bool, public: bool = False) -> None:
         sys.exit(f"[ERROR] {web} not found")
     if out.exists():
         shutil.rmtree(out)
-    shutil.copytree(web, out, ignore=shutil.ignore_patterns("__pycache__", "*.sf2", "CLAUDE.md"))
+    shutil.copytree(web, out, ignore=shutil.ignore_patterns("__pycache__", "*.sf2", "CLAUDE.md", "ToRun.txt"))
     if public:
         shutil.rmtree(out / "spikes", ignore_errors=True)
+
+    docs = REPO_ROOT / "docs"
+    for pattern in DOCS_SITE_GLOBS:
+        for path in sorted(docs.glob(pattern)):
+            if (out / path.name).exists():
+                sys.exit(f"[ERROR] docs/{path.name} clashes with a web/ file")
+            shutil.copy2(path, out / path.name)
+    for name in DOCS_SITE_DIRS:
+        if (out / name).exists():
+            sys.exit(f"[ERROR] docs/{name}/ clashes with a web/ folder")
+        shutil.copytree(docs / name, out / name)
+    print("[OK] desktop pages from docs/ copied to the site root")
 
     py_dir = out / "py"
     py_dir.mkdir(exist_ok=True)

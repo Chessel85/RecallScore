@@ -46,7 +46,7 @@ def main() -> int:
 
     transcript_path = payload.get("transcript_path") or ""
 
-    project_dir = payload.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+    project_dir = os.environ.get("CLAUDE_PROJECT_DIR") or payload.get("cwd") or os.getcwd()
     out_path = os.path.join(project_dir, "stuff.txt")
 
     # The summary is the last text block of the turn. Newer Claude Code

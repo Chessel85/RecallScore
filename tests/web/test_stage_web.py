@@ -33,3 +33,14 @@ def test_public_stage_omits_spikes_and_scores(tmp_path):
         names = set(zf.namelist())
     assert "audio/metronome.py" in names
     assert "audio/synth_engine.py" not in names
+
+
+def test_stage_keeps_the_desktop_pages_already_published(tmp_path):
+    # Before this site, GitHub Pages served docs/; the user guide links to
+    # web_page/ (the installer download page), so those URLs must survive.
+    stage_web.stage(tmp_path, with_scores=False, public=True)
+    for name in ("user_guide.html", "quick_start.html", "keystrokes.html",
+                 "voice_commands.html", "licence.rtf"):
+        assert (tmp_path / name).is_file(), name
+    assert (tmp_path / "web_page" / "index.html").is_file()
+    assert "Recall Score app" in (tmp_path / "index.html").read_text(encoding="utf-8")
