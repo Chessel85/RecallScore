@@ -65,7 +65,8 @@ export const section = (delta) => call("section", delta);
 export const selectionChanged = (selection) => call("selection_changed", selection);
 export const attributeAnnouncement = (number, selection = null) =>
   call("attribute_announcement", number, selection) ?? null;
-export const setUkTerms = (ukTerms) => call("set_uk_terms", ukTerms);
+/** Options > Terminology. `selection` is Region 3's, for Region 4's rows. */
+export const setUkTerms = (ukTerms, selection = null) => call("set_uk_terms", ukTerms, selection);
 export const gotoInfo = () => call("goto_info");
 export const appendDigit = (digit) => call("append_digit", digit);
 export const commitDigits = () => call("commit_digits");
@@ -103,8 +104,13 @@ export const region4Apply = (row, selection, scope) => call("region4_apply", row
 export const cyclePerformanceIndicator = () => call("cycle_performance_indicator");
 export const toggleMarkingCategory = (row) => call("toggle_marking_category", row);
 export const region5Menu = (row) => call("region5_menu", row);
+// Options menu: the three performance indicator choices, Ctrl+V, and what is checked.
+export const setPerformanceIndicator = (mode) => call("set_performance_indicator", mode);
+export const toggleEngravingDetails = () => call("toggle_engraving_details");
+export const optionsState = () => call("options_state");
 // Stored settings (storage.js keeps the text; the shapes are Python's).
 export const globalSettingsJson = () => call("global_settings_json");
-export const applyGlobalSettings = (text) => call("apply_global_settings", text);
+/** `territory`: the browser's region ("GB", "US"), for the default terminology. */
+export const applyGlobalSettings = (text, territory = null) => call("apply_global_settings", text, territory);
 /** This score's settings as .rsc text, or null/undefined when there is nothing to keep. */
 export const scoreSettingsJson = () => call("score_settings_json");

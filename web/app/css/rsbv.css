@@ -35,11 +35,12 @@ dialog h3 { font-size: 1rem; margin: 1rem 0 .25rem; }
 .region > .popup-menu { position: absolute; z-index: 10; left: 1rem; }
 .popup-menu { min-width: 12rem; color: var(--fg); background: var(--bg); border: 2px solid var(--accent); border-radius: 6px; padding: .25rem; }
 .popup-menu .popup-menu { position: absolute; left: 100%; top: 0; }
-.popup-menu > [role="none"] > [role="menuitem"] { display: flex; justify-content: space-between; gap: 2rem; padding: .15rem .5rem; border-radius: 3px; white-space: nowrap; cursor: default; }
-.popup-menu [role="menuitem"]:focus, .popup-menu [role="menuitem"][aria-expanded="true"] { background: var(--current); }
+.popup-menu > [role="none"] > [role^="menuitem"] { display: flex; justify-content: space-between; gap: 2rem; padding: .15rem .5rem; border-radius: 3px; white-space: nowrap; cursor: default; }
+.popup-menu [role^="menuitem"]:focus, .popup-menu [role^="menuitem"][aria-expanded="true"] { background: var(--current); }
 .popup-menu [role="separator"] { border-top: 1px solid var(--line); margin: .25rem 0; }
 .menu-key { opacity: .8; }
-.popup-menu [role="menuitem"][aria-disabled="true"] { opacity: .55; }
+.popup-menu [role^="menuitem"][aria-disabled="true"] { opacity: .55; }
+.menu-check { display: inline-block; width: 1.2em; }
 dialog input[type="text"], dialog input[type="number"] { font: inherit; width: 6rem; }
 dialog select { font: inherit; max-width: 100%; }
 .dialog-field { display: block; margin: .5rem 0; }

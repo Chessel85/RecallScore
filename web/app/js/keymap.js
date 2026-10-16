@@ -44,6 +44,7 @@ export const KEYMAP = /* KEYMAP-BEGIN */ [
   {"id": "focus.region4", "keys": ["V"], "scope": "global", "label": "Attributes", "desktopAction": "move_to_attributes", "difference": null},
   {"id": "focus.region5", "keys": ["B"], "scope": "global", "label": "Performance information", "desktopAction": "move_to_performance", "difference": null},
   {"id": "focus.region6", "keys": ["N"], "scope": "global", "label": "Status", "desktopAction": null, "difference": "Region 6 is the desktop status bar, which the desktop reaches with F6"},
+  {"id": "menu.open", "keys": ["M"], "scope": "global", "label": "Open the menu", "desktopAction": null, "difference": "The desktop's menu bar opens with Alt or F10, which browsers keep"},
   {"id": "list.previous", "keys": ["Up"], "scope": "list", "label": "Previous row", "desktopAction": null, "difference": null},
   {"id": "list.next", "keys": ["Down"], "scope": "list", "label": "Next row", "desktopAction": null, "difference": null},
   {"id": "list.top", "keys": ["Home"], "scope": "list", "label": "First row", "desktopAction": null, "difference": null},
@@ -77,6 +78,7 @@ export const KEYMAP = /* KEYMAP-BEGIN */ [
   {"id": "options.metronome", "keys": ["Ctrl+M"], "scope": "global", "label": "Metronome on or off", "desktopAction": "metronome", "difference": null},
   {"id": "options.positionAnnouncer", "keys": ["Ctrl+P"], "scope": "global", "label": "Position announcer on or off", "desktopAction": "position_announcer", "difference": null},
   {"id": "options.performanceIndicator", "keys": ["Ctrl+C"], "scope": "global", "label": "Cycle performance indicator", "desktopAction": "performance_indicator_cycle", "difference": null},
+  {"id": "options.engravingDetails", "keys": ["Ctrl+V"], "scope": "global", "label": "Show engraving details", "desktopAction": "show_engraving_details", "difference": null},
   {"id": "performance.toggleCategory", "keys": ["Alt+N"], "scope": "region5", "label": "Add or remove this marking category in the note list", "desktopAction": null, "difference": "The desktop uses Control N, which browsers keep for a new window"},
   {"id": "performance.categoryMenu", "keys": ["Shift+F10", "ContextMenu"], "scope": "region5", "label": "Note list menu for this marking", "desktopAction": null, "difference": null},
   {"id": "play.toggle", "keys": ["Space"], "scope": "global", "label": "Play or stop", "desktopAction": "play_stop", "difference": null},
@@ -197,6 +199,13 @@ function onKeyDown(event) {
       event.stopPropagation();
       return;
     }
+  }
+  // Left/Right that no row took in a region (4, 5, 6, Region 1 off its
+  // section row) do nothing, as on the desktop. Left to Firefox, NVDA said
+  // "Recall Score document" and then nothing more in that region.
+  if (where.isList && (key === "Left" || key === "Right")) {
+    event.preventDefault();
+    event.stopPropagation();
   }
 }
 

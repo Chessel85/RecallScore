@@ -1218,10 +1218,7 @@ class MainWindow(QMainWindow):
             enabled = not app_settings.load().show_engraving_details_enabled
         app_settings.set_show_engraving_details_enabled(enabled)
         self._actions.show_engraving_details.setChecked(enabled)
-        accessible_announcer.announce(
-            self.region_3,
-            f"Engraving details {'on' if enabled else 'off'}",
-        )
+        accessible_announcer.announce(self.region_3, announcements.engraving_details_toggled(enabled))
 
     def toggle_live_midi_input(self):
         enabled = self.live_midi.toggle_enabled()

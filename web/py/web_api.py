@@ -35,7 +35,9 @@ from models.app_settings_data import AppSettings
 from models.attribute_scopes import region_4_scope_menu
 from models.marking_categories import ALL_CATEGORIES, CATEGORY_NAMES, note_list_menu_label
 from models.music_data import MusicData
-from models.performance_indicator_mode import cycle as cycle_performance_indicator_mode
+from models.performance_indicator_mode import (
+    PERFORMANCE_INDICATOR_MODES, cycle as cycle_performance_indicator_mode,
+)
 from models.play_plan import PlayTimeline, TimelineEntry
 from models.play_settings import (
     LOOP_REPEAT_LABELS, LOOP_REPEAT_MODES, MAX_LEAD_IN_BARS, MAX_LEAD_IN_BEATS,
@@ -46,7 +48,7 @@ from models.region2_manager import Region2HierarchyModel, Region2Node, node_stat
 from models.region3_row import NoteRow
 from models.score_config_data import ScoreConfig
 from models.score_config_json import config_from_dict, config_to_dict
-from models.vocabulary import bar_word
+from models.vocabulary import bar_word, default_uk_terms
 from parsers.musicxml_metadata import load_musicxml_without_music21
 
 SUPPORTED_SUFFIXES = (".musicxml", ".xml", ".mxl")
@@ -64,14 +66,34 @@ _performance_indicator_mode = _app_settings.performance_indicator_mode
 _marking_categories_off = set(_app_settings.marking_categories_off) & set(ALL_CATEGORIES)
 
 
-def set_uk_terms(uk_terms: bool) -> None:
+def _use_uk_terms(uk_terms: bool) -> None:
     """bar/measure, crotchet/quarter... Carried onto every later load, like
     ScoreSession.set_uk_terms on the desktop."""
     global _uk_terms
     _uk_terms = bool(uk_terms)
-    _app_settings.uk_terms = _uk_terms
     if _music_data is not None:
         _music_data.uk_terms = _uk_terms
+
+
+def set_uk_terms(uk_terms: bool, selection: Optional[List[int]] = None) -> Dict[str, Any]:
+    """Options > Terminology, UK or US (MainWindow.set_uk_terms): a global
+    choice, kept with the settings, that works with no score loaded. The
+    new dialect is spoken (the desktop's checked menu item says it there)
+    and, with a score, every region whose words it changes is re-sent:
+    Regions 1, 3 to 6, Region 4 for Region 3's `selection` (None: all)."""
+    _use_uk_terms(uk_terms)
+    _app_settings.uk_terms = _uk_terms
+    result: Dict[str, Any] = {"announce": announcements.terminology(_uk_terms)}
+    if _music_data is not None:
+        indices = _select_all() if selection is None else [int(i) for i in selection]
+        result["regions"] = {
+            "1": _region_1_rows(),
+            "3": _region_3_rows(),
+            "4": _region_4_rows(indices),
+            "5": _region_5_rows(),
+            "6": _region_6_rows(),
+        }
+    return result
 
 
 # --- stored settings (storage.js) -------------------------------------------------
@@ -90,12 +112,19 @@ def global_settings_json() -> str:
     return json.dumps(_app_settings.to_dict())
 
 
-def apply_global_settings(text: Optional[str]) -> Dict[str, Any]:
+def apply_global_settings(text: Optional[str], territory: Optional[str] = None) -> Dict[str, Any]:
     """Global settings stored on an earlier visit, applied at start-up
     before any score (the desktop's app_settings.load()). Missing or bad
     values fall back to the defaults, as AppSettings.from_dict does; text
-    that is not a JSON object is an error and changes nothing."""
+    that is not a JSON object is an error and changes nothing.
+
+    `territory` is the browser's region ("GB", "US"), for the dialect when
+    none was ever chosen (vocabulary.default_uk_terms, the desktop's
+    MainWindow start-up rule). That default is used, not stored, so it
+    keeps following the browser until the user picks one."""
     global _app_settings, _performance_indicator_mode, _marking_categories_off
+    if territory is not None:
+        _use_uk_terms(default_uk_terms(territory))
     if not text:
         return {"ok": True}
     try:
@@ -109,7 +138,7 @@ def apply_global_settings(text: Optional[str]) -> Dict[str, Any]:
     _performance_indicator_mode = settings.performance_indicator_mode
     _marking_categories_off = set(settings.marking_categories_off) & set(ALL_CATEGORIES)
     if settings.uk_terms is not None:
-        set_uk_terms(settings.uk_terms)
+        _use_uk_terms(settings.uk_terms)
     return {"ok": True}
 
 
@@ -520,6 +549,53 @@ def region5_menu(row: int) -> Dict[str, Any]:
     in_note_list = category not in _music_data.marking_categories_off
     return {"title": CATEGORY_NAMES.get(category, category),
             "items": [{"label": note_list_menu_label(category, in_note_list)}]}
+
+
+# --- Options menu (task 5.4) ---------------------------------------------------
+
+def set_performance_indicator(mode: str) -> Dict[str, Any]:
+    """Options > Performance Indicator, one of its three choices picked
+    directly (MainWindow._set_performance_indicator_mode). Spoken, as
+    Ctrl+C is: the page's menu closes onto a region, so its checked state
+    is not heard there. An unknown mode is an error and changes nothing."""
+    global _performance_indicator_mode
+    if mode not in PERFORMANCE_INDICATOR_MODES:
+        return {"error": f"Unknown performance indicator mode {mode!r}."}
+    _performance_indicator_mode = mode
+    return {"announce": announcements.performance_indicator_mode(mode)}
+
+
+def toggle_engraving_details() -> Dict[str, Any]:
+    """Ctrl+V, Options > Show Engraving Details (MainWindow.
+    toggle_show_engraving_details): octave-shift and clef-change rows in or
+    out of the note list, Region 5 and Find. Global, so it works with no
+    score; with one, Regions 3 to 6 are re-sent (update_timeline_views)."""
+    enabled = not _app_settings.show_engraving_details_enabled
+    _app_settings.show_engraving_details_enabled = enabled
+    result: Dict[str, Any] = {"announce": announcements.engraving_details_toggled(enabled)}
+    if _music_data is not None:
+        _music_data.show_engraving_details_enabled = enabled
+        result.update(_cursor_view())
+    return result
+
+
+def options_state() -> Dict[str, Any]:
+    """What the Options menu shows as checked, as the desktop's checkable
+    actions do. The score's own toggles (Ctrl+M, Ctrl+P, Ctrl+B) are
+    present only while a score is loaded."""
+    state: Dict[str, Any] = {
+        "uk_terms": _uk_terms,
+        "performance_indicator": _performance_indicator_mode,
+        "show_engraving_details": _app_settings.show_engraving_details_enabled,
+    }
+    md = _music_data
+    if md is not None:
+        state.update(
+            metronome=md.metronome_enabled,
+            position_announcer=md.position_announcer_enabled,
+            bar_line_indicator=md.bar_line_indicator_enabled,
+        )
+    return state
 
 
 # --- navigation --------------------------------------------------------------

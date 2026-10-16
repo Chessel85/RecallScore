@@ -6,7 +6,7 @@ import {
   initRegions, render, moveRow, extendSelection, selection, selectAll, rowAt, currentRow, treeExpand, treeCollapse,
 } from "./regions.js";
 import { showHelp, showGotoBar, showPlaySettings } from "./dialogs.js";
-import { initMenu, showContextMenu } from "./menu.js";
+import { initMenu, showContextMenu, openMenu } from "./menu.js";
 import { initAudio, prefetchSoundFonts, play } from "./audio.js";
 import { initScheduler, startSession, stopSession, pauseSession, isScheduling } from "./scheduler.js";
 import * as storage from "./storage.js";
@@ -42,9 +42,19 @@ function clearError() {
 
 initMenu({
   menuButton,
-  extra: { open: { label: "Open a score", run: () => picker.click() } },
+  extra: {
+    open: { label: "Open a score", run: () => picker.click() },
+    ukTerms: { label: "UK terminology", radio: true, run: () => setTerminology(true) },
+    usTerms: { label: "US terminology", radio: true, run: () => setTerminology(false) },
+    indicatorOff: { label: "Performance indicator off", radio: true, run: () => setIndicator("off") },
+    indicatorExceptPlaying: {
+      label: "Performance indicator on except when playing", radio: true, run: () => setIndicator("on_except_when_playing"),
+    },
+    indicatorAlways: { label: "Performance indicator always on", radio: true, run: () => setIndicator("always_on") },
+  },
   returnFocus: (n) => (n && scoreLoaded ? focusRegion(n) : focusMenuButton()),
   disabled: () => (scoreLoaded ? py.disabledCommands() : []),
+  checked: () => optionsChecked(),
 });
 
 // --- drawing bridge results --------------------------------------------------
@@ -214,6 +224,13 @@ bind("digits.clear", () => {
 });
 
 bind("help.keys", () => showHelp());
+
+// M opens the Menu from anywhere in the cycle; closing it without a choice
+// goes back to the region M was pressed in.
+bind("menu.open", () => {
+  const n = focusedRegion();
+  openMenu(() => (n ? focusRegion(n) : focusMenuButton()));
+});
 
 // --- playback (Space, Ctrl+Space) ------------------------------------------------
 
@@ -413,6 +430,62 @@ document.addEventListener("contextmenu", (event) => {
   }
 });
 
+// --- Options menu: terminology, performance indicator choices, Ctrl+V ----------------
+// Global settings, so they work with no score and are saved as they change.
+// A choice made on the Menu is spoken: the menu closes onto a region, so
+// the item's checked state is not heard there.
+
+/** The Options menu's checked states (web_api.options_state), keyed by
+ * MENUS entry. The score's own toggles appear only with a score loaded. */
+function optionsChecked() {
+  const state = ready ? py.optionsState() : null;
+  if (!state || state.error) return {};
+  const checked = {
+    "extra:ukTerms": state.uk_terms,
+    "extra:usTerms": !state.uk_terms,
+    "extra:indicatorOff": state.performance_indicator === "off",
+    "extra:indicatorExceptPlaying": state.performance_indicator === "on_except_when_playing",
+    "extra:indicatorAlways": state.performance_indicator === "always_on",
+    "options.engravingDetails": state.show_engraving_details,
+  };
+  if ("metronome" in state) {
+    checked["options.metronome"] = state.metronome;
+    checked["options.positionAnnouncer"] = state.position_announcer;
+    checked["options.barLineIndicator"] = state.bar_line_indicator;
+  }
+  return checked;
+}
+
+function setTerminology(ukTerms) {
+  const chosen = scoreLoaded ? selection() : null;
+  const result = py.setUkTerms(ukTerms, chosen);
+  if (result?.error) return showError(result.error);
+  saveGlobalSettings();
+  announceUrgent(result.announce);
+  // The words change, not the rows: every region keeps its place, and
+  // Region 3 keeps its selection (the desktop's refresh_region_3_labels).
+  for (const [key, rows] of Object.entries(result.regions ?? {})) {
+    const n = Number(key);
+    render(n, rows, n === 3 ? { selection: chosen, keepCurrent: true } : { keepCurrent: true });
+  }
+}
+
+function setIndicator(mode) {
+  const result = py.setPerformanceIndicator(mode);
+  if (result?.error) return showError(result.error);
+  saveGlobalSettings();
+  announceUrgent(result.announce);
+}
+
+bind("options.engravingDetails", () => {
+  if (!ready) return false;
+  const result = py.toggleEngravingDetails();
+  if (result?.error) return showError(result.error);
+  saveGlobalSettings();
+  announceUrgent(result.announce);
+  if (result.regions) showRegions(result.regions, result.selection);
+});
+
 // --- stored settings (storage.js) -----------------------------------------------
 // Global settings are written as they change, as the desktop writes its
 // settings.json. A score's settings are written when another score is
@@ -488,11 +561,22 @@ dropZone.addEventListener("drop", (event) => {
   if (event.dataTransfer.files[0]) openFile(event.dataTransfer.files[0]);
 });
 
+/** The browser's region ("GB", "US"), or "" when its language names none:
+ * the default terminology's only input (UK unless "US", as on the desktop).
+ * Not maximized, so a bare "en" stays unknown rather than becoming US. */
+function browserTerritory() {
+  try {
+    return new Intl.Locale(navigator.language).region ?? "";
+  } catch {
+    return "";
+  }
+}
+
 picker.disabled = true;
 say("Starting Recall Score.");
 py.boot(say)
   .then(() => {
-    const applied = py.applyGlobalSettings(storage.loadGlobal());
+    const applied = py.applyGlobalSettings(storage.loadGlobal(), browserTerritory());
     if (applied?.error) showError(applied.error);
     ready = true;
     picker.disabled = false;

@@ -211,7 +211,72 @@ next one after a /clear.
   Smoke-tested in headless Chrome under real Pyodide (tree, mute, typed
   bar, Go to bar, help, menu); no screen reader yet. Fast suite passes.
 
-### RESUME HERE (2026-10-14): 5.3 done and committed (e40e10a); next is 5.4
+### RESUME HERE (2026-10-16): 5.4 committed; Phase 6 skipped, next is letting others use it
+
+The user tested 5.4 with NVDA (Firefox, and Chrome for the Left Arrow
+bug) and it passed. Same round added: M opens the Menu from anywhere in
+the cycle (closing without a choice goes back to the region M was pressed
+in), and Left/Right that no keymap row takes in a list region (Regions 4,
+5, 6, Region 1 off its section row) are swallowed in keymap.js: left to
+Firefox, NVDA said "Recall Score document" and then went silent in that
+region (Chrome was fine; the DOM focus never moved, so it is Firefox's
+own handling of the key). Decided in testing: the performance indicator
+clap stays as the desktop has it (sounds only for a marking in the note
+list; to try it, `dynamics_articulation_fingering.musicxml`, B, Alt+N);
+the "Open a score" control at the top stays unless other testers ask.
+Fresh-profile terminology (browser language) was not tested; left for now.
+
+Next: the user skips Phase 6 and moves on to letting other people use the
+web version (Phase 7: test checklist, testers, the public deploy via 1.6's
+GitHub Pages workflow and merging `rsbv` to `main`, 7.5). Plan that step
+with the user first.
+
+### Was (2026-10-14, end of day): 5.4 built, NOT committed, user testing not complete
+
+Working tree holds 5.4 uncommitted on `rsbv` (git status shows the
+files). Tomorrow: the user finishes testing with NVDA, then commit
+(on the user's say-so) and move to Phase 6. Still to check with NVDA, in
+Firefox and Chrome:
+* Menu > Options: each toggle reads checked/not checked, each radio item
+  (terminology, performance indicator) reads its state, and the tick is
+  not read aloud as text.
+* Choosing UK or US terminology speaks it, then Region 3 reads its row;
+  Region 6 and Region 4 show bar/measure, crotchet/quarter.
+* Choosing a performance indicator item speaks the mode.
+* Ctrl+V reaches the page (not swallowed as paste) in both browsers, says
+  "Engraving details on/off", and clef change / octave shift rows appear
+  (clef_change.musicxml, octave_shift.musicxml).
+* After a reload all three are kept; with a fresh profile the terminology
+  follows the browser's language.
+
+The Options menu now holds what the desktop's Options menu has that
+makes sense in a browser: UK terminology / US terminology (radio items),
+Bar line indicator, the three Performance indicator choices (radio
+items) plus Ctrl+C's cycle, Show engraving details (Ctrl+V, new,
+desktopAction show_engraving_details), Metronome, Position announcer.
+Toggles are `menuitemcheckbox`, choices `menuitemradio`, both with
+aria-checked from `web_api.options_state()`; the desktop's two submenus
+are flattened (the web menu has two levels). A choice from the menu is
+spoken ("US terminology", "Performance indicator always on.") because
+focus lands on a region. Terminology redraws Regions 1, 3 to 6 keeping
+places and Region 3's selection; Ctrl+V redraws 3 to 6. All three are
+global, work with no score and are saved at once.
+Default terminology with nothing saved: UK unless the browser's
+language names the US region (`models/vocabulary.default_uk_terms`, the
+desktop's rule; "en" alone stays UK). Used, not stored, so it follows the
+browser until the user picks one. Shared wording added to
+`models/announcements.py` (`terminology`, `engraving_details_toggled`;
+the desktop's Ctrl+V now uses the latter). Tests:
+`tests/web/test_web_options.py`; fast suite passes. Headless Chrome
+(clef_change.musicxml, --lang=en-GB): starts UK, US redraws Region 6 to
+"Measure"/"quarter", Ctrl+V brings in the clef change rows, all three
+survive a reload. Left out as not making sense in a browser (yet): Live
+MIDI input (Web MIDI is possible, Phase 6 if wanted), voice control,
+MuseScore location; Attribute Management stays 5.1's "if time allows".
+Known: menu and F1 labels say "bar" whatever the terminology (static
+keymap labels).
+
+### Was (2026-10-14): 5.3 done and committed (e40e10a); next was 5.4
 
 `app/js/storage.js` keeps settings in localStorage: global under
 `recallscore.settings` (settings.json text), each score under

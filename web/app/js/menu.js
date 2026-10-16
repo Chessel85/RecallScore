@@ -26,6 +26,11 @@
 // its action) is aria-disabled: still reachable, read as unavailable, and
 // does nothing when chosen.
 //
+// An item the caller's `checked()` names is a menuitemcheckbox (a key-driven
+// toggle) or menuitemradio (an extra marked `radio`, one of a set of
+// choices) with aria-checked, as the desktop's checkable actions are, so
+// the state is heard while arrowing through the menu. Read on every open.
+//
 // showContextMenu() opens a one-level menu of the same kind beside a
 // region (Region 4's scope menu, Shift+F10), with the same keys. Closing
 // it without a choice hands focus back to the caller.
@@ -59,7 +64,18 @@ const MENUS = [
       "play.loopLonger", "play.loopShorter",
     ],
   },
-  { title: "Options", region: 3, items: ["options.barLineIndicator", "options.metronome", "options.positionAnnouncer", "options.performanceIndicator"] },
+  {
+    title: "Options",
+    region: 3,
+    // The desktop's Terminology and Performance Indicator submenus are
+    // flattened into their choices: this menu has two levels only.
+    items: [
+      "extra:ukTerms", "extra:usTerms", "-",
+      "options.barLineIndicator", "-",
+      "extra:indicatorOff", "extra:indicatorExceptPlaying", "extra:indicatorAlways", "options.performanceIndicator", "-",
+      "options.engravingDetails", "options.metronome", "options.positionAnnouncer",
+    ],
+  },
   { title: "Help", items: ["help.keys"] },
 ];
 
@@ -67,6 +83,7 @@ let button = null;
 let extras = {};
 let restoreFocus = () => {};
 let disabledIds = () => [];
+let checkedIds = () => ({});
 let root = null; // the open top-level menu element, or null
 let backTo = () => {}; // where closing without a choice puts focus
 let fromButton = false; // root is the Menu button's menu
@@ -74,12 +91,16 @@ let serial = 0;
 
 /** `menuButton` opens the menu. `extra` maps a name to {label, run}.
  * `returnFocus(region)` focuses that region, or the Menu button for none.
- * `disabled()` lists the keymap ids to show as unavailable. */
-export function initMenu({ menuButton, extra = {}, returnFocus, disabled }) {
+ * `disabled()` lists the keymap ids to show as unavailable. `checked()`
+ * maps a MENUS entry (a keymap id, or "extra:<name>") to true or false for
+ * each item that has a checked state now; an entry it leaves out is a
+ * plain item. */
+export function initMenu({ menuButton, extra = {}, returnFocus, disabled, checked }) {
   button = menuButton;
   extras = extra;
   restoreFocus = returnFocus;
   disabledIds = disabled ?? disabledIds;
+  checkedIds = checked ?? checkedIds;
   button.setAttribute("aria-haspopup", "menu");
   button.setAttribute("aria-expanded", "false");
   button.addEventListener("click", () => (root ? closeAll(true) : open()));
@@ -89,15 +110,20 @@ export function initMenu({ menuButton, extra = {}, returnFocus, disabled }) {
 function liveMenus() {
   const bound = new Set(boundCommands().map((row) => row.id));
   const disabled = new Set(disabledIds());
+  const checked = checkedIds() ?? {};
   const menus = [];
   for (const menu of MENUS) {
     const items = [];
     for (const entry of menu.items) {
+      const state = typeof checked[entry] === "boolean" ? checked[entry] : null;
       if (entry === "-") {
         if (items.length && items[items.length - 1] !== "-") items.push("-");
       } else if (entry.startsWith("extra:")) {
         const extra = extras[entry.slice(6)];
-        if (extra) items.push({ label: extra.label, keys: null, run: extra.run });
+        if (extra) {
+          const role = state === null ? "menuitem" : extra.radio ? "menuitemradio" : "menuitemcheckbox";
+          items.push({ label: extra.label, keys: null, run: extra.run, role, checked: state });
+        }
       } else if (bound.has(entry)) {
         const row = KEYMAP.find((r) => r.id === entry);
         items.push({
@@ -105,6 +131,8 @@ function liveMenus() {
           keys: keysText(row.keys),
           run: () => runCommand(row.id),
           disabled: disabled.has(entry),
+          role: state === null ? "menuitem" : "menuitemcheckbox",
+          checked: state,
         });
       }
     }
@@ -124,14 +152,24 @@ function makeMenuElement(labelledBy, label = null) {
   return el;
 }
 
-function makeItem(text, keys) {
+/** `checked` is null for a plain item, else the state of a checkbox or
+ * radio item (`role`). The tick is drawn only: aria-checked says it. */
+function makeItem(text, keys, role = "menuitem", checked = null) {
   serial += 1;
   const item = document.createElement("div");
-  item.setAttribute("role", "menuitem");
+  item.setAttribute("role", role);
   item.id = `menu-item-${serial}`;
   item.tabIndex = -1;
   const name = document.createElement("span");
-  name.textContent = text;
+  if (checked !== null) {
+    item.setAttribute("aria-checked", String(checked));
+    const tick = document.createElement("span");
+    tick.className = "menu-check";
+    tick.setAttribute("aria-hidden", "true");
+    tick.textContent = checked ? "✓" : "";
+    name.append(tick);
+  }
+  name.append(text);
   item.append(name);
   if (keys) {
     const key = document.createElement("span");
@@ -152,7 +190,13 @@ function wrap(...children) {
   return el;
 }
 
-function open() {
+/** M from anywhere in the page: open the Menu button's menu. Closing it
+ * without a choice calls `back` (where the key was pressed). */
+export function openMenu(back) {
+  open(back);
+}
+
+function open(back = () => button.focus()) {
   closeAll(false);
   const menus = liveMenus();
   root = makeMenuElement(button.id);
@@ -169,7 +213,7 @@ function open() {
         sub.append(sep);
         continue;
       }
-      const item = makeItem(entry.label, entry.keys);
+      const item = makeItem(entry.label, entry.keys, entry.role, entry.checked);
       if (entry.disabled) item.setAttribute("aria-disabled", "true");
       else item.addEventListener("click", () => activate(entry.run, menu.region));
       sub.append(wrap(item));
@@ -180,7 +224,7 @@ function open() {
     root.append(wrap(parent, sub));
   }
   fromButton = true;
-  backTo = () => button.focus();
+  backTo = back;
   closeOnFocusLoss();
   button.after(root);
   button.setAttribute("aria-expanded", "true");
@@ -219,7 +263,7 @@ function closeOnFocusLoss() {
 
 /** The menu's own items, not those of a submenu inside it. */
 function items(menu) {
-  return [...menu.children].map((el) => el.firstElementChild).filter((el) => el?.getAttribute("role") === "menuitem");
+  return [...menu.children].map((el) => el.firstElementChild).filter((el) => el?.getAttribute("role")?.startsWith("menuitem"));
 }
 
 function submenuOf(parent) {
@@ -305,7 +349,9 @@ function typeAhead(list, index, event) {
   const letter = event.key.toLowerCase();
   for (let step = 1; step <= list.length; step += 1) {
     const item = list[(index + step) % list.length];
-    if (item.textContent.trim().toLowerCase().startsWith(letter)) {
+    // The name's own text, after any tick.
+    const name = item.firstElementChild?.lastChild?.textContent ?? item.textContent;
+    if (name.trim().toLowerCase().startsWith(letter)) {
       item.focus();
       break;
     }

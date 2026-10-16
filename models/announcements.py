@@ -113,6 +113,16 @@ def bar_line_indicator_toggled(enabled: bool) -> str:
     return f"Bar line indicator {'on' if enabled else 'off'}"
 
 
+def engraving_details_toggled(enabled: bool) -> str:
+    return f"Engraving details {'on' if enabled else 'off'}"
+
+
+def terminology(uk_terms: bool) -> str:
+    """Options > Terminology: the dialect just chosen (the browser speaks
+    it; the desktop's checkable menu item says it instead)."""
+    return "UK terminology" if uk_terms else "US terminology"
+
+
 def lead_in_toggled(enabled: bool) -> str:
     return f"Lead in {'on' if enabled else 'off'}"
 

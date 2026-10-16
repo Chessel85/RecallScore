@@ -28,6 +28,14 @@ UK_BASE_DURATION_NAMES = {
 }
 
 
+def default_uk_terms(territory: Optional[str]) -> bool:
+    """F4/D-6's dialect when none has been chosen: UK unless the territory is
+    positively the United States ("US"); anything unknown stays UK. The
+    desktop's detect_default_uk_terms asks QLocale for the same rule; the
+    browser passes the region of navigator.language."""
+    return (territory or "").strip().upper() != "US"
+
+
 def bar_word(uk_terms: bool) -> str:
     return "bar" if uk_terms else "measure"
 

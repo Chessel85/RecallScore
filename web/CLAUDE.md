@@ -24,6 +24,12 @@ dicts and lists only; JavaScript never holds a Python object.
   received). F10 and Alt alone are the browser's. Every dialog needs a
   Close or Cancel button.
 * Letters and digits are named by `event.code` (physical position).
+* Left/Right that no row takes while focus is in a list region are
+  swallowed (preventDefault), doing nothing as on the desktop. Left to the
+  browser, Firefox left NVDA saying "Recall Score document" and then
+  silent in that region.
+* M opens the Menu from anywhere in the cycle; closing it without a choice
+  goes back to that region (`openMenu(back)`).
 
 ## Focus: `app/js/focus.js`
 
@@ -74,6 +80,14 @@ not work here: the Menu button is only reached through Region 1 or 6. A
 command the desktop greys out is listed by `web_api.disabled_commands()`
 and shown `aria-disabled` (still reachable, read as unavailable, does
 nothing), never hidden and never answered with bespoke speech.
+
+A checkable desktop action is a `menuitemcheckbox` (a key-driven toggle)
+or `menuitemradio` (an extra marked `radio`) with `aria-checked`, from
+`web_api.options_state()` read on every open; the tick is drawn
+`aria-hidden`. The desktop's Terminology and Performance Indicator
+submenus are flattened into the Options menu (this menu has two levels).
+A choice made there is spoken, since the menu closes onto a region where
+its checked state is not heard.
 
 `showContextMenu()` is the same widget at one level, placed after a
 region (Region 4's scope menu: Shift+F10, the ContextMenu key, or a
