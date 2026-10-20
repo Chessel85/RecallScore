@@ -1,4 +1,4 @@
-// Dialogs: the keyboard help list, Go to bar, Play Settings and the Mixer,
+// Dialogs: the keyboard help list, Go to bar, Find, Play Settings and the Mixer,
 // on native <dialog>. (The Menu is a real ARIA menu, in menu.js.) Rules
 // every dialog here follows:
 // * Initial focus goes to the first widget in tab order, never a "more
@@ -21,6 +21,7 @@ const GROUPS = {
   region2: "Parts",
   nav: "Navigation",
   goto: "Navigation",
+  find: "Navigation",
   digits: "Navigation",
   play: "Playback",
   tempo: "Playback",
@@ -144,6 +145,78 @@ export function showGotoBar(info) {
     });
     d.open();
     input.select();
+  });
+}
+
+/** Find (Ctrl+F), the desktop's FindDialog: the list of what this score
+ * has to find, each with its count, then a Filter box that narrows the list
+ * to rows whose label contains what is typed (the bridge's `filter` text,
+ * never the count digits), then OK and Cancel. Enter on the list or in the
+ * filter is OK. `form` is web_api.find_form(). Resolves to the chosen row's
+ * index in form.rows, or null on Cancel. */
+export function showFind(form) {
+  return new Promise((resolve) => {
+    const d = makeDialog(form.title);
+    const el = document.createElement("form");
+    el.method = "dialog";
+    el.id = `find-${serial}`;
+
+    const field = (name, labelText, control) => {
+      const row = document.createElement("div");
+      row.className = "dialog-field";
+      const label = document.createElement("label");
+      label.textContent = labelText;
+      control.id = `${el.id}-${name}`;
+      label.htmlFor = control.id;
+      row.append(label, " ", control);
+      el.append(row);
+    };
+
+    const list = document.createElement("select");
+    list.size = Math.min(Math.max(form.rows.length, 2), 12);
+    field("list", "Find", list);
+    const filter = document.createElement("input");
+    filter.type = "text";
+    filter.autocomplete = "off";
+    field("filter", "Filter", filter);
+    d.body.append(el);
+
+    const ok = button("OK", null, "submit");
+    ok.setAttribute("form", el.id);
+    d.footer.append(ok, button("Cancel", () => d.close()));
+
+    // Rebuilt on every change of the filter. The chosen row stays chosen
+    // while it is still listed, else the first listed row is.
+    const fill = () => {
+      const needle = filter.value.trim().toLowerCase();
+      const keep = list.value;
+      list.replaceChildren();
+      form.rows.forEach((row, i) => {
+        if (needle && !row.filter.includes(needle)) return;
+        const option = document.createElement("option");
+        option.value = String(i);
+        option.textContent = row.text;
+        list.append(option);
+      });
+      list.value = keep;
+      if (list.selectedIndex === -1 && list.options.length) list.selectedIndex = 0;
+      ok.disabled = list.options.length === 0;
+    };
+    filter.addEventListener("input", fill);
+    // A list box does not submit on Enter by itself.
+    list.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" || event.ctrlKey || event.altKey || event.shiftKey || event.metaKey) return;
+      event.preventDefault();
+      if (!ok.disabled) el.requestSubmit();
+    });
+
+    let answer = null;
+    el.addEventListener("submit", () => {
+      answer = list.value === "" ? null : Number(list.value);
+    });
+    d.dialog.addEventListener("close", () => resolve(answer));
+    fill();
+    d.open();
   });
 }
 

@@ -211,7 +211,26 @@ next one after a /clear.
   Smoke-tested in headless Chrome under real Pyodide (tree, mute, typed
   bar, Go to bar, help, menu); no screen reader yet. Fast suite passes.
 
-### RESUME HERE (2026-10-20): 6.1 MIDI and Guitar Pro committed; next Phase 6 task is the user's pick
+### RESUME HERE (2026-10-20): 6.2 Find committed; next Phase 6 task is the user's pick
+
+6.2: shared code: `models/find_target.py` gained `find_row_label` and
+`find_row_text` (the row wording moved out of `widgets/find_dialog.py`,
+which now calls them). Bridge: `find_form`, `find_choose(row)`,
+`find_step(direction)` over NavigationController's `_find` logic
+(boundary cue with nothing armed or found; a wrap plays the note, then
+the boundary cue; the armed target outlives a load). Page: `showFind` in
+dialogs.js (list, Filter, OK, Cancel; Enter on the list is OK),
+`find.open` (Ctrl+F plus Ctrl+Shift+F, since Firefox did not pass Ctrl+F
+in spike 2), `find.next`/`find.previous` (Alt+Right/Left) on the
+Navigation menu. Tests: `tests/web/test_web_find.py`; fast suite passes.
+Headless Chrome (dynamics_articulation_fingering.musicxml): both keys open
+the dialog on the list, the filter narrows it, Enter jumps to beat 2 with
+focus on Region 3, Alt+Right/Left wrap and never navigate away, the Menu
+lists all three. The user tested it with NVDA in Firefox: works. The web
+user guide's Navigation Commands lists Find and Find Next/Previous.
+Remaining Phase 6: 6.3, 6.5.
+
+### Was (2026-10-20): 6.1 MIDI and Guitar Pro committed; next Phase 6 task is the user's pick
 
 6.1: `web_api.load` picks the reader by extension with
 `models/score_formats.family_for_path`, as ScoreLoadThread does:

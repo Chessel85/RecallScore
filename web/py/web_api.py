@@ -35,6 +35,7 @@ from models.mixer_settings import (
 )
 from models.app_settings_data import AppSettings
 from models.attribute_scopes import region_4_scope_menu
+from models.find_target import FindTarget, find_row_label, find_row_text
 from models.marking_categories import ALL_CATEGORIES, CATEGORY_NAMES, note_list_menu_label
 from models.music_data import MusicData
 from models.performance_indicator_mode import (
@@ -850,6 +851,72 @@ def clear_digits() -> Dict[str, Any]:
         return {"pending": False}
     _pending_digits = ""
     return {"pending": True, "regions": {"6": _region_6_rows()}}
+
+
+# --- Find (Ctrl+F) and Find Next/Previous (Alt+Right/Left) -----------------------
+#
+# NavigationController's find: the dialog's OK arms a target and jumps to
+# its next occurrence from the cursor; Alt+Right/Left then step through the
+# rest. The armed target is a (category, key) tag, so it outlives a load,
+# as on the desktop; a score without it just has no occurrences.
+
+_find_target: Optional[FindTarget] = None
+_find_choices: List[FindTarget] = []
+
+
+def find_form() -> Dict[str, Any]:
+    """The Find dialog's rows (MainWindow._show_find_dialog): each row's
+    text, and the lower-cased label its Filter box matches (never the
+    count). The targets stay here; find_choose names one by its row."""
+    global _find_choices
+    if _music_data is None:
+        return {"error": "No score is loaded."}
+    pairs = _music_data.available_find_targets_with_counts()
+    _find_choices = [target for target, _ in pairs]
+    return {
+        "title": "Find",
+        "rows": [
+            {"text": find_row_text(target, count), "filter": find_row_label(target).lower()}
+            for target, count in pairs
+        ],
+    }
+
+
+def find_choose(row: int) -> Dict[str, Any]:
+    """The Find dialog's OK on row `row` of the last find_form: arm it and
+    jump forward from the cursor."""
+    global _find_target
+    row = int(row)
+    if _music_data is None or not 0 <= row < len(_find_choices):
+        return _no_score()
+    _find_target = _find_choices[row]
+    return find_step(1)
+
+
+def find_step(direction: int) -> Dict[str, Any]:
+    """Alt+Right (1) or Alt+Left (-1): the next or previous occurrence of
+    the armed target. The boundary cue instead when nothing is armed or
+    there is no occurrence; after the note when the search wrapped round
+    (NavigationController._find)."""
+    md = _music_data
+    if md is None:
+        return _no_score()
+    _clear_pending()
+    if _find_target is None:
+        return _result(False)
+    direction = 1 if int(direction) > 0 else -1
+    from_index = md.active_event_index
+    index = md.find_occurrence(_find_target, from_index, direction)
+    if index is None:
+        return _result(False)
+    # A real hit is strictly ahead of (or behind) the cursor, so landing
+    # anywhere else means the search wrapped.
+    wrapped = index <= from_index if direction > 0 else index >= from_index
+    md.active_event_index = index
+    result = _result(True, boundary=wrapped)
+    if wrapped:
+        result["sound"]["oneshots"].append(_oneshot("boundary", boundary_cue_event()))
+    return result
 
 
 # --- Region 2 mute and solo (F8, F9, Alt+F8, Alt+F9) ------------------------------

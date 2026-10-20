@@ -12,13 +12,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from models.find_target import FindTarget, occurrence_label
+from models.find_target import FindTarget, find_row_label, find_row_text
 from widgets.list_focus_helper import focus_list_and_reannounce_current_row
-
-# Reads out which kind of thing a row is, since attribute keys and marking
-# labels sit in the same flat list (NVDA-friendly - one focus stop per row,
-# same reasoning Region 2's flat list already has over a table).
-_CATEGORY_PREFIX = {"attribute": "Attribute", "marking": "Marking"}
 
 
 class FindDialog(QDialog):
@@ -66,22 +61,9 @@ class FindDialog(QDialog):
         # trailing occurrence count.
         self._filter_index: List[tuple] = []
         for target in self._targets:
-            # "marking" is a shared umbrella over ~46 structural kinds, so it
-            # normally prefixes the row ("Marking: Repeat start"). A song
-            # jump point is the one kind users think of by name, not as a
-            # "marking", so it drops the prefix and reads just "Jump Point".
-            if target.category == "marking" and target.key == "jump_point":
-                label_text = target.label
-            else:
-                prefix = _CATEGORY_PREFIX.get(target.category, target.category.capitalize())
-                label_text = f"{prefix}: {target.label}"
-            if target.value is not None:
-                label_text = f"{label_text}: {target.value}"
-            row_text = label_text
-            count = self._counts.get(target)
-            if count is not None:
-                row_text = f"{label_text}, {occurrence_label(count)}"
-            item = QListWidgetItem(row_text)
+            # The wording is shared with the web's Find dialog.
+            label_text = find_row_label(target)
+            item = QListWidgetItem(find_row_text(target, self._counts.get(target)))
             item.setData(Qt.ItemDataRole.UserRole, target)
             self.target_list.addItem(item)
             self._filter_index.append((item, label_text.lower()))

@@ -164,6 +164,22 @@ the regions, so the browser's own focus return finds nothing). The mixer
 is saved with the score's settings (`.rsc` shape). `muted` has no UI on
 either version.
 
+## Find
+
+Ctrl+F, and Ctrl+Shift+F as well because Firefox did not pass Ctrl+F to
+the page in spike 2; on the Navigation menu. The targets, counts and row
+wording are `models/` (`FindIndex`, `find_target.find_row_text` and
+`find_row_label`, which the desktop's FindDialog uses too); the bridge is
+`web_api.find_form`/`find_choose`/`find_step`, after
+NavigationController's `_find`. The dialog (`showFind`) copies the
+desktop's: list, Filter (matches each row's `filter` text, never the
+count), OK, Cancel; Enter on the list is OK. OK arms the target and jumps
+forward from the cursor, then focus goes to Region 3. Alt+Right/Left step
+through occurrences from any region; with nothing armed or nothing found
+the boundary cue plays, and a wrap plays the note then the boundary cue.
+The armed target outlives a load, as on the desktop. Alt+Left/Right are
+always taken, so they never reach the browser's Back and Forward.
+
 ## Stored settings: `app/js/storage.js`
 
 localStorage stands in for the desktop's settings.json and `.rsc` files.

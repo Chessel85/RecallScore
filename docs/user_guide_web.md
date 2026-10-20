@@ -116,6 +116,10 @@ Written tempo changes (e.g., rallentando) are displayed in Performance Informati
 | Jump to First / Last Note | "Control+Home" / "Control+End" |
 | Go to Specific Bar | Type bar number + "Enter" (or "Control+G") |
 | Move to Next / Previous jump point | "Control+Alt+Right Arrow" / "Control+Alt+Left Arrow" |
+| Find | "Control+F" (or "Control+Shift+F") |
+| Find Next / Previous | "Alt+Right Arrow" / "Alt+Left Arrow" |
+
+Find lists the attributes and performance markings this score contains, each with how many times it occurs. Type in the Filter box to shorten the list. Choose one with "Enter" or OK to jump to its next occurrence; focus moves to the notes region. "Alt+Right Arrow" and "Alt+Left Arrow" then step through the other occurrences from any region. The boundary sound plays when there is nothing to find, and after the note when the search wraps round to the other end of the score.
 
 ## 6. Practicing and Memorising Music
 

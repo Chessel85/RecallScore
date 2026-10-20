@@ -68,6 +68,11 @@ export const attributeAnnouncement = (number, selection = null) =>
 /** Options > Terminology. `selection` is Region 3's, for Region 4's rows. */
 export const setUkTerms = (ukTerms, selection = null) => call("set_uk_terms", ukTerms, selection);
 export const gotoInfo = () => call("goto_info");
+// Find (Ctrl+F), then Alt+Right/Left; see web_api.find_form.
+export const findForm = () => call("find_form");
+export const findChoose = (row) => call("find_choose", row);
+/** direction: 1 next, -1 previous. */
+export const findStep = (direction) => call("find_step", direction);
 export const appendDigit = (digit) => call("append_digit", digit);
 export const commitDigits = () => call("commit_digits");
 export const clearDigits = () => call("clear_digits");

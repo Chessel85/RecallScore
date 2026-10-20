@@ -51,6 +51,7 @@ const MENUS = [
     items: [
       "nav.first", "nav.last", "nav.barLeft", "nav.barRight", "-",
       "goto.bar", "-",
+      "find.open", "find.next", "find.previous", "-",
       "nav.jumpPrevious", "nav.jumpNext", "-",
       "focus.region1", "focus.region2", "focus.region3", "focus.region4", "focus.region5", "focus.region6",
     ],

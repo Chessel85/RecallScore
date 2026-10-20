@@ -52,6 +52,39 @@ def occurrence_label(count: int) -> str:
     return f"{count} occurrence" if count == 1 else f"{count} occurrences"
 
 
+# Reads out which kind of thing a row is, since attribute keys and marking
+# labels sit in the same flat list (NVDA-friendly - one focus stop per row,
+# same reasoning Region 2's flat list already has over a table).
+_CATEGORY_PREFIX = {"attribute": "Attribute", "marking": "Marking"}
+
+
+def find_row_label(target: FindTarget) -> str:
+    """The Find dialog's row text without its count - also what the
+    dialog's Filter box matches (never the count digits). Shared by the
+    desktop's FindDialog and the web's Find dialog.
+
+    "marking" is a shared umbrella over ~46 structural kinds, so it
+    normally prefixes the row ("Marking: Repeat start"). A song jump point
+    is the one kind users think of by name, not as a "marking", so it drops
+    the prefix and reads just "Jump Point". A value-level target (D1) shows
+    its value after the label ("Attribute: Articulation: staccato")."""
+    if target.category == "marking" and target.key == "jump_point":
+        text = target.label
+    else:
+        prefix = _CATEGORY_PREFIX.get(target.category, target.category.capitalize())
+        text = f"{prefix}: {target.label}"
+    if target.value is not None:
+        text = f"{text}: {target.value}"
+    return text
+
+
+def find_row_text(target: FindTarget, count: Optional[int]) -> str:
+    """The Find dialog's full row: the label, then its occurrence count
+    (D13) when known."""
+    label = find_row_label(target)
+    return label if count is None else f"{label}, {occurrence_label(count)}"
+
+
 # The closed set of performance-marking types the parser can recognize, in
 # the order the Find dialog lists them. Not every score has all of these -
 # MusicData.available_find_targets() filters this down per-file to what the

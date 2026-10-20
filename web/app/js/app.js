@@ -5,7 +5,7 @@ import { initFocus, focusRegion, focusedRegion, focusMenuButton } from "./focus.
 import {
   initRegions, render, moveRow, extendSelection, selection, selectAll, rowAt, currentRow, treeExpand, treeCollapse,
 } from "./regions.js";
-import { showHelp, showGotoBar, showPlaySettings, showMixer } from "./dialogs.js";
+import { showHelp, showGotoBar, showFind, showPlaySettings, showMixer } from "./dialogs.js";
 import { initMenu, showContextMenu, openMenu } from "./menu.js";
 import { initAudio, prefetchSoundFonts, play, setMixerLevels, mixerChange } from "./audio.js";
 import { initScheduler, startSession, stopSession, pauseSession, isScheduling } from "./scheduler.js";
@@ -185,6 +185,21 @@ bind("goto.bar", withScore(async () => {
   const number = await showGotoBar(py.gotoInfo());
   if (number !== null) applyMove(py.gotoBar(number));
 }));
+
+// --- find ------------------------------------------------------------------------
+
+// Ctrl+F (or Ctrl+Shift+F, which Firefox passes on): OK arms the chosen
+// target and jumps to its next occurrence; focus then goes to Region 3, as
+// on the desktop. Alt+Right/Left step through the rest from any region.
+bind("find.open", withScore(async () => {
+  const form = py.findForm();
+  if (form?.error) return showError(form.error);
+  const row = await showFind(form);
+  focusRegion(3);
+  if (row !== null) applyMove(py.findChoose(row));
+}));
+bind("find.next", withScore(() => applyMove(py.findStep(1))));
+bind("find.previous", withScore(() => applyMove(py.findStep(-1))));
 
 // Typed bar number: digits build up (Region 6 shows them), Enter jumps. The
 // page remembers only whether something is pending, so Enter falls through
