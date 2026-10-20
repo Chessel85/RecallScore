@@ -946,6 +946,8 @@ class MainWindow(QMainWindow):
         box = QMessageBox(self)
         box.setIcon(QMessageBox.Icon.Warning)
         box.setWindowTitle("Could not open score")
+        # The message can carry text from the file or the web (never HTML).
+        box.setTextFormat(Qt.TextFormat.PlainText)
         box.setText(message)
         offer_musescore_picker = (
             "MuseScore" in message and "was not found" in message

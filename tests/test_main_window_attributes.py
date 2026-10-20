@@ -703,3 +703,16 @@ def test_region_4_attribute_menu_score_scope_fans_out_to_every_part(
     # "octave" merges onto the step as a bare number ("G3"), so every label
     # gains a trailing digit rather than the literal word "octave".
     assert all(label[-1].isdigit() for label in labels), "every voice in the score, including P2, is affected"
+
+
+def test_attribute_order_scope_label_shows_part_name_as_plain_text(qtbot):
+    """The part name is the score file's own text: markup in it must never
+    render (an <img> pointing at a UNC path would make Qt open that share)."""
+    from PySide6.QtWidgets import QLabel
+
+    name = '<img src="file://example-host/share/x.png">'
+    dialog = AttributeOrderDialog(None, rows=[], scope_description=name)
+    qtbot.addWidget(dialog)
+
+    (label,) = [l for l in dialog.findChildren(QLabel) if name in l.text()]
+    assert label.textFormat() == Qt.TextFormat.PlainText

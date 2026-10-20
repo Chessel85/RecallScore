@@ -83,6 +83,10 @@ class AttributeOrderDialog(QDialog):
         self.setWindowTitle("Attribute Management")
 
         label = QLabel(f"Attribute order for {scope_description}:", self)
+        # The part name is the score file's own text: AutoText would render
+        # markup in it as HTML, and an <img> pointing at a UNC path makes Qt
+        # open that share (leaking the user's NTLM hash).
+        label.setTextFormat(Qt.TextFormat.PlainText)
         self.attribute_list = QListWidget(self)
         label.setBuddy(self.attribute_list)
         self._row_meta: Dict[str, Tuple[str, bool, str]] = {}
