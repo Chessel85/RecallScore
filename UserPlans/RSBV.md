@@ -211,7 +211,42 @@ next one after a /clear.
   Smoke-tested in headless Chrome under real Pyodide (tree, mute, typed
   bar, Go to bar, help, menu); no screen reader yet. Fast suite passes.
 
-### RESUME HERE (2026-10-20): 6.3 Performance Report built, NOT committed; user to test with NVDA
+### RESUME HERE (2026-10-20): 6.5 score edits built, NOT committed; user to test with NVDA
+
+6.5: shared code: `models/score_edits.py` now holds what each edit does
+to MusicData (instrument rows and overrides, key override, part order,
+link and unlink, collapse staves); `ScoreEditController` calls it and
+keeps only the presenter refreshes. Desktop tests pass unchanged. Bridge
+("score edits" in web_api.py): `instruments_form`/`instruments_apply`
+(the page sends what the dialog shows at OK, Python works out the
+overrides), `key_signature_form`/`_apply`, `part_order_form`/`_apply`,
+`link_parts_form`/`_apply`, `region2_menu`/`region2_unlink`,
+`staves_state`/`staves_toggle`. Each apply returns every region plus the
+mixer levels. Region 2 changed in place, or rebuilt keeping mute, solo
+and links. Fixed on the way: a load now applies saved link groups to
+Region 2 (the "1." prefix was missing on the web). Keys: Instruments
+Ctrl+Alt+I, Key Signature Ctrl+Alt+K, Link Parts Ctrl+Alt+L (the
+desktop's Ctrl+Shift+I/K/N are browser-reserved), Reorder Parts
+Ctrl+Shift+O as on the desktop (if a browser keeps it, fall back to
+Ctrl+Alt+O), Shift+F10 in Region 2 for Unlink; Collapse staves is a
+Menu item only, as on the desktop. Tests: `tests/web/test_web_score_edits.py`;
+fast suite passes. Headless Chrome (hairpins_two_parts, then
+guitar_alternate_tab_stave): every dialog opens on its first widget,
+rename and instrument stick across row switches, key change shows in
+Region 1, Move Down moves and goes aria-disabled at the end, link needs
+two ticks and numbers both rows, Unlink from Shift+F10, Collapse staves
+unavailable on a part without one, ticked after collapsing, focus goes to
+the part when the stave row goes. Not yet tried with NVDA (the Link Parts
+listbox's checked state and the Instruments dialog are the parts to
+listen to). User's NVDA test in Firefox: Instruments, Reorder, Collapse
+staves and Key Signature work; Link not tried. Fixed from it: Tab now
+wraps inside every dialog (Firefox tabbed out to its toolbar), Reorder
+has Alt+U/Alt+D, and Instruments also takes the desktop's Ctrl+Shift+I
+(Firefox passes it through). Ctrl+Shift+K stays unbound: Firefox opens
+its developer tools on it, so Key Signature is Ctrl+Alt+K only. Phase 6
+is complete after this; next is Phase 7.
+
+### Was (2026-10-20): 6.3 Performance Report committed
 
 6.3: shared code: `TimelineNavigator.report_row_index(row)` (with its
 MusicData delegator) now resolves a ReportRow's target (jump_index as-is,

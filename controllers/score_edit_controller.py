@@ -13,6 +13,9 @@ exec() - tests monkeypatch main_window.<DialogClass>, and dialog lifetime
 is a view concern - then hands the result here. Controllers own the logic
 behind a dialog, not its lifecycle.
 
+What each edit does to MusicData is models/score_edits.py, shared with the
+web bridge; this controller adds the desktop's refreshes.
+
 Touches no widgets itself. Region 2's labels and row order are updated
 through RegionPresenter, which stays the only controller that talks to
 them; that is also why every method here ends by asking the presenter to
@@ -22,6 +25,8 @@ Reads session.music_data per call and never caches it - MusicData is
 replaced wholesale on every load (see ScoreSession).
 """
 from typing import Dict, List, Optional, Tuple
+
+from models import score_edits
 
 
 class ScoreEditController:
@@ -36,31 +41,16 @@ class ScoreEditController:
     # --- Instruments dialog (S5, wishlist #8) --------------------------
 
     def instrument_rows(self) -> List[Tuple[str, str, int]]:
-        """(part_id, current name, current GM program) per part - the
-        dialog's main row list."""
-        return [(p.part_id, p.name, p.gmidi_program) for p in self.music_data.parts_info]
+        return score_edits.instrument_rows(self.music_data)
 
     def percussion_part_ids(self) -> List[str]:
-        return [p.part_id for p in self.music_data.parts_info if p.is_percussion]
+        return score_edits.percussion_part_ids(self.music_data)
 
     def percussion_toggle_part_ids(self) -> List[str]:
-        """Parts the Instruments dialog may flag/un-flag as percussion: every
-        part the file itself does not declare percussion (a part the user has
-        flagged already still counts, so it can be un-flagged)."""
-        flagged = self.music_data.part_percussion_overrides
-        return [
-            p.part_id for p in self.music_data.parts_info
-            if not p.is_percussion or p.part_id in flagged
-        ]
+        return score_edits.percussion_toggle_part_ids(self.music_data)
 
     def percussion_rows(self) -> Dict[str, list]:
-        """Per-item rows for each percussion part, keyed by part_id - a
-        percussion part contributes one row per distinct drum/cymbal on top
-        of its own part row (see MusicData.get_percussion_items_for_part)."""
-        return {
-            part_id: self.music_data.get_percussion_items_for_part(part_id)
-            for part_id in self.percussion_part_ids()
-        }
+        return score_edits.percussion_rows(self.music_data)
 
     def apply_instrument_overrides(
         self,
@@ -81,66 +71,32 @@ class ScoreEditController:
         toggles and expand state the user had set.
         """
         music_data = self.music_data
-        part_percussion_changes = part_percussion_changes or {}
-        structure_changed = bool(part_percussion_changes)
-        percussion_changed = structure_changed or bool(
-            item_name_overrides
-            or item_sound_overrides
-            or auto_correct_enabled != music_data.percussion_auto_correct_enabled
+        edit = score_edits.apply_instrument_overrides(
+            music_data, name_overrides, program_overrides, item_name_overrides,
+            item_sound_overrides, auto_correct_enabled, part_percussion_changes,
         )
-        parts_changed = bool(name_overrides or program_overrides)
-        if not (parts_changed or percussion_changed):
+        if not edit.changed:
             return False
-
-        if parts_changed:
-            music_data.apply_part_overrides(name_overrides, program_overrides)
-            for part_id, name in name_overrides.items():
-                self.presenter.rename_part(part_id, name)
-
-        if structure_changed:
+        for part_id, name in edit.renamed_parts.items():
+            self.presenter.rename_part(part_id, name)
+        if edit.structure_changed:
             # Region 2's voice rows change shape (a kit has one voice per
             # drum), so its tree is rebuilt - with every mute/solo/link the
             # user had carried across (invariant 11).
-            for part_id, flagged in part_percussion_changes.items():
-                if flagged:
-                    music_data.part_percussion_overrides.add(part_id)
-                else:
-                    music_data.part_percussion_overrides.discard(part_id)
-            music_data.apply_part_percussion_overrides()
-
-        if percussion_changed:
-            music_data.percussion_item_name_overrides.update(item_name_overrides)
-            music_data.percussion_item_overrides.update(item_sound_overrides)
-            music_data.percussion_auto_correct_enabled = auto_correct_enabled
-            # Recomputes every percussion item's effective sound AND its
-            # voice label (apply_percussion_overrides ends by re-running
-            # _set_percussion_voice_names), so the labels read back below
-            # are already current.
-            music_data.apply_percussion_overrides()
-            if structure_changed:
-                self.presenter.reload_region_2_structure(
-                    music_data.get_score_structure(), music_data.collapsed_part_ids,
-                    self.link_group_numbers(),
-                )
-            else:
-                for part in music_data.parts_info:
-                    if not part.is_percussion:
-                        continue
-                    for (staff_id, voice_id), label in part.voice_names.items():
-                        self.presenter.rename_voice(part.part_id, staff_id, voice_id, label)
-
+            self.presenter.reload_region_2_structure(
+                music_data.get_score_structure(), music_data.collapsed_part_ids,
+                self.link_group_numbers(),
+            )
+        elif edit.percussion_changed:
+            for part_id, staff_id, voice_id, label in edit.voice_renames(music_data):
+                self.presenter.rename_voice(part_id, staff_id, voice_id, label)
         self.presenter.update_timeline_views(play_all=False)
         return True
 
     # --- Key Signature dialog (S6) -------------------------------------
 
     def current_key_override(self) -> Tuple[Optional[int], Optional[str]]:
-        """(fifths, mode) currently overridden, or (None, None) for "use the
-        file's own key" - what the dialog opens on and compares against."""
-        return (
-            self.music_data.key_signature_override_fifths,
-            self.music_data.key_signature_override_mode,
-        )
+        return score_edits.current_key_override(self.music_data)
 
     def apply_key_signature_override(
         self, fifths: Optional[int], mode: Optional[str]
@@ -149,13 +105,10 @@ class ScoreEditController:
         changed.
 
         Region 1 and the status bar need their own explicit refresh: the
-        displayed key isn't part of update_timeline_views' normal scope, and
-        for a MIDI score the override also re-spells every note (see
-        OverrideManager.apply_key_signature_override).
+        displayed key isn't part of update_timeline_views' normal scope.
         """
-        if (fifths, mode) == self.current_key_override():
+        if not score_edits.apply_key_signature_override(self.music_data, fifths, mode):
             return False
-        self.music_data.apply_key_signature_override(fifths, mode)
         self.presenter.update_timeline_views(play_all=False)
         self.presenter.refresh_region_1()
         self.presenter.update_status_bar()
@@ -164,22 +117,19 @@ class ScoreEditController:
     # --- Reorder Parts dialog ------------------------------------------
 
     def part_rows(self) -> List[Tuple[str, str]]:
-        """(part_id, name) per part, in current order - the dialog's list."""
-        return [(p.part_id, p.name) for p in self.music_data.parts_info]
+        return score_edits.part_rows(self.music_data)
 
     def current_part_order(self) -> List[str]:
-        return [p.part_id for p in self.music_data.parts_info]
+        return score_edits.current_part_order(self.music_data)
 
     def reorder_parts(self, new_order: List[str]) -> bool:
         """Apply a new part order. Returns whether it changed.
 
-        Two halves, both in-place: MusicData.reorder_parts re-sorts every
-        slice's notes, and Region 2's rows are moved rather than rebuilt -
-        same "never load_score_structure" reasoning as rename_part above.
+        Region 2's rows are moved rather than rebuilt - same "never
+        load_score_structure" reasoning as rename_part above.
         """
-        if new_order == self.current_part_order():
+        if not score_edits.reorder_parts(self.music_data, new_order):
             return False
-        self.music_data.reorder_parts(new_order)
         self.presenter.reorder_parts(new_order)
         self.presenter.update_timeline_views(play_all=False)
         return True
@@ -195,38 +145,24 @@ class ScoreEditController:
     # MainWindow.show_region_2_context_menu.
 
     def link_dialog_rows(self) -> List[Tuple[str, str]]:
-        """(part_id, part name) for every currently UNLINKED part, in
-        current part order - the Link Parts dialog's row list."""
-        return [
-            (p.part_id, p.name) for p in self.music_data.parts_info
-            if self.music_data.link_group_number(p.part_id) is None
-        ]
+        return score_edits.link_dialog_rows(self.music_data)
 
     def link_group_numbers(self) -> Dict[str, int]:
-        """part_id -> group number for every currently linked part - what
-        Region2HierarchyModel.apply_link_groups needs."""
-        return {
-            part_id: i + 1
-            for i, group in enumerate(self.music_data.part_link_groups)
-            for part_id in group
-        }
+        return score_edits.link_group_numbers(self.music_data)
 
     def link_new_group(self, part_ids: List[str]) -> bool:
-        """Apply the Link Parts dialog's result: link_dialog_rows already
-        guarantees every id here is currently unlinked, so this only fails
-        (per PartLinks.link_parts) if fewer than two distinct ids were
-        checked. Returns whether it changed anything."""
-        if not self.music_data.link_parts(part_ids):
+        """Apply the Link Parts dialog's result. Returns whether it changed
+        anything."""
+        if not score_edits.link_new_group(self.music_data, part_ids):
             return False
         self.presenter.apply_link_groups(self.link_group_numbers())
         self.presenter.update_timeline_views(play_all=False)
         return True
 
     def unlink_part(self, part_id: str) -> bool:
-        """Region 2's context menu Unlink action - dissolves `part_id` out
-        of its link group (the whole group if that leaves fewer than two
-        members). Returns whether anything changed."""
-        if not self.music_data.unlink_part(part_id):
+        """Region 2's context menu Unlink action. Returns whether anything
+        changed."""
+        if not score_edits.unlink_part(self.music_data, part_id):
             return False
         self.presenter.apply_link_groups(self.link_group_numbers())
         self.presenter.update_timeline_views(play_all=False)
@@ -235,11 +171,7 @@ class ScoreEditController:
     # --- Parts > Collapse staves ---------------------------------------
 
     def collapse_staves_state(self, part_id: Optional[str]) -> Tuple[bool, bool]:
-        """(enabled, checked) for the Collapse staves menu item, given the
-        part holding Region 2's current row (None for no row)."""
-        if part_id is None or not self.music_data.is_stave_collapsible(part_id):
-            return False, False
-        return True, self.music_data.is_staves_collapsed(part_id)
+        return score_edits.collapse_staves_state(self.music_data, part_id)
 
     def toggle_staves_collapsed(self, part_id: str) -> bool:
         """Collapse or uncollapse `part_id`'s alternate stave. Returns
@@ -251,8 +183,8 @@ class ScoreEditController:
         which is what drops (or restores) that stave's notes in navigation
         and playback."""
         music_data = self.music_data
-        collapsed = not music_data.is_staves_collapsed(part_id)
-        if not music_data.set_staves_collapsed(part_id, collapsed):
+        collapsed = score_edits.toggle_staves_collapsed(music_data, part_id)
+        if collapsed is None:
             return False
         self.presenter.reload_region_2_structure(
             music_data.get_score_structure(), music_data.collapsed_part_ids,

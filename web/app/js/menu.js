@@ -43,8 +43,15 @@ import { keysText } from "./dialogs.js";
 // not key-driven, supplied by the caller.
 const MENUS = [
   { title: "File", items: ["extra:open"] },
-  { title: "Edit", region: 3, items: ["notes.selectAll"] },
-  { title: "Parts", region: 2, items: ["region2.solo", "region2.mute", "-", "region2.unsoloAll", "region2.unmuteAll"] },
+  { title: "Edit", region: 3, items: ["notes.selectAll", "edit.keySignature"] },
+  {
+    title: "Parts",
+    region: 2,
+    items: [
+      "parts.instruments", "parts.reorder", "parts.link", "extra:collapseStaves", "-",
+      "region2.solo", "region2.mute", "region2.unsoloAll", "region2.unmuteAll",
+    ],
+  },
   {
     title: "Navigation",
     region: 3,
@@ -94,7 +101,8 @@ let serial = 0;
 
 /** `menuButton` opens the menu. `extra` maps a name to {label, run}.
  * `returnFocus(region)` focuses that region, or the Menu button for none.
- * `disabled()` lists the keymap ids to show as unavailable. `checked()`
+ * `disabled()` lists the MENUS entries (keymap ids, or "extra:<name>") to
+ * show as unavailable. `checked()`
  * maps a MENUS entry (a keymap id, or "extra:<name>") to true or false for
  * each item that has a checked state now; an entry it leaves out is a
  * plain item. */
@@ -125,7 +133,7 @@ function liveMenus() {
         const extra = extras[entry.slice(6)];
         if (extra) {
           const role = state === null ? "menuitem" : extra.radio ? "menuitemradio" : "menuitemcheckbox";
-          items.push({ label: extra.label, keys: null, run: extra.run, role, checked: state });
+          items.push({ label: extra.label, keys: null, run: extra.run, disabled: disabled.has(entry), role, checked: state });
         }
       } else if (bound.has(entry)) {
         const row = KEYMAP.find((r) => r.id === entry);

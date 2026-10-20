@@ -392,7 +392,9 @@ the window.**
   score's own data: the Instruments dialog's part name/instrument and
   per-percussion-item overrides, the Key Signature dialog's whole-piece override,
   and Reorder Parts. The counterpart of `PlaybackController` for score data
-  rather than transport. Touches no widgets: Region 2's labels and row order go
+  rather than transport. What each edit does to `MusicData` is
+  `models/score_edits.py`, shared with the web bridge; the controller adds the
+  desktop's refreshes. Touches no widgets: Region 2's labels and row order go
   through `RegionPresenter.rename_part`/`rename_voice`/`reorder_parts`. Each
   apply method returns whether anything actually changed, so a dialog dismissed
   with no edits triggers no rebuild.

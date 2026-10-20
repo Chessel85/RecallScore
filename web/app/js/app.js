@@ -6,7 +6,10 @@ import {
   initRegions, render, moveRow, extendSelection, selection, selectAll, rowAt, currentRow, treeExpand, treeCollapse,
   selectTreeNode,
 } from "./regions.js";
-import { showHelp, showGotoBar, showFind, showReport, showPlaySettings, showMixer } from "./dialogs.js";
+import {
+  showHelp, showGotoBar, showFind, showReport, showPlaySettings, showMixer, showInstruments, showKeySignature,
+  showPartOrder, showLinkParts,
+} from "./dialogs.js";
 import { initMenu, showContextMenu, openMenu } from "./menu.js";
 import { initAudio, prefetchSoundFonts, play, setMixerLevels, mixerChange } from "./audio.js";
 import { initScheduler, startSession, stopSession, pauseSession, isScheduling } from "./scheduler.js";
@@ -54,9 +57,17 @@ initMenu({
       label: "Performance indicator on except when playing", radio: true, run: () => setIndicator("on_except_when_playing"),
     },
     indicatorAlways: { label: "Performance indicator always on", radio: true, run: () => setIndicator("always_on") },
+    collapseStaves: { label: "Collapse staves", run: () => toggleStaves() },
   },
   returnFocus: (n) => (n && scoreLoaded ? focusRegion(n) : focusMenuButton()),
-  disabled: () => (scoreLoaded ? py.disabledCommands() : []),
+  // Collapse staves acts on Region 2's row, so it is unavailable unless
+  // that row's part has an alternate stave (the desktop's aboutToShow).
+  disabled: () => {
+    if (!scoreLoaded) return ["extra:collapseStaves"];
+    const ids = py.disabledCommands();
+    if (Array.isArray(ids) && !py.stavesState(region2Node())?.enabled) ids.push("extra:collapseStaves");
+    return ids;
+  },
   checked: () => optionsChecked(),
 });
 
@@ -179,6 +190,72 @@ bind("region2.mute", withScore(() => toggleRegion2("mute")));
 bind("region2.solo", withScore(() => toggleRegion2("solo")));
 bind("region2.unmuteAll", withScore(() => applyRegion2(py.region2Clear("mute"))));
 bind("region2.unsoloAll", withScore(() => applyRegion2(py.region2Clear("solo"))));
+
+// --- score edits: Instruments, Key Signature, Reorder Parts, Link Parts,
+// Unlink, Collapse staves ----------------------------------------------------------
+// The bridge changes the score and Region 2's tree (in place, keeping every
+// mute and solo); the page redraws every region, Region 2 keeping its row,
+// and resends the channel levels, since a part's channel can change.
+// Nothing is sounded. A dialog's Close or Cancel changes nothing, and focus
+// goes back to the region it came from either way, as on the desktop.
+
+const region2Node = () => rowAt(2, currentRow(2))?.id ?? null;
+
+function applyEdit(result) {
+  if (result?.error) return showError(result.error);
+  if (!result?.changed) return;
+  setMixerLevels(result.mixer);
+  if (result.announce) announceUrgent(result.announce);
+  showRegions(result.regions, result.selection);
+  if (result.node) selectTreeNode(result.node);
+}
+
+/** Open a score-edit dialog on `form`; `apply(answer)` is the bridge call
+ * for OK. */
+async function editDialog(form, show, apply) {
+  if (form?.error) return showError(form.error);
+  const back = focusedRegion();
+  const answer = await show(form);
+  if (answer !== null) applyEdit(apply(answer));
+  if (back) focusRegion(back);
+  else focusMenuButton();
+}
+
+bind("parts.instruments", withScore(() =>
+  editDialog(py.instrumentsForm(), showInstruments, ({ values, autoCorrect }) => py.instrumentsApply(values, autoCorrect))));
+bind("edit.keySignature", withScore(() => editDialog(py.keySignatureForm(), showKeySignature, py.keySignatureApply)));
+bind("parts.reorder", withScore(() => editDialog(py.partOrderForm(region2Node()), showPartOrder, py.partOrderApply)));
+bind("parts.link", withScore(() => editDialog(py.linkPartsForm(region2Node()), showLinkParts, py.linkPartsApply)));
+
+/** Parts > Collapse staves, on the part holding Region 2's row (the Menu's
+ * Parts entries focus Region 2 first). The new state is spoken; Region 2's
+ * row stays, or moves to its part when that row has gone. */
+function toggleStaves() {
+  if (!scoreLoaded || !py.stavesState(region2Node())?.enabled) return;
+  applyEdit(py.stavesToggle(region2Node()));
+}
+
+/** Region 2's menu (Shift+F10): Unlink, on a linked part's row only. */
+function openPartsMenu() {
+  const node = region2Node();
+  const menu = node ? py.region2Menu(node) : null;
+  if (menu?.error) return showError(menu.error);
+  if (!menu?.items.length) return; // nothing to offer: no menu, as on the desktop
+  showContextMenu({
+    anchor: regionElements[1],
+    label: menu.title,
+    entries: menu.items.map((item) => ({
+      label: item.label,
+      run: () => {
+        applyEdit(py.region2Unlink(node));
+        focusRegion(2);
+      },
+    })),
+    back: () => focusRegion(2),
+  });
+}
+
+bind("region2.menu", withScore(() => openPartsMenu()));
 
 // --- go to bar -----------------------------------------------------------------
 
@@ -490,7 +567,10 @@ bind("performance.categoryMenu", withScore(() => openCategoryMenu()));
 // the menu the key already opened, so it is only swallowed there.
 document.addEventListener("contextmenu", (event) => {
   if (event.target?.closest?.("[role='menu']")) event.preventDefault();
-  else if (scoreLoaded && regionElements[3].contains(event.target)) {
+  else if (scoreLoaded && regionElements[1].contains(event.target)) {
+    event.preventDefault();
+    openPartsMenu();
+  } else if (scoreLoaded && regionElements[3].contains(event.target)) {
     event.preventDefault();
     openScopeMenu();
   } else if (scoreLoaded && regionElements[4].contains(event.target)) {
@@ -517,6 +597,7 @@ function optionsChecked() {
     "extra:indicatorAlways": state.performance_indicator === "always_on",
     "options.engravingDetails": state.show_engraving_details,
   };
+  checked["extra:collapseStaves"] = scoreLoaded && Boolean(py.stavesState(region2Node())?.checked);
   if ("metronome" in state) {
     checked["options.metronome"] = state.metronome;
     checked["options.positionAnnouncer"] = state.position_announcer;

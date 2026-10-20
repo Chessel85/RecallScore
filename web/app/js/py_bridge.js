@@ -82,6 +82,20 @@ export const clearDigits = () => call("clear_digits");
 /** kind: "mute" or "solo". */
 export const region2Toggle = (nodeId, kind) => call("region2_toggle", nodeId, kind);
 export const region2Clear = (kind) => call("region2_clear", kind);
+// Score edits (see the "score edits" section of web_api.py). `nodeId` is
+// Region 2's current row, which the desktop's dialogs open on.
+export const instrumentsForm = () => call("instruments_form");
+export const instrumentsApply = (values, autoCorrect) => call("instruments_apply", values, autoCorrect);
+export const keySignatureForm = () => call("key_signature_form");
+export const keySignatureApply = (index) => call("key_signature_apply", index);
+export const partOrderForm = (nodeId) => call("part_order_form", nodeId);
+export const partOrderApply = (order) => call("part_order_apply", order);
+export const linkPartsForm = (nodeId) => call("link_parts_form", nodeId);
+export const linkPartsApply = (partIds) => call("link_parts_apply", partIds);
+export const region2Menu = (nodeId) => call("region2_menu", nodeId);
+export const region2Unlink = (nodeId) => call("region2_unlink", nodeId);
+export const stavesState = (nodeId) => call("staves_state", nodeId);
+export const stavesToggle = (nodeId) => call("staves_toggle", nodeId);
 export const synthSetup = () => call("synth_setup");
 /** Sound Region 3's selection without moving; see web_api.audition. */
 export const audition = (selection, withPositionCues = false) => call("audition", selection, withPositionCues);

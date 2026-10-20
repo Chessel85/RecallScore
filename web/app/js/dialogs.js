@@ -1,5 +1,6 @@
 // Dialogs: the keyboard help list, Go to bar, Find, the Performance Report,
-// Play Settings and the Mixer,
+// Play Settings, the Mixer, and the score edits (Instruments, Key
+// Signature, Reorder Parts, Link Parts),
 // on native <dialog>. (The Menu is a real ARIA menu, in menu.js.) Rules
 // every dialog here follows:
 // * Initial focus goes to the first widget in tab order, never a "more
@@ -20,6 +21,8 @@ const GROUPS = {
   list: "Lists",
   tree: "Parts",
   region2: "Parts",
+  parts: "Parts",
+  edit: "Edit",
   nav: "Navigation",
   goto: "Navigation",
   find: "Navigation",
@@ -49,6 +52,21 @@ function makeDialog(title) {
   footer.className = "dialog-buttons";
   dialog.append(heading, body, footer);
   dialog.addEventListener("close", () => dialog.remove());
+  // Tab and Shift+Tab wrap inside the dialog. A modal <dialog> lets Tab
+  // leave the last widget for the browser's own toolbar (Firefox).
+  dialog.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab" || event.ctrlKey || event.altKey || event.metaKey) return;
+    const stops = [...dialog.querySelectorAll(FOCUSABLE)].filter(
+      (el) => !el.disabled && el.tabIndex >= 0 && el.getClientRects().length,
+    );
+    if (!stops.length) return;
+    const [first, last] = [stops[0], stops[stops.length - 1]];
+    const at = document.activeElement;
+    if (event.shiftKey ? at === first || !dialog.contains(at) : at === last) {
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
+    }
+  });
   document.body.append(dialog);
   return {
     dialog,
@@ -536,6 +554,318 @@ export function showMixer(form, { change, preview }) {
 
     if (form.rows.length) list.selectedIndex = 0;
     show();
+    d.open();
+  });
+}
+
+/** A labelled control in a form: a separate <label for>, never one wrapped
+ * round the control (a wrapped select can have its chosen option read into
+ * its name). A checkbox goes before its label. */
+function addField(form, name, labelText, control) {
+  const row = document.createElement("div");
+  row.className = "dialog-field";
+  const label = document.createElement("label");
+  label.textContent = labelText;
+  control.id = `${form.id}-${name}`;
+  label.htmlFor = control.id;
+  if (control.type === "checkbox") row.append(control, " ", label);
+  else row.append(label, " ", control);
+  form.append(row);
+  return control;
+}
+
+/** A <form method=dialog> with OK (submit) and Cancel in the footer, so
+ * Enter in a field is OK. */
+function okCancelForm(d, prefix) {
+  const el = document.createElement("form");
+  el.method = "dialog";
+  el.id = `${prefix}-${serial}`;
+  d.body.append(el);
+  const ok = button("OK", null, "submit");
+  ok.setAttribute("form", el.id);
+  d.footer.append(ok, button("Cancel", () => d.close()));
+  return { el, ok };
+}
+
+/** A select (list box or drop-down) does not submit on Enter by itself. */
+function submitOnEnter(list, form) {
+  list.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.ctrlKey || event.altKey || event.shiftKey || event.metaKey) return;
+    event.preventDefault();
+    form.requestSubmit();
+  });
+}
+
+function listBox(texts, size = 10) {
+  const list = document.createElement("select");
+  list.size = Math.min(Math.max(texts.length, 2), size);
+  texts.forEach((text, i) => list.append(new Option(text, String(i))));
+  return list;
+}
+
+/** Instruments (Ctrl+Alt+I), the desktop's InstrumentDialog: the parts,
+ * each percussion part followed by its drums and cymbals, then Name,
+ * Instrument and "Percussion part" for the chosen row, the percussion
+ * offset tick when the score has percussion, OK, Cancel. An item row's
+ * Instrument lists the GM percussion sounds; a part playing as a kit has
+ * none (greyed); "Percussion part" can be changed only on a part the file
+ * does not declare percussion, and its drum rows appear after OK. `form`
+ * is web_api.instruments_form(). Resolves to {values, autoCorrect} (one
+ * {name, sound, percussion} per row; the bridge works out what changed),
+ * or null on Cancel. */
+export function showInstruments(form) {
+  return new Promise((resolve) => {
+    const d = makeDialog(form.title);
+    const { el } = okCancelForm(d, "instruments");
+    const values = form.rows.map((row) => ({ name: row.name, sound: row.sound, percussion: row.percussion }));
+
+    const list = addField(el, "rows", "Parts", listBox(form.rows.map((row) => row.name)));
+    const name = document.createElement("input");
+    name.type = "text";
+    name.autocomplete = "off";
+    addField(el, "name", "Name", name);
+    const instrument = addField(el, "instrument", "Instrument", document.createElement("select"));
+    const percussion = document.createElement("input");
+    percussion.type = "checkbox";
+    addField(el, "percussion", "Percussion part", percussion);
+    let autoCorrect = null;
+    if (form.auto_correct !== null && form.auto_correct !== undefined) {
+      autoCorrect = document.createElement("input");
+      autoCorrect.type = "checkbox";
+      autoCorrect.checked = Boolean(form.auto_correct);
+      addField(el, "offset", "Apply MusicXML offset for percussion", autoCorrect);
+    }
+    submitOnEnter(list, el);
+    submitOnEnter(instrument, el);
+
+    // "pitched" (the 128 GM instruments), "percussion" (GM percussion
+    // sounds) or "none" (a kit's own row: nothing to choose). A sound not
+    // in the list (a drum with no GM name) is shown as an extra choice.
+    let mode = null;
+    const choices = (wanted, sound) => {
+      if (wanted !== mode) {
+        mode = wanted;
+        const names = { pitched: form.instruments, percussion: form.percussion_sounds }[mode] ?? [];
+        instrument.replaceChildren(...names.map((text) => new Option(text, text)));
+      }
+      instrument.querySelector("option[data-extra]")?.remove();
+      if (mode !== "none" && sound && ![...instrument.options].some((option) => option.value === sound)) {
+        const extra = new Option(sound, sound);
+        extra.dataset.extra = "true";
+        instrument.prepend(extra);
+      }
+      instrument.value = mode === "none" ? "" : sound ?? "";
+      instrument.disabled = mode === "none";
+    };
+    const current = () => Number(list.value);
+    const showSound = (i) => {
+      if (form.rows[i].kind === "item") choices("percussion", values[i].sound);
+      else choices(values[i].percussion ? "none" : "pitched", values[i].sound);
+    };
+    const show = () => {
+      const i = current();
+      const row = form.rows[i];
+      if (!row) return;
+      name.value = values[i].name;
+      percussion.checked = row.kind === "part" && values[i].percussion;
+      percussion.disabled = !row.toggleable;
+      showSound(i);
+    };
+
+    list.addEventListener("change", show);
+    name.addEventListener("input", () => {
+      if (form.rows[current()]) values[current()].name = name.value;
+    });
+    instrument.addEventListener("change", () => {
+      if (form.rows[current()]) values[current()].sound = instrument.value;
+    });
+    percussion.addEventListener("change", () => {
+      const i = current();
+      if (!form.rows[i]?.toggleable) return;
+      values[i].percussion = percussion.checked;
+      showSound(i);
+    });
+
+    let answer = null;
+    el.addEventListener("submit", () => {
+      answer = { values, autoCorrect: autoCorrect ? autoCorrect.checked : null };
+    });
+    d.dialog.addEventListener("close", () => resolve(answer));
+    if (form.rows.length) list.selectedIndex = 0;
+    else for (const control of [name, instrument, percussion]) control.disabled = true;
+    show();
+    d.open();
+  });
+}
+
+/** Key Signature (Ctrl+Alt+K), the desktop's KeySignatureDialog: one
+ * choice of key for the whole piece, "Use the file's own key" first, then
+ * OK and Cancel. `form` is web_api.key_signature_form(). Resolves to the
+ * chosen index, or null on Cancel. */
+export function showKeySignature(form) {
+  return new Promise((resolve) => {
+    const d = makeDialog(form.title);
+    const { el } = okCancelForm(d, "key-signature");
+    const choice = document.createElement("select");
+    form.options.forEach((text, i) => choice.append(new Option(text, String(i))));
+    choice.value = String(form.current);
+    addField(el, "key", form.label, choice);
+    submitOnEnter(choice, el);
+    let answer = null;
+    el.addEventListener("submit", () => {
+      answer = Number(choice.value);
+    });
+    d.dialog.addEventListener("close", () => resolve(answer));
+    d.open();
+  });
+}
+
+/** Reorder Parts (Ctrl+Shift+O), the desktop's PartOrderDialog: the parts,
+ * Move Up, Move Down, OK, Cancel. Moves are kept here and only applied on
+ * OK. It opens on form.current, the part Region 2's row belongs to. A move
+ * button at its end is aria-disabled, not disabled, so the focus stays on
+ * it (a disabled button drops the focus). `form` is
+ * web_api.part_order_form(). Resolves to the part ids in their new order,
+ * or null on Cancel. */
+export function showPartOrder(form) {
+  return new Promise((resolve) => {
+    const d = makeDialog(form.title);
+    const { el } = okCancelForm(d, "part-order");
+    const order = [...form.rows];
+    const list = addField(el, "rows", form.label, listBox(order.map((row) => row.name)));
+    submitOnEnter(list, el);
+
+    const refresh = () => {
+      const i = list.selectedIndex;
+      up.setAttribute("aria-disabled", String(i <= 0));
+      down.setAttribute("aria-disabled", String(i < 0 || i >= order.length - 1));
+    };
+    const move = (delta) => {
+      const i = list.selectedIndex;
+      const j = i + delta;
+      if (i < 0 || j < 0 || j >= order.length) return;
+      [order[i], order[j]] = [order[j], order[i]];
+      list.options[i].textContent = order[i].name;
+      list.options[j].textContent = order[j].name;
+      list.selectedIndex = j;
+      refresh();
+    };
+    const up = button("Move Up Alt+U", () => move(-1));
+    const down = button("Move Down Alt+D", () => move(1));
+    const moves = document.createElement("div");
+    moves.className = "dialog-field";
+    moves.append(up, " ", down);
+    el.append(moves);
+    list.addEventListener("change", refresh);
+    // The desktop's &Up and &Down mnemonics, from anywhere in the dialog.
+    // Taken before the browser, whose Alt+D is its address bar.
+    d.dialog.addEventListener("keydown", (event) => {
+      if (!event.altKey || event.ctrlKey || event.shiftKey || event.metaKey) return;
+      const delta = { KeyU: -1, KeyD: 1 }[event.code];
+      if (delta === undefined) return;
+      event.preventDefault();
+      move(delta);
+    });
+
+    let answer = null;
+    el.addEventListener("submit", () => {
+      answer = order.map((row) => row.id);
+    });
+    d.dialog.addEventListener("close", () => resolve(answer));
+    if (order.length) list.selectedIndex = Math.min(form.current, order.length - 1);
+    refresh();
+    d.open();
+  });
+}
+
+/** Link Parts (Ctrl+Alt+L), the desktop's LinkPartsDialog: every part not
+ * yet linked, each a checkable row (Space ticks it, read as checked or not
+ * checked), then OK and Cancel. OK, or Enter on the list, links every
+ * ticked part into one new group; it is unavailable until two are ticked.
+ * The rows take real focus (roving tabindex), as in the regions, opening
+ * on form.current. `form` is web_api.link_parts_form(). Resolves to the
+ * ticked part ids, or null on Cancel. */
+export function showLinkParts(form) {
+  return new Promise((resolve) => {
+    const d = makeDialog(form.title);
+    const label = document.createElement("div");
+    label.id = `link-label-${serial}`;
+    label.textContent = form.label;
+    const list = document.createElement("div");
+    list.className = "check-list";
+    list.setAttribute("role", "listbox");
+    list.setAttribute("aria-labelledby", label.id);
+    d.body.append(label, list);
+    if (!form.rows.length) {
+      const none = document.createElement("p");
+      none.id = `link-none-${serial}`;
+      none.textContent = "Every part is already linked.";
+      d.body.append(none);
+      d.dialog.setAttribute("aria-describedby", none.id);
+    }
+
+    const ticked = new Set();
+    let current = form.rows.length ? Math.min(form.current, form.rows.length - 1) : -1;
+    let answer = null;
+
+    // aria-disabled rather than disabled, so it can take the focus and is
+    // read as unavailable.
+    const ok = button("OK", () => {
+      if (ticked.size < 2) return;
+      answer = form.rows.filter((_, i) => ticked.has(i)).map((row) => row.id);
+      d.close();
+    });
+    d.footer.append(ok, button("Cancel", () => d.close()));
+
+    const options = form.rows.map((row, i) => {
+      const option = document.createElement("div");
+      option.id = `link-${serial}-${i}`;
+      option.setAttribute("role", "option");
+      option.textContent = row.name;
+      option.addEventListener("click", () => {
+        current = i;
+        toggle();
+      });
+      list.append(option);
+      return option;
+    });
+    const show = (focus = true) => {
+      options.forEach((option, i) => {
+        option.tabIndex = i === current ? 0 : -1;
+        option.setAttribute("aria-selected", i === current ? "true" : "false");
+        option.setAttribute("aria-checked", ticked.has(i) ? "true" : "false");
+      });
+      ok.setAttribute("aria-disabled", String(ticked.size < 2));
+      if (focus) options[current]?.focus();
+    };
+    const toggle = () => {
+      if (ticked.has(current)) ticked.delete(current);
+      else ticked.add(current);
+      show();
+    };
+
+    list.addEventListener("keydown", (event) => {
+      if (current < 0 || event.ctrlKey || event.altKey || event.shiftKey || event.metaKey) return;
+      const go = (i) => {
+        if (i >= 0 && i < options.length && i !== current) {
+          current = i;
+          show();
+        }
+      };
+      switch (event.key) {
+        case "ArrowUp": go(current - 1); break;
+        case "ArrowDown": go(current + 1); break;
+        case "Home": go(0); break;
+        case "End": go(options.length - 1); break;
+        case " ": toggle(); break;
+        case "Enter": ok.click(); break;
+        default: return;
+      }
+      event.preventDefault();
+    });
+
+    d.dialog.addEventListener("close", () => resolve(answer));
+    show(false);
     d.open();
   });
 }

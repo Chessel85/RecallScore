@@ -56,7 +56,8 @@ back to the position line on every note.
 
 ## Dialogs: `app/js/dialogs.js`
 
-Native `<dialog>`. First widget in tab order gets focus, there is always a
+Native `<dialog>`. Tab and Shift+Tab wrap inside it (`makeDialog`), since
+Firefox otherwise tabs out to its own toolbar. First widget in tab order gets focus, there is always a
 Close or Cancel button (Escape may never arrive), and keymap.js ignores
 every key while one is open. F1 help is built from the key table, so a new
 command shows up there by being bound. A settings dialog is built from a
@@ -200,6 +201,35 @@ Region 2 and focuses it, any other row moves the cursor and focuses
 Region 3; Enter on a heading does nothing, as on the desktop. A target
 that resolves nowhere sounds the boundary cue and focus goes back where
 it came from, as Close does.
+
+## Score edits
+
+Instruments (Ctrl+Alt+I, and the desktop's Ctrl+Shift+I where the
+browser lets it through), Reorder Parts (Ctrl+Shift+O; Alt+U and Alt+D
+move, as the desktop's mnemonics) and Link Parts
+(Ctrl+Alt+L) on the Parts menu, with Collapse staves (no key); Key
+Signature (Ctrl+Alt+K) on the Edit menu; Unlink on Region 2's own menu
+(Shift+F10, ContextMenu, right click), on a linked part's row only. The
+desktop's Ctrl+Shift+I and K are the browsers' developer tools and
+Ctrl+Shift+N is Chrome's private window, hence Ctrl+Alt (as Play
+Settings). Firefox passes Ctrl+Shift+I through, so Instruments takes it
+too; it keeps Ctrl+Shift+K (tested), so Key Signature does not. What each edit does to MusicData is `models/score_edits.py`,
+which the desktop's ScoreEditController uses too; the bridge is the
+"score edits" section of `web_api.py`. Region 2's tree is changed in
+place, or rebuilt with mute, solo and link numbers carried across when
+its rows change shape (a part flagged percussion, collapsed staves),
+never rebuilt fresh. Every applied edit re-sends every region and the
+channel levels, and nothing sounds. The dialogs copy the desktop's: each
+holds its working copy until OK, opens Reorder and Link on Region 2's
+current part, and goes back to the region it came from. The Instruments
+dialog sends what it shows at OK and the bridge works out what changed.
+Link Parts' rows are a listbox of `aria-checked` options (Space ticks),
+not native checkboxes, which NVDA leaves in browse mode. A button that
+cannot act right now (Move Up at the top, OK with fewer than two parts
+ticked) is `aria-disabled`, never `disabled`, which would drop the focus.
+Collapse staves is unavailable and unticked unless Region 2's current
+row's part has an alternate stave (`web_api.staves_state`, read on every
+Menu open).
 
 ## Stored settings: `app/js/storage.js`
 

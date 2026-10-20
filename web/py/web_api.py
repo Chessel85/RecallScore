@@ -35,7 +35,13 @@ from models.mixer_settings import (
 )
 from models.app_settings_data import AppSettings
 from models.attribute_scopes import region_4_scope_menu
+from models import score_edits
 from models.find_target import FindTarget, find_row_label, find_row_text
+from models.gm_instruments import GM_INSTRUMENT_NAMES, GM_PROGRAM_BY_NAME, gm_instrument_name
+from models.gm_percussion_map import (
+    GM_PERCUSSION_SOUND_NAMES, gm_percussion_key_for_name, gm_percussion_name,
+)
+from models.key_signatures import key_override_options
 from models.marking_categories import ALL_CATEGORIES, CATEGORY_NAMES, note_list_menu_label
 from models.music_data import MusicData
 from models.performance_indicator_mode import (
@@ -252,6 +258,7 @@ def _adopt(music_data: MusicData, config: Optional[ScoreConfig] = None) -> None:
         _region_2.apply_soloed_node_keys(
             config.parts_soloed, config.staves_soloed, config.voices_soloed
         )
+    _region_2.apply_link_groups(score_edits.link_group_numbers(music_data))
     music_data.set_active_voice_filter(_region_2.get_active_voice_tuples())
     _music_data = music_data
 
@@ -1011,6 +1018,279 @@ def region2_clear(kind: str) -> Dict[str, Any]:
         return {"error": f"Unknown clear {kind!r}."}
     result = _filter_changed()
     result["announce"] = said
+    return result
+
+
+# --- score edits (Instruments, Key Signature, Reorder Parts, Link Parts,
+# Region 2's Unlink, Collapse staves) ---------------------------------------------
+#
+# What each edit does to MusicData is models/score_edits.py, which the
+# desktop's ScoreEditController uses too. Region 2's tree is changed in
+# place (a rename, a reorder, link numbers), or, when its rows change shape,
+# rebuilt with every node's mute and solo and the link numbers carried across
+# (RegionPresenter.reload_region_2_structure); never rebuilt fresh
+# (invariant 11). Each apply returns {"changed": False} when nothing changed,
+# else {"changed": True} plus every region and Region 3's selection (as
+# view()) and every channel level ("mixer"): an instrument or percussion
+# change can move a part to another channel. Nothing is sounded.
+
+# One entry per Instruments row: {kind "part" or "item", key (part_id or
+# item key), name, sound (GM program or percussion key), kit, toggleable}.
+_instrument_rows: List[Dict[str, Any]] = []
+
+
+def _rebuild_region_2() -> None:
+    md = _music_data
+    muted = _region_2.get_muted_node_keys()
+    soloed = _region_2.get_soloed_node_keys()
+    _region_2.build_from_score(md.get_score_structure(), collapse_to_parts=md.collapsed_part_ids)
+    _region_2.apply_muted_node_keys(*muted)
+    _region_2.apply_soloed_node_keys(*soloed)
+    _region_2.apply_link_groups(score_edits.link_group_numbers(md))
+
+
+def _edited(changed: bool) -> Dict[str, Any]:
+    if not changed:
+        return {"changed": False}
+    _music_data.set_active_voice_filter(_region_2.get_active_voice_tuples())
+    return {"changed": True, **view(), "mixer": mixer_levels()}
+
+
+def _plain(value):
+    return value.to_py() if hasattr(value, "to_py") else value
+
+
+def instruments_form() -> Dict[str, Any]:
+    """The Instruments dialog (MainWindow._show_instrument_dialog): one row
+    per part, each percussion part followed by one row per drum or cymbal.
+    A row is {kind, name, sound, percussion, toggleable}: `sound` is the GM
+    instrument's name for a part (not shown while it is a kit, which has no
+    single instrument) or the GM percussion sound's for an item; `percussion` is
+    whether a part plays as a kit; `toggleable` whether its "Percussion
+    part" box can be changed (not for a part the file declares percussion).
+    "instruments" and "percussion_sounds" are the two choice lists;
+    "auto_correct" is the "Apply MusicXML offset for percussion" tick, or
+    None when the score has no percussion (the box is not shown)."""
+    global _instrument_rows
+    md = _music_data
+    if md is None:
+        return {"error": "No score is loaded."}
+    kits = set(score_edits.percussion_part_ids(md))
+    toggleable = set(score_edits.percussion_toggle_part_ids(md))
+    items = score_edits.percussion_rows(md)
+    _instrument_rows = []
+    for part_id, name, program in score_edits.instrument_rows(md):
+        _instrument_rows.append({"kind": "part", "key": part_id, "name": name, "sound": program,
+                                 "kit": part_id in kits, "toggleable": part_id in toggleable})
+        if part_id in kits:
+            for item_key, item_name, sounding_key in items.get(part_id, []):
+                _instrument_rows.append({"kind": "item", "key": item_key, "name": item_name,
+                                         "sound": sounding_key, "kit": False, "toggleable": False})
+    rows = [
+        {
+            "kind": row["kind"],
+            "name": row["name"],
+            "sound": (gm_percussion_name(row["sound"]) if row["kind"] == "item"
+                      else gm_instrument_name(row["sound"])),
+            "percussion": row["kit"],
+            "toggleable": row["toggleable"],
+        }
+        for row in _instrument_rows
+    ]
+    return {
+        "title": "Instruments",
+        "rows": rows,
+        "instruments": list(GM_INSTRUMENT_NAMES),
+        "percussion_sounds": list(GM_PERCUSSION_SOUND_NAMES),
+        "auto_correct": md.percussion_auto_correct_enabled if items else None,
+    }
+
+
+def instruments_apply(values, auto_correct=None) -> Dict[str, Any]:
+    """The Instruments dialog's OK. `values` has one {name, sound,
+    percussion} per row of the last instruments_form, as the dialog shows
+    them at OK; only what differs from the form becomes an override (the
+    desktop InstrumentDialog.overrides). An empty name keeps the old one,
+    and a sound that is not one of the choices keeps the old sound.
+    `auto_correct` None keeps the score's own setting."""
+    md = _music_data
+    if md is None:
+        return {"error": "No score is loaded."}
+    values = _plain(values) or []
+    names: Dict[str, str] = {}
+    programs: Dict[str, int] = {}
+    item_names: Dict[Any, str] = {}
+    item_sounds: Dict[Any, int] = {}
+    percussion: Dict[str, bool] = {}
+    for row, value in zip(_instrument_rows, values):
+        name = str(value.get("name") or "").strip() or row["name"]
+        sound = str(value.get("sound") or "")
+        key = row["key"]
+        if row["kind"] == "part":
+            if name != row["name"]:
+                names[key] = name
+            kit = bool(value.get("percussion")) if row["toggleable"] else row["kit"]
+            if row["toggleable"] and kit != row["kit"]:
+                percussion[key] = kit
+            # A kit has no single instrument, so its program stays.
+            program = row["sound"] if kit else GM_PROGRAM_BY_NAME.get(sound, row["sound"])
+            if program != row["sound"]:
+                programs[key] = program
+        else:
+            if name != row["name"]:
+                item_names[key] = name
+            sounding_key = gm_percussion_key_for_name(sound) if sound else None
+            if sounding_key is not None and sounding_key != row["sound"]:
+                item_sounds[key] = sounding_key
+    auto = md.percussion_auto_correct_enabled if auto_correct is None else bool(auto_correct)
+    edit = score_edits.apply_instrument_overrides(
+        md, names, programs, item_names, item_sounds, auto, percussion,
+    )
+    if edit.changed:
+        for part_id, name in edit.renamed_parts.items():
+            _region_2.rename_part(part_id, name)
+        if edit.structure_changed:
+            _rebuild_region_2()
+        elif edit.percussion_changed:
+            for part_id, staff_id, voice_id, label in edit.voice_renames(md):
+                _region_2.rename_voice(part_id, staff_id, voice_id, label)
+    return _edited(edit.changed)
+
+
+def key_signature_form() -> Dict[str, Any]:
+    """The Key Signature dialog (KeySignatureDialog): every choice's label,
+    "Use the file's own key" first, and the one in effect now."""
+    md = _music_data
+    if md is None:
+        return {"error": "No score is loaded."}
+    options = key_override_options()
+    now = score_edits.current_key_override(md)
+    current = next((i for i, (_, fifths, mode) in enumerate(options) if (fifths, mode) == now), 0)
+    return {"title": "Key Signature", "label": "Key signature",
+            "options": [label for label, _, _ in options], "current": current}
+
+
+def key_signature_apply(index: int) -> Dict[str, Any]:
+    """OK on choice `index` of key_signature_form. Region 1 and Region 6
+    show the key too, so every region comes back."""
+    md = _music_data
+    options = key_override_options()
+    if md is None or not 0 <= int(index) < len(options):
+        return {"changed": False}
+    _, fifths, mode = options[int(index)]
+    return _edited(score_edits.apply_key_signature_override(md, fifths, mode))
+
+
+def _part_choice(node_id: Optional[str], rows) -> int:
+    """The row of `rows` ((part_id, name) pairs) for the part holding
+    Region 2's row `node_id`, else 0: the desktop opens Reorder Parts and
+    Link Parts on that part."""
+    node = _region_2.node(node_id) if node_id else None
+    part_id = node.part_id if node is not None else None
+    return next((i for i, (pid, _) in enumerate(rows) if pid == part_id), 0)
+
+
+def part_order_form(node_id: Optional[str] = None) -> Dict[str, Any]:
+    """The Reorder Parts dialog (PartOrderDialog): the parts in their
+    current order, opening on the part holding Region 2's row `node_id`."""
+    md = _music_data
+    if md is None:
+        return {"error": "No score is loaded."}
+    rows = score_edits.part_rows(md)
+    return {"title": "Part Order", "label": "Parts",
+            "rows": [{"id": part_id, "name": name} for part_id, name in rows],
+            "current": _part_choice(node_id, rows)}
+
+
+def part_order_apply(order) -> Dict[str, Any]:
+    """OK with the parts in `order` (part ids). Region 2's rows are moved
+    in place, keeping every node's state."""
+    md = _music_data
+    if md is None:
+        return {"changed": False}
+    order = [str(part_id) for part_id in (_plain(order) or [])]
+    changed = score_edits.reorder_parts(md, order)
+    if changed:
+        _region_2.reorder_roots(order)
+    return _edited(changed)
+
+
+def link_parts_form(node_id: Optional[str] = None) -> Dict[str, Any]:
+    """The Link Parts dialog (LinkPartsDialog): every part not yet linked,
+    each unticked, opening on the part holding Region 2's row `node_id`.
+    OK needs at least two ticked."""
+    md = _music_data
+    if md is None:
+        return {"error": "No score is loaded."}
+    rows = score_edits.link_dialog_rows(md)
+    return {"title": "Link Parts", "label": "Parts",
+            "rows": [{"id": part_id, "name": name} for part_id, name in rows],
+            "current": _part_choice(node_id, rows)}
+
+
+def link_parts_apply(part_ids) -> Dict[str, Any]:
+    """OK with `part_ids` ticked: they become one new link group, and each
+    one's Region 2 row gains the group's number."""
+    md = _music_data
+    if md is None:
+        return {"changed": False}
+    changed = score_edits.link_new_group(md, [str(p) for p in (_plain(part_ids) or [])])
+    if changed:
+        _region_2.apply_link_groups(score_edits.link_group_numbers(md))
+    return _edited(changed)
+
+
+def region2_menu(node_id: str) -> Dict[str, Any]:
+    """Region 2's context menu (Shift+F10, MainWindow.
+    show_region_2_context_menu): "Unlink", only on a linked part's row.
+    {"title", "items": [{label}]}; no items elsewhere (no menu opens)."""
+    node = _region_2.node(node_id) if _music_data is not None else None
+    if node is None or node.node_type != "part" or not score_edits.can_unlink(_music_data, node.part_id):
+        return {"title": "", "items": []}
+    return {"title": node.display_name, "items": [{"label": "Unlink"}]}
+
+
+def region2_unlink(node_id: str) -> Dict[str, Any]:
+    """Unlink chosen on Region 2's row `node_id`: its part leaves its link
+    group (the whole group goes if fewer than two would be left)."""
+    md = _music_data
+    node = _region_2.node(node_id) if md is not None else None
+    if node is None:
+        return {"changed": False}
+    changed = score_edits.unlink_part(md, node.part_id)
+    if changed:
+        _region_2.apply_link_groups(score_edits.link_group_numbers(md))
+    return _edited(changed)
+
+
+def staves_state(node_id: Optional[str]) -> Dict[str, bool]:
+    """Parts > Collapse staves for the part holding Region 2's row
+    `node_id`: {"enabled", "checked"} (the desktop's aboutToShow refresh)."""
+    md = _music_data
+    if md is None:
+        return {"enabled": False, "checked": False}
+    node = _region_2.node(node_id) if node_id else None
+    enabled, checked = score_edits.collapse_staves_state(md, node.part_id if node else None)
+    return {"enabled": enabled, "checked": checked}
+
+
+def staves_toggle(node_id: Optional[str]) -> Dict[str, Any]:
+    """Parts > Collapse staves on the part holding Region 2's row
+    `node_id`. Region 2 is rebuilt, its state carried across; "node" is the
+    row to put Region 2's cursor back on (the same one if it is still
+    there, else its part, as MainWindow.toggle_staves_collapsed_current_part
+    does), and the new state is spoken."""
+    md = _music_data
+    node = _region_2.node(node_id) if md is not None and node_id else None
+    if node is None:
+        return {"changed": False}
+    collapsed = score_edits.toggle_staves_collapsed(md, node.part_id)
+    if collapsed is None:
+        return {"changed": False}
+    _rebuild_region_2()
+    result = _edited(True)
+    result["node"] = node.node_id if _region_2.node(node.node_id) else f"part_{node.part_id}"
+    result["announce"] = announcements.staves_collapsed(collapsed)
     return result
 
 
