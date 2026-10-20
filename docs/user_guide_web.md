@@ -29,6 +29,8 @@ When a file has been loaded, Recall Score automatically plays the notes at the c
 #### Supported File Formats
 
 * MusicXML: ".musicxml", ".xml" and ".mxl".
+* MIDI: ".mid" and ".midi" (Type 0 and 1).
+* Guitar Pro: ".gp" (Guitar Pro 7 and 8).
 
 ### 2.3 Saved Preferences
 

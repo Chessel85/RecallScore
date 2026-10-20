@@ -211,7 +211,26 @@ next one after a /clear.
   Smoke-tested in headless Chrome under real Pyodide (tree, mute, typed
   bar, Go to bar, help, menu); no screen reader yet. Fast suite passes.
 
-### RESUME HERE (2026-10-20): 6.4 Mixer committed; next Phase 6 task is the user's pick
+### RESUME HERE (2026-10-20): 6.1 MIDI and Guitar Pro committed; next Phase 6 task is the user's pick
+
+6.1: `web_api.load` picks the reader by extension with
+`models/score_formats.family_for_path`, as ScoreLoadThread does:
+`MidiReader`, `GpReader`, else the music21-free MusicXML loader.
+`SUPPORTED_SUFFIXES` is built from `SCORE_FORMATS` (musicxml, midi, gp),
+so .mid, .midi and .gp are accepted; MuseScore and UG are refused. The
+upload is written under its own name in a temp folder (was a random temp
+file name), because MIDI titles itself by file name. Picker: label and
+`accept` widened in `app/index.html`. Tests: `tests/web/test_web_formats.py`
+(matches the desktop readers, title, upper-case .MID, broken files, and a
+music21-blocked subprocess load), using the `files/` corpus via
+tests/conftest.py fixtures rather than copies. Fast suite passes. Headless
+Chrome under real Pyodide: bach-bourree-tab.mid and the Ripple .gp load
+and move. The user tested it in the browser: works. The web user guide's
+Supported File Formats lists MIDI and Guitar Pro. Remaining Phase 6: 6.2,
+6.3, 6.5. Testing tip: the local server stages a copy at start, so after
+a change re-run `tools/stage_web.py` (or restart the server) and Ctrl+F5.
+
+### Was (2026-10-20): 6.4 Mixer committed; next Phase 6 task is the user's pick
 
 Phase 6 started with 6.4 (the user's pick; 6.1 to 6.3 and 6.5 still to
 do, order by user priority). Shared code: `models/mixer_settings.py` now

@@ -51,9 +51,18 @@ from models.region3_row import NoteRow
 from models.score_config_data import ScoreConfig
 from models.score_config_json import config_from_dict, config_to_dict
 from models.vocabulary import bar_word, default_uk_terms
+from models.score_formats import SCORE_FORMATS, family_for_path
+from parsers.gp_reader import GpReader
+from parsers.midi_reader import MidiReader
 from parsers.musicxml_metadata import load_musicxml_without_music21
 
-SUPPORTED_SUFFIXES = (".musicxml", ".xml", ".mxl")
+# The formats the browser opens: MusicXML (music21-free path), MIDI and
+# Guitar Pro, whose readers are stdlib-only. MuseScore needs a local
+# executable and Ultimate Guitar needs music21, so both stay desktop-only.
+WEB_FAMILIES = ("musicxml", "midi", "gp")
+SUPPORTED_SUFFIXES = tuple(
+    ext for fmt in SCORE_FORMATS if fmt.key in WEB_FAMILIES for ext in fmt.extensions
+)
 
 _music_data: Optional[MusicData] = None
 _region_2 = Region2HierarchyModel()
@@ -174,7 +183,8 @@ def score_settings_json() -> Optional[str]:
 
 def load(data: bytes, filename: str, saved: Optional[str] = None) -> Dict[str, Any]:
     """Parse an uploaded score. The reader takes a path, so the bytes are
-    written to a temp file that keeps the original suffix (.mxl is a zip).
+    written to a temp file with the original name (.mxl and .gp are zips).
+    The reader is picked by extension, as ScoreLoadThread does.
     `saved` is this score's stored .rsc text, if any; it is applied before
     any region is built (MainWindow._on_score_loaded's order). Text that
     cannot be read is skipped, as the desktop skips a broken .rsc, and the
@@ -196,17 +206,22 @@ def load(data: bytes, filename: str, saved: Optional[str] = None) -> Dict[str, A
         except (ValueError, TypeError, AttributeError) as exc:
             settings_error = (f"This score's saved settings could not be read, "
                               f"so it opened with the defaults: {exc}")
-    path = ""
     try:
-        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as handle:
-            handle.write(bytes(data))
-            path = handle.name
-        loaded = load_musicxml_without_music21(path)
+        # A temp folder rather than a temp file name: a MIDI file (and a
+        # Guitar Pro file with no title) is titled by its file name.
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, os.path.basename(filename))
+            with open(path, "wb") as handle:
+                handle.write(bytes(data))
+            family = family_for_path(path)
+            if family == "midi":
+                loaded = MidiReader(path).load()
+            elif family == "gp":
+                loaded = GpReader(path).load()
+            else:
+                loaded = load_musicxml_without_music21(path)
     except Exception as exc:  # noqa: BLE001 - every failure must reach the user
         return {"error": f"Could not open {filename}: {exc}"}
-    finally:
-        if path and os.path.exists(path):
-            os.remove(path)
     _adopt(loaded, config)
     result = {"ok": True, "summary": score_summary(), "view": view(), "mixer": mixer_levels()}
     if settings_error:

@@ -183,6 +183,17 @@ export: saving is automatic, and moving settings between browsers or in
 from a desktop `.rsc` was dropped as unneeded (add it back only if a
 tester asks).
 
+## Score formats
+
+`web_api.load` picks the reader as the desktop's ScoreLoadThread does
+(`models/score_formats.family_for_path`): MusicXML through the
+music21-free loader, MIDI and Guitar Pro through their own stdlib-only
+readers. The accepted extensions come from `SCORE_FORMATS` (`WEB_FAMILIES`
+in the bridge); the picker's `accept` in `app/index.html` lists them again
+for the file dialog. MuseScore (local executable) and Ultimate Guitar
+(music21) stay desktop-only. The upload is written under its own name,
+because a MIDI file is titled by its file name.
+
 ## Mute and solo
 
 The words "muted"/"soloed" live in the Region 2 row text (set by
