@@ -1,5 +1,6 @@
-// Dialogs: the keyboard help list, Go to bar and Play Settings, on native <dialog>. (The
-// Menu is a real ARIA menu, in menu.js.) Rules every dialog here follows:
+// Dialogs: the keyboard help list, Go to bar, Play Settings and the Mixer,
+// on native <dialog>. (The Menu is a real ARIA menu, in menu.js.) Rules
+// every dialog here follows:
 // * Initial focus goes to the first widget in tab order, never a "more
 //   useful" later one (the desktop's dialog rule).
 // * There is always an explicit Close or Cancel button, because Escape may
@@ -218,6 +219,130 @@ export function showPlaySettings(form, enabledFor) {
       for (const [name, input] of inputs) answer[name] = input.type === "checkbox" ? input.checked : input.value;
     });
     d.dialog.addEventListener("close", () => resolve(answer));
+    d.open();
+  });
+}
+
+/** Mixer (Ctrl+Shift+X), the desktop's MixerDialog: a list of the parts and
+ * app sounds, then Volume and Pan for the chosen row, Preview, OK, Cancel.
+ * `form` is web_api.mixer_form(). Every change is handed to `change(key,
+ * field, percent)` at once, so it is heard while the dialog is open (the
+ * bridge keeps it; OK or Cancel decides). `preview()` starts or stops
+ * playback (Alt+W or the button). Resolves true on OK, false on Cancel.
+ *
+ * Changes are taken from arrow steps and committed values (Enter, leaving
+ * the field), not from each typed digit: typing 100 never sounds 1 and 10
+ * first (the desktop's keyboardTracking off). Home is the highest value,
+ * End the lowest and Insert the reset value (the desktop's RangeSpinBox). */
+export function showMixer(form, { change, preview }) {
+  return new Promise((resolve) => {
+    const d = makeDialog(form.title);
+    const el = document.createElement("form");
+    el.method = "dialog";
+    el.id = `mixer-${serial}`;
+    const values = new Map(form.rows.map((row) => [row.key, { volume: row.volume, pan: row.pan }]));
+
+    const field = (name, labelText, control) => {
+      const row = document.createElement("div");
+      row.className = "dialog-field";
+      const label = document.createElement("label");
+      label.textContent = labelText;
+      control.id = `${el.id}-${name}`;
+      label.htmlFor = control.id;
+      row.append(label, " ", control);
+      el.append(row);
+    };
+
+    const list = document.createElement("select");
+    list.size = Math.min(Math.max(form.rows.length, 2), 10);
+    for (const row of form.rows) {
+      const option = document.createElement("option");
+      option.value = row.key;
+      option.textContent = row.label;
+      list.append(option);
+    }
+    field("rows", "Part or sound", list);
+
+    const number = (name, label, min, max, reset) => {
+      const input = document.createElement("input");
+      input.type = "number";
+      input.min = String(min);
+      input.max = String(max);
+      input.step = "1";
+      input.dataset.reset = String(reset);
+      field(name, label, input);
+      return input;
+    };
+    const volume = number("volume", "Volume %", 0, 100, form.volume_reset);
+    const pan = number("pan", "Pan %", -100, 100, form.pan_reset);
+    const inputs = { volume, pan };
+
+    const show = () => {
+      const now = values.get(list.value);
+      if (!now) return;
+      volume.value = String(now.volume);
+      pan.value = String(now.pan);
+    };
+
+    /** Clamp what is in the field, keep it for the row and hand it on. */
+    const commit = (name) => {
+      const input = inputs[name];
+      const now = values.get(list.value);
+      const typed = Number.parseInt(input.value, 10);
+      if (!now || Number.isNaN(typed)) {
+        if (now) input.value = String(now[name]);
+        return;
+      }
+      const value = Math.min(Number(input.max), Math.max(Number(input.min), typed));
+      if (String(value) !== input.value) input.value = String(value);
+      if (value === now[name]) return;
+      now[name] = value;
+      change(list.value, name, value);
+    };
+
+    for (const [name, input] of Object.entries(inputs)) {
+      // An arrow step arrives as an input event with no inputType; typing
+      // has one (insertText, deleteContentBackward...) and waits for change.
+      input.addEventListener("input", (event) => {
+        if (!event.inputType) commit(name);
+      });
+      input.addEventListener("change", () => commit(name));
+      input.addEventListener("keydown", (event) => {
+        if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
+        const to = { Home: input.max, End: input.min, Insert: input.dataset.reset }[event.key];
+        if (to === undefined) return;
+        event.preventDefault();
+        input.value = to;
+        commit(name);
+      });
+    }
+    list.addEventListener("change", show);
+    d.body.append(el);
+
+    const previewButton = button("Preview Alt+W", () => preview());
+    d.body.append(previewButton);
+    d.dialog.addEventListener("keydown", (event) => {
+      if (event.altKey && !event.ctrlKey && !event.shiftKey && !event.metaKey && event.code === "KeyW") {
+        event.preventDefault();
+        preview();
+      }
+    });
+
+    // OK belongs to the form, so Enter in a field is OK, after that
+    // field's value is taken.
+    const ok = button("OK", null, "submit");
+    ok.setAttribute("form", el.id);
+    d.footer.append(ok, button("Cancel", () => d.close()));
+    let accepted = false;
+    el.addEventListener("submit", () => {
+      commit("volume");
+      commit("pan");
+      accepted = true;
+    });
+    d.dialog.addEventListener("close", () => resolve(accepted));
+
+    if (form.rows.length) list.selectedIndex = 0;
+    show();
     d.open();
   });
 }

@@ -146,6 +146,24 @@ so the web has one transport. Space while it runs stops it. While
 playback is going it is unavailable, as the desktop greys out its action:
 the key does nothing and the Menu item is aria-disabled.
 
+## Mixer
+
+Ctrl+Shift+X (as on the desktop), on the Playback menu. The rows, the edit
+session and the levels are `models/mixer_settings.py` (`mixer_rows`,
+`channel_levels`, `MixerEdit`), which the desktop's PlaybackController
+uses too; the bridge is `web_api.mixer_form`/`mixer_set`/`mixer_end`, and
+audio.js only sends the control changes it is given. Every load sends
+every channel's level (`result.mixer`), so nothing carries over from the
+previous score; audio.js keeps them and sends them again if the synth
+starts after the load. The dialog (`showMixer`) copies the desktop's:
+list, Volume %, Pan %, Preview Alt+W, OK, Cancel; a change is sent on an
+arrow step or a committed value, never per typed digit; Home is the
+highest value, End the lowest, Insert the reset. Closing stops Preview
+playback and puts focus back in the region it came from (Preview redraws
+the regions, so the browser's own focus return finds nothing). The mixer
+is saved with the score's settings (`.rsc` shape). `muted` has no UI on
+either version.
+
 ## Stored settings: `app/js/storage.js`
 
 localStorage stands in for the desktop's settings.json and `.rsc` files.

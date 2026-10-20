@@ -30,7 +30,9 @@ from audio.navigation_cues import (
 from audio.performance_cue import PERFORMANCE_CUE_CHANNEL
 from audio.position_announcer import POSITION_ANNOUNCER_CHANNEL
 from models import announcements
-from models.mixer_settings import ANNOUNCER, CENTRE_PAN, CLICK, CUE, default_pan_for
+from models.mixer_settings import (
+    ANNOUNCER, CENTRE_PAN, CLICK, CUE, MixerEdit, channel_levels, default_pan_for,
+)
 from models.app_settings_data import AppSettings
 from models.attribute_scopes import region_4_scope_menu
 from models.marking_categories import ALL_CATEGORIES, CATEGORY_NAMES, note_list_menu_label
@@ -178,8 +180,9 @@ def load(data: bytes, filename: str, saved: Optional[str] = None) -> Dict[str, A
     cannot be read is skipped, as the desktop skips a broken .rsc, and the
     result says so in "settings_error".
 
-    On success returns {"ok", "summary", "view"}, "view" being every region
-    (see view()). On failure the previous score stays loaded."""
+    On success returns {"ok", "summary", "view", "mixer"}, "view" being
+    every region (see view()) and "mixer" the score's channel levels (see
+    mixer_levels()). On failure the previous score stays loaded."""
     global _music_data
     suffix = os.path.splitext(filename)[1].lower()
     if suffix not in SUPPORTED_SUFFIXES:
@@ -205,7 +208,7 @@ def load(data: bytes, filename: str, saved: Optional[str] = None) -> Dict[str, A
         if path and os.path.exists(path):
             os.remove(path)
     _adopt(loaded, config)
-    result = {"ok": True, "summary": score_summary(), "view": view()}
+    result = {"ok": True, "summary": score_summary(), "view": view(), "mixer": mixer_levels()}
     if settings_error:
         result["settings_error"] = settings_error
     return result
@@ -216,8 +219,9 @@ def _adopt(music_data: MusicData, config: Optional[ScoreConfig] = None) -> None:
     score's saved config over them, then Region 2's tree with each node's
     own saved mute and solo, whose voice filter must be in effect before
     any row is rendered."""
-    global _music_data, _pending_digits
+    global _music_data, _pending_digits, _mixer_edit
     _pending_digits = ""
+    _mixer_edit = None
     _end_playback()
     music_data.uk_terms = _uk_terms
     music_data.marking_categories_off = set(_marking_categories_off)
@@ -1249,3 +1253,93 @@ def apply_play_settings(values) -> Dict[str, Any]:
     except (TypeError, ValueError):
         pass  # an empty or garbled tempo keeps the current one
     return {"regions": {"6": _region_6_rows()}}
+
+
+# --- Mixer (Ctrl+Shift+X) --------------------------------------------------------
+#
+# Volume and pan per part and per app sound, over models/mixer_settings.py
+# (the rows, the edit session and the levels the desktop's
+# PlaybackController uses too). A level is [channel, volume CC, pan CC];
+# a single change is {"channel", "control" (7 volume, 10 pan), "value"}.
+# audio.js sends them and decides nothing.
+
+VOLUME_CC = 7
+PAN_CC = 10
+
+_mixer_edit: Optional[MixerEdit] = None
+
+
+def _levels(levels) -> List[List[int]]:
+    return [[channel, volume, pan] for channel, volume, pan in levels]
+
+
+def mixer_levels() -> List[List[int]]:
+    """Every mixer channel's level for the open score (PlaybackController.
+    apply_mixer): sent on every load, so no channel keeps the level the
+    previous score gave it. [] with no score."""
+    if _music_data is None:
+        return []
+    return _levels(channel_levels(_music_data, _music_data.mixer))
+
+
+def mixer_form() -> Dict[str, Any]:
+    """Opens an edit session (PlaybackController.begin_mixer_edit) and
+    describes the dialog: {"title", "rows": [{key, label, volume, pan}]},
+    volume 0 to 100 and pan -100 to 100, both percent, as the desktop
+    dialog shows them. "volume_reset"/"pan_reset" are what Insert puts back
+    (the desktop's RangeSpinBox reset values)."""
+    global _mixer_edit
+    md = _music_data
+    if md is None:
+        return {"error": "No score is loaded."}
+    _mixer_edit = MixerEdit(md.mixer)
+    return {
+        "title": "Mixer",
+        "rows": [{"key": key, "label": label, "volume": volume, "pan": pan}
+                 for key, label, volume, pan in _mixer_edit.rows(md)],
+        "volume_reset": 50,
+        "pan_reset": 0,
+    }
+
+
+def mixer_set(key: str, field: str, percent: int) -> Dict[str, Any]:
+    """A live change in the dialog (set_mixer_volume / set_mixer_pan): kept
+    on the edit's working copy and returned as the control change to send
+    now, so it is heard while the dialog is open. {"change": None} outside
+    a session or for an unknown key."""
+    md = _music_data
+    if md is None or _mixer_edit is None:
+        return {"change": None}
+    try:
+        percent = int(percent)
+    except (TypeError, ValueError):
+        return {"change": None}
+    if field == "volume":
+        level, control = _mixer_edit.set_volume(md, str(key), percent), VOLUME_CC
+    elif field == "pan":
+        level, control = _mixer_edit.set_pan(md, str(key), percent), PAN_CC
+    else:
+        return {"error": f"Unknown mixer field {field!r}."}
+    if level is None:
+        return {"change": None}
+    return {"change": {"channel": level[0], "control": control, "value": level[1]}}
+
+
+def mixer_end(accepted: bool) -> Dict[str, Any]:
+    """The dialog closes (PlaybackController.end_mixer_edit): OK keeps the
+    changes as the score's mixer (saved with its settings), Cancel puts it
+    back as it was. "levels" is every channel's level either way, which the
+    page keeps (a change made before the synth was running then still
+    arrives). Playback the dialog's Preview started is stopped: "stopped"
+    is play_stop()'s result."""
+    global _mixer_edit
+    md = _music_data
+    edit, _mixer_edit = _mixer_edit, None
+    if md is not None and edit is not None and accepted:
+        edit.commit(md)
+    # Cancel's levels are the untouched mixer's, which is the score's own.
+    result: Dict[str, Any] = {"levels": mixer_levels()}
+    # A play run only: a free metronome started before the dialog is left
+    # alone, as the desktop's end_mixer_edit leaves it.
+    result["stopped"] = play_stop() if _playback_going() else {"stopped": False}
+    return result

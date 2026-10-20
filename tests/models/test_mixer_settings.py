@@ -1,5 +1,6 @@
 # tests/models/test_mixer_settings.py
-"""MixerSettings (wishlist #4/#7) - groundwork, not yet wired to any UI.
+"""MixerSettings (wishlist #4/#7), plus the Mixer's rows, levels and edit
+session shared by the desktop and the web version.
 
 The property that matters most here is inertness: an empty MixerSettings has
 to leave the synth completely untouched, so that every score without saved
@@ -140,3 +141,85 @@ def test_default_pan_matches_each_channels_real_hardcoded_default():
     assert default_pan_for(ANNOUNCER) == 0
     assert default_pan_for(CUE) == CENTRE_PAN
     assert default_pan_for("P1") == CENTRE_PAN
+
+
+# --- rows, levels and the edit session (shared with the web version) -----------
+
+from pathlib import Path
+
+from models.mixer_settings import MixerEdit, channel_levels, mixer_rows
+from parsers.musicxml_metadata import load_musicxml_without_music21
+
+FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
+
+
+def _load(name: str):
+    # The ElementTree loader: parts_info needs the reader's metadata, and
+    # this path is fast (no music21).
+    return load_musicxml_without_music21(str(FIXTURES / name))
+
+
+def _two_parts():
+    return _load("hairpins_two_parts.musicxml")
+
+
+def test_rows_are_the_parts_in_order_then_the_three_sounds():
+    md = _two_parts()
+    rows = mixer_rows(md)
+    parts = [(p.part_id, p.name, i) for i, p in enumerate(md.parts_info)]
+    assert len(parts) == 2
+    assert rows == parts + [
+        (CLICK, "Metronome", md.METRONOME_CLICK_CHANNEL),
+        (ANNOUNCER, "Position Announcer", md.POSITION_ANNOUNCER_CHANNEL),
+        (CUE, "Performance Cue", md.PERFORMANCE_CUE_CHANNEL),
+    ]
+
+
+def test_the_lyrics_part_has_no_row():
+    md = _load("chords_and_lyrics.musicxml")
+    assert "lyrics" in [p.part_id for p in md.parts_info]
+    assert "lyrics" not in [key for key, _, _ in mixer_rows(md)]
+
+
+def test_levels_cover_every_row_with_defaults_where_nothing_is_set():
+    md = _two_parts()
+    first = md.parts_info[0].part_id
+    mixer = MixerSettings()
+    mixer.set_volume(first, 40)
+    levels = channel_levels(md, mixer)
+    assert levels == [
+        (0, 40, CENTRE_PAN),
+        (1, DEFAULT_VOLUME, CENTRE_PAN),
+        (md.METRONOME_CLICK_CHANNEL, DEFAULT_VOLUME, 127),
+        (md.POSITION_ANNOUNCER_CHANNEL, DEFAULT_VOLUME, 0),
+        (md.PERFORMANCE_CUE_CHANNEL, DEFAULT_VOLUME, CENTRE_PAN),
+    ]
+
+
+def test_an_edit_changes_only_its_working_copy_until_committed():
+    md = _two_parts()
+    first = md.parts_info[0].part_id
+    edit = MixerEdit(md.mixer)
+    assert edit.rows(md)[0] == (first, md.parts_info[0].name, 100, 0)
+    assert edit.rows(md)[-3][3] == 100  # the click's hard right, as a percent
+
+    assert edit.set_volume(md, first, 50) == (0, volume_percent_to_cc(50))
+    assert edit.set_pan(md, CLICK, -100) == (md.METRONOME_CLICK_CHANNEL, 0)
+    assert edit.set_volume(md, "no such part", 50) is None
+    assert md.mixer.is_empty()
+    assert edit.rows(md)[0][2] == 50
+
+    edit.commit(md)
+    assert md.mixer.volume_for(first) == volume_percent_to_cc(50)
+    assert md.mixer.pan_for(CLICK) == 0
+
+
+def test_cancel_levels_are_the_mixer_from_before_the_edit():
+    md = _two_parts()
+    first = md.parts_info[0].part_id
+    md.mixer.set_pan(first, 10)
+    edit = MixerEdit(md.mixer)
+    edit.set_pan(md, first, 100)
+    edit.set_volume(md, CUE, 0)
+    assert edit.revert_levels(md) == channel_levels(md, md.mixer)
+    assert edit.revert_levels(md)[0] == (0, DEFAULT_VOLUME, 10)

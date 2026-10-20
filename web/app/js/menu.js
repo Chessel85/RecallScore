@@ -61,7 +61,8 @@ const MENUS = [
     items: [
       "play.toggle", "play.pause", "play.metronome", "play.settings", "play.mode", "play.leadIn", "play.loopRepeat", "-",
       "tempo.faster", "tempo.slower", "tempo.reset", "-",
-      "play.loopLonger", "play.loopShorter",
+      "play.loopLonger", "play.loopShorter", "-",
+      "play.mixer",
     ],
   },
   {

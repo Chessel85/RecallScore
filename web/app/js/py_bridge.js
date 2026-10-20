@@ -33,7 +33,7 @@ function toJs(proxy) {
   return value;
 }
 
-/** Returns {ok, summary, view, settings_error?} or {error}. Never throws
+/** Returns {ok, summary, view, mixer, settings_error?} or {error}. Never throws
  * for a bad score. `saved` is the score's stored .rsc text, or null. */
 export function loadScore(bytes, filename, saved = null) {
   try {
@@ -97,6 +97,10 @@ export const commitLoopLength = () => call("commit_loop_length");
 export const playSettingsForm = () => call("play_settings_form");
 export const playSettingsEnabled = (leadIn, playMode) => call("play_settings_enabled", leadIn, playMode);
 export const applyPlaySettings = (values) => call("apply_play_settings", values);
+
+export const mixerForm = () => call("mixer_form");
+export const mixerSet = (key, field, percent) => call("mixer_set", key, field, percent);
+export const mixerEnd = (accepted) => call("mixer_end", accepted);
 // Region 4 scope menu (Shift+F10).
 export const region4Menu = (row, selection) => call("region4_menu", row, selection);
 export const region4Apply = (row, selection, scope) => call("region4_apply", row, selection, scope);

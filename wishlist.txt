@@ -1,5 +1,6 @@
 !.venv/scripts/python main.py
 
+Is alphaTab a useful library to use?
 the free running metronome can be toggled on with control alt space during playback. this should not be allowed.
 should tied notes only be displayed as one long note?
 add a tool called "Add chords" which gets the user to select a part and then an extra stave is added containing just chord names.

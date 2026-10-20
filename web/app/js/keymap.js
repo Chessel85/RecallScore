@@ -85,6 +85,7 @@ export const KEYMAP = /* KEYMAP-BEGIN */ [
   {"id": "play.pause", "keys": ["Ctrl+Space"], "scope": "global", "label": "Pause", "desktopAction": "pause_resume", "difference": null},
   {"id": "play.metronome", "keys": ["Ctrl+Alt+Space"], "scope": "global", "label": "Play metronome", "desktopAction": "play_metronome", "difference": null},
   {"id": "play.settings", "keys": ["Ctrl+Alt+P"], "scope": "global", "label": "Play settings", "desktopAction": "play_settings", "difference": "The desktop uses Control Shift P, which Firefox keeps for a private window"},
+  {"id": "play.mixer", "keys": ["Ctrl+Shift+X"], "scope": "global", "label": "Mixer", "desktopAction": "mixer", "difference": null},
   {"id": "play.mode", "keys": ["Ctrl+L"], "scope": "global", "label": "Cycle play mode", "desktopAction": "play_mode_cycle", "difference": null},
   {"id": "play.leadIn", "keys": ["Ctrl+I"], "scope": "global", "label": "Lead-in on or off", "desktopAction": "lead_in_toggle", "difference": null},
   {"id": "play.loopRepeat", "keys": ["Ctrl+R"], "scope": "global", "label": "Cycle loop repeat handling", "desktopAction": "loop_repeat_mode", "difference": null},

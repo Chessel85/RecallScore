@@ -211,7 +211,29 @@ next one after a /clear.
   Smoke-tested in headless Chrome under real Pyodide (tree, mute, typed
   bar, Go to bar, help, menu); no screen reader yet. Fast suite passes.
 
-### RESUME HERE (2026-10-16): merged to main and published
+### RESUME HERE (2026-10-20): 6.4 Mixer committed; next Phase 6 task is the user's pick
+
+Phase 6 started with 6.4 (the user's pick; 6.1 to 6.3 and 6.5 still to
+do, order by user priority). Shared code: `models/mixer_settings.py` now
+holds `mixer_rows`, `channel_for`, `channel_levels` and `MixerEdit`
+(rows, live set_volume/set_pan returning the CC to send, commit,
+revert_levels); PlaybackController's apply_mixer and the
+begin/set/commit/cancel_mixer_edit methods use them. Checked with an ad
+hoc before/after script over all 99 MusicXML files: identical, except
+that the synthetic Lyrics part's channel no longer gets volume and pan
+sent on load (it never sounds; the dialog already left it out). Bridge:
+`mixer_levels`, `mixer_form`, `mixer_set`, `mixer_end`; `load` returns
+`mixer`. Page: `showMixer` in dialogs.js, `play.mixer` (Ctrl+Shift+X,
+desktopAction mixer) on the Playback menu, `setMixerLevels`/`mixerChange`
+in audio.js. Tests: `tests/web/test_web_mixer.py`, new cases in
+`tests/models/test_mixer_settings.py`; fast suite passes. Headless Chrome
+(hairpins_two_parts.musicxml): Ctrl+Shift+X opens it on the list, rows
+and values right, arrows, Home/End/Insert, Alt+W preview plays, Enter is
+OK and saves the mixer with the score, Cancel keeps it, focus goes back
+to Region 3. The user tested it with NVDA in Firefox: works, Ctrl+Shift+X
+reaches the page. Not yet tried in Chrome.
+
+### Was (2026-10-16): merged to main and published
 
 The user tested a desktop build from `rsbv` (all fine) and asked for the
 merge (7.5, ahead of 7.1 to 7.4). Before it, GitHub Pages served `docs/`

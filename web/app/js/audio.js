@@ -21,6 +21,7 @@ const APP_SOUNDS = "recall_score_sounds.sf2";
 // and its master gain.
 const SETTINGS = { midiChannelCount: 256, initialGain: 0.7 };
 const NOTE_VELOCITY = 90; // SynthEngine.play_chord
+const VOLUME_CC = 7;
 const PAN_CC = 10;
 
 let state = "idle"; // idle, starting, ready, failed
@@ -31,6 +32,7 @@ let appSfont = null;
 let fontBytes = null; // Promise of {gm, app} ArrayBuffers
 let library = null; // Promise: the main-thread js-synthesizer script
 let setup = null;
+let levels = []; // the open score's mixer levels, [channel, volume, pan]
 let onStatus = () => {};
 
 // SynthEngine's bookkeeping. `active` may hold a (channel, key) pair more
@@ -122,6 +124,7 @@ async function startSynth() {
     gmSfont = await synth.loadSFont(gm);
     appSfont = await synth.loadSFont(app);
     for (const [channel, value] of setup?.pans ?? []) synth.midiControl(channel, PAN_CC, value);
+    sendLevels();
     state = "ready";
     // Never wait on resume(): it stays pending, with no error, for as long
     // as the browser withholds permission. Say ready once it is running.
@@ -138,6 +141,28 @@ async function startSynth() {
     state = "failed";
     onStatus(`Sound could not start: ${err.message}`);
   }
+}
+
+function sendLevels() {
+  for (const [channel, volume, pan] of levels) {
+    synth.midiControl(channel, VOLUME_CC, volume);
+    synth.midiControl(channel, PAN_CC, pan);
+  }
+}
+
+/** The Mixer's levels ([channel, volume CC, pan CC], from web_api): a
+ * load's full set (kept, and sent again if the synth starts later) or
+ * Cancel's. Sent at once when the synth is running. */
+export function setMixerLevels(next) {
+  levels = next ?? [];
+  if (state === "ready") sendLevels();
+}
+
+/** One live Mixer change, {channel, control, value} from web_api.mixer_set,
+ * heard at once (playback included). The full set is re-read from Python
+ * on the next load, so it is not tracked here. */
+export function mixerChange(change) {
+  if (change && state === "ready") synth.midiControl(change.channel, change.control, change.value);
 }
 
 // A suspended context would queue the notes and play them all at once on

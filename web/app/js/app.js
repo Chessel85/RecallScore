@@ -5,9 +5,9 @@ import { initFocus, focusRegion, focusedRegion, focusMenuButton } from "./focus.
 import {
   initRegions, render, moveRow, extendSelection, selection, selectAll, rowAt, currentRow, treeExpand, treeCollapse,
 } from "./regions.js";
-import { showHelp, showGotoBar, showPlaySettings } from "./dialogs.js";
+import { showHelp, showGotoBar, showPlaySettings, showMixer } from "./dialogs.js";
 import { initMenu, showContextMenu, openMenu } from "./menu.js";
-import { initAudio, prefetchSoundFonts, play } from "./audio.js";
+import { initAudio, prefetchSoundFonts, play, setMixerLevels, mixerChange } from "./audio.js";
 import { initScheduler, startSession, stopSession, pauseSession, isScheduling } from "./scheduler.js";
 import * as storage from "./storage.js";
 import * as py from "./py_bridge.js";
@@ -297,6 +297,34 @@ bind("play.settings", withScore(async () => {
   if (values) applySetting(py.applyPlaySettings(values));
 }));
 
+// Mixer (Ctrl+Shift+X): volume and pan per part and app sound, heard as
+// they change. Python keeps the edit; OK keeps it with the score, Cancel
+// puts every channel back. Preview playback stops when the dialog closes.
+// Focus goes back to the region it came from: Preview redraws the regions,
+// so the row that had focus may no longer exist for the browser to return to.
+bind("play.mixer", withScore(async () => {
+  const form = py.mixerForm();
+  if (form?.error) return showError(form.error);
+  const back = focusedRegion();
+  const accepted = await showMixer(form, {
+    change: (key, field, percent) => {
+      const result = py.mixerSet(key, field, percent);
+      if (result?.error) showError(result.error);
+      else mixerChange(result.change);
+    },
+    preview: () => applyTransport(py.playToggle()),
+  });
+  const result = py.mixerEnd(accepted);
+  if (result?.error) return showError(result.error);
+  setMixerLevels(result.levels);
+  if (result.stopped?.stopped) {
+    stopSession();
+    showRegions(result.stopped.regions, result.stopped.selection, { follow: true });
+  }
+  if (back) focusRegion(back);
+  else focusMenuButton();
+}));
+
 bind("play.pause", withScore(() => {
   const result = pauseSession();
   if (result?.error) showError(result.error);
@@ -545,6 +573,7 @@ async function openFile(file) {
   }
   current = { key, name: file.name };
   if (isScheduling()) stopSession(); // the bridge stopped it with the old score
+  setMixerLevels(result.mixer);
   scoreLoaded = true;
   digitsPending = false;
   showRegions(result.view.regions, result.view.selection, { loaded: true });
