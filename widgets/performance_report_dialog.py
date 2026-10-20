@@ -33,8 +33,8 @@ class PerformanceReportDialog(QDialog):
     Each item carries its own ReportRow via setData(0, UserRole, ...), so
     itemActivated can read jump_quarters/jump_measure/jump_index/part_id
     straight off it rather than re-parsing the row's text (invariant 8).
-    Activating a header (or any row with no jump target - Sections,
-    Repeated sections, Endings, the preamble) does nothing beyond Qt's own
+    Activating a header (or any row with no jump target - the preamble)
+    does nothing beyond Qt's own
     expand/collapse; the dialog only accept()s and sets chosen_row for a
     row that actually has somewhere to jump.
     """

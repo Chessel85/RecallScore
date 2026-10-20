@@ -193,7 +193,8 @@ class NavigationController(QObject):
         self._moved(self.music_data.jump_to_measure(int(digits)), announce_measure=True)
 
     def _resolve_position_index(self, quarters, measure, *, is_start: bool) -> Optional[int]:
-        """Shared by jump_to_span and jump_to_report_row: a continuous
+        """jump_to_span's lookup (jump_to_report_row's start-only version is
+        MusicData.report_row_index): a continuous
         position (quarters, when given) resolves through
         slice_index_at_or_after_quarters; a barline-aligned one (measure
         only) resolves through first/last_visible_event_index_of_measure
@@ -250,7 +251,7 @@ class NavigationController(QObject):
         event_slice.py's barline_items): that index is used as-is, with no
         lookup at all - see ReportRow's own docstring for why a
         quarters-based lookup can't be trusted there. A row with none of
-        jump_index/jump_quarters/jump_measure (a header, a range-only row)
+        jump_index/jump_quarters/jump_measure (a header, the preamble)
         returns False without a boundary cue - MainWindow only calls this
         once it has already ruled out a part_id row, and a no-target row is
         an ordinary header, not a failed jump."""
@@ -258,17 +259,10 @@ class NavigationController(QObject):
         if not self.music_data or row is None:
             return False
 
-        if row.jump_index is not None:
-            index = (
-                row.jump_index
-                if 0 <= row.jump_index < len(self.music_data.timeline_slices)
-                else None
-            )
-        elif row.jump_quarters is not None or row.jump_measure is not None:
-            index = self._resolve_position_index(row.jump_quarters, row.jump_measure, is_start=True)
-        else:
+        if row.jump_index is None and row.jump_quarters is None and row.jump_measure is None:
             return False
 
+        index = self.music_data.report_row_index(row)
         if index is None:
             self.boundary_hit.emit()
             return False

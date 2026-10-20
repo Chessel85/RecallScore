@@ -234,6 +234,19 @@ export function treeCollapse() {
   return true;
 }
 
+/** Make Region 2 node `id` the current row (the Performance Report's Parts
+ * rows, Region2ListWidget.select_node). Only a part is ever asked for, and
+ * parts are top-level rows, so nothing needs opening. False if not shown. */
+export function selectTreeNode(id) {
+  const region = regions.get(2);
+  const found = region.rows.findIndex((row) => row.id === id);
+  if (found === -1) return false;
+  region.current = found;
+  region.selection = [found];
+  showCurrent(2);
+  return true;
+}
+
 function forget(row) {
   expanded.delete(row.id);
   for (const child of row.children ?? []) forget(child);

@@ -3770,13 +3770,14 @@ def test_report_rows_parts_row_carries_part_id_and_no_position(timeline, minimal
     assert part_row.jump_index is None
 
 
-def test_report_rows_repeat_row_carries_no_jump_target(timeline, repeats_and_endings_score):
+def test_report_rows_repeat_row_jumps_to_its_start_bar(timeline, repeats_and_endings_score):
     md = timeline(repeats_and_endings_score)
 
     rows = md.get_performance_report_rows()
     repeat_row = next(r for r in rows if r.text.startswith("Repeat:"))
 
-    assert not repeat_row.has_jump_target()
+    assert repeat_row.jump_measure == md.repeat_spans[0].start_measure
+    assert repeat_row.jump_quarters is None and repeat_row.jump_index is None
 
 
 def test_report_rows_pedal_span_carries_its_start_quarters(timeline, pedal_score):
@@ -3856,9 +3857,30 @@ def test_jump_to_report_row_with_no_target_returns_false(timeline, repeats_and_e
     md = timeline(repeats_and_endings_score)
     nav = NavigationController(_FakeSession(md))
     rows = md.get_performance_report_rows()
-    repeat_row = next(r for r in rows if r.text.startswith("Repeat:"))
+    header_row = next(r for r in rows if r.text.startswith("Repeated sections:"))
 
-    assert nav.jump_to_report_row(repeat_row) is False
+    assert nav.jump_to_report_row(header_row) is False
+
+
+def test_jump_to_report_row_on_a_bar_range_moves_to_its_start_bar(
+    timeline, repeats_and_endings_score
+):
+    """User request: Enter on "Repeat: Measure 2 to Measure 3" (and an
+    Ending, a Jump Point, a Wavy line) goes to the range's first bar."""
+    from controllers.navigation_controller import NavigationController
+
+    class _FakeSession:
+        def __init__(self, music_data):
+            self.music_data = music_data
+
+    md = timeline(repeats_and_endings_score)
+    nav = NavigationController(_FakeSession(md))
+    rows = md.get_performance_report_rows()
+    for prefix, span in (("Repeat:", md.repeat_spans[0]), ("Ending ", md.ending_spans[0])):
+        row = next(r for r in rows if r.text.startswith(prefix))
+        assert row.jump_measure == span.start_measure
+        assert nav.jump_to_report_row(row) is True
+        assert md.active_event_index == md.first_visible_event_index_of_measure(span.start_measure)
 
 
 def test_jump_to_report_row_with_out_of_range_index_emits_boundary_hit(

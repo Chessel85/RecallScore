@@ -1,6 +1,6 @@
 // The Menu button's menu: a real ARIA menu shaped like the desktop menu
 // bar. The top level lists the desktop's menus (File, Edit, Parts,
-// Navigation, Options, Help); Right, Enter or Space opens one as a submenu.
+// Navigation, Playback, Options, Tools, Help); Right, Enter or Space opens one as a submenu.
 //
 // Keys inside the menu belong to it, not to keymap.js (which ignores any
 // key whose target is inside a [role=menu], as it does for dialogs):
@@ -78,6 +78,7 @@ const MENUS = [
       "options.engravingDetails", "options.metronome", "options.positionAnnouncer",
     ],
   },
+  { title: "Tools", region: 3, items: ["report.open"] },
   { title: "Help", items: ["extra:userGuide", "help.keys"] },
 ];
 

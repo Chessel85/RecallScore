@@ -211,7 +211,36 @@ next one after a /clear.
   Smoke-tested in headless Chrome under real Pyodide (tree, mute, typed
   bar, Go to bar, help, menu); no screen reader yet. Fast suite passes.
 
-### RESUME HERE (2026-10-20): 6.2 Find committed; next Phase 6 task is the user's pick
+### RESUME HERE (2026-10-20): 6.3 Performance Report built, NOT committed; user to test with NVDA
+
+6.3: shared code: `TimelineNavigator.report_row_index(row)` (with its
+MusicData delegator) now resolves a ReportRow's target (jump_index as-is,
+else quarters, else the bar's first visible note);
+`NavigationController.jump_to_report_row` calls it. Bridge: `report_form`
+(text, level, jumps) and `report_choose(row)` (a Parts row returns
+`focus: 2` and the part's node id; another row moves and returns
+`focus: 3`; an unresolved target is the boundary cue; no target does
+nothing). Page: `showReport` in dialogs.js, a two-level ARIA tree with
+roving tabindex (headings collapsed, Right/Left, Up/Down/Home/End, Enter
+on a jump row, Close), `selectTreeNode` in regions.js, `report.open` on
+Ctrl+Shift+R (the desktop's Ctrl+Shift+F is the web's Find; the user
+wants Ctrl+Shift+letter kept; fall back to Ctrl+Alt+F if a browser
+reloads instead), on a new Tools
+menu after Options. Tests: `tests/web/test_web_report.py`; fast suite
+passes. Headless Chrome (hairpins_two_parts.musicxml, then on Ctrl+Alt+F;
+Ctrl+Shift+R not yet tried there): the key opens
+on the first row, headings collapsed, Right/Left expand, step in, step
+out and collapse, Enter on a heading does nothing, Enter on "Guitar: 8
+notes" focuses Guitar in Region 2, Enter on the crescendo row moves to
+bar 1 beat 3 with focus on Region 3, Close goes back, the Menu lists it
+under Tools. Not yet tried with NVDA; the web user guide is not updated
+(only on request). The user's NVDA test: works. At their request, a bar
+range row (Jump Points, Repeated sections, Endings, Wavy lines) now
+carries jump_measure = its start bar (`models/performance_rows.py`), so
+Enter goes there on both versions (it did nothing before). Remaining
+Phase 6 after this: 6.5.
+
+### Was (2026-10-20): 6.2 Find committed; next Phase 6 task is the user's pick
 
 6.2: shared code: `models/find_target.py` gained `find_row_label` and
 `find_row_text` (the row wording moved out of `widgets/find_dialog.py`,
@@ -220,10 +249,10 @@ which now calls them). Bridge: `find_form`, `find_choose(row)`,
 (boundary cue with nothing armed or found; a wrap plays the note, then
 the boundary cue; the armed target outlives a load). Page: `showFind` in
 dialogs.js (list, Filter, OK, Cancel; Enter on the list is OK),
-`find.open` (Ctrl+F plus Ctrl+Shift+F, since Firefox did not pass Ctrl+F
-in spike 2), `find.next`/`find.previous` (Alt+Right/Left) on the
+`find.open` (Ctrl+Shift+F only: Firefox keeps Ctrl+F for its find bar,
+confirmed with NVDA, so the web key was dropped), `find.next`/`find.previous` (Alt+Right/Left) on the
 Navigation menu. Tests: `tests/web/test_web_find.py`; fast suite passes.
-Headless Chrome (dynamics_articulation_fingering.musicxml): both keys open
+Headless Chrome (dynamics_articulation_fingering.musicxml): the key opens
 the dialog on the list, the filter narrows it, Enter jumps to beat 2 with
 focus on Region 3, Alt+Right/Left wrap and never navigate away, the Menu
 lists all three. The user tested it with NVDA in Firefox: works. The web

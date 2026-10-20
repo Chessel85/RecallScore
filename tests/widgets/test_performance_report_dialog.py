@@ -55,8 +55,7 @@ def test_activating_a_header_does_not_close_the_dialog(qtbot):
 
 
 def test_activating_a_range_only_row_does_not_close_the_dialog(qtbot):
-    """Sections/Repeated sections/Endings/preamble rows carry no jump
-    target at all (section 6.1's table) - Enter on one is a no-op."""
+    """A row carrying no jump target at all - Enter on one is a no-op."""
     dialog = PerformanceReportDialog(rows=_ROWS)
     qtbot.addWidget(dialog)
     sections_item = dialog.report_tree.topLevelItem(3)

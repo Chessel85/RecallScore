@@ -4,8 +4,9 @@ import { bind } from "./keymap.js";
 import { initFocus, focusRegion, focusedRegion, focusMenuButton } from "./focus.js";
 import {
   initRegions, render, moveRow, extendSelection, selection, selectAll, rowAt, currentRow, treeExpand, treeCollapse,
+  selectTreeNode,
 } from "./regions.js";
-import { showHelp, showGotoBar, showFind, showPlaySettings, showMixer } from "./dialogs.js";
+import { showHelp, showGotoBar, showFind, showReport, showPlaySettings, showMixer } from "./dialogs.js";
 import { initMenu, showContextMenu, openMenu } from "./menu.js";
 import { initAudio, prefetchSoundFonts, play, setMixerLevels, mixerChange } from "./audio.js";
 import { initScheduler, startSession, stopSession, pauseSession, isScheduling } from "./scheduler.js";
@@ -188,7 +189,7 @@ bind("goto.bar", withScore(async () => {
 
 // --- find ------------------------------------------------------------------------
 
-// Ctrl+F (or Ctrl+Shift+F, which Firefox passes on): OK arms the chosen
+// Ctrl+Shift+F (Firefox keeps Ctrl+F): OK arms the chosen
 // target and jumps to its next occurrence; focus then goes to Region 3, as
 // on the desktop. Alt+Right/Left step through the rest from any region.
 bind("find.open", withScore(async () => {
@@ -200,6 +201,29 @@ bind("find.open", withScore(async () => {
 }));
 bind("find.next", withScore(() => applyMove(py.findStep(1))));
 bind("find.previous", withScore(() => applyMove(py.findStep(-1))));
+
+// --- performance report ------------------------------------------------------------
+
+// Ctrl+Shift+R (the desktop's Ctrl+Shift+F is Find here). Enter on a Parts
+// row selects that part in Region 2; on any other row with a target the
+// cursor jumps there and focus goes to Region 3, as on the desktop. Close
+// goes back to the region it came from.
+bind("report.open", withScore(async () => {
+  const form = py.reportForm();
+  if (form?.error) return showError(form.error);
+  const back = focusedRegion();
+  const row = await showReport(form);
+  const result = row === null ? null : py.reportChoose(row);
+  if (result?.error) return showError(result.error);
+  if (result?.focus === 2 && selectTreeNode(result.node)) return focusRegion(2);
+  if (result?.focus === 3) {
+    focusRegion(3);
+    return applyMove(result);
+  }
+  if (back) focusRegion(back);
+  else focusMenuButton();
+  if (result) applyMove(result);
+}));
 
 // Typed bar number: digits build up (Region 6 shows them), Enter jumps. The
 // page remembers only whether something is pending, so Enter falls through

@@ -919,6 +919,55 @@ def find_step(direction: int) -> Dict[str, Any]:
     return result
 
 
+# --- Performance Report (Ctrl+Shift+R) -------------------------------------------
+
+_report_rows: List[Any] = []
+
+
+def report_form() -> Dict[str, Any]:
+    """The Performance Report's rows (MainWindow._show_performance_report_dialog,
+    over MusicData.get_performance_report_rows): each row's text, its level
+    (0 a heading, 1 one of its details) and whether Enter on it goes
+    anywhere. The rows stay here; report_choose names one by its index."""
+    global _report_rows
+    if _music_data is None:
+        return {"error": "No score is loaded."}
+    _report_rows = list(_music_data.get_performance_report_rows())
+    return {
+        "title": "Performance Report",
+        "label": "Performance report",
+        "rows": [
+            {"text": row.text, "level": row.level, "jumps": row.has_jump_target()}
+            for row in _report_rows
+        ],
+    }
+
+
+def report_choose(row: int) -> Dict[str, Any]:
+    """Enter on row `row` of the last report_form. A Parts row selects that
+    part in Region 2 ({"focus": 2, "node": id}); any other row with a
+    target moves the cursor there, as NavigationController.jump_to_report_row
+    does, and says {"focus": 3}. A target that resolves nowhere sounds the
+    boundary cue and stays put; a row with no target does nothing."""
+    row = int(row)
+    if _music_data is None or not 0 <= row < len(_report_rows):
+        return _no_score()
+    chosen = _report_rows[row]
+    if chosen.part_id is not None:
+        node_id = f"part_{chosen.part_id}"
+        if _region_2.node(node_id) is None:
+            return _no_score()
+        return {**_no_score(), "focus": 2, "node": node_id}
+    if not chosen.has_jump_target():
+        return _no_score()
+    _clear_pending()
+    index = _music_data.report_row_index(chosen)
+    if index is None:
+        return _result(False)
+    _music_data.active_event_index = index
+    return {**_result(True), "focus": 3}
+
+
 # --- Region 2 mute and solo (F8, F9, Alt+F8, Alt+F9) ------------------------------
 
 def _filter_changed() -> Dict[str, Any]:

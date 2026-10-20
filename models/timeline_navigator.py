@@ -216,6 +216,22 @@ class TimelineNavigator:
         i = bisect.bisect_left(self._quarters_from_start_cache, quarters_from_start)
         return i if i < len(self._quarters_from_start_cache) else None
 
+    def report_row_index(self, row) -> Optional[int]:
+        """The timeline index a Performance Report row (models/report_row.py)
+        jumps to, or None when it has no timeline target or the target
+        doesn't resolve. jump_index is used as-is (a barline marker event,
+        see ReportRow for why a quarters lookup can't be trusted there);
+        otherwise quarters, else the measure's first visible event - the
+        start branch of NavigationController.jump_to_span. Shared by the
+        desktop's jump_to_report_row and the web bridge."""
+        if row.jump_index is not None:
+            return row.jump_index if 0 <= row.jump_index < len(self.data.timeline_slices) else None
+        if row.jump_quarters is not None:
+            return self.slice_index_at_or_after_quarters(row.jump_quarters)
+        if row.jump_measure is not None:
+            return self.first_visible_event_index_of_measure(row.jump_measure)
+        return None
+
     # --- measure-by-measure movement ---------------------------------------
 
     def move_left_by_measure(self) -> bool:

@@ -1,4 +1,5 @@
-// Dialogs: the keyboard help list, Go to bar, Find, Play Settings and the Mixer,
+// Dialogs: the keyboard help list, Go to bar, Find, the Performance Report,
+// Play Settings and the Mixer,
 // on native <dialog>. (The Menu is a real ARIA menu, in menu.js.) Rules
 // every dialog here follows:
 // * Initial focus goes to the first widget in tab order, never a "more
@@ -22,6 +23,7 @@ const GROUPS = {
   nav: "Navigation",
   goto: "Navigation",
   find: "Navigation",
+  report: "Tools",
   digits: "Navigation",
   play: "Playback",
   tempo: "Playback",
@@ -148,7 +150,7 @@ export function showGotoBar(info) {
   });
 }
 
-/** Find (Ctrl+F), the desktop's FindDialog: the list of what this score
+/** Find (Ctrl+Shift+F), the desktop's FindDialog: the list of what this score
  * has to find, each with its count, then a Filter box that narrows the list
  * to rows whose label contains what is typed (the bridge's `filter` text,
  * never the count digits), then OK and Cancel. Enter on the list or in the
@@ -216,6 +218,124 @@ export function showFind(form) {
     });
     d.dialog.addEventListener("close", () => resolve(answer));
     fill();
+    d.open();
+  });
+}
+
+/** Performance Report (Ctrl+Shift+R), the desktop's PerformanceReportDialog:
+ * a read-only tree, every heading (level 0) collapsed, its details (level
+ * 1) under it, then Close. The rows take real focus (roving tabindex), as
+ * in the regions. Up/Down/Home/End move over the rows showing; Right opens
+ * a heading or steps into it, Left closes it or steps out to it. Enter on
+ * a row that goes somewhere (form.rows[i].jumps) closes the dialog and
+ * resolves to that row's index; Enter anywhere else does nothing, as on
+ * the desktop. Resolves null on Close. `form` is web_api.report_form(). */
+export function showReport(form) {
+  return new Promise((resolve) => {
+    const d = makeDialog(form.title);
+    const label = document.createElement("div");
+    label.id = `report-label-${serial}`;
+    label.textContent = form.label;
+    const tree = document.createElement("div");
+    tree.className = "report-tree";
+    tree.setAttribute("role", "tree");
+    tree.setAttribute("aria-labelledby", label.id);
+    d.body.append(label, tree);
+
+    // One entry per row: its element, its heading's entry (null for a
+    // heading) and, for a heading, its details. A detail before any
+    // heading is shown at the top level, as the desktop does.
+    const items = [];
+    let heading = null;
+    form.rows.forEach((row, index) => {
+      const el = document.createElement("div");
+      el.id = `report-${serial}-${index}`;
+      el.setAttribute("role", "treeitem");
+      el.textContent = row.text;
+      el.tabIndex = -1;
+      const item = { el, index, row, parent: null, children: [] };
+      if (row.level !== 0 && heading) {
+        item.parent = heading;
+        heading.children.push(item);
+      } else if (row.level === 0) {
+        heading = item;
+      }
+      items.push(item);
+      tree.append(el);
+    });
+    const tops = items.filter((item) => !item.parent);
+    for (const [list, level] of [[tops, 1], ...tops.map((top) => [top.children, 2])]) {
+      list.forEach((item, i) => {
+        item.el.setAttribute("aria-level", String(level));
+        item.el.setAttribute("aria-posinset", String(i + 1));
+        item.el.setAttribute("aria-setsize", String(list.length));
+      });
+    }
+    const open = new Set();
+    let current = items[0] ?? null;
+
+    const visible = () => items.filter((item) => !item.parent || open.has(item.parent));
+    const show = (focus = true) => {
+      for (const item of items) {
+        item.el.hidden = Boolean(item.parent) && !open.has(item.parent);
+        if (item.children.length) item.el.setAttribute("aria-expanded", open.has(item) ? "true" : "false");
+        item.el.tabIndex = item === current ? 0 : -1;
+        item.el.setAttribute("aria-selected", item === current ? "true" : "false");
+      }
+      if (focus) current?.el.focus();
+      current?.el.scrollIntoView?.({ block: "nearest" });
+    };
+
+    tree.addEventListener("keydown", (event) => {
+      if (!current || event.ctrlKey || event.altKey || event.shiftKey || event.metaKey) return;
+      const rows = visible();
+      const at = rows.indexOf(current);
+      const go = (item) => {
+        if (item && item !== current) {
+          current = item;
+          show();
+        }
+      };
+      switch (event.key) {
+        case "ArrowUp": go(rows[at - 1]); break;
+        case "ArrowDown": go(rows[at + 1]); break;
+        case "Home": go(rows[0]); break;
+        case "End": go(rows[rows.length - 1]); break;
+        case "ArrowRight":
+          if (current.children.length && !open.has(current)) {
+            open.add(current);
+            show();
+          } else if (current.children.length) go(current.children[0]);
+          break;
+        case "ArrowLeft":
+          if (open.has(current)) {
+            open.delete(current);
+            show();
+          } else go(current.parent);
+          break;
+        case "Enter":
+          if (current.row.jumps) {
+            answer = current.index;
+            d.close();
+          }
+          break;
+        default:
+          return;
+      }
+      event.preventDefault();
+    });
+    tree.addEventListener("click", (event) => {
+      const item = items.find((it) => it.el === event.target);
+      if (item) {
+        current = item;
+        show();
+      }
+    });
+
+    d.footer.append(button("Close", () => d.close()));
+    let answer = null;
+    d.dialog.addEventListener("close", () => resolve(answer));
+    show(false);
     d.open();
   });
 }

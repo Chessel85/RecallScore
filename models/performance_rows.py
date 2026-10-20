@@ -625,9 +625,13 @@ class PerformanceRows:
             rows.append(ReportRow(text=f"{header}: {len(items)}", level=0))
             rows.extend(ReportRow(level=1, **row_fn(it)) for it in items)
 
+        # A bar range (jump point, repeat, ending, wavy line) jumps to its
+        # start bar, as Region 5's Ctrl+Home does for the same span (user
+        # request: Enter on "Repeat: Bar 10 to Bar 25" used to do nothing).
         _tally(
             "Jump Points", data.jump_points,
-            lambda s: {"text": f"{s.label}: {bar_word} {s.start_measure} to {bar_word} {s.end_measure}"},
+            lambda s: {"text": f"{s.label}: {bar_word} {s.start_measure} to {bar_word} {s.end_measure}",
+                       "jump_measure": s.start_measure},
         )
 
         note_counts: Dict[str, int] = {}
@@ -642,15 +646,15 @@ class PerformanceRows:
 
         _tally(
             "Repeated sections", data.repeat_spans,
-            lambda s: {"text": f"Repeat: {bar_word} {s.start_measure} to {bar_word} {s.end_measure}"},
+            lambda s: {"text": f"Repeat: {bar_word} {s.start_measure} to {bar_word} {s.end_measure}", "jump_measure": s.start_measure},
         )
         _tally(
             "Endings", data.ending_spans,
-            lambda s: {"text": f"Ending {s.number}: {bar_word} {s.start_measure} to {bar_word} {s.end_measure}"},
+            lambda s: {"text": f"Ending {s.number}: {bar_word} {s.start_measure} to {bar_word} {s.end_measure}", "jump_measure": s.start_measure},
         )
         _tally(
             "Wavy lines", data.wavy_line_spans,
-            lambda s: {"text": f"Wavy line: {bar_word} {s.start_measure} to {bar_word} {s.end_measure}"},
+            lambda s: {"text": f"Wavy line: {bar_word} {s.start_measure} to {bar_word} {s.end_measure}", "jump_measure": s.start_measure},
         )
 
         # P3: <direction> spans and points. Pedal/octave-shift appear here

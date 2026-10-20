@@ -28,8 +28,9 @@ class ReportRow:
     * part_id, on a Parts row, selects a Region 2 node instead of moving
       the timeline.
 
-    A row with none of the four is a header or a range-only row (Sections,
-    Repeated sections, Endings, the preamble) - Enter does nothing for it."""
+    A row with none of the four is a header or the preamble - Enter does
+    nothing for it. A bar range (jump point, repeat, ending, wavy line)
+    carries jump_measure = its start bar, as Region 5's Ctrl+Home does."""
 
     text: str
     level: int

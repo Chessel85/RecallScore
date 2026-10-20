@@ -68,7 +68,8 @@ select (its chosen option would be read into the name).
 ## Menu: `app/js/menu.js`
 
 A real ARIA `menu` (not a dialog), shaped like the desktop menu bar: the
-top level is File, Edit, Parts, Navigation, Help, each a submenu. A dialog
+top level is File, Edit, Parts, Navigation, Playback, Options, Tools,
+Help, each a submenu. A dialog
 of grouped buttons was tried first and the user found it confusing. `MENUS`
 lists keymap ids in the desktop's order; an unbound id is left out, so add
 a new command's id there when it should be on the Menu. Left must close a
@@ -166,8 +167,8 @@ either version.
 
 ## Find
 
-Ctrl+F, and Ctrl+Shift+F as well because Firefox did not pass Ctrl+F to
-the page in spike 2; on the Navigation menu. The targets, counts and row
+Ctrl+Shift+F, on the Navigation menu. Not the desktop's Ctrl+F: Firefox
+keeps it for its own find bar (spike 2, confirmed by the user with NVDA). The targets, counts and row
 wording are `models/` (`FindIndex`, `find_target.find_row_text` and
 `find_row_label`, which the desktop's FindDialog uses too); the bridge is
 `web_api.find_form`/`find_choose`/`find_step`, after
@@ -179,6 +180,26 @@ through occurrences from any region; with nothing armed or nothing found
 the boundary cue plays, and a wrap plays the note then the boundary cue.
 The armed target outlives a load, as on the desktop. Alt+Left/Right are
 always taken, so they never reach the browser's Back and Forward.
+
+## Performance Report
+
+Ctrl+Shift+R, on the Tools menu: the desktop's Ctrl+Shift+F is Find here,
+and R (the desktop's Voice Control Settings) is free because voice control
+is desktop-only. Keeping the Ctrl+Shift+letter convention was the user's
+choice. It is also the browsers' hard reload, so if the page does not
+take the key (a dialog open, the page still loading) the score is lost;
+if testing shows the page does not get it, fall back to Ctrl+Alt+F. The rows are
+`MusicData.get_performance_report_rows()` and the jump is
+`MusicData.report_row_index`, which the desktop's `jump_to_report_row`
+uses too; the bridge is `web_api.report_form`/`report_choose`. The dialog
+(`showReport`) copies the desktop's tree: every heading collapsed,
+Right/Left open, step in, close and step out, rows take real focus
+(roving tabindex, as in the regions), then Close. Enter on a row that
+goes somewhere (`jumps`) closes it: a Parts row selects that part in
+Region 2 and focuses it, any other row moves the cursor and focuses
+Region 3; Enter on a heading does nothing, as on the desktop. A target
+that resolves nowhere sounds the boundary cue and focus goes back where
+it came from, as Close does.
 
 ## Stored settings: `app/js/storage.js`
 

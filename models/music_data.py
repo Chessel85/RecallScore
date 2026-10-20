@@ -672,6 +672,11 @@ class MusicData:
         TimelineNavigator.slice_index_at_or_after_quarters."""
         return self.navigator.slice_index_at_or_after_quarters(quarters_from_start)
 
+    def report_row_index(self, row) -> Optional[int]:
+        """Where a Performance Report row jumps to - see
+        TimelineNavigator.report_row_index."""
+        return self.navigator.report_row_index(row)
+
     def move_timeline_left_by_measure(self) -> bool:
         """Ctrl+Left (Ref 3) - see TimelineNavigator.move_left_by_measure."""
         return self.navigator.move_left_by_measure()
