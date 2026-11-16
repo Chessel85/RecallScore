@@ -802,6 +802,134 @@ export function showPartOrder(form) {
   });
 }
 
+/** A message over an open dialog (a refusal), read at once, with Close. */
+function showMessage(title, message) {
+  return new Promise((resolve) => {
+    const d = makeDialog(title);
+    const text = document.createElement("p");
+    text.textContent = message;
+    d.body.append(text);
+    const close = button("Close", () => d.close());
+    d.footer.append(close);
+    d.dialog.setAttribute("role", "alertdialog");
+    d.dialog.addEventListener("close", () => resolve());
+    d.open();
+  });
+}
+
+/** A choice of buttons over an open dialog, then Cancel. Resolves to the
+ * chosen item's index, or null. */
+function showChoices(title, labels) {
+  return new Promise((resolve) => {
+    const d = makeDialog(title);
+    let answer = null;
+    labels.forEach((text, i) => {
+      const row = document.createElement("div");
+      row.className = "dialog-field";
+      row.append(button(text, () => {
+        answer = i;
+        d.close();
+      }));
+      d.body.append(row);
+    });
+    d.footer.append(button("Cancel", () => d.close()));
+    d.dialog.addEventListener("close", () => resolve(answer));
+    d.open();
+  });
+}
+
+/** Attribute Management (Options, Ctrl+Shift+A), the desktop's
+ * AttributeOrderDialog: the attributes of one part in order, Move Up, Move
+ * Down, Add/Remove..., Hide, Hide for all, OK, Cancel. A row reads "*Name"
+ * when shown in the note list and "(hidden)" or "(hidden for all)" when
+ * hidden. Moves wait for OK; Add/Remove and the hides apply at once through
+ * `ops` (each resolves to {row} or {error}), and the caller undoes them on
+ * Cancel. `form` is web_api.attribute_management_form(); `ops` is
+ * {hide(key), hideAll(key), addRemoveMenu(key), addRemove(key, scope)}.
+ * Resolves to the attribute keys in their new order, or null on Cancel. */
+export function showAttributeManagement(form, ops) {
+  return new Promise((resolve) => {
+    const d = makeDialog(form.title);
+    const { el } = okCancelForm(d, "attributes");
+    const rows = form.rows.map((row) => ({ ...row }));
+    const list = addField(el, "rows", form.label, listBox(rows.map((row) => row.text)));
+    submitOnEnter(list, el);
+    const current = () => rows[list.selectedIndex];
+
+    const refresh = () => {
+      const i = list.selectedIndex;
+      const row = rows[i];
+      up.setAttribute("aria-disabled", String(i <= 0));
+      down.setAttribute("aria-disabled", String(i < 0 || i >= rows.length - 1));
+      addRemove.setAttribute("aria-disabled", String(i < 0));
+      hide.textContent = row?.hidden === "part" ? "Unhide" : "Hide";
+      hide.setAttribute("aria-disabled", String(!row || row.hidden === "all"));
+      hideAll.textContent = row?.hidden === "all" ? "Unhide for all" : "Hide for all";
+      hideAll.setAttribute("aria-disabled", String(!row));
+    };
+    const move = (delta) => {
+      const i = list.selectedIndex;
+      const j = i + delta;
+      if (i < 0 || j < 0 || j >= rows.length) return;
+      [rows[i], rows[j]] = [rows[j], rows[i]];
+      list.options[i].textContent = rows[i].text;
+      list.options[j].textContent = rows[j].text;
+      list.selectedIndex = j;
+      refresh();
+    };
+    // An immediate change: only that row's text and state are replaced.
+    const applied = async (result) => {
+      if (result?.error) return showMessage(form.title, result.error);
+      const i = rows.findIndex((row) => row.key === result.row.key);
+      if (i < 0) return;
+      rows[i] = result.row;
+      list.options[i].textContent = result.row.text;
+      refresh();
+    };
+    const act = (call) => async () => {
+      const row = current();
+      if (row) await applied(await call(row));
+    };
+    // aria-disabled, not disabled, so the focus stays on the button.
+    const live = (b) => b.getAttribute("aria-disabled") !== "true";
+
+    const up = button("Move Up Alt+U", () => live(up) && move(-1));
+    const down = button("Move Down Alt+D", () => live(down) && move(1));
+    const addRemove = button("Add/Remove...", async () => {
+      const row = current();
+      if (!row || !live(addRemove)) return;
+      const menu = ops.addRemoveMenu(row.key);
+      if (!menu.items.length) return;
+      const chosen = await showChoices(menu.title ?? row.label, menu.items.map((item) => item.label));
+      if (chosen !== null) await applied(await ops.addRemove(row.key, menu.items[chosen].scope));
+      list.focus();
+    });
+    const hide = button("Hide", () => live(hide) && act((row) => ops.hide(row.key))());
+    const hideAll = button("Hide for all", () => live(hideAll) && act((row) => ops.hideAll(row.key))());
+    const buttons = document.createElement("div");
+    buttons.className = "dialog-field";
+    buttons.append(up, " ", down, " ", addRemove, " ", hide, " ", hideAll);
+    el.append(buttons);
+    list.addEventListener("change", refresh);
+    d.dialog.addEventListener("keydown", (event) => {
+      if (!event.altKey || event.ctrlKey || event.shiftKey || event.metaKey) return;
+      const delta = { KeyU: -1, KeyD: 1 }[event.code];
+      if (delta === undefined) return;
+      event.preventDefault();
+      move(delta);
+    });
+
+    let answer = null;
+    el.addEventListener("submit", () => {
+      answer = rows.map((row) => row.key);
+    });
+    d.dialog.addEventListener("close", () => resolve(answer));
+    if (rows.length) list.selectedIndex = Math.min(form.current, rows.length - 1);
+    refresh();
+    d.open();
+  });
+}
+
 /** Link Parts (Ctrl+Alt+L), the desktop's LinkPartsDialog: every part not
  * yet linked, each a checkable row (Space ticks it, read as checked or not
  * checked), then OK and Cancel. OK, or Enter on the list, links every

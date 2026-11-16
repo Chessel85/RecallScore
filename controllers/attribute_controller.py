@@ -2,11 +2,8 @@
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QMenu
 
-from models.attribute_scopes import (
-    filter_scopes_for_node_level, filter_scopes_for_part, region_4_scope_menu, scope_action_labels,
-)
-from models.vocabulary import attribute_label
-from models.region2_manager import voice_tuples_for_node
+from models import attribute_management
+from models.attribute_scopes import region_4_scope_menu
 from widgets.user_notification import notify_user
 
 
@@ -144,31 +141,13 @@ class AttributeController:
         "because the dialogue is scoped to the part, it must prefix with an
         asterisk regardless of the level"). `hidden_state` is "all" / "part"
         / "visible" - see AttributeOrderDialog._row_text."""
-        md = self.music_data
-        keys = md.attribute_keys_for_part(part_id)
-        rows = []
-        for key in keys:
-            rows.append((
-                key,
-                attribute_label(key, md.uk_terms),
-                md.attribute_elevated_for_part(key, part_id),
-                self._hidden_state(part_id, key),
-            ))
-        return rows
+        return attribute_management.order_rows_for_part(self.music_data, part_id)
 
     def _hidden_state(self, part_id: str, attribute_key: str) -> str:
-        md = self.music_data
-        if attribute_key in md.hidden_attributes_for_all:
-            return "all"
-        if attribute_key in md.hidden_attributes_by_part.get(part_id, set()):
-            return "part"
-        return "visible"
+        return attribute_management.hidden_state(self.music_data, part_id, attribute_key)
 
     def _part_name(self, part_id: str) -> str:
-        for p in self.music_data.parts_info:
-            if p.part_id == part_id:
-                return p.name
-        return part_id
+        return attribute_management.part_name(self.music_data, part_id)
 
     def part_scope_description(self, part_id: str) -> str:
         """The Attribute Management dialog's own scope label - just the
@@ -219,49 +198,29 @@ class AttributeController:
         A blocked hide (elevated in this part, or already hidden for all -
         though the dialog disables the button outright for that second
         case) pops the confirmed message and leaves the model untouched."""
-        md = self.music_data
-        if md is None:
+        if self.music_data is None:
             return
-        currently_hidden = attribute_key in md.hidden_attributes_by_part.get(part_id, set())
-        if currently_hidden:
-            md.set_attribute_hidden_for_part(attribute_key, part_id, False)
-            self._record_undo(lambda: md.set_attribute_hidden_for_part(attribute_key, part_id, True))
-        else:
-            if not md.set_attribute_hidden_for_part(attribute_key, part_id, True):
-                label = attribute_label(attribute_key, md.uk_terms)
-                notify_user(
-                    "error",
-                    f"{label} can't be hidden while it's shown in the note list.",
-                )
-                return
-            self._record_undo(lambda: md.set_attribute_hidden_for_part(attribute_key, part_id, False))
-        self._refresh_dialog_row(dialog, part_id, attribute_key)
-        self.presenter.refresh_region_3_labels()
+        self._finish_toggle(
+            dialog, part_id, attribute_key,
+            attribute_management.toggle_hidden_for_part(self.music_data, part_id, attribute_key),
+        )
 
     def toggle_hidden_for_all(self, dialog, part_id: str, attribute_key: str) -> None:
         """Hide for &All/Unhide for &All button: toggles `attribute_key`'s
         score-wide hidden state - see toggle_hidden_for_part, same shape. A
         blocked hide names every part it's elevated in."""
-        md = self.music_data
-        if md is None:
+        if self.music_data is None:
             return
-        currently_hidden = attribute_key in md.hidden_attributes_for_all
-        if currently_hidden:
-            md.set_attribute_hidden_for_all(attribute_key, False)
-            self._record_undo(lambda: md.set_attribute_hidden_for_all(attribute_key, True))
-        else:
-            if not md.set_attribute_hidden_for_all(attribute_key, True):
-                label = attribute_label(attribute_key, md.uk_terms)
-                part_names = ", ".join(
-                    self._part_name(p) for p in md.attribute_elevated_parts(attribute_key)
-                )
-                notify_user(
-                    "error",
-                    f"{label} can't be hidden for the whole score while it's "
-                    f"shown in the note list for: {part_names}.",
-                )
-                return
-            self._record_undo(lambda: md.set_attribute_hidden_for_all(attribute_key, False))
+        self._finish_toggle(
+            dialog, part_id, attribute_key,
+            attribute_management.toggle_hidden_for_all(self.music_data, attribute_key),
+        )
+
+    def _finish_toggle(self, dialog, part_id: str, attribute_key: str, toggle) -> None:
+        if toggle.error:
+            notify_user("error", toggle.error)
+            return
+        self._record_undo(toggle.undo)
         self._refresh_dialog_row(dialog, part_id, attribute_key)
         self.presenter.refresh_region_3_labels()
 
@@ -286,28 +245,17 @@ class AttributeController:
         node is usually a single voice already; for a wider staff/part
         selection this is the same "one anchor decides the wording"
         simplification note_has_display_attribute makes for a chord."""
-        if not self.music_data:
+        menu = attribute_management.order_scope_menu(self.music_data, node, attribute_key)
+        if menu is None:
             return []
-        voice_tuples = voice_tuples_for_node(node)
-        if not voice_tuples:
-            return []
-        part_id, staff, voice = sorted(voice_tuples)[0]
-        already_present = self.music_data.display_attribute_present_for_voice(
-            attribute_key, part_id, staff, voice
-        )
-
-        scopes = scope_action_labels(already_present)
-        scopes = filter_scopes_for_node_level(scopes, node.node_type)
-        scopes = filter_scopes_for_part(scopes, part_id, self.music_data.collapsed_part_ids)
-
         return [
             (
                 label,
                 lambda checked=False, scope=scope: self.apply_order_change(
-                    dialog, attribute_key, scope, part_id, staff, voice, add=not already_present
+                    dialog, attribute_key, scope, menu.part_id, menu.staff, menu.voice, add=menu.add
                 ),
             )
-            for scope, label in scopes
+            for scope, label in menu.scopes
         ]
 
     def show_order_menu(self, dialog, node, attribute_key: str) -> None:

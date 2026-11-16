@@ -8,7 +8,7 @@ import {
 } from "./regions.js";
 import {
   showHelp, showGotoBar, showFind, showReport, showPlaySettings, showMixer, showInstruments, showKeySignature,
-  showPartOrder, showLinkParts, showConfirm,
+  showPartOrder, showLinkParts, showConfirm, showAttributeManagement,
 } from "./dialogs.js";
 import { initMenu, showContextMenu, openMenu } from "./menu.js";
 import { initAudio, prefetchSoundFonts, play, setMixerLevels, mixerChange } from "./audio.js";
@@ -537,6 +537,33 @@ function applyScope(row, chosen, scope) {
 }
 
 bind("attributes.scopeMenu", withScore(() => openScopeMenu()));
+
+// --- Attribute Management (Options, Ctrl+Shift+A) ---------------------------------
+// Opens on the part Region 2's row belongs to and on Region 4's current
+// attribute. Add/Remove and the hides apply as they are chosen; Cancel puts
+// them back (the bridge keeps the undo list), OK keeps them and applies the
+// order. Either way Regions 3 and 4 are redrawn, Region 3 keeping its
+// selection, and focus goes back to where it was.
+bind("options.attributes", withScore(async () => {
+  const back = focusedRegion();
+  const node = region2Node();
+  const form = py.attributeForm(node, rowAt(4, currentRow(4))?.key ?? null);
+  if (form?.error) return showError(form.error);
+  const chosen = selection();
+  const order = await showAttributeManagement(form, {
+    hide: (key) => py.attributeHide(form.part_id, key),
+    hideAll: (key) => py.attributeHideForAll(form.part_id, key),
+    addRemoveMenu: (key) => py.attributeAddRemoveMenu(node, key),
+    addRemove: (key, scope) => py.attributeAddRemoveApply(node, key, scope),
+  });
+  const result = order === null ? py.attributeCancel(chosen) : py.attributeApply(form.part_id, order, chosen);
+  if (result?.regions) {
+    render(3, result.regions["3"], { selection: chosen, keepCurrent: true });
+    render(4, result.regions["4"], { keepCurrent: true });
+  }
+  if (back) focusRegion(back);
+  else focusMenuButton();
+}));
 
 // --- performance indicator and marking categories ----------------------------------
 // Ctrl+C cycles the performance indicator (whether the cue sounds on a

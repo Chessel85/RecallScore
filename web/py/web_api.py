@@ -35,7 +35,7 @@ from models.mixer_settings import (
 )
 from models.app_settings_data import AppSettings
 from models.attribute_scopes import region_4_scope_menu
-from models import score_edits
+from models import attribute_management, score_edits
 from models.find_target import FindTarget, find_row_label, find_row_text
 from models.gm_instruments import GM_INSTRUMENT_NAMES, GM_PROGRAM_BY_NAME, gm_instrument_name
 from models.gm_percussion_map import (
@@ -58,7 +58,7 @@ from models.region2_manager import Region2HierarchyModel, Region2Node, node_stat
 from models.region3_row import NoteRow
 from models.score_config_data import ScoreConfig
 from models.score_config_json import config_from_dict, config_to_dict
-from models.vocabulary import bar_word, default_uk_terms
+from models.vocabulary import attribute_label, bar_word, default_uk_terms
 from models.score_formats import SCORE_FORMATS, family_for_path
 from parsers.gp_reader import GpReader
 from parsers.midi_reader import MidiReader
@@ -832,6 +832,133 @@ def region4_apply(row: int, selection: Optional[List[int]], scope: str) -> Dict[
         return {"error": "That attribute can no longer be changed from here."}
     _music_data.set_display_attribute(menu.attribute_key, scope, menu.notes, menu.add)
     return {"regions": {"3": _region_3_rows(), "4": _region_4_rows(selection)}}
+
+
+# --- Attribute Management (Options, Ctrl+Shift+A; Ref 15 AC4) ---------------
+# AttributeController's dialog session: Add/Remove and Hide change the model
+# at once, so each answer carries the row's new text, but Cancel puts every
+# change back (the undo list); only the order waits for OK.
+
+_attribute_undo: Optional[list] = None
+
+
+def _attribute_row(row) -> Dict[str, Any]:
+    key, label, elevated, hidden = row
+    return {"key": key, "label": label, "elevated": elevated, "hidden": hidden,
+            "text": attribute_row_text(label, elevated, hidden)}
+
+
+def attribute_row_text(label: str, elevated: bool, hidden: str) -> str:
+    """AttributeOrderDialog's row text: "*" for elevated, then a suffix for
+    hidden for this part or for all."""
+    text = f"*{label}" if elevated else label
+    if hidden == "all":
+        return f"{text} (hidden for all)"
+    if hidden == "part":
+        return f"{text} (hidden)"
+    return text
+
+
+def _attribute_row_now(part_id: str, key: str) -> Dict[str, Any]:
+    md = _music_data
+    return _attribute_row((
+        key, attribute_label(key, md.uk_terms),
+        md.attribute_elevated_for_part(key, part_id),
+        attribute_management.hidden_state(md, part_id, key),
+    ))
+
+
+def attribute_management_form(node_id: Optional[str] = None, key: Optional[str] = None) -> Dict[str, Any]:
+    """The Attribute Management dialog: the attributes in the part holding
+    Region 2's row `node_id`, in order, opening on `key` (Region 4's current
+    attribute) when the part has it, else the first. Starts the session."""
+    global _attribute_undo
+    md = _music_data
+    node = _region_2.node(node_id) if md is not None and node_id else None
+    if md is None or node is None:
+        return {"error": "No score is loaded." if md is None else "Select a part in Region 2 first."}
+    part_id = node.part_id
+    rows = [_attribute_row(r) for r in attribute_management.order_rows_for_part(md, part_id)]
+    _attribute_undo = []
+    return {"title": "Attribute Management",
+            "label": f"Attribute order for {attribute_management.part_name(md, part_id)}:",
+            "part_id": part_id, "rows": rows,
+            "current": next((i for i, r in enumerate(rows) if r["key"] == key), 0)}
+
+
+def _attribute_toggled(part_id: str, key: str, toggle) -> Dict[str, Any]:
+    if toggle.error:
+        return {"error": toggle.error}
+    if _attribute_undo is not None:
+        _attribute_undo.append(toggle.undo)
+    return {"row": _attribute_row_now(part_id, key)}
+
+
+def attribute_hide(part_id: str, key: str) -> Dict[str, Any]:
+    """Hide or unhide for this part, whichever the live state calls for."""
+    if _music_data is None:
+        return {"error": "No score is loaded."}
+    return _attribute_toggled(
+        part_id, key, attribute_management.toggle_hidden_for_part(_music_data, part_id, key))
+
+
+def attribute_hide_for_all(part_id: str, key: str) -> Dict[str, Any]:
+    """Hide or unhide for the whole score."""
+    if _music_data is None:
+        return {"error": "No score is loaded."}
+    return _attribute_toggled(part_id, key, attribute_management.toggle_hidden_for_all(_music_data, key))
+
+
+def attribute_add_remove_menu(node_id: str, key: str) -> Dict[str, Any]:
+    """The dialog's Add/Remove choices from Region 2's row `node_id`; none
+    when there is nothing to act on."""
+    node = _region_2.node(node_id) if _music_data is not None and node_id else None
+    menu = attribute_management.order_scope_menu(_music_data, node, key)
+    if menu is None:
+        return {"items": []}
+    return {"items": [{"scope": scope, "label": label} for scope, label in menu.scopes]}
+
+
+def attribute_add_remove_apply(node_id: str, key: str, scope: str) -> Dict[str, Any]:
+    """A choice from that menu (AttributeController.apply_order_change)."""
+    node = _region_2.node(node_id) if _music_data is not None and node_id else None
+    menu = attribute_management.order_scope_menu(_music_data, node, key)
+    if menu is None or scope not in [s for s, _ in menu.scopes]:
+        return {"error": "That attribute can no longer be changed from here."}
+    md = _music_data
+    md.set_display_attribute_for_voice(key, scope, menu.part_id, menu.staff, menu.voice, menu.add)
+    if _attribute_undo is not None:
+        _attribute_undo.append(lambda: md.set_display_attribute_for_voice(
+            key, scope, menu.part_id, menu.staff, menu.voice, not menu.add))
+    return {"row": _attribute_row_now(menu.part_id, key)}
+
+
+def _attribute_regions(selection) -> Dict[str, Any]:
+    return {"regions": {"3": _region_3_rows(), "4": _region_4_rows(selection)}}
+
+
+def attribute_management_apply(part_id: str, order, selection: Optional[List[int]] = None) -> Dict[str, Any]:
+    """OK: commit the staged order (AttributeController.apply_order); the
+    changes already made stay. Re-sends Regions 3 and 4."""
+    global _attribute_undo
+    _attribute_undo = None
+    md = _music_data
+    if md is None:
+        return {"changed": False}
+    order = [str(k) for k in (_plain(order) or [])]
+    md.set_attribute_order_within_part(str(part_id), order, md.attribute_keys_for_part(str(part_id)))
+    return _attribute_regions(_plain(selection))
+
+
+def attribute_management_cancel(selection: Optional[List[int]] = None) -> Dict[str, Any]:
+    """Cancel: replay every change's inverse, most recent first."""
+    global _attribute_undo
+    undo, _attribute_undo = _attribute_undo or [], None
+    for fn in reversed(undo):
+        fn()
+    if _music_data is None or not undo:
+        return {"changed": False}
+    return _attribute_regions(_plain(selection))
 
 
 # --- typed bar number (Ref 6) and Go to bar ------------------------------------

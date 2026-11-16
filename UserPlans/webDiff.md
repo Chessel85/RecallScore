@@ -25,9 +25,6 @@ in what is offered, which keys reach it, and the platform underneath.
 * Live MIDI Input (Ctrl+D) and Live MIDI Input Settings (Ctrl+Shift+L). Web
   MIDI could make this possible later.
 * Voice Control (Alt+Enter) and Voice Control Settings (Ctrl+Shift+R).
-* Attribute Management, the Region 4 order and hide dialog (Ctrl+Shift+A).
-  The Region 4 scope menu (Shift+F10) is there; ordering and hiding
-  attributes is not.
 * Set MuseScore Location.
 
 ### Tools menu
@@ -84,6 +81,7 @@ Each is forced by a browser keeping the desktop's key for itself.
 | Add or remove a marking category in the note list (Region 5) | Ctrl+N | Alt+N | New window in every browser |
 | Refresh on Playback | Ctrl+H | Ctrl+Alt+H | Browsers keep Ctrl+H for history |
 | Delay Refresh | Ctrl+Shift+D | Ctrl+Alt+D | Browsers keep Ctrl+Shift+D for bookmarking all tabs |
+| Attribute Management | Ctrl+Shift+A | Ctrl+Alt+A, and Ctrl+Shift+A where it gets through | Firefox's add-ons manager |
 | Cancel a typed bar number | Escape | Backspace | Escape is never bound on the web |
 | Open the menu | Alt or F10 | M (or the Menu button) | Alt and F10 are the browser's |
 | Status bar / Region 6 | F6 | N | Region 6 is part of the region cycle |
