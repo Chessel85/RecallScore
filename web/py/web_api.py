@@ -23,6 +23,7 @@ from audio.boundary_cue import BOUNDARY_CUE_CHANNEL, boundary_cue_event
 from audio.free_metronome import free_metronome_beat
 from audio.grace_note_schedule import effective_grace_duration_ms
 from audio.metronome import METRONOME_CHANNEL
+from audio.midi_input import LIVE_MIDI_INPUT_CHANNEL
 from audio.navigation_cues import (
     barline_indicator_events, count_in_cues, performance_indicator_cue, position_cues,
     position_cues_at,
@@ -32,6 +33,7 @@ from audio.position_announcer import POSITION_ANNOUNCER_CHANNEL
 from models import announcements
 from models.mixer_settings import (
     ANNOUNCER, CENTRE_PAN, CLICK, CUE, MixerEdit, channel_levels, default_pan_for,
+    pan_percent_to_cc, volume_percent_to_cc,
 )
 from models.app_settings_data import AppSettings
 from models.attribute_scopes import region_4_scope_menu
@@ -42,6 +44,7 @@ from models.gm_percussion_map import (
     GM_PERCUSSION_SOUND_NAMES, gm_percussion_key_for_name, gm_percussion_name,
 )
 from models.key_signatures import key_override_options
+from models.live_midi_input_settings import LiveMidiInputSettings
 from models.marking_categories import ALL_CATEGORIES, CATEGORY_NAMES, note_list_menu_label
 from models.music_data import MusicData
 from models.performance_indicator_mode import (
@@ -125,7 +128,7 @@ def set_uk_terms(uk_terms: bool, selection: Optional[List[int]] = None) -> Dict[
 
 def global_settings_json() -> str:
     """The global settings as settings.json text. Fields the web has no use
-    for (recent files, MIDI input...) keep whatever was applied."""
+    for (recent files, voice control...) keep whatever was applied."""
     _app_settings.performance_indicator_mode = _performance_indicator_mode
     _app_settings.marking_categories_off = sorted(_marking_categories_off)
     return json.dumps(_app_settings.to_dict())
@@ -632,6 +635,7 @@ def options_state() -> Dict[str, Any]:
         "uk_terms": _uk_terms,
         "performance_indicator": _performance_indicator_mode,
         "show_engraving_details": _app_settings.show_engraving_details_enabled,
+        "live_midi": _app_settings.live_midi_input.enabled,
     }
     md = _music_data
     if md is not None:
@@ -2012,3 +2016,101 @@ def mixer_end(accepted: bool) -> Dict[str, Any]:
     # alone, as the desktop's end_mixer_edit leaves it.
     result["stopped"] = play_stop() if _playback_going() else {"stopped": False}
     return result
+
+
+# --- Live MIDI input (Ctrl+D, Ctrl+Shift+L) ---------------------------------------
+#
+# Playing a MIDI keyboard live through the page's own synth. The settings
+# are the desktop's global LiveMidiInputSettings (kept in AppSettings, so
+# storage.js saves them with the rest). The browser's Web MIDI API owns the
+# devices, so midi.js lists them, opens the chosen one and hands note
+# events to audio.js; this bridge decides what is stored, which sound the
+# live channel gets and what is said. A "live" dict is {enabled,
+# device_name, channel, program (0-indexed, invariant 9), volume, pan (CC
+# values)}.
+
+def _live_dict(settings: LiveMidiInputSettings) -> Dict[str, Any]:
+    return {
+        "enabled": settings.enabled,
+        "device_name": settings.device_name,
+        "channel": LIVE_MIDI_INPUT_CHANNEL,
+        "program": settings.gm_program - 1,
+        "volume": volume_percent_to_cc(settings.volume_percent),
+        "pan": pan_percent_to_cc(settings.pan_percent),
+    }
+
+
+def live_midi_state() -> Dict[str, Any]:
+    """The stored live input settings, for midi.js and audio.js."""
+    return _live_dict(_app_settings.live_midi_input)
+
+
+def live_midi_toggle() -> Dict[str, Any]:
+    """Ctrl+D (LiveMidiInputController.toggle_enabled): flips enabled. The
+    page connects or disconnects to match and speaks the result."""
+    settings = _app_settings.live_midi_input
+    settings.enabled = not settings.enabled
+    return {"announce": announcements.live_midi_toggled(settings.enabled), "live": _live_dict(settings)}
+
+
+def live_midi_problem(kind: str) -> str:
+    """What to say when the page cannot reach a device (see
+    announcements.live_midi_problem for the kinds)."""
+    return announcements.live_midi_problem(str(kind))
+
+
+def _device_options(devices, saved: Optional[str]) -> List[Dict[str, str]]:
+    names = [str(name) for name in (devices or [])]
+    options = [{"value": "", "label": "(No device)"}]
+    options += [{"value": name, "label": name} for name in names]
+    if saved and saved not in names:
+        # Kept rather than dropped, so a keyboard that is unplugged now is
+        # not forgotten by an OK that only changed the volume.
+        options.append({"value": saved, "label": f"{saved} (not connected)"})
+    return options
+
+
+def live_midi_form(devices=None) -> Dict[str, Any]:
+    """The Live MIDI Input Settings dialog (widgets/live_midi_input_dialog.py)
+    in showPlaySettings' shape. `devices` are the input names the browser
+    lists right now."""
+    if hasattr(devices, "to_py"):
+        devices = devices.to_py()
+    s = _app_settings.live_midi_input
+    return {"title": "Live MIDI Input Settings", "fields": [
+        {"name": "enabled", "type": "checkbox", "label": "Enable Live MIDI Input", "value": s.enabled},
+        {"name": "device", "type": "select", "label": "Device", "value": s.device_name or "",
+         "options": _device_options(devices, s.device_name)},
+        {"name": "instrument", "type": "select", "label": "Instrument", "value": str(s.gm_program),
+         "options": [{"value": str(i + 1), "label": name} for i, name in enumerate(GM_INSTRUMENT_NAMES)]},
+        {"name": "volume", "type": "number", "label": "Volume %", "value": s.volume_percent,
+         "min": 0, "max": 100},
+        {"name": "pan", "type": "number", "label": "Pan %", "value": s.pan_percent, "min": -100, "max": 100},
+    ], "enabled": {}}
+
+
+def _live_from_values(values) -> LiveMidiInputSettings:
+    if hasattr(values, "to_py"):
+        values = values.to_py()
+    return LiveMidiInputSettings(
+        enabled=bool(values.get("enabled")),
+        device_name=values.get("device") or None,
+        gm_program=values.get("instrument"),
+        volume_percent=values.get("volume"),
+        pan_percent=values.get("pan"),
+    )
+
+
+def live_midi_preview(values) -> Dict[str, Any]:
+    """A change in the open dialog (preview_instrument/volume/pan): the
+    sound to put on the live channel now, nothing stored."""
+    return {"live": _live_dict(_live_from_values(values))}
+
+
+def live_midi_apply(values) -> Dict[str, Any]:
+    """The dialog's OK (commit_settings_edit): stores the settings (clamped
+    by LiveMidiInputSettings). The page reconnects if the device or enabled
+    state changed."""
+    settings = _live_from_values(values)
+    _app_settings.live_midi_input = settings
+    return {"live": _live_dict(settings)}

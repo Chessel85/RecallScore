@@ -22,8 +22,6 @@ in what is offered, which keys reach it, and the platform underneath.
 
 ### Options menu
 
-* Live MIDI Input (Ctrl+D) and Live MIDI Input Settings (Ctrl+Shift+L). Web
-  MIDI could make this possible later.
 * Voice Control (Alt+Enter) and Voice Control Settings (Ctrl+Shift+R).
 * Set MuseScore Location.
 
@@ -115,6 +113,13 @@ Shift+F10 / the Applications key for the Region 2, 4 and 5 menus.
 
 * Audition latency is about 53 ms key to sound, against Ref 9's 25 ms
   budget, which the desktop meets. Accepted for the web.
+* Live MIDI Input (Ctrl+D, or Ctrl+Alt+M where the browser keeps Ctrl+D)
+  and Live MIDI Input Settings (Ctrl+Shift+L) use the browser's Web MIDI:
+  Chrome, Edge and Firefox on Windows and macOS, not Safari (it says so).
+  The browser asks permission the first time. Keys sound only after the
+  page has had a key press or click (browser rule), through the same
+  SoundFont and the same latency as playback. There is no Refresh button:
+  the device list is read each time the dialog opens.
 * SoundFont: GeneralUser GS on the web, Airfont 380 on the desktop, so
   instruments sound different. App sounds (clicks, cues) use the same
   `recall_score_sounds.sf2` on both.

@@ -117,6 +117,21 @@ def engraving_details_toggled(enabled: bool) -> str:
     return f"Engraving details {'on' if enabled else 'off'}"
 
 
+def live_midi_toggled(enabled: bool) -> str:
+    return f"Live MIDI input {'on' if enabled else 'off'}"
+
+
+def live_midi_problem(kind: str) -> str:
+    """Why live MIDI input cannot play (the browser's Web MIDI, which the
+    desktop has no equivalent of). Unknown kinds get the general wording."""
+    return {
+        "unsupported": "This browser cannot use MIDI devices. Try Chrome, Edge or Firefox.",
+        "denied": "The browser did not allow access to MIDI devices.",
+        "no_device": "No MIDI device is chosen. Open Live MIDI Input Settings.",
+        "not_found": "The chosen MIDI device is not connected.",
+    }.get(kind, "Live MIDI input is not available.")
+
+
 def terminology(uk_terms: bool) -> str:
     """Options > Terminology: the dialect just chosen (the browser speaks
     it; the desktop's checkable menu item says it instead)."""

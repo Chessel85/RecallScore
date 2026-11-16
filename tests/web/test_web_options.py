@@ -137,6 +137,7 @@ def test_options_state_without_a_score():
         "uk_terms": False,
         "performance_indicator": PERFORMANCE_INDICATOR_OFF,
         "show_engraving_details": False,
+        "live_midi": False,
     }
 
 

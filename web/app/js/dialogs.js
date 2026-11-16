@@ -383,8 +383,11 @@ export function showReport(form) {
  * `enabledFor(leadIn, playMode)` asks the bridge which fields are live
  * (the desktop dialog's rules) whenever the lead-in tick or the play mode
  * changes. Resolves to {name: value} on OK (number fields as typed; the
- * bridge clamps), or null on Cancel. */
-export function showPlaySettings(form, enabledFor, watch = ["lead_in_enabled", "play_mode"]) {
+ * bridge clamps), or null on Cancel. `preview(values)`, when given, is
+ * called with the same {name: value} each time a field is changed (a
+ * committed value, never each typed digit), so a change is heard while the
+ * dialog is open (Live MIDI Input Settings). */
+export function showPlaySettings(form, enabledFor, watch = ["lead_in_enabled", "play_mode"], preview = null) {
   return new Promise((resolve) => {
     const d = makeDialog(form.title);
     const el = document.createElement("form");
@@ -440,6 +443,12 @@ export function showPlaySettings(form, enabledFor, watch = ["lead_in_enabled", "
     const refresh = () => applyEnabled(enabledFor(...watch.map((name) => valueOf(inputs.get(name)))));
     for (const name of watch) inputs.get(name).addEventListener("change", refresh);
     applyEnabled(form.enabled);
+    const entered = () => {
+      const values = {};
+      for (const [name, input] of inputs) values[name] = input.type === "checkbox" ? input.checked : input.value;
+      return values;
+    };
+    if (preview) for (const input of inputs.values()) input.addEventListener("change", () => preview(entered()));
     // A decimal step (Delay Refresh) must not block OK: the bridge rounds.
     if (form.fields.some((field) => field.step)) el.noValidate = true;
 
@@ -450,8 +459,7 @@ export function showPlaySettings(form, enabledFor, watch = ["lead_in_enabled", "
     d.footer.append(ok, button("Cancel", () => d.close()));
     let answer = null;
     el.addEventListener("submit", () => {
-      answer = {};
-      for (const [name, input] of inputs) answer[name] = input.type === "checkbox" ? input.checked : input.value;
+      answer = entered();
     });
     d.dialog.addEventListener("close", () => resolve(answer));
     d.open();

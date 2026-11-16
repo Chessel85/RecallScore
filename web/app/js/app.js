@@ -11,7 +11,8 @@ import {
   showPartOrder, showLinkParts, showConfirm, showAttributeManagement,
 } from "./dialogs.js";
 import { initMenu, showContextMenu, openMenu } from "./menu.js";
-import { initAudio, prefetchSoundFonts, play, setMixerLevels, mixerChange } from "./audio.js";
+import { initAudio, prefetchSoundFonts, play, setMixerLevels, mixerChange, setLiveSound } from "./audio.js";
+import * as midi from "./midi.js";
 import { initScheduler, startSession, stopSession, pauseSession, isScheduling } from "./scheduler.js";
 import * as storage from "./storage.js";
 import { initRecent, recentFiles, recentFile, addRecent } from "./recent.js";
@@ -654,6 +655,7 @@ function optionsChecked() {
     "extra:indicatorExceptPlaying": state.performance_indicator === "on_except_when_playing",
     "extra:indicatorAlways": state.performance_indicator === "always_on",
     "options.engravingDetails": state.show_engraving_details,
+    "options.liveMidi": state.live_midi,
   };
   checked["extra:collapseStaves"] = scoreLoaded && Boolean(py.stavesState(region2Node())?.checked);
   if ("metronome" in state) {
@@ -693,6 +695,55 @@ bind("options.engravingDetails", () => {
   saveGlobalSettings();
   announceUrgent(result.announce);
   if (result.regions) showRegions(result.regions, result.selection);
+});
+
+// --- Live MIDI input (Ctrl+D, Ctrl+Shift+L) -----------------------------------------
+// Global settings, so they work with no score. web_api.py decides what is
+// stored and said; midi.js owns the devices; audio.js plays the notes.
+
+/** Put the live sound on the synth and open or close the device to match
+ * `live` (web_api's "live" dict). `speak` says why when it cannot play:
+ * at start-up it stays silent, like the desktop's auto-connect. */
+async function connectLive(live, speak) {
+  setLiveSound(live);
+  const problem = (kind) => {
+    if (speak) announceUrgent(py.liveMidiProblem(kind));
+  };
+  if (!live.enabled) return midi.connect(null);
+  if (!live.device_name) return problem("no_device");
+  const access = await midi.requestAccess();
+  if (!access.ok) return problem(access.problem);
+  if (!midi.connect(live.device_name)) problem("not_found");
+}
+
+bind("options.liveMidi", async () => {
+  if (!ready) return false;
+  const result = py.liveMidiToggle();
+  if (result?.error) return showError(result.error);
+  saveGlobalSettings();
+  announceUrgent(result.announce);
+  await connectLive(result.live, true);
+});
+
+bind("options.liveMidiSettings", async () => {
+  if (!ready) return false;
+  // The browser's permission prompt comes here, so the device list is real.
+  const access = await midi.requestAccess();
+  if (!access.ok) return announceUrgent(py.liveMidiProblem(access.problem));
+  const form = py.liveMidiForm(midi.devices());
+  if (form?.error) return showError(form.error);
+  const before = py.liveMidiState();
+  // Instrument, volume and pan are heard on the next key played while the
+  // dialog is open (the desktop previews them the same way).
+  const values = await showPlaySettings(form, () => ({}), [], (entered) => {
+    const preview = py.liveMidiPreview(entered);
+    if (preview?.live) setLiveSound(preview.live);
+  });
+  if (!values) return setLiveSound(before);
+  const result = py.liveMidiApply(values);
+  if (result?.error) return showError(result.error);
+  saveGlobalSettings();
+  await connectLive(result.live, true);
 });
 
 // --- stored settings (storage.js) -----------------------------------------------
@@ -857,6 +908,7 @@ py.boot(say)
     if (applied?.error) showError(applied.error);
     ready = true;
     picker.disabled = false;
+    connectLive(py.liveMidiState(), false);
     initAudio({ synthSetup: py.synthSetup(), status: (text) => (text.startsWith("Sound could not") ? showError(text) : announce(text)) });
     say("Ready. Choose a score file. Sound starts at your first key press.");
   })

@@ -148,6 +148,14 @@ export const region5Menu = (row) => call("region5_menu", row);
 export const setPerformanceIndicator = (mode) => call("set_performance_indicator", mode);
 export const toggleEngravingDetails = () => call("toggle_engraving_details");
 export const optionsState = () => call("options_state");
+// Live MIDI input (Ctrl+D, Ctrl+Shift+L): midi.js owns the devices.
+export const liveMidiState = () => call("live_midi_state");
+export const liveMidiToggle = () => call("live_midi_toggle");
+/** kind: "unsupported", "denied", "no_device" or "not_found". */
+export const liveMidiProblem = (kind) => call("live_midi_problem", kind);
+export const liveMidiForm = (devices) => call("live_midi_form", devices);
+export const liveMidiPreview = (values) => call("live_midi_preview", values);
+export const liveMidiApply = (values) => call("live_midi_apply", values);
 // Stored settings (storage.js keeps the text; the shapes are Python's).
 export const globalSettingsJson = () => call("global_settings_json");
 /** `territory`: the browser's region ("GB", "US"), for the default terminology. */

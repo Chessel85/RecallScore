@@ -84,6 +84,7 @@ const MENUS = [
       "options.barLineIndicator", "-",
       "extra:indicatorOff", "extra:indicatorExceptPlaying", "extra:indicatorAlways", "options.performanceIndicator", "-",
       "options.engravingDetails", "options.metronome", "options.positionAnnouncer", "-",
+      "options.liveMidi", "options.liveMidiSettings", "-",
       "options.attributes",
     ],
   },

@@ -109,6 +109,8 @@ export const KEYMAP = /* KEYMAP-BEGIN */ [
   {"id": "tempo.reset", "keys": ["D"], "scope": "global", "label": "Score tempo", "desktopAction": null, "difference": null},
   {"id": "notes.audition", "keys": ["Shift+Space"], "scope": "global", "label": "Sound the selected notes again", "desktopAction": null, "difference": null},
   {"id": "help.keys", "keys": ["F1"], "scope": "global", "label": "Keyboard help", "desktopAction": null, "difference": null},
+  {"id": "options.liveMidi", "keys": ["Ctrl+D", "Ctrl+Alt+M"], "scope": "global", "label": "Live MIDI input on or off", "desktopAction": "live_midi_input", "difference": "Control D is the desktop's key and some browsers keep it for bookmarking, so Control Alt M also works"},
+  {"id": "options.liveMidiSettings", "keys": ["Ctrl+Shift+L"], "scope": "global", "label": "Live MIDI input settings", "desktopAction": "live_midi_input_settings", "difference": null},
   {"id": "options.attributes", "keys": ["Ctrl+Alt+A", "Ctrl+Shift+A"], "scope": "global", "label": "Attribute Management", "desktopAction": "attribute_order", "difference": "Control Shift A is the desktop's key and opens the add-ons manager in Firefox, so Control Alt A also works"},
   {"id": "attributes.scopeMenu", "keys": ["Shift+F10", "ContextMenu"], "scope": "region4", "label": "Add or remove this attribute in the note list", "desktopAction": null, "difference": null},
   {"id": "attributes.speak", "keys": ["Ctrl+1", "Ctrl+2", "Ctrl+3", "Ctrl+4", "Ctrl+5", "Ctrl+6", "Ctrl+7", "Ctrl+8", "Ctrl+9"], "scope": "global", "label": "Speak attribute by number", "desktopAction": null, "difference": null}

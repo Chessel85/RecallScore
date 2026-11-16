@@ -33,6 +33,8 @@ let fontBytes = null; // Promise of {gm, app} ArrayBuffers
 let library = null; // Promise: the main-thread js-synthesizer script
 let setup = null;
 let levels = []; // the open score's mixer levels, [channel, volume, pan]
+let live = null; // live MIDI input's sound, web_api's "live" dict, or null
+const liveHeld = new Set(); // keys of live notes still sounding
 let onStatus = () => {};
 
 // SynthEngine's bookkeeping. `active` may hold a (channel, key) pair more
@@ -125,6 +127,7 @@ async function startSynth() {
     appSfont = await synth.loadSFont(app);
     for (const [channel, value] of setup?.pans ?? []) synth.midiControl(channel, PAN_CC, value);
     sendLevels();
+    sendLive();
     state = "ready";
     // Never wait on resume(): it stays pending, with no error, for as long
     // as the browser withholds permission. Say ready once it is running.
@@ -148,6 +151,43 @@ function sendLevels() {
     synth.midiControl(channel, VOLUME_CC, volume);
     synth.midiControl(channel, PAN_CC, pan);
   }
+}
+
+function sendLive() {
+  if (!live) return;
+  synth.midiProgramSelect(live.channel, gmSfont, 0, live.program);
+  synth.midiControl(live.channel, VOLUME_CC, live.volume);
+  synth.midiControl(live.channel, PAN_CC, live.pan);
+}
+
+/** Live MIDI input's instrument, volume and pan (web_api's "live" dict).
+ * Kept, and sent again if the synth starts later; sent at once when it is
+ * running. */
+export function setLiveSound(next) {
+  live = next ?? null;
+  if (state === "ready") sendLive();
+}
+
+/** A key pressed on the MIDI device, at the device's own velocity
+ * (SynthEngine.live_note_on). Dropped until sound is running, never played
+ * late; the page's own timers and plans never touch it. */
+export function liveNoteOn(key, velocity) {
+  if (!live || !audioReady()) return;
+  synth.midiNoteOn(live.channel, key, velocity);
+  liveHeld.add(key);
+}
+
+export function liveNoteOff(key) {
+  if (!live || state !== "ready") return;
+  liveHeld.delete(key);
+  synth.midiNoteOff(live.channel, key);
+}
+
+/** Release every live note still held (SynthEngine.live_all_notes_off):
+ * the device is switched off, changed or unplugged. */
+export function liveAllNotesOff() {
+  if (live && state === "ready") for (const key of liveHeld) synth.midiNoteOff(live.channel, key);
+  liveHeld.clear();
 }
 
 /** The Mixer's levels ([channel, volume CC, pan CC], from web_api): a

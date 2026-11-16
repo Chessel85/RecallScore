@@ -276,6 +276,24 @@ for the file dialog. MuseScore (local executable) and Ultimate Guitar
 (music21) stay desktop-only. The upload is written under its own name,
 because a MIDI file is titled by its file name.
 
+## Live MIDI input
+
+Ctrl+D (Ctrl+Alt+M too, since browsers may keep Ctrl+D for bookmarking) and
+Ctrl+Shift+L, on the Options menu. The desktop's global
+`LiveMidiInputSettings`, stored in AppSettings so storage.js saves them with
+the rest; `web_api.live_midi_*` decides what is stored, the instrument
+(0-indexed, invariant 9) and the wording, `midi.js` is the Web MIDI side
+(devices, one open input, note-on/off, velocity 0 is a note-off) and audio.js
+plays on `LIVE_MIDI_INPUT_CHANNEL` (`liveNoteOn/Off`, `setLiveSound`), never
+touching the page's playback bookkeeping. Web MIDI is absent in Safari and
+asks permission on first use, so access is requested only when it is
+switched on or its settings are opened (start-up connects silently only if
+it was already enabled). The settings dialog reuses `showPlaySettings`
+with its `preview` callback; a saved device that is not plugged in stays in
+the list as "(not connected)" so OK does not forget it. A device plugged in
+later is opened by midi.js's statechange handler. The browser withholds
+sound until a key press or click, which a MIDI key is not.
+
 ## Mute and solo
 
 The words "muted"/"soloed" live in the Region 2 row text (set by
