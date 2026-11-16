@@ -38,7 +38,8 @@ class SoundCatalogEntry:
     events: List[Event] = field(default_factory=list)
 
 
-def build_catalog() -> List[SoundCatalogEntry]:
+def build_catalog(include_voice: bool = True) -> List[SoundCatalogEntry]:
+    # The web version passes False: it has no voice control.
     entries: List[SoundCatalogEntry] = [
         SoundCatalogEntry(
             "Bar line indicator - plain barline",
@@ -85,24 +86,25 @@ def build_catalog() -> List[SoundCatalogEntry]:
         "Position Announcer on, on every timeline move",
         [announcement] if announcement is not None else [],
     ))
-    entries.append(SoundCatalogEntry(
-        "Voice control - command recognized",
-        "A spoken command was recognized and acted on",
-        "Voice control on, after any recognized command",
-        [voice_confirmation_cue_event()],
-    ))
-    entries.append(SoundCatalogEntry(
-        "Voice control - listening started",
-        "Voice control has started listening",
-        "Voice control is turned on",
-        [voice_recognition_started_event()],
-    ))
-    entries.append(SoundCatalogEntry(
-        "Voice control - listening stopped",
-        "Voice control has stopped listening",
-        "Voice control is turned off",
-        [voice_recognition_stopped_event()],
-    ))
+    if include_voice:
+        entries.append(SoundCatalogEntry(
+            "Voice control - command recognized",
+            "A spoken command was recognized and acted on",
+            "Voice control on, after any recognized command",
+            [voice_confirmation_cue_event()],
+        ))
+        entries.append(SoundCatalogEntry(
+            "Voice control - listening started",
+            "Voice control has started listening",
+            "Voice control is turned on",
+            [voice_recognition_started_event()],
+        ))
+        entries.append(SoundCatalogEntry(
+            "Voice control - listening stopped",
+            "Voice control has stopped listening",
+            "Voice control is turned off",
+            [voice_recognition_stopped_event()],
+        ))
     entries.append(SoundCatalogEntry(
         "Lead-in click",
         "Counting in before playback starts",

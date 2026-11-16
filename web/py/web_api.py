@@ -23,6 +23,7 @@ from audio.boundary_cue import BOUNDARY_CUE_CHANNEL, boundary_cue_event
 from audio.free_metronome import free_metronome_beat
 from audio.grace_note_schedule import effective_grace_duration_ms
 from audio.metronome import METRONOME_CHANNEL
+from audio.sound_catalog import build_catalog
 from audio.midi_input import LIVE_MIDI_INPUT_CHANNEL
 from audio.navigation_cues import (
     barline_indicator_events, count_in_cues, performance_indicator_cue, position_cues,
@@ -1742,6 +1743,22 @@ def _playback_going() -> bool:
     """Playing, paused or counting in: a play run, not the free metronome
     (PlaybackController.is_playback_active)."""
     return _timeline is not None and not isinstance(_timeline, _FreeMetronome)
+
+
+def sound_catalog() -> List[Dict[str, Any]]:
+    """Help > Sound Icon Dictionary: every sound with a name and, when it
+    has a fixed pitch to demo, a sound plan (what play_event_sequence
+    sounds on the desktop: steps STEP_MS apart). Voice control's sounds are
+    left out. Same list as the desktop's, from audio.sound_catalog."""
+    rows = []
+    for entry in build_catalog(include_voice=False):
+        sound = None
+        if entry.events:
+            sound = {"stop": False, "notes": [], "grace": [], "grace_ms": 0,
+                     "oneshots": [_oneshot(f"catalog{i}", event, i * STEP_MS)
+                                  for i, event in enumerate(entry.events)]}
+        rows.append({"name": entry.name, "sound": sound})
+    return rows
 
 
 def disabled_commands() -> List[str]:

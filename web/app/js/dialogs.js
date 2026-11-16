@@ -131,6 +131,66 @@ export function showHelp() {
   close.focus();
 }
 
+/** Help > Sound Icon Dictionary: every sound as a plain list of names, as
+ * the desktop's. The sound plays on every arrow move and Play replays the
+ * current row. `entries` is web_api.sound_catalog(); `play(sound)` sounds a
+ * plan. Read-only: just Close. */
+export function showSoundIcons(entries, { play }) {
+  const d = makeDialog("Sound Icon Dictionary");
+  const label = document.createElement("label");
+  label.htmlFor = `sound-icons-${serial}`;
+  label.textContent = "Sounds";
+  const list = document.createElement("select");
+  list.id = label.htmlFor;
+  list.size = Math.min(Math.max(entries.length, 2), 12);
+  entries.forEach((entry, i) => {
+    const option = document.createElement("option");
+    option.value = String(i);
+    option.textContent = entry.name;
+    list.append(option);
+  });
+  list.selectedIndex = 0;
+  const current = () => entries[list.selectedIndex] ?? null;
+  const playCurrent = () => {
+    const entry = current();
+    if (entry?.sound) play(entry.sound);
+  };
+  const playButton = button("Play", playCurrent);
+  const sync = () => playButton.setAttribute("aria-disabled", String(!current()?.sound));
+  list.addEventListener("change", () => {
+    sync();
+    playCurrent();
+  });
+  sync();
+  const row = document.createElement("div");
+  row.className = "dialog-field";
+  row.append(label, " ", list);
+  d.body.append(row, playButton);
+  d.footer.append(button("Close", () => d.close()));
+  d.open();
+  list.focus();
+}
+
+/** Help > About Recall Score: name, version and what it is, each its own
+ * tab stop, as the desktop's. */
+export function showAbout(version) {
+  const d = makeDialog("About Recall Score");
+  const lines = [
+    "Recall Score",
+    version ? `Version ${version}` : "Version not available",
+    "A screen-reader-first music score and guitar-tab viewer/editor for visually impaired musicians.",
+  ];
+  for (const text of lines) {
+    const p = document.createElement("p");
+    p.tabIndex = 0;
+    p.textContent = text;
+    d.body.append(p);
+  }
+  const ok = button("OK", () => d.close());
+  d.footer.append(ok);
+  d.open();
+}
+
 /** A yes/no question: resolves true on the action button, false on Cancel.
  * Cancel comes first in tab order, so a stray Enter cannot confirm. */
 export function showConfirm(title, message, actionLabel) {

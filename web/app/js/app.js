@@ -8,7 +8,7 @@ import {
 } from "./regions.js";
 import {
   showHelp, showGotoBar, showFind, showReport, showPlaySettings, showMixer, showInstruments, showKeySignature,
-  showPartOrder, showLinkParts, showConfirm, showAttributeManagement,
+  showPartOrder, showLinkParts, showConfirm, showAttributeManagement, showSoundIcons, showAbout,
 } from "./dialogs.js";
 import { initMenu, showContextMenu, openMenu } from "./menu.js";
 import { initAudio, prefetchSoundFonts, play, setMixerLevels, mixerChange, setLiveSound } from "./audio.js";
@@ -56,6 +56,9 @@ initMenu({
     clearAllSettings: { label: "Clear settings for all scores", run: () => clearAllSettings() },
     // Published beside the app by tools/stage_web.py (docs/*.html).
     userGuide: { label: "User guide", run: () => window.open("../user_guide_web.html", "_blank") },
+    quickStart: { label: "Quick start", run: () => window.open("../quick_start_web.html", "_blank") },
+    soundIcons: { label: "Sound icon dictionary", run: () => showSoundIcons(py.soundCatalog(), { play }) },
+    about: { label: "About Recall Score", run: () => showAboutDialog() },
     ukTerms: { label: "UK terminology", radio: true, run: () => setTerminology(true) },
     usTerms: { label: "US terminology", radio: true, run: () => setTerminology(false) },
     indicatorOff: { label: "Performance indicator off", radio: true, run: () => setIndicator("off") },
@@ -76,6 +79,18 @@ initMenu({
   },
   checked: () => optionsChecked(),
 });
+
+/** Help > About: the version is the site's version.txt, staged beside the app. */
+async function showAboutDialog() {
+  let version = null;
+  try {
+    const response = await fetch("../version.txt", { cache: "no-cache" });
+    if (response.ok) version = (await response.text()).trim();
+  } catch {
+    // Offline or blocked: the dialog says the version is not available.
+  }
+  showAbout(version);
+}
 
 // --- drawing bridge results --------------------------------------------------
 

@@ -125,6 +125,8 @@ export const playMetronome = () => call("play_metronome");
 export const closeScore = () => call("close_score");
 /** Keymap ids the Menu shows as unavailable now. */
 export const disabledCommands = () => call("disabled_commands");
+/** Help > Sound Icon Dictionary: [{name, sound}], sound null when there is nothing to demo. */
+export const soundCatalog = () => call("sound_catalog");
 /** kind: "faster", "slower" or "reset". */
 export const tempo = (kind) => call("tempo", kind);
 /** command: "play_mode", "lead_in", "loop_repeat", "loop_longer", "loop_shorter". */

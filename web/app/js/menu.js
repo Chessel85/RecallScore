@@ -89,7 +89,7 @@ const MENUS = [
     ],
   },
   { title: "Tools", region: 3, items: ["report.open"] },
-  { title: "Help", items: ["extra:userGuide", "help.keys"] },
+  { title: "Help", items: ["extra:userGuide", "extra:quickStart", "help.keys", "-", "extra:soundIcons", "extra:about"] },
 ];
 
 let button = null;

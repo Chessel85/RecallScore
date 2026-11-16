@@ -299,6 +299,15 @@ sound until a key press or click, which a MIDI key is not.
 The words "muted"/"soloed" live in the Region 2 row text (set by
 `node_status_label`), never only in a one-off announcement.
 
+## Help menu
+
+User guide, Quick start (`docs/quick_start_web.html`, the web's keys), Keyboard
+help (F1), Sound icon dictionary and About. The dictionary is
+`web_api.sound_catalog()` over `audio/sound_catalog.build_catalog(include_voice=False)`,
+the same list the desktop shows, played by audio.js like any plan. About reads
+`version.txt`, which `tools/stage_web.py` copies to the site root. Voice
+Commands, Keystrokes (F1 replaces it) and Keyboard Echo Mode are not on the web.
+
 ## User guide
 
 Help > User guide opens `docs/user_guide_web.html` in a new tab (staged

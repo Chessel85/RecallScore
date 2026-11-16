@@ -46,6 +46,7 @@ WEB_AUDIO_MODULES = (
     "metronome", "barline_patterns", "boundary_cue",
     "performance_cue", "position_announcer", "strum_schedule",
     "grace_note_schedule", "navigation_cues", "free_metronome", "midi_input",
+    "sound_catalog", "voice_confirmation_cue",
 )
 WEB_SOUNDFONT = "GeneralUser-GS.sf2"
 # Shipped beside the SoundFont (its licence asks for the text to travel).
@@ -79,6 +80,10 @@ def stage(out: Path, with_scores: bool, public: bool = False) -> None:
             sys.exit(f"[ERROR] docs/{name}/ clashes with a web/ folder")
         shutil.copytree(docs / name, out / name)
     print("[OK] desktop pages from docs/ copied to the site root")
+
+    # Help > About reads the version from here (the single source, as the
+    # desktop's version.py does).
+    shutil.copy2(REPO_ROOT / "version.txt", out / "version.txt")
 
     py_dir = out / "py"
     py_dir.mkdir(exist_ok=True)

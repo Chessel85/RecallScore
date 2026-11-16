@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Recall Score Web Version Quick Start</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<h1 id="recall-score-web-version-quick-start-guide">Recall Score Web
+Version Quick Start Guide</h1>
+<ul>
+<li>Go to <a href="https://chessel85.github.io/RecallScore/app/"
+class="uri">https://chessel85.github.io/RecallScore/app/</a> in a web
+browser. The first visit downloads the program and its sounds, so allow
+a little while.</li>
+<li>Browsers only allow sound after a key press or click, so the first
+key you press on the page starts the sound.</li>
+<li>Open a score with the “Open a score” control at the top of the page,
+with Menu &gt; File &gt; Open a score, or by dropping a file onto the
+page. The web version opens MusicXML (musicxml, xml, mxl), Guitar Pro
+(gp) and midi (mid, midi) files.</li>
+<li>Press M to open the menu from anywhere. Use the arrow keys to move
+through it, Right or Enter to open a menu, Left to close it. Press F1
+for a list of every key.</li>
+</ul>
+<p>Once loaded, there are six regions which can be reached with tab and
+shift+tab:</p>
+<ul>
+<li>Score Information. A list containing information about the
+score.</li>
+<li>Parts. A list of the parts in the score. Each can be expanded and
+collapsed with right and left arrow keys to show the staves. Each stave
+can also be expanded or collapsed to show the voices on that stave.</li>
+<li>Notes list. The active notes present at the current position. This
+is where you will spend most of your time.</li>
+<li>Attributes list. Extra information about each note selected in the
+note list.</li>
+<li>Performance Information. Information on how to perform the piece
+based on the current position within the score e.g. Repeat bars.</li>
+<li>Status. The current position and settings, which the desktop version
+shows on its status bar.</li>
+<li>Use keyboard quick navigation keys of Z, X, C, V, B and N to jump to
+any area.</li>
+</ul>
+<p>Playback with:</p>
+<ul>
+<li>Press spacebar to hear the music. Press control+space to pause.
+Spacebar also restarts or stops playback.</li>
+<li>Use S to slow down playback; F to go faster or D to return to the
+original speed.</li>
+</ul>
+<p>In the notes list:</p>
+<ul>
+<li>Use left and right arrow keys to move through the score.</li>
+<li>Use control and the left and right arrow keys to move a bar at a
+time.</li>
+<li>Type a number and hit enter to jump to that bar number. Backspace
+cancels a typed number.</li>
+<li>If there is more than one note in the note list, use up and down
+arrow keys to select individual notes.</li>
+</ul>
+<p>From the attributes list:</p>
+<ul>
+<li>Use up and down arrow keys to get more information about selected
+notes.</li>
+<li>Press Shift+F10 (or the Applications key) on any attribute and use
+the down arrow key to choose options to add the attribute for notes in
+the current voice, stave or part.</li>
+<li>Use Attribute Management in the Options menu (Control+Alt+A) to
+adjust the order the attributes are displayed both for notes and the
+attributes list.</li>
+</ul>
+<p>Parts list:</p>
+<ul>
+<li>Use this list to filter which notes are shown from parts, staves and
+voices.</li>
+<li>Press F8 to toggle mute for a part, stave or voice.</li>
+<li>Press F9 to toggle solo for a part, stave or voice.</li>
+<li>Muted notes are not displayed in the note list. Soloed notes are
+always shown in the notes list overriding a mute.</li>
+<li>Alt+F8 and alt+F9 unmute and unsolo all.</li>
+</ul>
+<p>Some desktop keys are used by the browser, so a few commands have a
+different key on the web, for example Find is Control+Shift+F. The menu
+and F1 always show the key a command really has.</p>
+<p>Your settings are kept in the browser, so they are lost if you clear
+the site’s data.</p>
+<p>Explore the File, Edit, Parts, Navigation, Playback, Options, Tools
+and Help menus for more features.</p>
+<p>Full details are in the <a href="user_guide_web.html">Recall Score
+Web Version User Guide</a>.</p>
+</body>
+</html>

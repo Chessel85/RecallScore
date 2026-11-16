@@ -35,13 +35,18 @@ in what is offered, which keys reach it, and the platform underneath.
 
 ### Help menu
 
-* Quick Start.
+The web Help menu is User guide, Quick start, Keyboard help (F1), Sound icon
+dictionary and About Recall Score. Missing from it:
+
 * Keystrokes (Ctrl+/). F1 keyboard help, built from the key table, takes its
-  place.
-* Voice Commands.
-* Keyboard Echo Mode (F12).
-* Sound Icon Dictionary.
-* About Recall Score.
+  place (the desktop's Keystrokes page lists the desktop's keys).
+* Voice Commands: no voice control on the web.
+* Keyboard Echo Mode (F12). Not built on the web.
+
+The web's Quick start is its own page (`docs/quick_start_web.md`), with the
+web's keys. The Sound icon dictionary is the desktop's list
+(`audio/sound_catalog.py`) without the voice control sounds. About shows the
+version from the site's `version.txt`.
 
 ### Keys and behaviours without a menu item
 
