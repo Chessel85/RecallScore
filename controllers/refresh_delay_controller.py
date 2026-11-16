@@ -24,7 +24,12 @@ from typing import Optional
 
 from PySide6.QtCore import QObject, QTimer, Signal
 
-from models.refresh_settings import RefreshSettings
+from models.refresh_settings import (
+    REFRESH_ARM,
+    REFRESH_NOW,
+    RefreshSettings,
+    refresh_decision,
+)
 
 
 class RefreshDelayController(QObject):
@@ -95,28 +100,18 @@ class RefreshDelayController(QObject):
         stand in for "yes, playing".
         """
         settings = self.settings
-        if not is_playing or (
-            settings.refresh_during_playback and settings.delay_ms <= 0
-        ):
+        # The decision itself is models/refresh_settings.refresh_decision,
+        # shared with the web bridge (it explains why the timer is only
+        # armed when idle).
+        decision = refresh_decision(settings, is_playing, self._timer.isActive())
+        if decision == REFRESH_NOW:
             self._apply(index, play_all)
             return
 
         self._pending_index = index
         self._pending_play_all = play_all
-        if settings.refresh_during_playback and settings.delay_ms > 0:
-            # Only arm when idle. Restarting on every step - QTimer.start()
-            # on an already-running timer resets its countdown - starved
-            # the refresh entirely during continuous playback: any step
-            # inside the window kept pushing the deadline out, so the timer
-            # never actually fired until a gap longer than delay_ms opened
-            # up (live-tested: at +1s, the note list never refreshed while
-            # notes kept arriving faster than that). Leaving the first
-            # timer to run its course means it fires delay_ms after the
-            # window opened, applying whatever index is pending at that
-            # point - still "a slot, not a queue", just one that actually
-            # drains.
-            if not self._timer.isActive():
-                self._timer.start(settings.delay_ms)
+        if decision == REFRESH_ARM:
+            self._timer.start(settings.delay_ms)
 
     def flush(self) -> None:
         """Applies any pending index now. No-op when nothing is pending."""

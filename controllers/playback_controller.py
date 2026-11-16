@@ -150,7 +150,7 @@ class PlaybackController(QObject):
         zero/positive delay, where the gate handles it instead."""
         if self.refresh_gate is None:
             return 0
-        return max(0, -self.refresh_gate.settings.delay_ms)
+        return self.refresh_gate.settings.lead_offset_ms
 
     @property
     def is_playback_active(self) -> bool:

@@ -104,7 +104,12 @@ export const toggle = (kind) => call("toggle", kind);
 // Playback (see the "playback" section of web_api.py).
 export const playToggle = () => call("play_toggle");
 export const playPlan = (session, untilMs) => call("play_plan", session, untilMs);
-export const playCursor = (session, index) => call("play_cursor", session, index);
+export const playCursor = (session, index, gated, timerActive) => call("play_cursor", session, index, gated, timerActive);
+export const playRefresh = (session) => call("play_refresh", session);
+export const toggleRefreshOnPlayback = () => call("toggle_refresh_on_playback");
+export const delayRefreshForm = () => call("delay_refresh_form");
+export const delayRefreshEnabled = (refresh) => call("delay_refresh_enabled", refresh);
+export const applyDelayRefresh = (values) => call("apply_delay_refresh", values);
 export const playEnded = (session) => call("play_ended", session);
 export const playPause = (session, seq) => call("play_pause", session, seq);
 export const playStop = () => call("play_stop");

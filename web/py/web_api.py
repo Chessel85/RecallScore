@@ -48,6 +48,7 @@ from models.performance_indicator_mode import (
     PERFORMANCE_INDICATOR_MODES, cycle as cycle_performance_indicator_mode,
 )
 from models.play_plan import PlayTimeline, TimelineEntry
+from models.refresh_settings import REFRESH_ARM, REFRESH_NOW, RefreshSettings, refresh_decision
 from models.play_settings import (
     LOOP_REPEAT_LABELS, LOOP_REPEAT_MODES, MAX_LEAD_IN_BARS, MAX_LEAD_IN_BEATS,
     MAX_LOOP_LENGTH_BARS, MIN_LOOP_LENGTH_BARS, PLAY_MODE_LABELS, PLAY_MODES,
@@ -638,6 +639,7 @@ def options_state() -> Dict[str, Any]:
             metronome=md.metronome_enabled,
             position_announcer=md.position_announcer_enabled,
             bar_line_indicator=md.bar_line_indicator_enabled,
+            refresh_on_playback=md.refresh_settings.refresh_during_playback,
         )
     return state
 
@@ -1328,6 +1330,9 @@ def staves_toggle(node_id: Optional[str]) -> Dict[str, Any]:
 _timeline: Optional[PlayTimeline] = None
 _session = 0
 _paused_seq: Optional[int] = None
+# Refresh on Playback / Delay Refresh (the desktop's RefreshDelayController):
+# the step the regions have not been given yet, a slot and not a queue.
+_refresh_pending: Optional[int] = None
 
 
 def _playback_status() -> str:
@@ -1339,9 +1344,10 @@ def _playback_status() -> str:
 
 
 def _end_playback() -> None:
-    global _timeline, _paused_seq, _session
+    global _timeline, _paused_seq, _session, _refresh_pending
     _timeline = None
     _paused_seq = None
+    _refresh_pending = None
     _session += 1
 
 
@@ -1366,8 +1372,10 @@ def _entry_dict(entry: TimelineEntry) -> Dict[str, Any]:
             _add_performance_cue(sound, manual_move=False)
         finally:
             md.active_event_index = cursor
-    return {"at": entry.at_ms, "kind": entry.kind, "seq": entry.seq, "cursor": entry.index,
-            "sound": sound}
+    # `at` is when the cursor moves; `sound_at` when the sound starts (later
+    # by the negative Delay Refresh, which holds the music back).
+    return {"at": entry.at_ms, "sound_at": _timeline.sound_at_ms(entry), "kind": entry.kind,
+            "seq": entry.seq, "cursor": entry.index, "sound": sound}
 
 
 def _cursor_view() -> Dict[str, Any]:
@@ -1405,7 +1413,7 @@ def play_toggle() -> Dict[str, Any]:
     if md.next_visible_event_index(md.active_event_index) is None:
         return {"action": "boundary", "sound": _boundary_sound()}
     _end_playback()
-    _timeline = PlayTimeline(md, md.play_settings)
+    _timeline = PlayTimeline(md, md.play_settings, md.refresh_settings.lead_offset_ms)
     return {"action": "start", "session": _session, "regions": {"6": _region_6_rows()}}
 
 
@@ -1419,14 +1427,116 @@ def play_plan(session: int, until_ms: int) -> Dict[str, Any]:
     return {"entries": [_entry_dict(e) for e in _timeline.plan(int(until_ms))]}
 
 
-def play_cursor(session: int, index: int) -> Dict[str, Any]:
+def play_cursor(session: int, index: int, gated: bool = False,
+                timer_active: bool = False) -> Dict[str, Any]:
     """A step or a loop restart is heard: the cursor follows it, as the
     desktop's Note region does during playback (Ref 10 AC4). Region 6 comes
-    with it, so the Lead-in/Playing field keeps up."""
+    with it, so the Lead-in/Playing field keeps up.
+
+    A step (`gated`) goes through Refresh on Playback and Delay Refresh,
+    models.refresh_settings.refresh_decision as the desktop's gate does: it
+    may be held, {"held": True, "arm_ms": delay or None}. The page then
+    calls play_refresh after arm_ms (`timer_active`: its timer is running).
+    A loop restart is never held."""
+    global _refresh_pending
     if _timeline is None or int(session) != _session or _music_data is None:
         return {"stale": True}
+    if gated:
+        settings = _music_data.refresh_settings
+        decision = refresh_decision(settings, True, bool(timer_active))
+        if decision != REFRESH_NOW:
+            _refresh_pending = int(index)
+            return {"held": True, "arm_ms": settings.delay_ms if decision == REFRESH_ARM else None}
+    _refresh_pending = None
     _music_data.active_event_index = int(index)
     return _cursor_view()
+
+
+def _flush_refresh() -> bool:
+    """Give the regions the step they were held back from (RefreshDelayController.
+    flush). Whether there was one."""
+    global _refresh_pending
+    if _refresh_pending is None or _music_data is None:
+        return False
+    _music_data.active_event_index = _refresh_pending
+    _refresh_pending = None
+    return True
+
+
+def play_refresh(session: int) -> Dict[str, Any]:
+    """The Delay Refresh timer ran out: show the step held back, if any."""
+    if _timeline is None or int(session) != _session or _music_data is None:
+        return {"stale": True}
+    if not _flush_refresh():
+        return {"idle": True}
+    return _cursor_view()
+
+
+# --- Refresh on Playback (Ctrl+Alt+H) and Delay Refresh (Ctrl+Alt+D) ----------------
+
+def _refresh_changed(said: Optional[str]) -> Dict[str, Any]:
+    """A new setting is in force: a step held back under the old one is
+    shown now (RefreshDelayController.set_settings flushes first)."""
+    result: Dict[str, Any] = {}
+    if said:
+        result["announce"] = said
+    if _flush_refresh():
+        result.update(_cursor_view())
+    return result
+
+
+def toggle_refresh_on_playback() -> Dict[str, Any]:
+    """Ctrl+Alt+H (MainWindow.toggle_refresh_on_playback): per score, saved
+    with its settings, and spoken since nothing where focus is shows it."""
+    md = _music_data
+    if md is None:
+        return {"error": "No score is loaded."}
+    settings = md.refresh_settings.copy()
+    settings.refresh_during_playback = not settings.refresh_during_playback
+    md.refresh_settings = settings
+    return _refresh_changed(announcements.refresh_on_playback(settings.refresh_during_playback))
+
+
+def delay_refresh_form() -> Dict[str, Any]:
+    """The Delay Refresh dialog (desktop DelayRefreshDialog): a tick and a
+    delay in seconds, -1.00 to 1.00 (negative: the text comes before the
+    sound), the delay live only while refresh is ticked."""
+    md = _music_data
+    if md is None:
+        return {"error": "No score is loaded."}
+    s = md.refresh_settings
+    return {
+        "title": "Delay Refresh",
+        "fields": [
+            {"name": "refresh_during_playback", "type": "checkbox",
+             "label": "Refresh regions on playback", "value": s.refresh_during_playback},
+            {"name": "delay_seconds", "type": "number", "label": "Refresh delay (seconds)",
+             "value": s.delay_ms / 1000.0, "min": -1.0, "max": 1.0, "step": 0.05},
+        ],
+        "enabled": delay_refresh_enabled(s.refresh_during_playback),
+    }
+
+
+def delay_refresh_enabled(refresh: bool) -> Dict[str, bool]:
+    return {"delay_seconds": bool(refresh)}
+
+
+def apply_delay_refresh(values) -> Dict[str, Any]:
+    """The dialog's OK. Clamping is RefreshSettings' job; an empty or
+    garbled delay keeps the current one."""
+    md = _music_data
+    if md is None:
+        return {"error": "No score is loaded."}
+    if hasattr(values, "to_py"):
+        values = values.to_py()
+    delay_ms = md.refresh_settings.delay_ms
+    try:
+        delay_ms = round(float(values.get("delay_seconds")) * 1000)
+    except (TypeError, ValueError):
+        pass
+    md.refresh_settings = RefreshSettings(
+        refresh_during_playback=bool(values.get("refresh_during_playback")), delay_ms=delay_ms)
+    return _refresh_changed(None)
 
 
 def play_ended(session: int) -> Dict[str, Any]:
@@ -1443,11 +1553,12 @@ def play_pause(session: int, seq: int) -> Dict[str, Any]:
     """Ctrl+Space (toggle_pause_resume): pauses only, and only once the
     notes are under way; `seq` is the last entry heard. The cursor stays on
     the paused step. Resuming is Space's job. {"paused": bool, ...}."""
-    global _paused_seq
+    global _paused_seq, _refresh_pending
     if (_timeline is None or int(session) != _session or _paused_seq is not None
             or not _timeline.can_pause_at(int(seq))):
         return {"paused": False}
     _paused_seq = int(seq)
+    _refresh_pending = None  # the cursor goes to the paused step just below
     # The desktop flushes the cursor on pause, so it is on the paused step
     # even when its redraw had not caught up yet.
     _music_data.active_event_index = _timeline.step_index_at(_paused_seq)

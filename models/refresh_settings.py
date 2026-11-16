@@ -39,6 +39,29 @@ def _clamp_delay(value) -> int:
     return max(MIN_REFRESH_DELAY_MS, min(MAX_REFRESH_DELAY_MS, value))
 
 
+REFRESH_NOW = "now"    # the regions take the playback step at once
+REFRESH_HOLD = "hold"  # remember the step, show it on a flush
+REFRESH_ARM = "arm"    # remember the step and start the delay timer
+
+
+def refresh_decision(settings: "RefreshSettings", is_playing: bool, timer_active: bool) -> str:
+    """When a playback step reaches the regions - the one decision the
+    desktop's RefreshDelayController and the web bridge both make.
+
+    * not playing, or refresh on with delay_ms <= 0: REFRESH_NOW.
+    * refresh on with delay_ms > 0: the step is remembered (a slot, not a
+      queue) and the timer is armed only when idle (REFRESH_ARM). Restarting
+      it on every step starved the refresh during continuous playback, so
+      a running timer is left to run its course (REFRESH_HOLD).
+    * refresh off: REFRESH_HOLD until a flush (pause, stop, a manual move).
+    A negative delay needs nothing here: the music is what moves."""
+    if not is_playing or (settings.refresh_during_playback and settings.delay_ms <= 0):
+        return REFRESH_NOW
+    if settings.refresh_during_playback and not timer_active:
+        return REFRESH_ARM
+    return REFRESH_HOLD
+
+
 @dataclass
 class RefreshSettings:
     """Defaults are today's behaviour exactly: refresh on, no delay. A user
@@ -50,6 +73,12 @@ class RefreshSettings:
     def __post_init__(self):
         self.refresh_during_playback = bool(self.refresh_during_playback)
         self.delay_ms = _clamp_delay(self.delay_ms)
+
+    @property
+    def lead_offset_ms(self) -> int:
+        """The negative-delay half: how far the MUSIC is held back (0 for a
+        zero or positive delay, where the text is held back instead)."""
+        return max(0, -self.delay_ms)
 
     def copy(self) -> "RefreshSettings":
         """An independent snapshot, the same reasoning as

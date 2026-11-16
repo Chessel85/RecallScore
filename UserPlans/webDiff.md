@@ -20,12 +20,6 @@ in what is offered, which keys reach it, and the platform underneath.
 * Clear Preferences.
 * Exit (closing the tab does that).
 
-### Playback menu
-
-* Refresh on Playback (Ctrl+H): the web always follows playback in the
-  regions.
-* Delay Refresh (Ctrl+Shift+D).
-
 ### Options menu
 
 * Live MIDI Input (Ctrl+D) and Live MIDI Input Settings (Ctrl+Shift+L). Web
@@ -88,6 +82,8 @@ Each is forced by a browser keeping the desktop's key for itself.
 | Instruments | Ctrl+Shift+I | Ctrl+Alt+I, and Ctrl+Shift+I where it gets through | Developer tools in some browsers; Firefox passes it on |
 | Link Parts | Ctrl+Shift+N | Ctrl+Alt+L | Chrome's private window |
 | Add or remove a marking category in the note list (Region 5) | Ctrl+N | Alt+N | New window in every browser |
+| Refresh on Playback | Ctrl+H | Ctrl+Alt+H | Browsers keep Ctrl+H for history |
+| Delay Refresh | Ctrl+Shift+D | Ctrl+Alt+D | Browsers keep Ctrl+Shift+D for bookmarking all tabs |
 | Cancel a typed bar number | Escape | Backspace | Escape is never bound on the web |
 | Open the menu | Alt or F10 | M (or the Menu button) | Alt and F10 are the browser's |
 | Status bar / Region 6 | F6 | N | Region 6 is part of the region cycle |

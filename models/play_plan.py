@@ -689,14 +689,21 @@ class PlayTimeline:
     loop builds a PlayRun, anything else is a plain run from the cursor to
     the end. The caller checks first that there is a next note (else the
     boundary cue). The tempo is read as each entry is planned, so a change
-    lands at the next chunk. No lead-in offset: the web has no Delay
-    Refresh."""
+    lands at the next chunk.
+
+    lead_offset_ms is Delay Refresh's negative-delay half, as the desktop's
+    Sequencer has it: a step entry's time is when the cursor moves, and its
+    sound comes lead_offset_ms later (the caller adds it; sound_at_ms). The
+    first step is planned that much earlier so a count-in runs straight into
+    it, and the run's end waits for the shifted last note to ring out. A
+    loop restart is not padded (see refresh_play_span)."""
 
     # Steps a pause can still land on; older ones are dropped.
     _SNAPSHOTS_KEPT = 256
 
-    def __init__(self, music_data, settings: PlaySettings):
+    def __init__(self, music_data, settings: PlaySettings, lead_offset_ms: int = 0):
         self.music_data = music_data
+        self.lead_offset_ms = max(0, int(lead_offset_ms))
         self.start_index = music_data.active_event_index
         self.run: Optional[PlayRun] = None
         self._seq = 0
@@ -713,7 +720,9 @@ class PlayTimeline:
         if settings.loop_enabled or settings.lead_in_enabled:
             self.run = build_play_run(music_data, settings, looping=settings.loop_enabled)
             if self.run is not None:
-                plan_iteration(music_data, self.run, self.run.settings.has_lead_in())
+                plan_iteration(
+                    music_data, self.run, self.run.settings.has_lead_in(), self.lead_offset_ms
+                )
                 self._state = "events"
         else:
             self._begin_steps(self.start_index, 0, StepWalker(music_data, self.start_index), True)
@@ -746,6 +755,11 @@ class PlayTimeline:
                 self._buffered = entry
                 return out
             out.append(entry)
+
+    def sound_at_ms(self, entry: TimelineEntry) -> int:
+        """When an entry's sound starts: a step's is held back by the
+        negative delay, a count-in click or the end is not."""
+        return entry.at_ms + (self.lead_offset_ms if entry.kind == "step" else 0)
 
     def can_pause_at(self, seq: int) -> bool:
         """Pause only once the notes are under way (the desktop's Sequencer
@@ -837,14 +851,17 @@ class PlayTimeline:
         run = self.run
         if run is None or ends_when_notes_finish(run):
             self._state = "done"
-            return self._entry(self._finish_at, "end", index=self.restore_index)
+            # The last note's sound is lead_offset_ms late: let it ring out.
+            return self._entry(
+                self._finish_at + self.lead_offset_ms, "end", index=self.restore_index
+            )
         # "loop until stopped": the cursor goes back to the loop's start
         # while the bar line pad runs, then the next iteration (counted
         # first, so "alternate" mode's seed sees the new count).
         restart = self._entry(self._finish_at, "restart", index=run.start_index)
         pad = loop_restart_events(run)[0][0]
         run.iteration_count += 1
-        plan_iteration(self.music_data, run, restart_with_lead_in(run))
+        plan_iteration(self.music_data, run, restart_with_lead_in(run), self.lead_offset_ms)
         self._event_base = self._finish_at + pad
         self._state = "events"
         return restart

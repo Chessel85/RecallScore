@@ -95,6 +95,8 @@ export const KEYMAP = /* KEYMAP-BEGIN */ [
   {"id": "play.pause", "keys": ["Ctrl+Space"], "scope": "global", "label": "Pause", "desktopAction": "pause_resume", "difference": null},
   {"id": "play.metronome", "keys": ["Ctrl+Alt+Space"], "scope": "global", "label": "Play metronome", "desktopAction": "play_metronome", "difference": null},
   {"id": "play.settings", "keys": ["Ctrl+Alt+P"], "scope": "global", "label": "Play settings", "desktopAction": "play_settings", "difference": "The desktop uses Control Shift P, which Firefox keeps for a private window"},
+  {"id": "play.refreshOnPlayback", "keys": ["Ctrl+Alt+H"], "scope": "global", "label": "Refresh on playback on or off", "desktopAction": "refresh_on_playback", "difference": "The desktop uses Control H, which browsers keep for their history"},
+  {"id": "play.delayRefresh", "keys": ["Ctrl+Alt+D"], "scope": "global", "label": "Delay refresh", "desktopAction": "delay_refresh", "difference": "The desktop uses Control Shift D, which browsers keep for bookmarking all tabs"},
   {"id": "play.mixer", "keys": ["Ctrl+Shift+X"], "scope": "global", "label": "Mixer", "desktopAction": "mixer", "difference": null},
   {"id": "play.mode", "keys": ["Ctrl+L"], "scope": "global", "label": "Cycle play mode", "desktopAction": "play_mode_cycle", "difference": null},
   {"id": "play.leadIn", "keys": ["Ctrl+I"], "scope": "global", "label": "Lead-in on or off", "desktopAction": "lead_in_toggle", "difference": null},

@@ -384,7 +384,7 @@ export function showReport(form) {
  * (the desktop dialog's rules) whenever the lead-in tick or the play mode
  * changes. Resolves to {name: value} on OK (number fields as typed; the
  * bridge clamps), or null on Cancel. */
-export function showPlaySettings(form, enabledFor) {
+export function showPlaySettings(form, enabledFor, watch = ["lead_in_enabled", "play_mode"]) {
   return new Promise((resolve) => {
     const d = makeDialog(form.title);
     const el = document.createElement("form");
@@ -415,7 +415,7 @@ export function showPlaySettings(form, enabledFor) {
         else {
           input.min = String(field.min);
           input.max = String(field.max);
-          input.step = "1";
+          input.step = String(field.step ?? 1);
           input.value = String(field.value);
         }
       }
@@ -435,10 +435,13 @@ export function showPlaySettings(form, enabledFor) {
         if (input) input.disabled = !live;
       }
     };
-    const refresh = () => applyEnabled(enabledFor(inputs.get("lead_in_enabled").checked, inputs.get("play_mode").value));
-    inputs.get("lead_in_enabled").addEventListener("change", refresh);
-    inputs.get("play_mode").addEventListener("change", refresh);
+    // `watch` names the fields whose values decide which others are live.
+    const valueOf = (input) => (input.type === "checkbox" ? input.checked : input.value);
+    const refresh = () => applyEnabled(enabledFor(...watch.map((name) => valueOf(inputs.get(name)))));
+    for (const name of watch) inputs.get(name).addEventListener("change", refresh);
     applyEnabled(form.enabled);
+    // A decimal step (Delay Refresh) must not block OK: the bridge rounds.
+    if (form.fields.some((field) => field.step)) el.noValidate = true;
 
     // The buttons sit in the footer but belong to the form, so Enter in a
     // field submits it as OK.

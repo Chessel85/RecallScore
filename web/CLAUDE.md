@@ -148,6 +148,21 @@ so the web has one transport. Space while it runs stops it. While
 playback is going it is unavailable, as the desktop greys out its action:
 the key does nothing and the Menu item is aria-disabled.
 
+## Refresh on Playback and Delay Refresh
+
+Ctrl+Alt+H (toggle, spoken, a menu checkbox) and Ctrl+Alt+D (dialog,
+`showPlaySettings` with `watch`), on the Playback menu; the desktop's
+Ctrl+H and Ctrl+Shift+D are the browsers'. Per score
+(`MusicData.refresh_settings`, saved in the `.rsc` shape). When a step
+reaches the regions is `models/refresh_settings.refresh_decision`, which
+the desktop's RefreshDelayController calls too: `play_cursor(session,
+index, gated, timer_active)` may answer `held` (with `arm_ms` to start
+the page's single timer), and `play_refresh` shows the held step when it
+runs out. Pause, stop, end and a loop restart never wait. A negative
+delay holds the music back, not the page: `PlayTimeline(lead_offset_ms)`
+plans the cursor as before and each step entry carries `sound_at`, which
+scheduler.js uses for its sound.
+
 ## Mixer
 
 Ctrl+Shift+X (as on the desktop), on the Playback menu. The rows, the edit

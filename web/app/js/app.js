@@ -418,6 +418,32 @@ bind("play.settings", withScore(async () => {
   if (values) applySetting(py.applyPlaySettings(values));
 }));
 
+// Refresh on Playback (Ctrl+Alt+H) is spoken; Delay Refresh (Ctrl+Alt+D) is
+// the Play Settings dialog's shape. A step held back under the old setting is
+// shown at once, so the result may carry regions.
+bind("play.refreshOnPlayback", withScore(() => {
+  const result = py.toggleRefreshOnPlayback();
+  if (result?.error) return showError(result.error);
+  announceUrgent(result.announce);
+  if (result.regions) showRegions(result.regions, result.selection, { follow: true });
+}));
+
+bind("play.delayRefresh", withScore(async () => {
+  const form = py.delayRefreshForm();
+  if (form?.error) return showError(form.error);
+  const back = focusedRegion();
+  const values = await showPlaySettings(form, py.delayRefreshEnabled, ["refresh_during_playback"]);
+  if (values) {
+    const result = py.applyDelayRefresh(values);
+    if (result?.error) return showError(result.error);
+    if (result.regions) {
+      // The redraw replaces the rows the dialog would return focus to.
+      showRegions(result.regions, result.selection, { follow: true });
+      if (back) focusRegion(back);
+    }
+  }
+}));
+
 // Mixer (Ctrl+Shift+X): volume and pan per part and app sound, heard as
 // they change. Python keeps the edit; OK keeps it with the score, Cancel
 // puts every channel back. Preview playback stops when the dialog closes.
@@ -607,6 +633,7 @@ function optionsChecked() {
     checked["options.metronome"] = state.metronome;
     checked["options.positionAnnouncer"] = state.position_announcer;
     checked["options.barLineIndicator"] = state.bar_line_indicator;
+    checked["play.refreshOnPlayback"] = state.refresh_on_playback;
   }
   return checked;
 }

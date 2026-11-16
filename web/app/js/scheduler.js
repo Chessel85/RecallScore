@@ -40,6 +40,7 @@ let planned = 0; // timeline ms planned up to
 let refill = null;
 let lastHeard = null; // the last entry whose moment has come
 const uiTimers = new Set();
+let refreshTimer = null; // the Delay Refresh timer: a held step is shown when it runs out
 
 // Note bookkeeping, in timeline ms: every planned group's interval per
 // "channel:key", and the note-offs not yet sent.
@@ -113,7 +114,8 @@ function fill() {
   }
   if (result.stale) return;
   for (const entry of result.entries) {
-    if (entry.sound) scheduleSound(entry.sound, entry.at);
+    // The sound can come later than the cursor (a negative Delay Refresh).
+    if (entry.sound) scheduleSound(entry.sound, entry.sound_at ?? entry.at);
     scheduleMoment(entry);
   }
   planned = until;
@@ -220,11 +222,26 @@ function scheduleMoment(entry) {
       teardown();
       if (!result.stale) handlers.ended(result);
     } else if (entry.cursor !== null && entry.cursor !== undefined) {
-      const result = py.playCursor(session, entry.cursor);
-      if (!result.stale) handlers.cursor(result);
+      // A step may be held back (Refresh on Playback, Delay Refresh): then
+      // Python says for how long, and the page asks for it when time is up.
+      const result = py.playCursor(session, entry.cursor, entry.kind === "step", refreshTimer !== null);
+      if (result.stale) return;
+      if (!result.held) handlers.cursor(result);
+      else if (result.arm_ms) armRefresh(result.arm_ms);
     }
   }, Math.max(0, perf0 + entry.at + uiDelay - performance.now()));
   uiTimers.add(id);
+}
+
+function armRefresh(ms) {
+  const id = setTimeout(() => {
+    if (refreshTimer !== id) return;
+    refreshTimer = null;
+    if (session === null) return;
+    const result = py.playRefresh(session);
+    if (result.regions) handlers.cursor(result);
+  }, ms);
+  refreshTimer = id;
 }
 
 // --- stopping -------------------------------------------------------------------
@@ -237,6 +254,8 @@ function teardown() {
   refill = null;
   for (const id of uiTimers) clearTimeout(id);
   uiTimers.clear();
+  if (refreshTimer !== null) clearTimeout(refreshTimer);
+  refreshTimer = null;
   const parts = synthParts();
   if (seq) seq.removeAllEvents();
   // Every channel, not just `held`: a note whose note-off was already
