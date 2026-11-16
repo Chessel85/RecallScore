@@ -31,6 +31,12 @@ export function initRegions(elements) {
   for (const n of regions.keys()) render(n, [{ text: "No score loaded" }], { force: true });
 }
 
+/** File > Close: every region back to "No score loaded". */
+export function clearRegions() {
+  expanded.clear();
+  for (const n of regions.keys()) render(n, [{ text: "No score loaded" }], { force: true });
+}
+
 /** Region 2's nested nodes -> the flat list of rows currently showing. */
 function visibleTree(nodes, level = 1, parentId = null, out = []) {
   nodes.forEach((node, index) => {

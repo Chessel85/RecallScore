@@ -3,17 +3,18 @@ import { announce, announceUrgent } from "./announcer.js";
 import { bind } from "./keymap.js";
 import { initFocus, focusRegion, focusedRegion, focusMenuButton } from "./focus.js";
 import {
-  initRegions, render, moveRow, extendSelection, selection, selectAll, rowAt, currentRow, treeExpand, treeCollapse,
+  initRegions, clearRegions, render, moveRow, extendSelection, selection, selectAll, rowAt, currentRow, treeExpand, treeCollapse,
   selectTreeNode,
 } from "./regions.js";
 import {
   showHelp, showGotoBar, showFind, showReport, showPlaySettings, showMixer, showInstruments, showKeySignature,
-  showPartOrder, showLinkParts,
+  showPartOrder, showLinkParts, showConfirm,
 } from "./dialogs.js";
 import { initMenu, showContextMenu, openMenu } from "./menu.js";
 import { initAudio, prefetchSoundFonts, play, setMixerLevels, mixerChange } from "./audio.js";
 import { initScheduler, startSession, stopSession, pauseSession, isScheduling } from "./scheduler.js";
 import * as storage from "./storage.js";
+import { initRecent, recentFiles, recentFile, addRecent } from "./recent.js";
 import * as py from "./py_bridge.js";
 
 const status = document.getElementById("status");
@@ -48,6 +49,10 @@ initMenu({
   menuButton,
   extra: {
     open: { label: "Open a score", run: () => picker.click() },
+    // File > Recent Files, flattened into the File menu (menu.js).
+    recentFiles: () => recentFiles().map(({ id, name }) => ({ name, run: () => openRecent(id) })),
+    clearScoreSettings: { label: "Clear settings for this score", run: () => clearScoreSettings() },
+    clearAllSettings: { label: "Clear settings for all scores", run: () => clearAllSettings() },
     // Published beside the app by tools/stage_web.py (docs/*.html).
     userGuide: { label: "User guide", run: () => window.open("../user_guide_web.html", "_blank") },
     ukTerms: { label: "UK terminology", radio: true, run: () => setTerminology(true) },
@@ -63,7 +68,7 @@ initMenu({
   // Collapse staves acts on Region 2's row, so it is unavailable unless
   // that row's part has an alternate stave (the desktop's aboutToShow).
   disabled: () => {
-    if (!scoreLoaded) return ["extra:collapseStaves"];
+    if (!scoreLoaded) return ["extra:collapseStaves", "extra:clearScoreSettings", "file.close"];
     const ids = py.disabledCommands();
     if (Array.isArray(ids) && !py.stavesState(region2Node())?.enabled) ids.push("extra:collapseStaves");
     return ids;
@@ -647,13 +652,20 @@ let current = null;
 
 storage.initStorage({ failure: (text) => announce(text) });
 
+// After a clear, the settings still applied in memory must not be written
+// back by the next save point (page hide, opening another score). Global
+// settings are saved again at their next change; the open score's are not
+// until it is reopened.
+let globalCleared = false;
+
 function saveGlobalSettings() {
+  globalCleared = false;
   const text = py.globalSettingsJson();
   if (typeof text === "string") storage.saveGlobal(text);
 }
 
 function saveScoreSettings() {
-  if (!current?.key) return;
+  if (!current?.key || current.cleared) return;
   const text = py.scoreSettingsJson();
   if (typeof text === "string") storage.saveScore(current.key, current.name, text);
 }
@@ -661,7 +673,35 @@ function saveScoreSettings() {
 function saveEverything() {
   if (!ready) return;
   saveScoreSettings();
-  saveGlobalSettings();
+  if (!globalCleared) saveGlobalSettings();
+}
+
+/** File > Clear settings for this score: forget what is stored for the open
+ * score (the desktop's "delete its .rsc"). The score keeps its current
+ * look until it is reopened, when it starts from the defaults. */
+function clearScoreSettings() {
+  if (!current?.key) {
+    announceUrgent("No saved settings for this score.");
+    return;
+  }
+  storage.clearScore(current.key);
+  current.cleared = true;
+  announceUrgent(`Cleared saved settings for ${current.name}. Reopen it to start from the defaults.`);
+}
+
+/** File > Clear settings for all scores, after a prompt: every stored score's
+ * settings and the global ones. */
+async function clearAllSettings() {
+  const ok = await showConfirm(
+    "Clear settings for all scores",
+    "This deletes the saved settings of every score, and the global settings. Recent files are kept. It cannot be undone.",
+    "Clear all settings",
+  );
+  if (!ok) return;
+  storage.clearAll();
+  globalCleared = true;
+  if (current) current.cleared = true;
+  announceUrgent("Cleared all saved settings. They apply from the next time each score is opened.");
 }
 
 // pagehide covers closing and leaving; visibilitychange covers a mobile
@@ -674,6 +714,16 @@ document.addEventListener("visibilitychange", () => {
 // --- loading -------------------------------------------------------------------
 
 let ready = false;
+
+/** Reopen a File > Recent Files entry from the bytes kept when it was opened. */
+function openRecent(id) {
+  const stored = recentFile(id);
+  if (!stored) {
+    showError("That recent file is no longer stored.");
+    return;
+  }
+  openFile(new File([stored.bytes], stored.name));
+}
 
 async function openFile(file) {
   if (!ready) {
@@ -692,6 +742,7 @@ async function openFile(file) {
     return;
   }
   current = { key, name: file.name };
+  addRecent(key, file.name, bytes); // not awaited: the list is updated in memory at once
   if (isScheduling()) stopSession(); // the bridge stopped it with the old score
   setMixerLevels(result.mixer);
   scoreLoaded = true;
@@ -701,6 +752,26 @@ async function openFile(file) {
   say(result.settings_error ? `${loaded} ${result.settings_error}` : loaded);
   focusRegion(3);
 }
+
+// File > Close (Ctrl+Alt+W; the desktop's Ctrl+W closes the browser tab):
+// save the score's settings, silence playback, and go back to the page as it
+// is before any score is opened. MainWindow.close_score's order.
+bind("file.close", () => {
+  if (!ready || !scoreLoaded) return false;
+  const name = current?.name;
+  saveScoreSettings(); // reads the score, so before it is dropped
+  stopSession();
+  py.closeScore();
+  current = null;
+  scoreLoaded = false;
+  digitsPending = false;
+  setMixerLevels([]);
+  clearError();
+  clearRegions();
+  status.textContent = "No score loaded.";
+  focusRegion(1);
+  announceUrgent(name ? `Closed ${name}.` : "Closed.");
+});
 
 picker.addEventListener("change", () => {
   if (picker.files[0]) openFile(picker.files[0]);
@@ -725,6 +796,7 @@ function browserTerritory() {
 
 picker.disabled = true;
 say("Starting Recall Score.");
+initRecent();
 py.boot(say)
   .then(() => {
     const applied = py.applyGlobalSettings(storage.loadGlobal(), browserTerritory());

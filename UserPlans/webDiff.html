@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Web and desktop differences</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<h1
+id="functional-differences-web-version-rsbv-and-desktop-app">Functional
+differences: web version (RSBV) and desktop app</h1>
+<p>Written 2026-10-20, from the <code>rsbv</code> branch at
+<code>148d8ff</code> (RSBV Phase 6 complete). Sources:
+<code>web/app/js/keymap.js</code> (the web key table and its
+<code>difference</code> notes), <code>web/app/js/menu.js</code>,
+<code>widgets/menu_builder.py</code>, <code>main_window.py</code>
+<code>setup_shortcuts</code>, <code>web/CLAUDE.md</code> and
+<code>UserPlans/RSBV.md</code>.</p>
+<p>Both versions run the same <code>models/</code> and
+<code>parsers/</code> code, so row text, note wording, navigation
+targets, play plans, find targets, the Performance Report, mixer levels
+and score edits behave the same. The differences are in what is offered,
+which keys reach it, and the platform underneath.</p>
+<h2 id="missing-from-the-web-version">1. Missing from the web
+version</h2>
+<h3 id="file-menu">File menu</h3>
+<ul>
+<li>Close (Ctrl+W). Opening another score replaces the current one.</li>
+<li>Recent Files.</li>
+<li>Import from Ultimate Guitar and Save UG Import (needs music21 and
+network access the browser’s CORS rules block).</li>
+<li>Open folder (the settings folder).</li>
+<li>Clear Preferences.</li>
+<li>Exit (closing the tab does that).</li>
+</ul>
+<h3 id="playback-menu">Playback menu</h3>
+<ul>
+<li>Refresh on Playback (Ctrl+H): the web always follows playback in the
+regions.</li>
+<li>Delay Refresh (Ctrl+Shift+D).</li>
+</ul>
+<h3 id="options-menu">Options menu</h3>
+<ul>
+<li>Live MIDI Input (Ctrl+D) and Live MIDI Input Settings
+(Ctrl+Shift+L). Web MIDI could make this possible later.</li>
+<li>Voice Control (Alt+Enter) and Voice Control Settings
+(Ctrl+Shift+R).</li>
+<li>Attribute Management, the Region 4 order and hide dialog
+(Ctrl+Shift+A). The Region 4 scope menu (Shift+F10) is there; ordering
+and hiding attributes is not.</li>
+<li>Set MuseScore Location.</li>
+</ul>
+<h3 id="tools-menu">Tools menu</h3>
+<ul>
+<li>Tuner (Ctrl+Shift+T).</li>
+<li>Strumming Patterns (Ctrl+Shift+U).</li>
+<li>Metronome Player (Ctrl+Shift+M). The free metronome (Ctrl+Alt+Space)
+is there.</li>
+<li>Keyboard Shortcuts (Ctrl+Shift+Y): no shortcut remapping on the
+web.</li>
+</ul>
+<h3 id="help-menu">Help menu</h3>
+<ul>
+<li>Quick Start.</li>
+<li>Keystrokes (Ctrl+/). F1 keyboard help, built from the key table,
+takes its place.</li>
+<li>Voice Commands.</li>
+<li>Keyboard Echo Mode (F12).</li>
+<li>Sound Icon Dictionary.</li>
+<li>About Recall Score.</li>
+</ul>
+<h3 id="keys-and-behaviours-without-a-menu-item">Keys and behaviours
+without a menu item</h3>
+<ul>
+<li>Alt+Home and Alt+End in Region 5 (jump the cursor to the start or
+end of the focused marking’s span). Not yet built on the web.</li>
+<li>Escape: on the desktop it cancels a typed bar number, or stops a
+paused playback. The web never binds Escape (NVDA uses it to leave focus
+mode); Backspace cancels a typed number. There is no one key to stop a
+paused plain run: Space resumes it (a paused lead-in or loop run stops,
+as on the desktop), so it takes Space twice.</li>
+<li>F6 and Shift+F6 (between the regions and the status bar). The status
+bar is Region 6 on the web, reached with N or Tab.</li>
+</ul>
+<h3 id="file-formats">File formats</h3>
+<ul>
+<li>MuseScore (.mscz, .mscx): needs the local MuseScore executable.</li>
+<li>Recall Score UG import files (.ug): need music21.</li>
+</ul>
+<p>The web reads MusicXML (.musicxml, .xml, .mxl), MIDI (.mid, .midi)
+and Guitar Pro (.gp), as the desktop does.</p>
+<h2 id="same-command-different-key">2. Same command, different key</h2>
+<p>Each is forced by a browser keeping the desktop’s key for itself.</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Command</th>
+<th>Desktop</th>
+<th>Web</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Find</td>
+<td>Ctrl+F</td>
+<td>Ctrl+Shift+F</td>
+<td>Firefox keeps Ctrl+F for its find bar</td>
+</tr>
+<tr>
+<td>Performance Report</td>
+<td>Ctrl+Shift+F</td>
+<td>Ctrl+Shift+R</td>
+<td>Ctrl+Shift+F went to Find; R is free with no voice control. Also the
+browsers’ hard reload, so it is lost if the page has not taken the
+key</td>
+</tr>
+<tr>
+<td>Play Settings</td>
+<td>Ctrl+Shift+P</td>
+<td>Ctrl+Alt+P</td>
+<td>Firefox’s private window</td>
+</tr>
+<tr>
+<td>Key Signature</td>
+<td>Ctrl+Shift+K</td>
+<td>Ctrl+Alt+K</td>
+<td>Firefox’s web console</td>
+</tr>
+<tr>
+<td>Instruments</td>
+<td>Ctrl+Shift+I</td>
+<td>Ctrl+Alt+I, and Ctrl+Shift+I where it gets through</td>
+<td>Developer tools in some browsers; Firefox passes it on</td>
+</tr>
+<tr>
+<td>Link Parts</td>
+<td>Ctrl+Shift+N</td>
+<td>Ctrl+Alt+L</td>
+<td>Chrome’s private window</td>
+</tr>
+<tr>
+<td>Add or remove a marking category in the note list (Region 5)</td>
+<td>Ctrl+N</td>
+<td>Alt+N</td>
+<td>New window in every browser</td>
+</tr>
+<tr>
+<td>Cancel a typed bar number</td>
+<td>Escape</td>
+<td>Backspace</td>
+<td>Escape is never bound on the web</td>
+</tr>
+<tr>
+<td>Open the menu</td>
+<td>Alt or F10</td>
+<td>M (or the Menu button)</td>
+<td>Alt and F10 are the browser’s</td>
+</tr>
+<tr>
+<td>Status bar / Region 6</td>
+<td>F6</td>
+<td>N</td>
+<td>Region 6 is part of the region cycle</td>
+</tr>
+<tr>
+<td>Previous and next section</td>
+<td>Region 1 tab bar, Ctrl+Tab and Ctrl+Shift+Tab</td>
+<td>Left and Right on Region 1’s section row</td>
+<td>Ctrl+Tab switches browser tabs</td>
+</tr>
+</tbody>
+</table>
+<p>Every other shared command keeps the desktop’s key: Z X C V B, the
+arrows, Ctrl+arrows, Ctrl+Home/End, Ctrl+Alt+Left/Right, Ctrl+G, digits
+with Enter and Ctrl+Enter, Ctrl+A, Shift+arrows in Region 3, F8, F9,
+Alt+F8, Alt+F9, Ctrl+Shift+O, Ctrl+Shift+X, Alt+Left/Right, Space,
+Ctrl+Space, Ctrl+Alt+Space, Shift+Space, Ctrl+L, Ctrl+I, Ctrl+R,
+Alt+PageUp/PageDown, F, S, D, Ctrl+B, Ctrl+M, Ctrl+P, Ctrl+C, Ctrl+V,
+Ctrl+1 to Ctrl+9, and Shift+F10 / the Applications key for the Region 2,
+4 and 5 menus.</p>
+<h2 id="only-on-the-web">3. Only on the web</h2>
+<ul>
+<li>Region 6 (status) is a real region in the Tab cycle, with its own
+key, N. It holds what the desktop’s status bar shows.</li>
+<li>A Menu button first in the Tab cycle; the menu is an ARIA menu with
+two levels, so the desktop’s Terminology and Performance Indicator
+submenus are flattened into the Options menu as radio items. A choice
+made there is spoken, because the menu closes onto a region.</li>
+<li>Drag and drop a score onto the page, and an “Open a score” control
+at the top of the page.</li>
+<li>Settings follow the file’s content (keyed by a hash of its bytes),
+so a renamed or moved copy finds them again. The desktop’s
+<code>.rsc</code> sits beside the score file.</li>
+<li>With nothing saved, terminology follows the browser’s language (the
+desktop uses the system’s).</li>
+</ul>
+<h2 id="platform-differences-in-shared-features">4. Platform differences
+in shared features</h2>
+<ul>
+<li>Audition latency is about 53 ms key to sound, against Ref 9’s 25 ms
+budget, which the desktop meets. Accepted for the web.</li>
+<li>SoundFont: GeneralUser GS on the web, Airfont 380 on the desktop, so
+instruments sound different. App sounds (clicks, cues) use the same
+<code>recall_score_sounds.sf2</code> on both.</li>
+<li>Sound starts only after the first key press or click on the page
+(browser rule). A modifier key or Escape does not count.</li>
+<li>The first visit downloads Python (Pyodide) and the SoundFont; later
+visits use the browser’s cache.</li>
+<li>Settings live in the browser’s localStorage. They are lost if the
+site’s data is cleared, last only for the session in a private window,
+and do not move between browsers. There is no settings import or export,
+and no way to bring in a desktop <code>.rsc</code>.</li>
+<li>Menu items and F1 help say “bar” whatever the terminology setting
+(the labels come from the static key table). Region text follows the
+setting as on the desktop.</li>
+<li>Commands the desktop greys out are listed on the web menu as
+unavailable (still reachable, read as unavailable, doing nothing) rather
+than hidden.</li>
+</ul>
+<h2 id="deliberately-the-same-on-both">5. Deliberately the same on
+both</h2>
+<p>Changed on both versions together, so not a difference:</p>
+<ul>
+<li>The free metronome (Ctrl+Alt+Space) is unavailable during
+playback.</li>
+<li>A bar range row in the Performance Report (jump points, repeated
+sections, endings, wavy lines) jumps to its start bar.</li>
+<li>The performance indicator cue sounds only for a marking in the note
+list.</li>
+<li><code>muted</code> in the mixer has no user interface on either
+version.</li>
+</ul>
+<h2 id="not-built-on-either">6. Not built on either</h2>
+<p>Edit mode, MIDI export, Guitar Pro and BME writing, capo handling,
+chord naming, and saving changes back to the score file (CLAUDE.md
+“Known gaps”).</p>
+</body>
+</html>

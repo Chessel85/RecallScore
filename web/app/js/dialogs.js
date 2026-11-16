@@ -131,6 +131,27 @@ export function showHelp() {
   close.focus();
 }
 
+/** A yes/no question: resolves true on the action button, false on Cancel.
+ * Cancel comes first in tab order, so a stray Enter cannot confirm. */
+export function showConfirm(title, message, actionLabel) {
+  return new Promise((resolve) => {
+    const d = makeDialog(title);
+    const text = document.createElement("p");
+    text.textContent = message;
+    d.body.append(text);
+    let answer = false;
+    d.footer.append(
+      button("Cancel", () => d.close()),
+      button(actionLabel, () => {
+        answer = true;
+        d.close();
+      }),
+    );
+    d.dialog.addEventListener("close", () => resolve(answer));
+    d.open();
+  });
+}
+
 /** Go to bar: resolves to the typed whole number, or null if cancelled or
  * left empty. `info` is web_api.goto_info(). */
 export function showGotoBar(info) {

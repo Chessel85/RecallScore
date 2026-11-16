@@ -109,6 +109,8 @@ export const playEnded = (session) => call("play_ended", session);
 export const playPause = (session, seq) => call("play_pause", session, seq);
 export const playStop = () => call("play_stop");
 export const playMetronome = () => call("play_metronome");
+/** File > Close: {closed}. Save the score's settings first. */
+export const closeScore = () => call("close_score");
 /** Keymap ids the Menu shows as unavailable now. */
 export const disabledCommands = () => call("disabled_commands");
 /** kind: "faster", "slower" or "reset". */

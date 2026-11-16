@@ -26,6 +26,17 @@ The first visit downloads the program and its sounds, which can take a little wh
 
 When a file has been loaded, Recall Score automatically plays the notes at the current position.
 
+#### Recent Files
+
+"Menu > File" lists the last 20 scores you opened, newest first, as "1. name", "2. name" and so on. Choose one to open it again.
+
+Important: unlike the desktop version, a recent file is not read from the original file again. The browser cannot do that, so Recall Score keeps a copy of each score at the moment you first opened it, and the list opens that copy.
+
+* If you change and save the original file elsewhere, the recent entry still opens the old version. To see the changes, open the file again with "Open a score" or by dropping it on the page. That replaces the stored copy.
+* If you move or delete the original file, the recent entry still opens.
+* Opening the same file again moves its entry to the top rather than adding a second one.
+* Clearing the browser's data for the site removes the list, and in a private window it lasts only until the window is closed.
+
 #### Supported File Formats
 
 * MusicXML: ".musicxml", ".xml" and ".mxl".

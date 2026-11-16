@@ -1,10 +1,9 @@
-"""Stop hook: write Claude's response text to stuff.txt and taskInfo.txt.
+"""Stop hook: write Claude's final message to taskInfo.txt.
 
-Reads the hook payload (JSON on stdin), walks the session transcript, and dumps
-the text of the last assistant turn to <project>/stuff.txt so it can be opened
-and read directly with a screen reader instead of hunting through the terminal.
-The final message alone (the end-of-task summary) also goes to
-<project>/taskInfo.txt, so the summary can be read without scrolling up to it.
+Reads the hook payload (JSON on stdin) and writes the final message (the
+end-of-task summary) to <project>/taskInfo.txt, so it can be opened and read
+directly with a screen reader instead of hunting through the terminal.
+(stuff.txt, which held the whole turn's text, was retired in favour of this.)
 
 The text is lightly reformatted for screen-reader comfort on the way out: bold
 markers (**) are stripped, and hyphen bullet markers are swapped for asterisks.
@@ -47,7 +46,6 @@ def main() -> int:
     transcript_path = payload.get("transcript_path") or ""
 
     project_dir = os.environ.get("CLAUDE_PROJECT_DIR") or payload.get("cwd") or os.getcwd()
-    out_path = os.path.join(project_dir, "stuff.txt")
 
     # The summary is the last text block of the turn. Newer Claude Code
     # versions pass it directly in the payload, which is authoritative: the
@@ -72,7 +70,6 @@ def main() -> int:
 
     _write(os.path.join(project_dir, "taskInfo.txt"),
            _screen_reader_friendly(summary))
-    _write(out_path, _screen_reader_friendly("\n\n".join(chunks).strip()))
     return 0
 
 

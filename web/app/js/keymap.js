@@ -45,6 +45,7 @@ export const KEYMAP = /* KEYMAP-BEGIN */ [
   {"id": "focus.region5", "keys": ["B"], "scope": "global", "label": "Performance information", "desktopAction": "move_to_performance", "difference": null},
   {"id": "focus.region6", "keys": ["N"], "scope": "global", "label": "Status", "desktopAction": null, "difference": "Region 6 is the desktop status bar, which the desktop reaches with F6"},
   {"id": "menu.open", "keys": ["M"], "scope": "global", "label": "Open the menu", "desktopAction": null, "difference": "The desktop's menu bar opens with Alt or F10, which browsers keep"},
+  {"id": "file.close", "keys": ["Ctrl+Alt+W"], "scope": "global", "label": "Close", "desktopAction": "close", "difference": "The desktop uses Control W, which browsers keep for closing the tab"},
   {"id": "list.previous", "keys": ["Up"], "scope": "list", "label": "Previous row", "desktopAction": null, "difference": null},
   {"id": "list.next", "keys": ["Down"], "scope": "list", "label": "Next row", "desktopAction": null, "difference": null},
   {"id": "list.top", "keys": ["Home"], "scope": "list", "label": "First row", "desktopAction": null, "difference": null},

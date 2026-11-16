@@ -236,6 +236,23 @@ def load(data: bytes, filename: str, saved: Optional[str] = None) -> Dict[str, A
     return result
 
 
+def close_score() -> Dict[str, Any]:
+    """File > Close (MainWindow.close_score): drop the loaded score and go
+    back to how the page looks before any file is opened. The page has
+    already saved this score's settings (they are read from MusicData, so
+    that must come first). The armed find target is cleared, as on the
+    desktop; the global settings stay. {"closed": False} with no score."""
+    global _music_data, _pending_digits, _mixer_edit, _find_target
+    if _music_data is None:
+        return {"closed": False}
+    _end_playback()
+    _pending_digits = ""
+    _mixer_edit = None
+    _find_target = None
+    _music_data = None
+    return {"closed": True}
+
+
 def _adopt(music_data: MusicData, config: Optional[ScoreConfig] = None) -> None:
     """MainWindow._on_score_loaded's order: global defaults first, then the
     score's saved config over them, then Region 2's tree with each node's
@@ -1489,7 +1506,10 @@ def disabled_commands() -> List[str]:
     """Keymap ids the Menu shows as unavailable right now, as the desktop
     greys out their actions: Play Metronome while playback is going (a click
     with the music is Ctrl+M's job)."""
-    return ["play.metronome"] if _playback_going() else []
+    ids = ["play.metronome"] if _playback_going() else []
+    if _music_data is None:
+        ids.append("file.close")  # nothing to close, as the desktop's action
+    return ids
 
 
 def play_metronome() -> Dict[str, Any]:

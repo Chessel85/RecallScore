@@ -86,6 +86,29 @@ export function loadScore(key) {
   return entry ? JSON.stringify(entry.config) : null;
 }
 
+/** Forget the stored settings of one score. */
+export function clearScore(key) {
+  if (!key) return;
+  try {
+    window.localStorage.removeItem(SCORE_PREFIX + key);
+  } catch {
+    // Nothing was kept, so nothing to forget.
+  }
+}
+
+/** Forget the global settings and every score's. Recent files are not settings. */
+export function clearAll() {
+  try {
+    const keys = [];
+    for (let i = 0; i < window.localStorage.length; i += 1) keys.push(window.localStorage.key(i));
+    for (const key of keys) {
+      if (key === GLOBAL_KEY || key.startsWith(SCORE_PREFIX)) window.localStorage.removeItem(key);
+    }
+  } catch {
+    // Nothing was kept, so nothing to forget.
+  }
+}
+
 /** Keep `configText` (.rsc text) for the score `key`. The file name is
  * kept beside it only so a person looking at the stored data can tell
  * which score is which. */

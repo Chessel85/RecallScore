@@ -211,7 +211,14 @@ next one after a /clear.
   Smoke-tested in headless Chrome under real Pyodide (tree, mute, typed
   bar, Go to bar, help, menu); no screen reader yet. Fast suite passes.
 
-### RESUME HERE (2026-10-20): 6.5 score edits built, NOT committed; user to test with NVDA
+### Phase 8 added (2026-10-20)
+
+Phase 8 (desktop parity: keys, About, sound dictionary, clear
+preferences, recents, Region 5 spans, refresh delay, attribute
+management, live MIDI, tuner, Ultimate Guitar) is under "Phases and
+tasks". Three key decisions at its top need the user's answer before 8.1.
+
+### Was (2026-10-20): 6.5 score edits built, NOT committed; user to test with NVDA
 
 6.5: shared code: `models/score_edits.py` now holds what each edit does
 to MusicData (instrument rows and overrides, key override, part order,
@@ -1039,6 +1046,163 @@ code. Sonnet for UI and wording fixes.
 for the web version, written only when the user asks (standing rule).
 
 7.5 User. Merge `rsbv` to `main` to publish.
+
+### Phase 8: closing the gap with the desktop (added 2026-10-20)
+
+From the user's list after `UserPlans/webDiff.md`. Same rule as before:
+logic moves into `models/` (or a Qt-free `audio/` module) first and both
+versions call it; JavaScript draws, handles keys and speaks. Order by user
+priority, except 8.1 goes first because it changes keys every later task
+uses.
+
+Decisions the user needs to make (before 8.1):
+
+1. Sections on Ctrl+Alt+Left/Right clashes with jump points, which have
+   that key on both versions. Recommendation: sections on Ctrl+Alt+Up
+   (previous) and Ctrl+Alt+Down (next), on both versions, jump points
+   left as they are. Alternative: move jump points instead.
+2. Ctrl+Alt on the web only, or the desktop too? Recommendation: web only.
+   The desktop's Ctrl+Shift keys work there, its testers know them, and
+   the difference column in the key table already explains each one.
+3. P for "say position" on both versions (the user's suggestion). P is
+   free on the desktop (bare F, S, D, Z X C V B are taken; Ctrl+P is the
+   position announcer and stays). Recommendation: yes, both.
+
+8.1 Opus. Key rationalisation.
+* Every web Ctrl+Shift key becomes Ctrl+Alt: Find Ctrl+Alt+F, Performance
+  Report Ctrl+Alt+R (this also removes the hard-reload risk of
+  Ctrl+Shift+R), Reorder Parts Ctrl+Alt+O, Mixer Ctrl+Alt+X. Drop the
+  Ctrl+Shift+I alias for Instruments (Ctrl+Alt+I stays). Rule for every
+  later task: a desktop Ctrl+Shift+letter, or a desktop Ctrl+letter a
+  browser keeps, is Ctrl+Alt+letter on the web unless that is taken.
+  Never Ctrl+Alt+N (the Windows shortcut that starts NVDA).
+* Previous and next section on the keys from decision 1, as global rows
+  (Region 1's Left/Right on the section row stay).
+* P: say the current position. The wording is the status bar's position
+  field (`MusicData.get_status_bar_fields()[0]`); add
+  `announcements.position(music_data)` if it needs anything more, used by
+  both versions. Desktop: a window QShortcut in `setup_shortcuts`, plus
+  ShortcutController's list.
+* Update the `difference` notes, `tests/web/test_keymap_drift.py`, the F1
+  help (automatic) and `UserPlans/webDiff.md`. The user guides only on
+  request.
+* Check with NVDA in Firefox and Chrome that each new Ctrl+Alt key reaches
+  the page (Ctrl+Alt is AltGr on Windows; the keymap names keys by
+  `event.code`, which is unaffected, and Ctrl+Alt+I already works).
+
+8.2 Sonnet. About and the Sound Icon Dictionary, on the Help menu.
+* About: name, version, a line of description, each its own focusable
+  line as on the desktop, Close. `stage_web.py` stages `version.txt` (or
+  writes it into the bridge) so the web shows the same version as the
+  installer.
+* Sound Icon Dictionary: `audio/sound_catalog.py` is already Qt-free;
+  stage it with `voice_confirmation_cue.py` (stdlib only) and add the
+  staged-import check. List, Play (each entry's events go through
+  audio.js like any sound plan), Close, as the desktop dialog. Leave out
+  the voice-control entries, since the web has no voice control (a filter
+  in `sound_catalog`, not a copy of the list).
+
+8.3 Sonnet. Clear Preferences for the current score (File menu, labelled
+with the file name as on the desktop, unavailable with no score). Remove
+the score's localStorage entry and reload the same bytes with no saved
+settings, as `MainWindow._clear_current_score_preferences` does (never
+save the stale settings first, which would recreate them). Global settings
+are left alone, as on the desktop.
+
+8.4 Sonnet. File > Recent Files.
+* A page cannot reopen a file by its path, so the web keeps a copy of
+  each recent score's bytes in IndexedDB (localStorage's few megabytes
+  are too small), keyed by the SHA-256 that already keys its settings,
+  with its name and when it was opened. Newest first, no duplicates.
+  Cap at 10 scores or 50 MB, dropping the oldest (desktop keeps 20 paths).
+* A submenu (or a dialog list if a third menu level reads badly) with a
+  Clear list item. Opening one loads the stored bytes as a normal open.
+* Wrapped like storage.js: private window or a full quota means no
+  recents, said once. Chrome's File System Access handles were considered
+  and left out (no Firefox support).
+
+8.5 Sonnet. Region 5 Alt+Home and Alt+End (jump to the start or end of
+the focused marking's span). Move `NavigationController.jump_to_span`'s
+target choice and `_resolve_position_index` into `models/` (a
+TimelineNavigator method with its MusicData delegator), the desktop calls
+it, the bridge returns a normal move result (boundary cue when it
+resolves nowhere). Check Alt+Home is not taken by the browser (it is the
+home page in Firefox and Chrome when focus is outside the page; the page
+should get it first, but test it). Fallback: Ctrl+Alt+Home/End.
+
+8.6 Opus. Refresh on Playback and Delay Refresh.
+* `models/refresh_settings.py` is already Qt-free and per score (saved in
+  the `.rsc` shape). Move RefreshDelayController's decision (when a
+  playback step reaches the regions) into a pure function both versions
+  call; the desktop keeps its QTimer.
+* Web: a positive delay delays `play_cursor`'s redraw; a negative delay
+  holds the music back, as the desktop's `lead_offset_ms`, which means
+  the play plan offsets every sound, not the page. Refresh off: playback
+  leaves the regions alone and the cursor lands where it should on stop.
+* Keys: Refresh on Playback Ctrl+Alt+H (Ctrl+H is the browsers' history),
+  Delay Refresh dialog Ctrl+Alt+D, both on the Playback menu.
+* Gate: playback fingerprint MATCH.
+
+8.7 Opus. Attribute Management (Options menu, Ctrl+Alt+A; desktop
+Ctrl+Shift+A). Move the dialog's logic (order, hide, its Add/Remove menu:
+AttributeController's `order_menu_actions`, `apply_order_change`) into
+`models/attribute_scopes.py` beside the scope menu from 5.1. Dialog as
+the desktop's: list, Move Up, Move Down, Add/Remove (opens the same
+one-level menu), OK, Cancel; Alt+U/Alt+D as in Reorder Parts. Saved with
+the score.
+
+8.8 Opus. Live MIDI input (play a MIDI keyboard and hear it through the
+app's synth, as the desktop does; note-on and note-off only).
+* Web MIDI API: Chrome asks permission; Firefox needs the user to accept
+  a site permission add-on the first time; Safari has none. Say so in
+  the settings dialog when it is not available, never fail silently.
+* The device choice, channel and instrument are
+  `models/live_midi_input_settings.py` (shared); audio.js plays the notes
+  on `LIVE_MIDI_INPUT_CHANNEL` with the mixer level the desktop uses. No
+  Python round trip per note: the bridge gives the setup once and the
+  page sends notes straight to the synth (latency).
+* Keys: Live MIDI on or off and its settings, Menu items under Options;
+  keys picked when built (the desktop's Ctrl+D is the browsers' bookmark
+  and Ctrl+Alt+D goes to 8.6).
+* Open question for the user: "play back on their MIDI keyboards" could
+  also mean sending Recall Score's playback out to the keyboard's own
+  sounds. Web MIDI can do that too, but the desktop does not; plan it
+  only if wanted.
+
+8.9 Opus. Tuner (Tools menu, Ctrl+Alt+T; desktop Ctrl+Shift+T). Feasible:
+`audio/pitch_detector.py` needs only numpy, which Pyodide provides (load
+it only when the tuner opens, so start-up stays fast), and the instrument
+and string list is `models/tuner_instruments.py`. The microphone comes
+from `getUserMedia` (the browser asks permission) through a small
+capture worklet that hands Python a buffer every 100 ms or so. Wording of
+in tune / sharp / flat shared with the desktop's TunerController (move it
+into `models/` first). Test with a real instrument: browser echo
+cancellation and noise suppression must be switched off in the
+`getUserMedia` constraints or they will damage the pitch.
+
+8.10 Opus. Ultimate Guitar import.
+* Two things block it. Network: UG sends no CORS header, so the page
+  cannot fetch a tab page itself (a public proxy is ruled out: it would
+  send every user's requests through a third party). Chords: UG's chord
+  text goes to pitches through music21 (`_chord_symbol_to_pitches`).
+* Chords: a pure-Python parser from chord text to root, kind and bass,
+  feeding the 1.4 table (`models/chord_kinds.py`), used by both versions
+  so the desktop drops music21 for UG too. Gate: a slow test against
+  music21 on every chord in the UG fixtures plus a generated set.
+* Getting the page: the user saves the UG page in the browser (Ctrl+S,
+  "Web page, HTML only") and opens the saved file; `ug_source` reads the
+  same `js-store` blob from the file as from a fetch. Also accept a
+  desktop `.ug` import file. The import dialog says how in one line.
+* If the chord parser cannot match music21 closely enough, stop and ask
+  the user before changing the desktop.
+
+8.11 Not planned: MuseScore files. The desktop converts `.mscz`/`.mscx`
+by running the local MuseScore executable; a web page cannot run a
+program on the user's machine, whether or not MuseScore 4 is installed.
+The only other route is reading MuseScore's own format directly, a new
+parser on the scale of the MusicXML one, for a format that changes with
+each MuseScore release. Recommendation: say in the web user guide that
+MuseScore users can export MusicXML (File > Export) and open that.
 
 ## Testing
 

@@ -42,7 +42,7 @@ import { keysText } from "./dialogs.js";
 // keymap id, "-" for a separator, or "extra:<name>" for a command that is
 // not key-driven, supplied by the caller.
 const MENUS = [
-  { title: "File", items: ["extra:open"] },
+  { title: "File", items: ["extra:open", "extra:recentFiles", "file.close", "-", "extra:clearScoreSettings", "extra:clearAllSettings"] },
   { title: "Edit", region: 3, items: ["notes.selectAll", "edit.keySignature"] },
   {
     title: "Parts",
@@ -129,6 +129,16 @@ function liveMenus() {
       const state = typeof checked[entry] === "boolean" ? checked[entry] : null;
       if (entry === "-") {
         if (items.length && items[items.length - 1] !== "-") items.push("-");
+      } else if (entry === "extra:recentFiles") {
+        // The desktop's Recent Files submenu, flattened (two levels only):
+        // one numbered item per file, or a disabled placeholder.
+        const files = extras.recentFiles?.() ?? [];
+        if (!files.length) {
+          items.push({ label: "No recent files", keys: null, run: () => {}, disabled: true, role: "menuitem", checked: null });
+        }
+        files.forEach((file, i) => {
+          items.push({ label: `${i + 1}. ${file.name}`, keys: null, run: file.run, disabled: false, role: "menuitem", checked: null });
+        });
       } else if (entry.startsWith("extra:")) {
         const extra = extras[entry.slice(6)];
         if (extra) {
